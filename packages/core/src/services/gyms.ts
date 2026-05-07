@@ -19,6 +19,30 @@ export function gymService(client: GymCircleClient) {
       return data;
     },
 
+    async create(input: {
+      name: string;
+      address?: string | null;
+      city?: string | null;
+      state?: string | null;
+      latitude?: number | null;
+      longitude?: number | null;
+    }): Promise<GymRow> {
+      const { data, error } = await client
+        .from("gyms")
+        .insert({
+          name: input.name.trim(),
+          address: input.address?.trim() || null,
+          city: input.city?.trim() || null,
+          state: input.state?.trim() || null,
+          latitude: input.latitude ?? null,
+          longitude: input.longitude ?? null,
+        })
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
     async listForUser(userId: string): Promise<UserGymRow[]> {
       const { data, error } = await client
         .from("user_gyms")

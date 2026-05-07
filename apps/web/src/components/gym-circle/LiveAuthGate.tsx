@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@gym-circle/core/hooks";
 import { BrandMark } from "./design-system";
 
@@ -86,6 +87,14 @@ export function LiveAuthGate() {
                 />
                 <span className="text-[12px] font-bold leading-5 text-white/58">
                   Eu aceito participar de um teste beta do Gym Circle e entendo que erros podem acontecer.
+                  {" "}
+                  <Link className="text-[var(--gc-brand)]" href="/terms" target="_blank">
+                    Termos
+                  </Link>
+                  {" · "}
+                  <Link className="text-[var(--gc-brand)]" href="/privacy" target="_blank">
+                    Privacidade
+                  </Link>
                 </span>
               </label>
             ) : null}

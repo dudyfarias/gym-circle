@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_requests: {
+        Row: {
+          created_at: string
+          id: string
+          processed_at: string | null
+          reason: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          reason?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          processed_at?: string | null
+          reason?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      analytics_events: {
+        Row: {
+          created_at: string
+          event_date: string
+          event_name: string
+          id: string
+          metadata: Json
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_date?: string
+          event_name: string
+          id?: string
+          metadata?: Json
+          source?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_date?: string
+          event_name?: string
+          id?: string
+          metadata?: Json
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       checkins: {
         Row: {
           checkin_date: string
@@ -130,6 +187,33 @@ export type Database = {
           longitude?: number | null
           name?: string
           state?: string | null
+        }
+        Relationships: []
+      }
+      legal_acceptances: {
+        Row: {
+          accepted_at: string
+          document_type: string
+          id: string
+          metadata: Json
+          user_id: string
+          version: string
+        }
+        Insert: {
+          accepted_at?: string
+          document_type: string
+          id?: string
+          metadata?: Json
+          user_id: string
+          version: string
+        }
+        Update: {
+          accepted_at?: string
+          document_type?: string
+          id?: string
+          metadata?: Json
+          user_id?: string
+          version?: string
         }
         Relationships: []
       }
@@ -327,49 +411,64 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_status: string
+          alpha_terms_accepted_at: string | null
           avatar_url: string | null
           bio: string | null
           birth_date: string | null
           created_at: string
+          deleted_at: string | null
           display_name: string
           fitness_goal: string | null
           id: string
           instagram_username: string | null
           is_private: boolean
           main_gym_id: string | null
+          onboarding_completed_at: string | null
           preferred_training_times: string[]
+          privacy_policy_accepted_at: string | null
           sports: string[]
           user_id: string
           username: string
         }
         Insert: {
+          account_status?: string
+          alpha_terms_accepted_at?: string | null
           avatar_url?: string | null
           bio?: string | null
           birth_date?: string | null
           created_at?: string
+          deleted_at?: string | null
           display_name: string
           fitness_goal?: string | null
           id?: string
           instagram_username?: string | null
           is_private?: boolean
           main_gym_id?: string | null
+          onboarding_completed_at?: string | null
           preferred_training_times?: string[]
+          privacy_policy_accepted_at?: string | null
           sports?: string[]
           user_id: string
           username: string
         }
         Update: {
+          account_status?: string
+          alpha_terms_accepted_at?: string | null
           avatar_url?: string | null
           bio?: string | null
           birth_date?: string | null
           created_at?: string
+          deleted_at?: string | null
           display_name?: string
           fitness_goal?: string | null
           id?: string
           instagram_username?: string | null
           is_private?: boolean
           main_gym_id?: string | null
+          onboarding_completed_at?: string | null
           preferred_training_times?: string[]
+          privacy_policy_accepted_at?: string | null
           sports?: string[]
           user_id?: string
           username?: string
@@ -416,6 +515,67 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          post_id: string | null
+          reason: string
+          reported_user_id: string | null
+          reporter_id: string
+          reviewed_at: string | null
+          status: string
+          story_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          post_id?: string | null
+          reason: string
+          reported_user_id?: string | null
+          reporter_id: string
+          reviewed_at?: string | null
+          status?: string
+          story_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          post_id?: string | null
+          reason?: string
+          reported_user_id?: string | null
+          reporter_id?: string
+          reviewed_at?: string | null
+          status?: string
+          story_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "feed_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stories: {
         Row: {
@@ -485,6 +645,27 @@ export type Database = {
           source_id?: string
           source_type?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          reason: string | null
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          reason?: string | null
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          reason?: string | null
         }
         Relationships: []
       }
@@ -561,6 +742,33 @@ export type Database = {
       }
     }
     Views: {
+      alpha_admin_daily_metrics: {
+        Row: {
+          active_users: number | null
+          checkins_created: number | null
+          comments_created: number | null
+          likes_created: number | null
+          metric_date: string | null
+          posts_created: number | null
+          stories_created: number | null
+          streaks_lit: number | null
+          users_registered: number | null
+        }
+        Relationships: []
+      }
+      alpha_admin_summary: {
+        Row: {
+          active_users_today: number | null
+          blocks_total: number | null
+          deletion_requests_open: number | null
+          open_reports: number | null
+          posts_today: number | null
+          stories_today: number | null
+          streaks_lit_today: number | null
+          users_registered: number | null
+        }
+        Relationships: []
+      }
       feed_posts: {
         Row: {
           author_badge_active: boolean | null
@@ -611,7 +819,16 @@ export type Database = {
       }
     }
     Functions: {
+      accept_alpha_legal: {
+        Args: { p_privacy_version?: string; p_terms_version?: string }
+        Returns: undefined
+      }
+      mark_onboarding_complete: { Args: never; Returns: undefined }
       refresh_my_stats: { Args: never; Returns: undefined }
+      request_account_deletion: {
+        Args: { p_reason?: string }
+        Returns: undefined
+      }
       resolve_email_for_username: {
         Args: { p_username: string }
         Returns: string

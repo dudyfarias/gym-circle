@@ -193,6 +193,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const mountedRef = useRef(true);
+  const analyticsBootRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -385,6 +386,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myFollowStatusByTarget.get(profile.user_id) ?? "none";
       const enriched: EnrichedUser = {
         id: profile.user_id,
+        createdAt: profile.created_at,
         name: profile.display_name,
         username: profile.username,
         accent: accentForId(profile.user_id),
@@ -396,6 +398,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         age: calculateAgeFromBirthDate(birthDate),
         isBirthday: isBirthdayFromBirthDate(birthDate),
         sports: profile.sports ?? [],
+        onboardingCompletedAt: profile.onboarding_completed_at ?? null,
+        alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
+        privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
+        accountStatus: profile.account_status ?? "active",
         location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
         gyms: gymNames,
         preferredTimes: mainUserGym?.preferred_times ?? [],
@@ -423,6 +429,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     return (
       enrichedAll.get(currentUserId) ?? {
         id: currentUserId,
+        createdAt: undefined,
         name: "—",
         username: "—",
         accent: "var(--gc-brand)",
@@ -434,6 +441,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         age: null,
         isBirthday: false,
         sports: [],
+        onboardingCompletedAt: null,
+        alphaTermsAcceptedAt: null,
+        privacyPolicyAcceptedAt: null,
+        accountStatus: "active",
         location: "",
         gyms: [],
         preferredTimes: [],
@@ -800,9 +811,50 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await refresh();
         showFeedback("brand", "Solicitação recusada");
       },
+      async blockUser(userId: string) {
+        const target = enrichedAll.get(userId);
+        await services.safety.blockUser(currentUserId, userId);
+        await refresh();
+        showFeedback("brand", "Usuário bloqueado", target?.name);
+      },
+      async reportUser(userId: string, reason = "other") {
+        const target = enrichedAll.get(userId);
+        await services.safety.report(currentUserId, {
+          reportedUserId: userId,
+          reason: reason as "other",
+        });
+        showFeedback("brand", "Denúncia enviada", target?.name);
+      },
+      async reportPost(postId: string, authorId: string, reason = "other") {
+        await services.safety.report(currentUserId, {
+          postId,
+          reportedUserId: authorId,
+          reason: reason as "other",
+        });
+        showFeedback("brand", "Post denunciado", "Vamos revisar.");
+      },
+      async requestAccountDeletion(reason?: string) {
+        await services.safety.requestAccountDeletion(reason);
+        showFeedback("brand", "Conta marcada para exclusão");
+        await services.auth.signOut();
+      },
+      async completeOnboarding() {
+        await services.onboarding.markComplete();
+        await refresh();
+        showFeedback("success", "Perfil pronto para alpha");
+      },
     }),
     [services, currentUserId, feedPosts, enrichedAll, agg.gyms, refresh, showFeedback],
   );
+
+  useEffect(() => {
+    if (analyticsBootRef.current || loading || !currentUser.createdAt) return;
+    analyticsBootRef.current = true;
+    void services.analytics.track(currentUserId, "app_opened").catch(() => undefined);
+    void services.analytics
+      .trackDay1RetentionIfEligible(currentUserId, currentUser.createdAt)
+      .catch(() => undefined);
+  }, [currentUser.createdAt, currentUserId, loading, services.analytics]);
 
   const unreadNotifications = useMemo(
     () => agg.myNotifications.filter((n) => !n.read_at).length,

@@ -1,33 +1,45 @@
 import type { GymCircleClient } from "./supabase";
+import { adminService } from "./admin";
+import { analyticsService } from "./analytics";
 import { authService } from "./auth";
 import { checkinService } from "./checkins";
 import { followService } from "./follows";
 import { gymService } from "./gyms";
 import { notificationService } from "./notifications";
+import { onboardingService } from "./onboarding";
 import { postService } from "./posts";
 import { profileService } from "./profiles";
 import { pushService } from "./push";
+import { safetyService } from "./safety";
 import { statsService } from "./stats";
 import { storyService } from "./stories";
 
 export * from "./supabase";
+export * from "./admin";
+export * from "./analytics";
 export * from "./auth";
 export * from "./checkins";
 export * from "./follows";
 export * from "./gyms";
 export * from "./notifications";
+export * from "./onboarding";
 export * from "./posts";
 export * from "./profiles";
 export * from "./push";
+export * from "./safety";
 export * from "./stats";
 export * from "./stories";
 
 export function createGymCircleServices(client: GymCircleClient) {
   return {
     client,
+    admin: adminService(client),
+    analytics: analyticsService(client),
     auth: authService(client),
     profiles: profileService(client),
+    onboarding: onboardingService(client),
     push: pushService(client),
+    safety: safetyService(client),
     posts: postService(client),
     stories: storyService(client),
     follows: followService(client),

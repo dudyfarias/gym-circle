@@ -2,6 +2,7 @@ export type FollowStatus = "none" | "pending" | "accepted";
 
 export type GymUser = {
   id: string;
+  createdAt?: string;
   name: string;
   username: string;
   accent: string;
@@ -13,6 +14,10 @@ export type GymUser = {
   age?: number | null;
   isBirthday?: boolean;
   sports?: string[];
+  onboardingCompletedAt?: string | null;
+  alphaTermsAcceptedAt?: string | null;
+  privacyPolicyAcceptedAt?: string | null;
+  accountStatus?: string;
   location: string;
   gyms: string[];
   preferredTimes: string[];
@@ -199,6 +204,11 @@ export type SocialActions = {
   markChatThreadRead?: (userId: string) => Promise<void>;
   acceptFollowRequest?: (requesterId: string) => Promise<void>;
   rejectFollowRequest?: (requesterId: string) => Promise<void>;
+  blockUser?: (userId: string) => Promise<void>;
+  reportUser?: (userId: string, reason?: string) => Promise<void>;
+  reportPost?: (postId: string, authorId: string, reason?: string) => Promise<void>;
+  requestAccountDeletion?: (reason?: string) => Promise<void>;
+  completeOnboarding?: () => Promise<void>;
 };
 
 export type SocialBundle = {

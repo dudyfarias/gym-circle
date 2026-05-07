@@ -11,6 +11,18 @@ export type UserActivityDayRow =
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 export type PushSubscriptionRow =
   Database["public"]["Tables"]["push_subscriptions"]["Row"];
+export type AnalyticsEventRow =
+  Database["public"]["Tables"]["analytics_events"]["Row"];
+export type UserBlockRow = Database["public"]["Tables"]["user_blocks"]["Row"];
+export type ReportRow = Database["public"]["Tables"]["reports"]["Row"];
+export type AccountDeletionRequestRow =
+  Database["public"]["Tables"]["account_deletion_requests"]["Row"];
+export type LegalAcceptanceRow =
+  Database["public"]["Tables"]["legal_acceptances"]["Row"];
+export type AlphaAdminDailyMetricRow =
+  Database["public"]["Views"]["alpha_admin_daily_metrics"]["Row"];
+export type AlphaAdminSummaryRow =
+  Database["public"]["Views"]["alpha_admin_summary"]["Row"];
 
 export type PostMediaType = "image" | "video";
 export type PostLocationSource = "none" | "gym" | "current" | "custom";

@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useAuth, useGymCircleServices } from "@gym-circle/core/hooks";
 import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
+import { needsOnboarding, OnboardingFlow } from "./OnboardingFlow";
 import { PwaController } from "./PwaController";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
@@ -83,6 +84,15 @@ function AuthenticatedShell({ userId }: { userId: string }) {
           <p className="mt-2 text-[13px] font-bold text-white/60">{social.error.message}</p>
         </div>
       </main>
+    );
+  }
+
+  if (needsOnboarding(social)) {
+    return (
+      <>
+        <OnboardingFlow onUploadImage={onUploadImage} social={social} />
+        <PwaController userId={userId} />
+      </>
     );
   }
 

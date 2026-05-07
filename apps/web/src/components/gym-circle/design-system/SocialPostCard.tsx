@@ -31,7 +31,7 @@ type SocialPostCardProps = {
   onToggleFollow: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
-  /** Quando o usuário atual é o dono do post, esta callback abre o menu (Editar/Apagar). */
+  /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
   onOpenPostMenu?: (postId: string) => void;
 };
 
@@ -152,7 +152,7 @@ export function SocialPostCard({
               </button>
             );
           })() : null}
-          {post.author.id === currentUserId && onOpenPostMenu ? (
+          {onOpenPostMenu ? (
             <IconButton
               className="size-10"
               label="Mais opções"

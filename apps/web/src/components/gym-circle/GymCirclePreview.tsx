@@ -10,6 +10,7 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { PostScreen } from "./screens/PostScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
+import { AdminPanelSheet } from "./AdminPanelSheet";
 import { UserSearchSheet } from "./UserSearchSheet";
 import { ProfileSheet } from "./ProfileSheet";
 import { EditProfileSheet } from "./EditProfileSheet";
@@ -36,6 +37,7 @@ export function GymCirclePreview({
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
@@ -95,6 +97,8 @@ export function GymCirclePreview({
   const closeEditProfile = useCallback(() => setEditOpen(false), []);
   const openNotifications = useCallback(() => setNotificationsOpen(true), []);
   const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
+  const openAdmin = useCallback(() => setAdminOpen(true), []);
+  const closeAdmin = useCallback(() => setAdminOpen(false), []);
 
   const editPost = social.actions.editPost;
   const deletePost = social.actions.deletePost;
@@ -102,10 +106,9 @@ export function GymCirclePreview({
 
   const openPostMenu = useCallback(
     (postId: string) => {
-      if (!canManageOwnPost) return;
       setPostMenuId(postId);
     },
-    [canManageOwnPost],
+    [],
   );
   const closePostMenu = useCallback(() => setPostMenuId(null), []);
   const closeEditPost = useCallback(() => setEditPostId(null), []);
@@ -131,6 +134,10 @@ export function GymCirclePreview({
     if (!editPostId) return null;
     return social.feedPosts.find((p) => p.id === editPostId) ?? null;
   }, [editPostId, social.feedPosts]);
+  const postMenuTarget: EnrichedPost | null = useMemo(() => {
+    if (!postMenuId) return null;
+    return social.feedPosts.find((p) => p.id === postMenuId) ?? null;
+  }, [postMenuId, social.feedPosts]);
 
   const sheetContextValue = useMemo(
     () => ({
@@ -260,6 +267,14 @@ export function GymCirclePreview({
             monthDays={social.socialStats.monthDays}
             nearbyUsers={social.nearbyUsers}
             onEditProfile={handleEditProfile}
+            onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
+            onRequestAccountDeletion={social.actions.requestAccountDeletion
+              ? async () => {
+                  const ok = window.confirm("Excluir sua conta? Seu perfil será desativado e o pedido ficará pendente para processamento interno.");
+                  if (!ok) return;
+                  await social.actions.requestAccountDeletion?.("Solicitado pelo usuário no app");
+                }
+              : undefined}
             onSelectUser={openProfile}
             onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
@@ -310,7 +325,7 @@ export function GymCirclePreview({
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
             onLikePost={social.actions.likePost}
-            onOpenPostMenu={canManageOwnPost ? openPostMenu : undefined}
+            onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
             onSelectUser={openProfile}
             onToggleFollow={social.actions.toggleFollow}
@@ -327,9 +342,9 @@ export function GymCirclePreview({
     onUploadChatImage,
     handleEditProfile,
     handleSignOut,
+    openAdmin,
     openProfile,
     resolveUser,
-    canManageOwnPost,
     openPostMenu,
     currentUserPosts,
   ]);
@@ -394,7 +409,9 @@ export function GymCirclePreview({
           />
           <ProfileSheet
             currentUserId={social.currentUser.id}
+            onBlockUser={social.actions.blockUser}
             onClose={closeProfile}
+            onReportUser={social.actions.reportUser}
             onToggleFollow={social.actions.toggleFollow}
             open={profileOpenId !== null}
             posts={profileSheetPosts}
@@ -421,10 +438,22 @@ export function GymCirclePreview({
             open={notificationsOpen}
             users={usersById}
           />
+          <AdminPanelSheet onClose={closeAdmin} open={adminOpen} />
           <PostMenuSheet
+            isOwner={Boolean(canManageOwnPost && postMenuTarget?.userId === social.currentUser.id)}
+            onBlock={() => {
+              const userId = postMenuTarget?.userId;
+              setPostMenuId(null);
+              if (userId) void social.actions.blockUser?.(userId);
+            }}
             onClose={closePostMenu}
             onDelete={handleConfirmDeletePost}
             onEdit={handleStartEditPost}
+            onReport={() => {
+              const target = postMenuTarget;
+              setPostMenuId(null);
+              if (target) void social.actions.reportPost?.(target.id, target.userId);
+            }}
             open={postMenuId !== null}
           />
           {editPost ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { CheckCircle2, Clock3, Lock, UserCheck, UserPlus, X } from "lucide-react";
+import { Ban, CheckCircle2, Clock3, Flag, Lock, UserCheck, UserPlus, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   AchievementBadge,
@@ -18,6 +18,8 @@ type ProfileSheetProps = {
   currentUserId: string;
   onClose: () => void;
   onToggleFollow: (userId: string) => void | Promise<void>;
+  onBlockUser?: (userId: string) => void | Promise<void>;
+  onReportUser?: (userId: string) => void | Promise<void>;
 };
 
 type FollowCtaState = {
@@ -47,6 +49,8 @@ export function ProfileSheet({
   currentUserId,
   onClose,
   onToggleFollow,
+  onBlockUser,
+  onReportUser,
 }: ProfileSheetProps) {
   if (!open || !user) return null;
 
@@ -95,7 +99,7 @@ export function ProfileSheet({
           <ProfileHeader user={user} />
 
           {!isMe ? (
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
               <button
                 className={[
                   "gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[13px] font-black",
@@ -110,6 +114,22 @@ export function ProfileSheet({
               >
                 <cta.Icon size={16} />
                 {cta.label}
+              </button>
+              <button
+                aria-label="Denunciar usuário"
+                className="gc-pressable grid size-11 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/62"
+                onClick={() => onReportUser?.(user.id)}
+                type="button"
+              >
+                <Flag size={16} />
+              </button>
+              <button
+                aria-label="Bloquear usuário"
+                className="gc-pressable grid size-11 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-[var(--gc-pink)]"
+                onClick={() => onBlockUser?.(user.id)}
+                type="button"
+              >
+                <Ban size={16} />
               </button>
             </div>
           ) : null}

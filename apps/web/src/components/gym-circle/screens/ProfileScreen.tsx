@@ -6,6 +6,8 @@ import {
   LogOut,
   MapPin,
   Pencil,
+  ShieldCheck,
+  Trash2,
   Trophy,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -33,6 +35,8 @@ type ProfileScreenProps = {
   onEditProfile?: () => void;
   onSignOut?: () => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
+  onOpenAdmin?: () => void;
+  onRequestAccountDeletion?: () => void | Promise<void>;
 };
 
 export function ProfileScreen({
@@ -44,6 +48,8 @@ export function ProfileScreen({
   onEditProfile,
   onSignOut,
   onSelectUser,
+  onOpenAdmin,
+  onRequestAccountDeletion,
 }: ProfileScreenProps) {
   const latestPost = posts[0];
   const currentLevel = getStreakLevel(currentUser.currentStreak);
@@ -53,7 +59,7 @@ export function ProfileScreen({
       <TopBar eyebrow="Perfil" title={currentUser.name} />
 
       {(onEditProfile || onSignOut) ? (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           {onEditProfile ? (
             <button
               className="gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.04] px-4 text-[13px] font-black text-white"
@@ -72,6 +78,16 @@ export function ProfileScreen({
               type="button"
             >
               <LogOut size={16} strokeWidth={2.6} />
+            </button>
+          ) : null}
+          {onOpenAdmin ? (
+            <button
+              className="gc-pressable flex h-11 items-center justify-center gap-2 rounded-full border border-[var(--gc-brand)]/20 bg-[var(--gc-brand)]/10 px-4 text-[13px] font-black text-[var(--gc-brand)]"
+              onClick={onOpenAdmin}
+              type="button"
+            >
+              <ShieldCheck size={15} strokeWidth={2.6} />
+              Admin
             </button>
           ) : null}
         </div>
@@ -222,6 +238,17 @@ export function ProfileScreen({
           ))}
         </div>
       </div>
+
+      {onRequestAccountDeletion ? (
+        <button
+          className="gc-pressable mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-[var(--gc-pink)]/24 bg-[var(--gc-pink)]/8 text-[13px] font-black text-[var(--gc-pink)]"
+          onClick={onRequestAccountDeletion}
+          type="button"
+        >
+          <Trash2 size={15} strokeWidth={2.6} />
+          Excluir conta
+        </button>
+      ) : null}
     </section>
   );
 }
