@@ -22,6 +22,7 @@ import type {
   EnrichedStory,
   FeedbackMessage,
   FeedbackTone,
+  GymLocationOption,
   GymComment,
   GymPost,
   GymStory,
@@ -55,6 +56,10 @@ function formatPostClock(createdAt: string) {
 
 function getSharedGymCount(currentUser: GymUser, user: GymUser) {
   return user.gyms.filter((gym) => currentUser.gyms.includes(gym)).length;
+}
+
+function slugGymId(name: string): string {
+  return `mock-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 
 function getSmartReason(post: GymPost, author: GymUser, currentUser: GymUser) {
@@ -549,6 +554,24 @@ export function useGymCircleSocial() {
     return suggestedUsers.filter((user) => getSharedGymCount(currentUser, user) > 0);
   }, [currentUser, suggestedUsers]);
 
+  const gyms = useMemo<GymLocationOption[]>(() => {
+    const names = new Set<string>();
+    for (const user of Object.values(state.users)) {
+      for (const gym of user.gyms) names.add(gym);
+    }
+    return Array.from(names)
+      .sort((a, b) => a.localeCompare(b, "pt-BR"))
+      .map((name) => ({
+        id: slugGymId(name),
+        name,
+        city: "Recife",
+        state: "PE",
+        address: null,
+        latitude: null,
+        longitude: null,
+      }));
+  }, [state.users]);
+
   const socialStats = useMemo(() => {
     const todayKey = formatDateKey(new Date());
     return {
@@ -641,6 +664,7 @@ export function useGymCircleSocial() {
   return {
     currentUser,
     users: state.users,
+    gyms,
     feedPosts,
     storyBubbles,
     selectedStory,

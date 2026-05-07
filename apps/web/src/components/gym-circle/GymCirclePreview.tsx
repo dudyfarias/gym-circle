@@ -1,6 +1,11 @@
 "use client";
 
 import { type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  calculateDistanceKm,
+  formatDistanceKm,
+  type Coordinates,
+} from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
 import { FloatingCreatePostButton, StoryViewer, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
@@ -18,6 +23,7 @@ import { EditPostSheet } from "./EditPostSheet";
 import { NotificationsSheet } from "./NotificationsSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
+import { useViewerLocation } from "./social/useViewerLocation";
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
@@ -42,6 +48,7 @@ export function GymCirclePreview({
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const viewerLocation = useViewerLocation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
@@ -139,6 +146,46 @@ export function GymCirclePreview({
     return social.feedPosts.find((p) => p.id === postMenuId) ?? null;
   }, [postMenuId, social.feedPosts]);
 
+  const hasDistancePosts = useMemo(
+    () =>
+      social.feedPosts.some(
+        (post) =>
+          post.userId !== social.currentUser.id &&
+          post.locationSource === "current" &&
+          typeof post.locationLatitude === "number" &&
+          typeof post.locationLongitude === "number",
+      ),
+    [social.currentUser.id, social.feedPosts],
+  );
+
+  const feedPosts = useMemo<EnrichedPost[]>(() => {
+    const viewerCoordinates = viewerLocation.coordinates;
+    if (!viewerCoordinates) return social.feedPosts;
+
+    return social.feedPosts.map((post) => {
+      if (
+        post.userId === social.currentUser.id ||
+        post.locationSource !== "current" ||
+        typeof post.locationLatitude !== "number" ||
+        typeof post.locationLongitude !== "number"
+      ) {
+        return { ...post, distanceKm: null, distanceLabel: null };
+      }
+
+      const postCoordinates: Coordinates = {
+        latitude: post.locationLatitude,
+        longitude: post.locationLongitude,
+      };
+      const distanceKm = calculateDistanceKm(viewerCoordinates, postCoordinates);
+
+      return {
+        ...post,
+        distanceKm,
+        distanceLabel: `${formatDistanceKm(distanceKm)} de você`,
+      };
+    });
+  }, [social.currentUser.id, social.feedPosts, viewerLocation.coordinates]);
+
   const sheetContextValue = useMemo(
     () => ({
       openSearch,
@@ -228,11 +275,11 @@ export function GymCirclePreview({
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
   const profileSheetPosts = useMemo(() => {
     if (!profileOpenId) return [];
-    return social.feedPosts.filter((p) => p.userId === profileOpenId);
-  }, [profileOpenId, social.feedPosts]);
+    return feedPosts.filter((p) => p.userId === profileOpenId);
+  }, [feedPosts, profileOpenId]);
   const currentUserPosts = useMemo(
-    () => social.feedPosts.filter((p) => p.userId === social.currentUser.id),
-    [social.feedPosts, social.currentUser.id],
+    () => feedPosts.filter((p) => p.userId === social.currentUser.id),
+    [feedPosts, social.currentUser.id],
   );
 
   useEffect(() => {
@@ -297,6 +344,7 @@ export function GymCirclePreview({
         return (
           <PostScreen
             currentUser={social.currentUser}
+            gyms={social.gyms ?? []}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
               setActiveScreen("feed");
@@ -320,23 +368,29 @@ export function GymCirclePreview({
         return (
           <FeedScreen
             currentUser={social.currentUser}
-            feedPosts={social.feedPosts}
+            feedPosts={feedPosts}
             formatTime={social.formatPostClock}
+            hasDistancePosts={hasDistancePosts}
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
             onLikePost={social.actions.likePost}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
+            onRequestViewerLocation={viewerLocation.request}
             onSelectUser={openProfile}
             onToggleFollow={social.actions.toggleFollow}
             resolveUser={resolveUser}
             stories={social.storyBubbles}
             suggestedUsers={social.suggestedUsers}
+            viewerLocationError={viewerLocation.error}
+            viewerLocationStatus={viewerLocation.status}
           />
         );
     }
   }, [
     activeScreen,
+    feedPosts,
+    hasDistancePosts,
     social,
     onUploadImage,
     onUploadChatImage,
@@ -347,6 +401,9 @@ export function GymCirclePreview({
     resolveUser,
     openPostMenu,
     currentUserPosts,
+    viewerLocation.error,
+    viewerLocation.request,
+    viewerLocation.status,
   ]);
 
   return (

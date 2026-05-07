@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { FormEvent, useState } from "react";
+import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
   Clock3,
   Flame,
@@ -49,9 +50,16 @@ export function SocialPostCard({
   const [commentsOpen, setCommentsOpen] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
   const canFollow = post.author.id !== currentUserId;
-  const locationLabel = post.locationName || post.gymName;
   const mediaType = post.mediaType ?? "image";
   const isPostOwner = post.userId === currentUserId;
+  const isCurrentLocation = post.locationSource === "current";
+  const locationLabel = sanitizeLocationLabel(
+    post.locationSource,
+    post.locationName,
+    post.gymName,
+  );
+  const canOpenLocationMap =
+    Boolean(post.locationGoogleMapsUrl) && (!isCurrentLocation || isPostOwner);
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,10 +107,10 @@ export function SocialPostCard({
             </div>
             <p className="flex min-w-0 items-center gap-1 truncate text-[12px] font-bold text-white/46">
               {locationLabel ? (
-                post.locationGoogleMapsUrl ? (
+                canOpenLocationMap ? (
                   <a
                     className="gc-pressable inline-flex min-w-0 items-center gap-1 truncate hover:text-[var(--gc-brand)]"
-                    href={post.locationGoogleMapsUrl}
+                    href={post.locationGoogleMapsUrl ?? undefined}
                     rel="noreferrer"
                     target="_blank"
                   >
@@ -110,8 +118,19 @@ export function SocialPostCard({
                     <span className="truncate">{locationLabel}</span>
                   </a>
                 ) : (
-                  <span className="truncate">{locationLabel}</span>
+                  <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                    <MapPin size={12} className="shrink-0" />
+                    <span className="truncate">{locationLabel}</span>
+                  </span>
                 )
+              ) : null}
+              {post.distanceLabel ? (
+                <>
+                  <span className="shrink-0 text-white/28">·</span>
+                  <span className="shrink-0 text-[var(--gc-brand)]">
+                    {post.distanceLabel}
+                  </span>
+                </>
               ) : null}
               {locationLabel ? <span className="shrink-0">·</span> : null}
               <span className="shrink-0">{formatTime(post.createdAt)}</span>

@@ -49,7 +49,18 @@ export function useAuth() {
     [services],
   );
 
+  const resetPassword = useCallback(
+    (email: string, redirectTo?: string) =>
+      services.auth.resetPasswordForEmail(email, redirectTo),
+    [services],
+  );
+
+  const updatePassword = useCallback(
+    (password: string) => services.auth.updatePassword(password),
+    [services],
+  );
+
   const signOut = useCallback(() => services.auth.signOut(), [services]);
 
-  return { ...state, signIn, signUp, signOut };
+  return { ...state, resetPassword, signIn, signOut, signUp, updatePassword };
 }

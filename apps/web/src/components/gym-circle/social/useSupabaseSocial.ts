@@ -32,6 +32,7 @@ import type {
   EnrichedUser,
   FeedbackMessage,
   FeedbackTone,
+  GymLocationOption,
   GymUser,
   ProfileEditInput,
   SendChatMessageInput,
@@ -163,6 +164,7 @@ export type SupabaseSocialActions = {
 export type SupabaseSocialResult = {
   currentUser: EnrichedUser;
   users: Record<string, GymUser>;
+  gyms: GymLocationOption[];
   feedPosts: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   selectedStory: EnrichedStory | null;
@@ -474,6 +476,20 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     });
     return record;
   }, [enrichedAll]);
+
+  const gymOptions = useMemo<GymLocationOption[]>(
+    () =>
+      agg.gyms.map((gym) => ({
+        id: gym.id,
+        name: gym.name,
+        address: gym.address,
+        city: gym.city,
+        state: gym.state,
+        latitude: gym.latitude,
+        longitude: gym.longitude,
+      })),
+    [agg.gyms],
+  );
 
   const feedPosts = useMemo<EnrichedPost[]>(() => {
     if (!agg.feedPosts.length) return [];
@@ -869,6 +885,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   return {
     currentUser,
     users: usersRecord,
+    gyms: gymOptions,
     feedPosts,
     storyBubbles,
     selectedStory,

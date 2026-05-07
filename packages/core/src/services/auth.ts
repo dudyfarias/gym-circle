@@ -38,7 +38,7 @@ export function authService(client: GymCircleClient) {
 
     async signUp({ email, password, username, displayName }: SignUpInput) {
       const { data, error } = await client.auth.signUp({
-        email,
+        email: email.trim(),
         password,
         options: {
           data: {
@@ -47,6 +47,20 @@ export function authService(client: GymCircleClient) {
           },
         },
       });
+      if (error) throw error;
+      return data;
+    },
+
+    async resetPasswordForEmail(email: string, redirectTo?: string) {
+      const { data, error } = await client.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo,
+      });
+      if (error) throw error;
+      return data;
+    },
+
+    async updatePassword(password: string) {
+      const { data, error } = await client.auth.updateUser({ password });
       if (error) throw error;
       return data;
     },

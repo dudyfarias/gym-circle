@@ -50,6 +50,16 @@ export type PostMediaType = "image" | "video";
 
 export type PostLocationSource = "none" | "gym" | "current" | "custom";
 
+export type GymLocationOption = {
+  id: string;
+  name: string;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
 export type GymComment = {
   id: string;
   postId: string;
@@ -112,6 +122,8 @@ export type EnrichedPost = GymPost & {
   likedByPreview: EnrichedUser[];
   smartScore: number;
   smartReason: string;
+  distanceKm?: number | null;
+  distanceLabel?: string | null;
 };
 
 export type EnrichedStory = GymStory & {
@@ -214,6 +226,7 @@ export type SocialActions = {
 export type SocialBundle = {
   currentUser: EnrichedUser;
   users?: Record<string, GymUser>;
+  gyms?: GymLocationOption[];
   feedPosts: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   selectedStory: EnrichedStory | null;
