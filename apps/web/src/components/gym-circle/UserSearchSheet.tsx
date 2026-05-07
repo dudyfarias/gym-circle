@@ -52,20 +52,23 @@ export function UserSearchSheet({
 
   const results = useMemo(() => {
     const filtered = users.filter((u) => u.id !== currentUserId);
-    const q = normalize(query.trim());
+    const currentUser = users.find((u) => u.id === currentUserId);
+    const isAdmin = currentUser?.username.toLowerCase() === "dudy";
+    const q = normalize(query.trim().replace(/^@/, ""));
     if (!q) {
-      return [...filtered]
-        .sort((a, b) => b.currentStreak - a.currentStreak)
-        .slice(0, 30);
+      return isAdmin
+        ? [...filtered]
+            .sort((a, b) => b.currentStreak - a.currentStreak)
+            .slice(0, 60)
+        : [];
     }
     return filtered
       .map((u) => {
+        const username = normalize(u.username);
         const score =
-          (normalize(u.username).includes(q) ? 50 : 0) +
-          (normalize(u.username).startsWith(q) ? 80 : 0) +
-          (normalize(u.name).includes(q) ? 30 : 0) +
-          (normalize(u.name).startsWith(q) ? 60 : 0) +
-          (normalize(u.bio || "").includes(q) ? 8 : 0);
+          (username === q ? 140 : 0) +
+          (username.startsWith(q) ? 90 : 0) +
+          (username.includes(q) ? 45 : 0);
         return { user: u, score };
       })
       .filter((x) => x.score > 0)
@@ -85,7 +88,7 @@ export function UserSearchSheet({
             <input
               className="h-12 flex-1 bg-transparent text-[15px] font-bold text-white outline-none placeholder:text-white/32"
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar @username ou nome"
+              placeholder="Buscar @username"
               ref={inputRef}
               type="search"
               value={query}
@@ -116,12 +119,14 @@ export function UserSearchSheet({
             <div className="grid h-full place-items-center text-center">
               <div>
                 <p className="text-[16px] font-black text-white/72">
-                  {query ? "Ninguém encontrado" : "Nenhum perfil disponível"}
+                  {query ? "Ninguém encontrado" : "Digite um @username"}
                 </p>
                 <p className="mt-2 text-[13px] font-bold text-white/44">
                   {query
-                    ? `Nenhum match pra "${query}". Tente outra parte do @ ou nome.`
-                    : "Outros usuários aparecem aqui."}
+                    ? `Nenhum match pra "${query}". Confira o username.`
+                    : users.find((u) => u.id === currentUserId)?.username.toLowerCase() === "dudy"
+                      ? "Como admin, você vê todos os perfis cadastrados."
+                      : "Para encontrar alguém, você precisa saber o @username."}
                 </p>
               </div>
             </div>

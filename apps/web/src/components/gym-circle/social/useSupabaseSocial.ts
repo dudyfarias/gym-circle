@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   CheckinRow,
+  DirectMessageRow,
   FeedPostRow,
   FollowRow,
   GymRow,
@@ -17,8 +18,13 @@ import type {
   UserStatsRow,
 } from "@gym-circle/core";
 import { simulateHaptic } from "./haptics";
+import {
+  calculateAgeFromBirthDate,
+  isBirthdayFromBirthDate,
+} from "./profile";
 import { buildMonthWorkoutDays } from "./streak";
 import type {
+  ChatMessage,
   CreateWorkoutPostInput,
   EditPostInput,
   EnrichedPost,
@@ -28,6 +34,7 @@ import type {
   FeedbackTone,
   GymUser,
   ProfileEditInput,
+  SendChatMessageInput,
   StreakPresence,
 } from "./types";
 
@@ -116,6 +123,7 @@ type AggregateState = {
   checkinsToday: CheckinRow[];
   myActivityDays: UserActivityDayRow[];
   myNotifications: NotificationRow[];
+  chatMessages: DirectMessageRow[];
 };
 
 const EMPTY: AggregateState = {
@@ -131,6 +139,7 @@ const EMPTY: AggregateState = {
   checkinsToday: [],
   myActivityDays: [],
   myNotifications: [],
+  chatMessages: [],
 };
 
 export type SupabaseSocialActions = {
@@ -143,6 +152,7 @@ export type SupabaseSocialActions = {
   checkIn: (gymName: string) => Promise<void>;
   editPost: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
+  sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
   acceptFollowRequest: (requesterId: string) => Promise<void>;
   rejectFollowRequest: (requesterId: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -157,6 +167,7 @@ export type SupabaseSocialResult = {
   selectedStory: EnrichedStory | null;
   suggestedUsers: EnrichedUser[];
   nearbyUsers: EnrichedUser[];
+  chatMessages: ChatMessage[];
   socialStats: {
     trainedToday: number;
     checkInsToday: number;
@@ -168,6 +179,7 @@ export type SupabaseSocialResult = {
   unreadNotifications: number;
   loading: boolean;
   error: Error | null;
+  refresh: () => Promise<void>;
 };
 
 export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
@@ -176,6 +188,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() => new Set());
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const mountedRef = useRef(true);
 
@@ -192,6 +205,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
+        chatMessagesRes,
       ] = await Promise.all([
         services.client.from("profiles").select("*"),
         services.client.from("user_stats").select("*"),
@@ -215,6 +229,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .eq("user_id", currentUserId)
           .order("created_at", { ascending: false })
           .limit(50),
+        services.client
+          .from("direct_messages")
+          .select("*")
+          .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
+          .order("created_at", { ascending: true })
+          .limit(200),
       ]);
 
       for (const r of [
@@ -228,6 +248,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
+        chatMessagesRes,
       ]) {
         if (r.error) throw r.error;
       }
@@ -263,6 +284,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
         myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
         myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
+        chatMessages: (chatMessagesRes.data ?? []) as DirectMessageRow[],
       });
       setError(null);
     } catch (err) {
@@ -286,6 +308,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, () => refresh())
       .on(
         "postgres_changes",
         {
@@ -350,6 +373,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     const map = new Map<string, EnrichedUser>();
     for (const profile of agg.profiles) {
       const stats = statsByUser.get(profile.user_id);
+      const birthDate = profile.birth_date ?? null;
       const userGyms = userGymsByUser.get(profile.user_id) ?? [];
       const gymNames = userGyms
         .map((ug) => gymsById.get(ug.gym_id)?.name)
@@ -365,6 +389,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         avatarUrl: profile.avatar_url ?? null,
         bio: profile.bio ?? "",
         goal: profile.fitness_goal ?? "",
+        instagramUsername: profile.instagram_username ?? null,
+        birthDate,
+        age: calculateAgeFromBirthDate(birthDate),
+        isBirthday: isBirthdayFromBirthDate(birthDate),
+        sports: profile.sports ?? [],
         location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
         gyms: gymNames,
         preferredTimes: mainUserGym?.preferred_times ?? [],
@@ -398,6 +427,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         avatarUrl: null,
         bio: "",
         goal: "",
+        instagramUsername: null,
+        birthDate: null,
+        age: null,
+        isBirthday: false,
+        sports: [],
         location: "",
         gyms: [],
         preferredTimes: [],
@@ -462,7 +496,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         const likedByPreview = (likesByPost.get(row.id) ?? [])
           .map((l) => enrichedAll.get(l.user_id))
           .filter((u): u is EnrichedUser => Boolean(u))
-          .slice(0, 3);
+          .slice(0, row.user_id === currentUserId ? 3 : 0);
         const smartScore = getSmartScore(
           row,
           likesCount,
@@ -520,13 +554,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         title: row.workout_type ?? "Treino",
         caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
         createdAt: row.created_at,
-        viewed: false,
+        viewed: viewedStoryIds.has(row.id),
         kind: "workout",
         author,
       });
     }
     return out;
-  }, [agg.stories, enrichedAll]);
+  }, [agg.stories, enrichedAll, viewedStoryIds]);
 
   const selectedStory = useMemo(
     () => storyBubbles.find((s) => s.id === selectedStoryId) ?? null,
@@ -574,6 +608,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [agg.feedPosts, agg.stories, agg.checkinsToday, currentUser.workoutDays],
   );
 
+  const chatMessages = useMemo<ChatMessage[]>(
+    () =>
+      agg.chatMessages.map((message) => ({
+        id: message.id,
+        senderId: message.sender_id,
+        receiverId: message.receiver_id,
+        body: message.body,
+        mediaUrl: message.media_url,
+        mediaType: message.media_type,
+        createdAt: message.created_at,
+        readAt: message.read_at,
+      })),
+    [agg.chatMessages],
+  );
+
   const actions = useMemo<SupabaseSocialActions>(
     () => ({
       async likePost(postId: string) {
@@ -612,6 +661,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await refresh();
       },
       openStory(storyId: string) {
+        setViewedStoryIds((current) => {
+          const next = new Set(current);
+          next.add(storyId);
+          return next;
+        });
         setSelectedStoryId(storyId);
         simulateHaptic("brand");
       },
@@ -688,6 +742,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await refresh();
         showFeedback("success", "Post apagado");
       },
+      async sendChatMessage(input: SendChatMessageInput) {
+        const body = input.body?.trim() || null;
+        const mediaUrl = input.mediaUrl?.trim() || null;
+        if (!body && !mediaUrl) return;
+        const { error } = await services.client.from("direct_messages").insert({
+          sender_id: currentUserId,
+          receiver_id: input.receiverId,
+          body,
+          media_url: mediaUrl,
+          media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+        });
+        if (error) throw error;
+        await refresh();
+        showFeedback("comment", mediaUrl ? "Mídia enviada" : "Mensagem enviada");
+      },
       async signOut() {
         await services.auth.signOut();
       },
@@ -699,6 +768,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ...(input.fitnessGoal !== undefined ? { fitness_goal: input.fitnessGoal } : {}),
           ...(input.avatarUrl !== undefined ? { avatar_url: input.avatarUrl } : {}),
           ...(input.isPrivate !== undefined ? { is_private: input.isPrivate } : {}),
+          ...(input.instagramUsername !== undefined
+            ? { instagram_username: input.instagramUsername }
+            : {}),
+          ...(input.birthDate !== undefined ? { birth_date: input.birthDate } : {}),
+          ...(input.sports !== undefined ? { sports: input.sports } : {}),
         });
         await refresh();
         showFeedback("success", "Perfil atualizado");
@@ -731,6 +805,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     selectedStory,
     suggestedUsers,
     nearbyUsers,
+    chatMessages,
     socialStats,
     feedback,
     formatPostClock,
@@ -738,5 +813,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     unreadNotifications,
     loading,
     error,
+    refresh,
   };
 }

@@ -8,12 +8,33 @@ export type SignUpInput = {
 };
 
 export function authService(client: GymCircleClient) {
+  async function resolveEmailForUsername(username: string) {
+    const normalized = username.trim().toLowerCase().replace(/^@/, "");
+    if (normalized.length < 3) {
+      throw new Error("Informe um username ou email válido.");
+    }
+    const { data, error } = await client.rpc("resolve_email_for_username", {
+      p_username: normalized,
+    });
+    if (error) throw error;
+    if (!data) {
+      throw new Error("Username não encontrado.");
+    }
+    return data;
+  }
+
   return {
-    async signInWithPassword(email: string, password: string) {
+    async signInWithPassword(identifier: string, password: string) {
+      const cleanedIdentifier = identifier.trim();
+      const email = cleanedIdentifier.includes("@")
+        ? cleanedIdentifier
+        : await resolveEmailForUsername(cleanedIdentifier);
       const { data, error } = await client.auth.signInWithPassword({ email, password });
       if (error) throw error;
       return data;
     },
+
+    resolveEmailForUsername,
 
     async signUp({ email, password, username, displayName }: SignUpInput) {
       const { data, error } = await client.auth.signUp({

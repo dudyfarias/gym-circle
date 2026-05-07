@@ -51,6 +51,7 @@ export function SocialPostCard({
   const canFollow = post.author.id !== currentUserId;
   const locationLabel = post.locationName || post.gymName;
   const mediaType = post.mediaType ?? "image";
+  const isPostOwner = post.userId === currentUserId;
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,7 +75,11 @@ export function SocialPostCard({
             onClick={() => onSelectUser?.(post.author.id)}
             type="button"
           >
-            <Avatar accent={post.author.accent} name={post.author.name} />
+            <Avatar
+              accent={post.author.accent}
+              name={post.author.name}
+              src={post.author.avatarUrl ?? undefined}
+            />
           </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -202,7 +207,7 @@ export function SocialPostCard({
             <IconButton
               className={[
                 "size-11",
-                post.likedByCurrentUser ? "gc-heart-pop text-[var(--gc-pink)]" : "",
+                post.likedByCurrentUser ? "gc-heart-pop text-[var(--gc-consistency-month)]" : "",
               ].join(" ")}
               label="Curtir"
               onClick={() => onLike(post.id)}
@@ -231,33 +236,58 @@ export function SocialPostCard({
           ) : null}
         </div>
 
-        {post.likesCount > 0 || post.likedByCurrentUser ? (
+        {!isPostOwner || post.likesCount > 0 || post.likedByCurrentUser ? (
           <div className="flex items-center gap-2">
-            <div className="flex -space-x-2">
-              {post.likedByPreview.map((user) => (
-                <div
-                  className="rounded-full border-2 border-[#0c0d0e]"
-                  key={user.id}
-                  title={user.name}
-                >
-                  <Avatar accent={user.accent} name={user.name} size="sm" />
+            {isPostOwner ? (
+              <>
+                <div className="flex -space-x-2">
+                  {post.likedByPreview.map((user) => (
+                    <div
+                      className="rounded-full border-2 border-[#0c0d0e]"
+                      key={user.id}
+                      title={user.name}
+                    >
+                      <Avatar
+                        accent={user.accent}
+                        name={user.name}
+                        size="sm"
+                        src={user.avatarUrl ?? undefined}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-white/58">
-              Curtido por{" "}
-              <span className="text-white">
-                {post.likedByPreview[0]?.username ?? "seu circle"}
-              </span>{" "}
-              e {post.likesCount.toLocaleString("pt-BR")} pessoas
-            </p>
-            {post.likedByPreview[0] ? (
-              <StreakBadge
-                isLit={post.likedByPreview[0].streakLitToday}
-                size="xs"
-                streak={post.likedByPreview[0].currentStreak}
-              />
-            ) : null}
+                <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-white/58">
+                  Curtido por{" "}
+                  <span className="text-white">
+                    {post.likedByPreview[0]?.username ?? "seu circle"}
+                  </span>{" "}
+                  e {post.likesCount.toLocaleString("pt-BR")} pessoas
+                </p>
+                {post.likedByPreview[0] ? (
+                  <StreakBadge
+                    isLit={post.likedByPreview[0].streakLitToday}
+                    size="xs"
+                    streak={post.likedByPreview[0].currentStreak}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <div className="flex flex-1 items-center gap-2 rounded-full bg-white/[0.045] px-3 py-2">
+                <Heart
+                  className={post.likedByCurrentUser ? "text-[var(--gc-consistency-month)]" : "text-white/42"}
+                  fill={post.likedByCurrentUser ? "currentColor" : "none"}
+                  size={14}
+                />
+                <span
+                  className={[
+                    "text-[12px] font-black",
+                    post.likedByCurrentUser ? "text-[var(--gc-consistency-month)]" : "text-white/58",
+                  ].join(" ")}
+                >
+                  {post.likesCount.toLocaleString("pt-BR")} curtidas
+                </span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="flex items-center justify-between gap-3 rounded-full bg-white/[0.045] px-3 py-2">

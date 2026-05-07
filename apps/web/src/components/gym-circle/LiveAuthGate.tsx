@@ -10,6 +10,7 @@ export function LiveAuthGate() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [betaAccepted, setBetaAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,6 +22,9 @@ export function LiveAuthGate() {
       if (mode === "sign-in") {
         await signIn(email, password);
       } else {
+        if (!betaAccepted) {
+          throw new Error("Você precisa aceitar participar do teste beta.");
+        }
         await signUp({ email, password, username: username || undefined });
       }
     } catch (err) {
@@ -31,7 +35,7 @@ export function LiveAuthGate() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center bg-black px-6 text-white">
+    <main className="grid min-h-[100dvh] place-items-center bg-black px-6 pb-6 pt-[calc(var(--gc-safe-top)+24px)] text-white">
       <div className="w-full max-w-[400px]">
         <div className="mb-6 flex justify-center">
           <BrandMark showWordmark size={64} />
@@ -43,16 +47,16 @@ export function LiveAuthGate() {
           <p className="mt-1 text-[13px] font-bold text-white/52">
             {mode === "sign-in"
               ? "Entre com sua conta do Gym Circle."
-              : "Crie uma nova conta. Um perfil será criado automaticamente."}
+              : "Crie uma conta beta. Um perfil será criado automaticamente."}
           </p>
 
           <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
             <input
-              autoComplete="email"
+              autoComplete={mode === "sign-in" ? "username" : "email"}
               className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="email"
-              type="email"
+              placeholder={mode === "sign-in" ? "email ou username" : "email"}
+              type={mode === "sign-in" ? "text" : "email"}
               value={email}
             />
             <input
@@ -71,6 +75,19 @@ export function LiveAuthGate() {
                 placeholder="username (opcional, gerado se vazio)"
                 value={username}
               />
+            ) : null}
+            {mode === "sign-up" ? (
+              <label className="flex items-start gap-3 rounded-[18px] border border-white/[0.08] bg-white/[0.035] p-3 text-left">
+                <input
+                  checked={betaAccepted}
+                  className="mt-1 size-4 accent-[var(--gc-brand)]"
+                  onChange={(event) => setBetaAccepted(event.target.checked)}
+                  type="checkbox"
+                />
+                <span className="text-[12px] font-bold leading-5 text-white/58">
+                  Eu aceito participar de um teste beta do Gym Circle e entendo que erros podem acontecer.
+                </span>
+              </label>
             ) : null}
             {error ? (
               <p className="rounded-[16px] border border-[var(--gc-pink)]/30 bg-[var(--gc-pink)]/10 p-3 text-[12px] font-bold text-[var(--gc-pink)]">

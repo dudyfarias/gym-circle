@@ -9,7 +9,12 @@ import {
   formatDateKey,
   getDailyStreakPresence,
 } from "./streak";
+import {
+  calculateAgeFromBirthDate,
+  isBirthdayFromBirthDate,
+} from "./profile";
 import type {
+  ChatMessage,
   CreateWorkoutPostInput,
   EditPostInput,
   EnrichedUser,
@@ -22,6 +27,7 @@ import type {
   GymStory,
   GymUser,
   ProfileEditInput,
+  SendChatMessageInput,
   SocialState,
 } from "./types";
 
@@ -36,7 +42,8 @@ type SocialAction =
   | { type: "delete-post"; postId: string }
   | { type: "accept-follow-request"; requesterId: string }
   | { type: "reject-follow-request"; requesterId: string }
-  | { type: "update-profile"; input: ProfileEditInput };
+  | { type: "update-profile"; input: ProfileEditInput }
+  | { type: "send-chat-message"; input: SendChatMessageInput };
 
 function formatPostClock(createdAt: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -89,6 +96,9 @@ function withStreakPresence(
 ): EnrichedUser {
   return {
     ...user,
+    age: calculateAgeFromBirthDate(user.birthDate),
+    isBirthday: isBirthdayFromBirthDate(user.birthDate),
+    sports: user.sports ?? [],
     ...getDailyStreakPresence(user.id, state.posts, state.stories, todayKey),
   };
 }
@@ -266,6 +276,12 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
               ? { goal: action.input.fitnessGoal ?? "" }
               : {}),
             ...(action.input.isPrivate !== undefined ? { isPrivate: action.input.isPrivate } : {}),
+            ...(action.input.avatarUrl !== undefined ? { avatarUrl: action.input.avatarUrl } : {}),
+            ...(action.input.instagramUsername !== undefined
+              ? { instagramUsername: action.input.instagramUsername }
+              : {}),
+            ...(action.input.birthDate !== undefined ? { birthDate: action.input.birthDate } : {}),
+            ...(action.input.sports !== undefined ? { sports: action.input.sports } : {}),
           },
         },
       };
@@ -417,6 +433,26 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       };
     }
 
+    case "send-chat-message": {
+      const body = action.input.body?.trim() || null;
+      const mediaUrl = action.input.mediaUrl?.trim() || null;
+      if (!body && !mediaUrl) return state;
+      const message: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: state.currentUserId,
+        receiverId: action.input.receiverId,
+        body,
+        mediaUrl,
+        mediaType: mediaUrl ? (action.input.mediaType ?? "image") : null,
+        createdAt: new Date().toISOString(),
+        readAt: null,
+      };
+      return {
+        ...state,
+        chatMessages: [...state.chatMessages, message],
+      };
+    }
+
     default:
       return state;
   }
@@ -561,6 +597,10 @@ export function useGymCircleSocial() {
         dispatch({ type: "delete-post", postId });
         showFeedback("success", "Post apagado");
       },
+      async sendChatMessage(input: SendChatMessageInput) {
+        dispatch({ type: "send-chat-message", input });
+        showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
+      },
       async acceptFollowRequest(requesterId: string) {
         const requester = state.users[requesterId];
         dispatch({ type: "accept-follow-request", requesterId });
@@ -574,6 +614,9 @@ export function useGymCircleSocial() {
         dispatch({ type: "update-profile", input });
         showFeedback("success", "Perfil atualizado");
       },
+      async refresh() {
+        showFeedback("brand", "Atualizado");
+      },
     }),
     [showFeedback, state.users],
   );
@@ -586,9 +629,11 @@ export function useGymCircleSocial() {
     selectedStory,
     suggestedUsers,
     nearbyUsers,
+    chatMessages: state.chatMessages,
     socialStats,
     feedback,
     formatPostClock,
     actions,
+    refresh: actions.refresh,
   };
 }

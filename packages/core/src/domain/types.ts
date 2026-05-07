@@ -13,6 +13,7 @@ export type UserActivityDayRow =
   Database["public"]["Tables"]["user_activity_days"]["Row"];
 export type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
+export type DirectMessageRow = Database["public"]["Tables"]["direct_messages"]["Row"];
 export type FeedPostRow = Database["public"]["Views"]["feed_posts"]["Row"];
 
 export type PostMediaType = "image" | "video";

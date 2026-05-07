@@ -26,7 +26,12 @@ export function StoryBubbles({ stories, onOpenStory }: StoryBubblesProps) {
             ].join(" ")}
           >
             <div className="rounded-full bg-black p-[3px]">
-              <Avatar accent={story.author.accent} name={story.author.name} size="md" />
+              <Avatar
+                accent={story.author.accent}
+                name={story.author.name}
+                size="md"
+                src={story.author.avatarUrl ?? undefined}
+              />
             </div>
             <StreakBadge
               className="absolute -bottom-2 left-1/2 -translate-x-1/2"

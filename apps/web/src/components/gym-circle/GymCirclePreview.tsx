@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { type TouchEvent, useCallback, useMemo, useRef, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { FloatingCreatePostButton, StoryViewer, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
@@ -20,12 +21,14 @@ import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 type GymCirclePreviewProps = {
   social: SocialBundle;
   onUploadImage?: (file: File) => Promise<string>;
+  onUploadChatImage?: (file: File) => Promise<string>;
   onUploadAvatar?: (file: File) => Promise<string>;
 };
 
 export function GymCirclePreview({
   social,
   onUploadImage,
+  onUploadChatImage,
   onUploadAvatar,
 }: GymCirclePreviewProps) {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
@@ -35,6 +38,10 @@ export function GymCirclePreview({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
 
   const allUsers = useMemo<EnrichedUser[]>(() => {
     const fromUsers = social.users
@@ -146,6 +153,42 @@ export function GymCirclePreview({
 
   const handleEditProfile = social.actions.updateProfile ? openEditProfile : undefined;
 
+  const refresh = social.refresh;
+  const triggerRefresh = useCallback(async () => {
+    if (!refresh || refreshing) return;
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refresh, refreshing]);
+
+  const handleTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if ((scrollRef.current?.scrollTop ?? 0) <= 0) {
+      touchStartYRef.current = event.touches[0]?.clientY ?? null;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const startY = touchStartYRef.current;
+    if (startY === null || (scrollRef.current?.scrollTop ?? 0) > 0) return;
+    const currentY = event.touches[0]?.clientY ?? startY;
+    const delta = currentY - startY;
+    if (delta <= 0) {
+      setPullDistance(0);
+      return;
+    }
+    setPullDistance(Math.min(94, delta * 0.48));
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    const shouldRefresh = pullDistance > 62;
+    touchStartYRef.current = null;
+    setPullDistance(0);
+    if (shouldRefresh) void triggerRefresh();
+  }, [pullDistance, triggerRefresh]);
+
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
   const profileSheetPosts = useMemo(() => {
     if (!profileOpenId) return [];
@@ -174,8 +217,11 @@ export function GymCirclePreview({
       case "chat":
         return (
           <ChatScreen
+            messages={social.chatMessages ?? []}
             currentUser={social.currentUser}
+            onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
+            onUploadImage={onUploadChatImage}
             suggestedUsers={social.suggestedUsers}
           />
         );
@@ -224,6 +270,7 @@ export function GymCirclePreview({
     activeScreen,
     social,
     onUploadImage,
+    onUploadChatImage,
     handleEditProfile,
     handleSignOut,
     openProfile,
@@ -238,8 +285,32 @@ export function GymCirclePreview({
       <main className="min-h-[100dvh] bg-black text-white lg:bg-[#050505]">
         <div className="relative mx-auto h-[100dvh] min-h-[100dvh] w-full max-w-[480px] overflow-hidden border-white/[0.06] bg-black shadow-[0_0_90px_rgba(0,0,0,0.92)] lg:border-x">
           <div className="gc-phone-shell flex h-full min-h-0 flex-col">
-            <div className="gc-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-24">
-              {screen}
+            <div
+              className="pointer-events-none absolute left-1/2 top-[calc(var(--gc-safe-top)+10px)] z-40 grid size-10 -translate-x-1/2 place-items-center rounded-full border border-white/[0.08] bg-black/72 text-[var(--gc-brand)] opacity-0 shadow-[0_0_28px_rgba(48,213,255,0.18)] backdrop-blur-2xl transition-opacity duration-200"
+              style={{ opacity: pullDistance > 8 || refreshing ? 1 : 0 }}
+            >
+              <RefreshCw
+                className={refreshing ? "animate-spin" : undefined}
+                size={18}
+                style={{ transform: refreshing ? undefined : `rotate(${pullDistance * 2.2}deg)` }}
+              />
+            </div>
+            <div
+              className="gc-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-24"
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
+              onTouchStart={handleTouchStart}
+              ref={scrollRef}
+            >
+              <div
+                className="min-h-full"
+                style={{
+                  transform: pullDistance ? `translateY(${pullDistance}px)` : undefined,
+                  transition: pullDistance ? undefined : "transform 260ms var(--gc-ease-ios)",
+                }}
+              >
+                {screen}
+              </div>
             </div>
             <BottomNav active={activeScreen} onChange={setActiveScreen} />
           </div>

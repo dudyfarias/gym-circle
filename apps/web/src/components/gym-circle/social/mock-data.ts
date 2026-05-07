@@ -1,4 +1,4 @@
-import type { GymPost, GymStory, GymUser, SocialState } from "./types";
+import type { ChatMessage, GymPost, GymStory, GymUser, SocialState } from "./types";
 
 export const currentUserId = "user-edu";
 
@@ -18,6 +18,9 @@ const users: Record<string, GymUser> = {
     avatarUrl: null,
     bio: "Lifestyle fitness, consistência e treino cedo.",
     goal: "Consistencia",
+    instagramUsername: "edu.fit",
+    birthDate: "1996-05-07",
+    sports: ["Musculacao", "Corrida", "Funcional"],
     location: "Recife",
     gyms: ["Pulse Club Recife", "Wellness Lab"],
     preferredTimes: ["manhã", "noite"],
@@ -471,12 +474,36 @@ const stories: GymStory[] = [
   },
 ];
 
+const chatMessages: ChatMessage[] = [
+  {
+    id: "msg-1",
+    senderId: "user-maya",
+    receiverId: "user-edu",
+    body: "Treino hoje no Wellness?",
+    mediaUrl: null,
+    mediaType: null,
+    createdAt: "2026-05-06T18:50:00",
+    readAt: null,
+  },
+  {
+    id: "msg-2",
+    senderId: "user-edu",
+    receiverId: "user-maya",
+    body: "Vou postar depois do cardio.",
+    mediaUrl: null,
+    mediaType: null,
+    createdAt: "2026-05-06T18:52:00",
+    readAt: null,
+  },
+];
+
 export function createInitialSocialState(): SocialState {
   return {
     currentUserId,
     users: structuredClone(users),
     posts: structuredClone(posts),
     stories: structuredClone(stories),
+    chatMessages: structuredClone(chatMessages),
     checkInsToday: ["user-maya", "user-rafa", "user-leo", "user-bia", "user-ana"],
   };
 }

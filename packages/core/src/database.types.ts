@@ -45,6 +45,9 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           fitness_goal: string | null;
+          instagram_username: string | null;
+          birth_date: string | null;
+          sports: string[];
           main_gym_id: string | null;
           preferred_training_times: string[];
           is_private: boolean;
@@ -58,6 +61,9 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           fitness_goal?: string | null;
+          instagram_username?: string | null;
+          birth_date?: string | null;
+          sports?: string[];
           main_gym_id?: string | null;
           preferred_training_times?: string[];
           is_private?: boolean;
@@ -281,6 +287,30 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
         Relationships: [];
       };
+      direct_messages: {
+        Row: {
+          id: string;
+          sender_id: string;
+          receiver_id: string;
+          body: string | null;
+          media_url: string | null;
+          media_type: "image" | "video" | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          receiver_id: string;
+          body?: string | null;
+          media_url?: string | null;
+          media_type?: "image" | "video" | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["direct_messages"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: {
       feed_posts: {
@@ -315,6 +345,10 @@ export interface Database {
       refresh_my_stats: {
         Args: Record<string, never>;
         Returns: undefined;
+      };
+      resolve_email_for_username: {
+        Args: { p_username: string };
+        Returns: string | null;
       };
     };
     Enums: Record<string, never>;

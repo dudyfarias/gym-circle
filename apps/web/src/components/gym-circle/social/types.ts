@@ -8,6 +8,11 @@ export type GymUser = {
   avatarUrl: string | null;
   bio: string;
   goal: string;
+  instagramUsername?: string | null;
+  birthDate?: string | null;
+  age?: number | null;
+  isBirthday?: boolean;
+  sports?: string[];
   location: string;
   gyms: string[];
   preferredTimes: string[];
@@ -88,6 +93,7 @@ export type SocialState = {
   users: Record<string, GymUser>;
   posts: GymPost[];
   stories: GymStory[];
+  chatMessages: ChatMessage[];
   checkInsToday: string[];
 };
 
@@ -105,6 +111,24 @@ export type EnrichedPost = GymPost & {
 
 export type EnrichedStory = GymStory & {
   author: EnrichedUser;
+};
+
+export type ChatMessage = {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  body: string | null;
+  mediaUrl: string | null;
+  mediaType: "image" | "video" | null;
+  createdAt: string;
+  readAt: string | null;
+};
+
+export type SendChatMessageInput = {
+  receiverId: string;
+  body?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "image" | "video" | null;
 };
 
 export type PostDestinations = {
@@ -149,6 +173,9 @@ export type ProfileEditInput = {
   fitnessGoal?: string | null;
   avatarUrl?: string | null;
   isPrivate?: boolean;
+  instagramUsername?: string | null;
+  birthDate?: string | null;
+  sports?: string[];
 };
 
 export type EditPostInput = {
@@ -168,6 +195,7 @@ export type SocialActions = {
   updateProfile?: (input: ProfileEditInput) => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
+  sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   acceptFollowRequest?: (requesterId: string) => Promise<void>;
   rejectFollowRequest?: (requesterId: string) => Promise<void>;
 };
@@ -180,6 +208,7 @@ export type SocialBundle = {
   selectedStory: EnrichedStory | null;
   suggestedUsers: EnrichedUser[];
   nearbyUsers: EnrichedUser[];
+  chatMessages?: ChatMessage[];
   socialStats: {
     trainedToday: number;
     checkInsToday: number;
@@ -189,4 +218,5 @@ export type SocialBundle = {
   formatPostClock: (createdAt: string) => string;
   actions: SocialActions;
   unreadNotifications?: number;
+  refresh?: () => void | Promise<void>;
 };

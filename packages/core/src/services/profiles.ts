@@ -7,6 +7,9 @@ export type ProfileUpdate = Partial<{
   avatar_url: string | null;
   bio: string | null;
   fitness_goal: string | null;
+  instagram_username: string | null;
+  birth_date: string | null;
+  sports: string[];
   main_gym_id: string | null;
   preferred_training_times: string[];
   is_private: boolean;

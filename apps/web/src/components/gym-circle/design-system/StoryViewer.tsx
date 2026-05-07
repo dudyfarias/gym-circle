@@ -42,7 +42,11 @@ export function StoryViewer({ story, onClose }: StoryViewerProps) {
 
         <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-8">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar accent={story.author.accent} name={story.author.name} />
+            <Avatar
+              accent={story.author.accent}
+              name={story.author.name}
+              src={story.author.avatarUrl ?? undefined}
+            />
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <p className="truncate text-[15px] font-black">{story.author.name}</p>

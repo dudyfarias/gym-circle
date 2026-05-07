@@ -29,7 +29,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   const social = useSupabaseSocial(userId);
 
   const uploadTo = useCallback(
-    async (bucket: "posts" | "avatars" | "stories", file: File) => {
+    async (bucket: "posts" | "avatars" | "stories" | "chat-media", file: File) => {
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error } = await services.client.storage
@@ -51,6 +51,10 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   );
   const onUploadAvatar = useCallback(
     (file: File) => uploadTo("avatars", file),
+    [uploadTo],
+  );
+  const onUploadChatImage = useCallback(
+    (file: File) => uploadTo("chat-media", file),
     [uploadTo],
   );
 
@@ -76,6 +80,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   return (
     <GymCirclePreview
       onUploadAvatar={onUploadAvatar}
+      onUploadChatImage={onUploadChatImage}
       onUploadImage={onUploadImage}
       social={social}
     />

@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Camera, Check, Lock, Unlock, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import {
+  calculateAgeFromBirthDate,
+  formatSportsInput,
+  normalizeInstagramUsername,
+  splitSportsInput,
+} from "./social/profile";
 import type { EnrichedUser, ProfileEditInput } from "./social/types";
 
 type EditProfileSheetProps = {
@@ -25,8 +31,11 @@ export function EditProfileSheet({
   const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio ?? "");
   const [fitnessGoal, setFitnessGoal] = useState(currentUser.goal ?? "");
+  const [instagramUsername, setInstagramUsername] = useState(currentUser.instagramUsername ?? "");
+  const [birthDate, setBirthDate] = useState(currentUser.birthDate ?? "");
+  const [sportsInput, setSportsInput] = useState(formatSportsInput(currentUser.sports));
   const [isPrivate, setIsPrivate] = useState(currentUser.isPrivate ?? false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser.avatarUrl);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +48,11 @@ export function EditProfileSheet({
       setUsername(currentUser.username);
       setBio(currentUser.bio ?? "");
       setFitnessGoal(currentUser.goal ?? "");
+      setInstagramUsername(currentUser.instagramUsername ?? "");
+      setBirthDate(currentUser.birthDate ?? "");
+      setSportsInput(formatSportsInput(currentUser.sports));
       setIsPrivate(currentUser.isPrivate ?? false);
-      setAvatarUrl(null);
+      setAvatarUrl(currentUser.avatarUrl);
       setError(null);
     }, 0);
     return () => window.clearTimeout(id);
@@ -76,8 +88,11 @@ export function EditProfileSheet({
         username: cleanedUsername,
         bio: bio.trim() || null,
         fitnessGoal: fitnessGoal.trim() || null,
+        instagramUsername: normalizeInstagramUsername(instagramUsername),
+        birthDate: birthDate || null,
+        sports: splitSportsInput(sportsInput),
         isPrivate,
-        ...(avatarUrl ? { avatarUrl } : {}),
+        ...(avatarUrl !== currentUser.avatarUrl ? { avatarUrl } : {}),
       });
       onClose();
     } catch (err) {
@@ -88,6 +103,8 @@ export function EditProfileSheet({
   }
 
   if (!open) return null;
+
+  const calculatedAge = calculateAgeFromBirthDate(birthDate);
 
   return (
     <div className="absolute inset-0 z-50 bg-black/94 px-4 py-4 backdrop-blur-2xl">
@@ -112,7 +129,12 @@ export function EditProfileSheet({
                   <Image alt="Avatar" className="object-cover" fill sizes="80px" src={avatarUrl} />
                 </div>
               ) : (
-                <Avatar accent={currentUser.accent} name={currentUser.name} size="lg" />
+                <Avatar
+                  accent={currentUser.accent}
+                  name={currentUser.name}
+                  size="lg"
+                  src={currentUser.avatarUrl ?? undefined}
+                />
               )}
               {onUploadAvatar ? (
                 <button
@@ -176,6 +198,42 @@ export function EditProfileSheet({
               onChange={(e) => setFitnessGoal(e.target.value)}
               placeholder="Ex: Hipertrofia, Corrida 10K, Consistência"
               value={fitnessGoal}
+            />
+          </FormField>
+
+          <FormField label="Instagram">
+            <div className="flex h-12 items-center rounded-[16px] border border-white/[0.08] bg-black/40 px-4">
+              <span className="text-[15px] font-bold text-white/42">@</span>
+              <input
+                className="h-full flex-1 bg-transparent text-[15px] font-bold text-white outline-none"
+                maxLength={30}
+                onChange={(e) => setInstagramUsername(e.target.value)}
+                placeholder="seu.usuario"
+                value={instagramUsername}
+              />
+            </div>
+          </FormField>
+
+          <FormField
+            hint={calculatedAge ? `${calculatedAge} anos` : "idade automática"}
+            label="Nascimento"
+          >
+            <input
+              className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setBirthDate(e.target.value)}
+              type="date"
+              value={birthDate}
+            />
+          </FormField>
+
+          <FormField label="Esportes" hint="separe por vírgula">
+            <input
+              className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
+              maxLength={140}
+              onChange={(e) => setSportsInput(e.target.value)}
+              placeholder="Musculação, Corrida, Pilates"
+              value={sportsInput}
             />
           </FormField>
 

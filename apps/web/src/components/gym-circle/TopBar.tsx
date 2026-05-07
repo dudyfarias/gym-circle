@@ -14,7 +14,7 @@ export function TopBar({ eyebrow, title }: TopBarProps) {
   const { openSearch, openNotifications, unreadNotifications } = useSearchSheet();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-5 backdrop-blur-2xl">
+    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-2xl">
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <BrandMark size={38} />

@@ -54,7 +54,11 @@ export function DiscoveryUserCard({
   return (
     <div className="gc-ios-sheet gc-pressable min-w-[220px] rounded-[28px] p-4">
       <div className="flex items-start justify-between gap-4">
-        <Avatar accent={user.accent} name={user.name} />
+        <Avatar
+          accent={user.accent}
+          name={user.name}
+          src={user.avatarUrl ?? undefined}
+        />
         <button
           aria-label={cta.ariaLabel}
           className={["gc-pressable grid size-10 place-items-center rounded-full", cta.classes].join(" ")}
