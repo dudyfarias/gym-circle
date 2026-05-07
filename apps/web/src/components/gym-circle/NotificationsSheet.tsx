@@ -1,0 +1,226 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Heart, MessageCircle, AtSign, UserPlus, X } from "lucide-react";
+import { useGymCircleServices } from "@gym-circle/core/hooks";
+import type { NotificationRow } from "@gym-circle/core";
+import { Avatar } from "@/components/ui/Avatar";
+import type { EnrichedUser } from "./social/types";
+
+type NotificationsSheetProps = {
+  open: boolean;
+  onClose: () => void;
+  currentUserId: string;
+  users: Record<string, EnrichedUser>;
+  onSelectUser?: (userId: string) => void;
+};
+
+const KIND_ICON = {
+  like: Heart,
+  comment: MessageCircle,
+  follow: UserPlus,
+  mention: AtSign,
+} as const;
+
+const KIND_LABEL = {
+  like: "curtiu seu treino",
+  comment: "comentou seu treino",
+  follow: "começou a seguir você",
+  mention: "mencionou você",
+} as const;
+
+const KIND_TONE = {
+  like: "text-[var(--gc-pink)]",
+  comment: "text-[var(--gc-brand)]",
+  follow: "text-[var(--gc-consistency-month)]",
+  mention: "text-[var(--gc-consistency-daily)]",
+} as const;
+
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return "agora";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const days = Math.floor(hr / 24);
+  return `${days}d`;
+}
+
+export function NotificationsSheet({
+  open,
+  onClose,
+  currentUserId,
+  users,
+  onSelectUser,
+}: NotificationsSheetProps) {
+  const services = useGymCircleServices();
+  const [items, setItems] = useState<NotificationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!open) return;
+    setLoading(true);
+    try {
+      const list = await services.notifications.listForUser(currentUserId);
+      setItems(list);
+    } finally {
+      setLoading(false);
+    }
+  }, [services, currentUserId, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    refresh();
+    const channel = services.client
+      .channel(`notifications:${currentUserId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        () => refresh(),
+      )
+      .subscribe();
+    return () => {
+      services.client.removeChannel(channel);
+    };
+  }, [services, currentUserId, open, refresh]);
+
+  // Marca todas como lidas quando o sheet abre
+  useEffect(() => {
+    if (!open) return;
+    services.notifications.markAllRead(currentUserId).catch(() => {
+      /* ignora */
+    });
+  }, [open, services, currentUserId]);
+
+  const grouped = useMemo(() => {
+    const today: NotificationRow[] = [];
+    const earlier: NotificationRow[] = [];
+    const now = Date.now();
+    for (const n of items) {
+      if (now - new Date(n.created_at).getTime() < 24 * 60 * 60 * 1000) today.push(n);
+      else earlier.push(n);
+    }
+    return { today, earlier };
+  }, [items]);
+
+  if (!open) return null;
+
+  return (
+    <div className="absolute inset-0 z-50 bg-black/94 px-4 py-4 backdrop-blur-2xl">
+      <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
+        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
+          <p className="text-[17px] font-black">Notificações</p>
+          <button
+            aria-label="Fechar"
+            className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <X size={19} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {loading && items.length === 0 ? (
+            <p className="mt-10 text-center text-[13px] font-bold text-white/52">
+              Carregando...
+            </p>
+          ) : items.length === 0 ? (
+            <div className="grid h-full place-items-center text-center">
+              <div>
+                <p className="text-[16px] font-black">Tudo limpo</p>
+                <p className="mt-2 text-[13px] font-bold text-white/52">
+                  Quando alguém curtir seus treinos, te seguir ou te marcar, aparece aqui.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {grouped.today.length > 0 ? (
+                <Section title="Hoje" items={grouped.today} users={users} onSelectUser={onSelectUser} />
+              ) : null}
+              {grouped.earlier.length > 0 ? (
+                <Section
+                  title="Anteriores"
+                  items={grouped.earlier}
+                  users={users}
+                  onSelectUser={onSelectUser}
+                />
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({
+  title,
+  items,
+  users,
+  onSelectUser,
+}: {
+  title: string;
+  items: NotificationRow[];
+  users: Record<string, EnrichedUser>;
+  onSelectUser?: (userId: string) => void;
+}) {
+  return (
+    <div className="mb-4">
+      <h3 className="mb-2 text-[12px] font-black uppercase text-white/42">{title}</h3>
+      <ul className="space-y-2">
+        {items.map((n) => {
+          const Icon = KIND_ICON[n.kind];
+          const tone = KIND_TONE[n.kind];
+          const actor = users[n.actor_id];
+          const unread = !n.read_at;
+          return (
+            <li
+              className={[
+                "flex items-center gap-3 rounded-[20px] border p-3",
+                unread
+                  ? "border-[var(--gc-brand)]/24 bg-[var(--gc-brand)]/6"
+                  : "border-white/[0.06] bg-white/[0.02]",
+              ].join(" ")}
+              key={n.id}
+            >
+              <button
+                aria-label={`Ver ${actor?.name ?? "perfil"}`}
+                className="gc-pressable shrink-0"
+                onClick={() => actor && onSelectUser?.(actor.id)}
+                type="button"
+              >
+                <Avatar accent={actor?.accent ?? "var(--gc-brand)"} name={actor?.name ?? "?"} />
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-bold text-white/82">
+                  <span className="text-white">{actor?.name ?? "Alguém"}</span>{" "}
+                  <span className="font-semibold text-white/64">{KIND_LABEL[n.kind]}</span>
+                </p>
+                {n.body ? (
+                  <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
+                    "{n.body}"
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <Icon className={tone} size={18} fill={n.kind === "like" ? "currentColor" : "none"} />
+                <span className="text-[10px] font-black text-white/36">
+                  {formatRelative(n.created_at)}
+                </span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}

@@ -2,7 +2,9 @@ import {
   CalendarDays,
   CheckCircle2,
   Dumbbell,
+  LogOut,
   MapPin,
+  Pencil,
   Trophy,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -19,17 +21,48 @@ import { TopBar } from "../TopBar";
 type ProfileScreenProps = {
   currentUser: EnrichedUser;
   nearbyUsers: EnrichedUser[];
-  onToggleFollow: (userId: string) => void;
+  onToggleFollow: (userId: string) => void | Promise<void>;
+  onEditProfile?: () => void;
+  onSignOut?: () => void | Promise<void>;
+  onSelectUser?: (userId: string) => void;
 };
 
 export function ProfileScreen({
   currentUser,
   nearbyUsers,
   onToggleFollow,
+  onEditProfile,
+  onSignOut,
+  onSelectUser,
 }: ProfileScreenProps) {
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar eyebrow="Perfil" title={currentUser.name} />
+
+      {(onEditProfile || onSignOut) ? (
+        <div className="mt-3 flex gap-2">
+          {onEditProfile ? (
+            <button
+              className="gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.04] px-4 text-[13px] font-black text-white"
+              onClick={onEditProfile}
+              type="button"
+            >
+              <Pencil size={15} strokeWidth={2.6} />
+              Editar perfil
+            </button>
+          ) : null}
+          {onSignOut ? (
+            <button
+              aria-label="Sair"
+              className="gc-pressable grid size-11 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/72"
+              onClick={onSignOut}
+              type="button"
+            >
+              <LogOut size={16} strokeWidth={2.6} />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="mt-5">
         <ProfileHeader user={currentUser} />
@@ -88,7 +121,11 @@ export function ProfileScreen({
               className="gc-ios-sheet flex items-center justify-between rounded-[24px] p-4"
               key={person.id}
             >
-              <div className="flex items-center gap-3">
+              <button
+                className="gc-pressable flex flex-1 items-center gap-3 text-left"
+                onClick={() => onSelectUser?.(person.id)}
+                type="button"
+              >
                 <Avatar accent={person.accent} name={person.name} />
                 <div>
                   <div className="flex items-center gap-2">
@@ -103,7 +140,7 @@ export function ProfileScreen({
                     {person.goal}
                   </p>
                 </div>
-              </div>
+              </button>
               <button
                 className="gc-pressable"
                 onClick={() => onToggleFollow(person.id)}

@@ -2,20 +2,28 @@
 
 import { createContext, useContext } from "react";
 
-type SearchSheetContextValue = {
+type UISheetContextValue = {
   openSearch: () => void;
+  openProfile: (userId: string) => void;
+  openEditProfile: () => void;
+  openNotifications: () => void;
+  unreadNotifications: number;
 };
 
-const SearchSheetContext = createContext<SearchSheetContextValue | null>(null);
+const noop = () => {
+  /* default no-op */
+};
 
-export const SearchSheetProvider = SearchSheetContext.Provider;
+const UISheetContext = createContext<UISheetContextValue>({
+  openSearch: noop,
+  openProfile: noop,
+  openEditProfile: noop,
+  openNotifications: noop,
+  unreadNotifications: 0,
+});
 
-export function useSearchSheet(): SearchSheetContextValue {
-  return (
-    useContext(SearchSheetContext) ?? {
-      openSearch: () => {
-        /* no-op when not provided */
-      },
-    }
-  );
+export const SearchSheetProvider = UISheetContext.Provider;
+
+export function useSearchSheet(): UISheetContextValue {
+  return useContext(UISheetContext);
 }

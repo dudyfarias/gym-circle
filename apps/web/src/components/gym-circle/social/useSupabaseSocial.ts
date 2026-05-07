@@ -7,6 +7,7 @@ import type {
   FeedPostRow,
   FollowRow,
   GymRow,
+  NotificationRow,
   PostCommentRow,
   PostLikeRow,
   ProfileRow,
@@ -25,6 +26,7 @@ import type {
   FeedbackMessage,
   FeedbackTone,
   GymUser,
+  ProfileEditInput,
   StreakPresence,
 } from "./types";
 
@@ -112,6 +114,7 @@ type AggregateState = {
   postComments: PostCommentRow[];
   checkinsToday: CheckinRow[];
   myActivityDays: UserActivityDayRow[];
+  myNotifications: NotificationRow[];
 };
 
 const EMPTY: AggregateState = {
@@ -126,6 +129,7 @@ const EMPTY: AggregateState = {
   postComments: [],
   checkinsToday: [],
   myActivityDays: [],
+  myNotifications: [],
 };
 
 export type SupabaseSocialActions = {
@@ -136,6 +140,8 @@ export type SupabaseSocialActions = {
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
   checkIn: (gymName: string) => Promise<void>;
+  signOut: () => Promise<void>;
+  updateProfile: (input: ProfileEditInput) => Promise<void>;
 };
 
 export type SupabaseSocialResult = {
@@ -154,6 +160,7 @@ export type SupabaseSocialResult = {
   feedback: FeedbackMessage | null;
   formatPostClock: typeof formatPostClock;
   actions: SupabaseSocialActions;
+  unreadNotifications: number;
   loading: boolean;
   error: Error | null;
 };
@@ -179,6 +186,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         storiesRes,
         myActivityRes,
         checkinsTodayRes,
+        myNotificationsRes,
       ] = await Promise.all([
         services.client.from("profiles").select("*"),
         services.client.from("user_stats").select("*"),
@@ -196,6 +204,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .from("checkins")
           .select("*")
           .eq("checkin_date", new Date().toISOString().slice(0, 10)),
+        services.client
+          .from("notifications")
+          .select("*")
+          .eq("user_id", currentUserId)
+          .order("created_at", { ascending: false })
+          .limit(50),
       ]);
 
       for (const r of [
@@ -208,6 +222,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         storiesRes,
         myActivityRes,
         checkinsTodayRes,
+        myNotificationsRes,
       ]) {
         if (r.error) throw r.error;
       }
@@ -242,6 +257,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         postComments: (commentsRes.data ?? []) as PostCommentRow[],
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
         myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
+        myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
       });
       setError(null);
     } catch (err) {
@@ -263,6 +279,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, () => refresh())
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        () => refresh(),
+      )
       .subscribe();
     return () => {
       mountedRef.current = false;
@@ -575,8 +601,26 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.checkins.checkIn(currentUserId, gym.id);
         showFeedback("brand", "Check-in ativo", gymName);
       },
+      async signOut() {
+        await services.auth.signOut();
+      },
+      async updateProfile(input: ProfileEditInput) {
+        await services.profiles.update(currentUserId, {
+          ...(input.displayName !== undefined ? { display_name: input.displayName } : {}),
+          ...(input.username !== undefined ? { username: input.username } : {}),
+          ...(input.bio !== undefined ? { bio: input.bio } : {}),
+          ...(input.fitnessGoal !== undefined ? { fitness_goal: input.fitnessGoal } : {}),
+          ...(input.avatarUrl !== undefined ? { avatar_url: input.avatarUrl } : {}),
+        });
+        showFeedback("success", "Perfil atualizado");
+      },
     }),
     [services, currentUserId, feedPosts, enrichedAll, agg.gyms, showFeedback],
+  );
+
+  const unreadNotifications = useMemo(
+    () => agg.myNotifications.filter((n) => !n.read_at).length,
+    [agg.myNotifications],
   );
 
   return {
@@ -591,6 +635,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     feedback,
     formatPostClock,
     actions,
+    unreadNotifications,
     loading,
     error,
   };

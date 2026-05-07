@@ -107,6 +107,14 @@ export type FeedbackMessage = {
   detail?: string;
 };
 
+export type ProfileEditInput = {
+  displayName?: string;
+  username?: string;
+  bio?: string | null;
+  fitnessGoal?: string | null;
+  avatarUrl?: string | null;
+};
+
 export type SocialActions = {
   likePost: (postId: string) => void | Promise<void>;
   commentPost: (postId: string, body: string) => void | Promise<void>;
@@ -115,6 +123,8 @@ export type SocialActions = {
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;
   checkIn: (gymName: string) => void | Promise<void>;
+  signOut?: () => Promise<void>;
+  updateProfile?: (input: ProfileEditInput) => Promise<void>;
 };
 
 export type SocialBundle = {
@@ -133,4 +143,5 @@ export type SocialBundle = {
   feedback: FeedbackMessage | null;
   formatPostClock: (createdAt: string) => string;
   actions: SocialActions;
+  unreadNotifications?: number;
 };

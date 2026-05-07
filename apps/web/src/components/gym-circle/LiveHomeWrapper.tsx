@@ -28,21 +28,30 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   const services = useGymCircleServices();
   const social = useSupabaseSocial(userId);
 
-  const onUploadImage = useCallback(
-    async (file: File) => {
+  const uploadTo = useCallback(
+    async (bucket: "posts" | "avatars" | "stories", file: File) => {
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const { error } = await services.client.storage
-        .from("posts")
+        .from(bucket)
         .upload(path, file, {
           cacheControl: "3600",
           contentType: file.type || `image/${ext}`,
         });
       if (error) throw error;
-      const { data } = services.client.storage.from("posts").getPublicUrl(path);
+      const { data } = services.client.storage.from(bucket).getPublicUrl(path);
       return data.publicUrl;
     },
     [services, userId],
+  );
+
+  const onUploadImage = useCallback(
+    (file: File) => uploadTo("posts", file),
+    [uploadTo],
+  );
+  const onUploadAvatar = useCallback(
+    (file: File) => uploadTo("avatars", file),
+    [uploadTo],
   );
 
   if (social.loading && social.feedPosts.length === 0) {
@@ -64,5 +73,11 @@ function AuthenticatedShell({ userId }: { userId: string }) {
     );
   }
 
-  return <GymCirclePreview social={social} onUploadImage={onUploadImage} />;
+  return (
+    <GymCirclePreview
+      onUploadAvatar={onUploadAvatar}
+      onUploadImage={onUploadImage}
+      social={social}
+    />
+  );
 }

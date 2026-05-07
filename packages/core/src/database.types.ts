@@ -235,6 +235,32 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["user_stats"]["Insert"]>;
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          actor_id: string;
+          kind: "like" | "comment" | "follow" | "mention";
+          post_id: string | null;
+          comment_id: string | null;
+          body: string | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          actor_id: string;
+          kind: "like" | "comment" | "follow" | "mention";
+          post_id?: string | null;
+          comment_id?: string | null;
+          body?: string | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: {
       feed_posts: {

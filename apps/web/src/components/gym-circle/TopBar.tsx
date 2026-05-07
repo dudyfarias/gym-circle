@@ -11,7 +11,7 @@ type TopBarProps = {
 };
 
 export function TopBar({ eyebrow, title }: TopBarProps) {
-  const { openSearch } = useSearchSheet();
+  const { openSearch, openNotifications, unreadNotifications } = useSearchSheet();
 
   return (
     <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-5 backdrop-blur-2xl">
@@ -29,9 +29,16 @@ export function TopBar({ eyebrow, title }: TopBarProps) {
           <IconButton label="Buscar usuários" onClick={openSearch}>
             <Search size={19} strokeWidth={2.4} />
           </IconButton>
-          <IconButton label="Notificações">
-            <Bell size={19} strokeWidth={2.4} />
-          </IconButton>
+          <div className="relative">
+            <IconButton label="Notificações" onClick={openNotifications}>
+              <Bell size={19} strokeWidth={2.4} />
+            </IconButton>
+            {unreadNotifications > 0 ? (
+              <span className="pointer-events-none absolute -right-0.5 -top-0.5 grid min-w-[20px] place-items-center rounded-full border-2 border-black bg-[var(--gc-pink)] px-1.5 text-[10px] font-black leading-tight text-white">
+                {unreadNotifications > 99 ? "99+" : unreadNotifications}
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
     </header>

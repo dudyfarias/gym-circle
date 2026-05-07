@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
+import { MentionText } from "../MentionText";
 import type { EnrichedPost } from "../social/types";
 import { EmptyState } from "./EmptyState";
 import { StreakBadge } from "./StreakBadge";
@@ -24,6 +25,8 @@ type SocialPostCardProps = {
   onLike: (postId: string) => void;
   onComment: (postId: string, body: string) => void;
   onToggleFollow: (userId: string) => void;
+  onSelectUser?: (userId: string) => void;
+  resolveUser?: (username: string) => { id: string } | undefined;
 };
 
 export function SocialPostCard({
@@ -33,6 +36,8 @@ export function SocialPostCard({
   onLike,
   onComment,
   onToggleFollow,
+  onSelectUser,
+  resolveUser,
 }: SocialPostCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
@@ -53,7 +58,12 @@ export function SocialPostCard({
   return (
     <article className="gc-screen-enter overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#0c0d0e] shadow-[0_24px_64px_rgba(0,0,0,0.48)]">
       <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-        <div className="flex min-w-0 items-center gap-3">
+        <button
+          aria-label={`Ver ${post.author.name}`}
+          className="gc-pressable flex min-w-0 flex-1 items-center gap-3 text-left"
+          onClick={() => onSelectUser?.(post.author.id)}
+          type="button"
+        >
           <Avatar accent={post.author.accent} name={post.author.name} />
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -69,7 +79,7 @@ export function SocialPostCard({
               {post.gymName} · {formatTime(post.createdAt)}
             </p>
           </div>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           {canFollow ? (
             <button
@@ -193,7 +203,18 @@ export function SocialPostCard({
         )}
 
         <p className="text-[14px] font-semibold leading-5 text-white/82">
-          <span className="text-white">{post.author.username}</span> {post.caption}
+          <button
+            className="gc-pressable text-white"
+            onClick={() => onSelectUser?.(post.author.id)}
+            type="button"
+          >
+            {post.author.username}
+          </button>{" "}
+          <MentionText
+            onSelectUser={onSelectUser}
+            resolveUser={resolveUser}
+            text={post.caption}
+          />
         </p>
         <p className="text-[12px] font-bold text-white/38">
           {post.comments.length} comentarios · {post.smartReason.toLowerCase()}
@@ -205,14 +226,24 @@ export function SocialPostCard({
               post.commentPreviews.map((comment) => (
                 <div className="text-[13px] font-semibold leading-5 text-white/70" key={comment.id}>
                   <div className="inline-flex min-w-0 items-center gap-1.5 align-middle">
-                    <span className="font-black text-white">{comment.author.username}</span>
+                    <button
+                      className="gc-pressable font-black text-white"
+                      onClick={() => onSelectUser?.(comment.author.id)}
+                      type="button"
+                    >
+                      {comment.author.username}
+                    </button>
                     <StreakBadge
                       isLit={comment.author.streakLitToday}
                       size="xs"
                       streak={comment.author.currentStreak}
                     />
                   </div>{" "}
-                  {comment.body}
+                  <MentionText
+                    onSelectUser={onSelectUser}
+                    resolveUser={resolveUser}
+                    text={comment.body}
+                  />
                 </div>
               ))
             ) : (

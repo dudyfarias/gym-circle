@@ -3,6 +3,7 @@ import { authService } from "./auth";
 import { checkinService } from "./checkins";
 import { followService } from "./follows";
 import { gymService } from "./gyms";
+import { notificationService } from "./notifications";
 import { postService } from "./posts";
 import { profileService } from "./profiles";
 import { statsService } from "./stats";
@@ -13,6 +14,7 @@ export * from "./auth";
 export * from "./checkins";
 export * from "./follows";
 export * from "./gyms";
+export * from "./notifications";
 export * from "./posts";
 export * from "./profiles";
 export * from "./stats";
@@ -29,6 +31,7 @@ export function createGymCircleServices(client: GymCircleClient) {
     gyms: gymService(client),
     checkins: checkinService(client),
     stats: statsService(client),
+    notifications: notificationService(client),
   };
 }
 
