@@ -41,7 +41,7 @@ export function postService(client: GymCircleClient) {
         .select("*")
         .single();
       if (error) throw error;
-      return data;
+      return data as PostRow;
     },
 
     async remove(postId: string): Promise<void> {
@@ -60,7 +60,7 @@ export function postService(client: GymCircleClient) {
         .select("*")
         .single();
       if (error) throw error;
-      return data;
+      return data as PostRow;
     },
 
     /**
@@ -121,7 +121,7 @@ export function postService(client: GymCircleClient) {
             .select("user_id, username, display_name")
             .in("user_id", authorIds),
           client
-            .from("user_stats")
+            .from("user_stats_live")
             .select("user_id, current_streak, badge_is_active_today")
             .in("user_id", authorIds),
         ]);
@@ -134,7 +134,11 @@ export function postService(client: GymCircleClient) {
           ]),
         );
         statsById = new Map(
-          (statsRes.data ?? []).map((s) => [
+          ((statsRes.data ?? []) as Array<{
+            user_id: string;
+            current_streak: number;
+            badge_is_active_today: boolean;
+          }>).map((s) => [
             s.user_id,
             { current_streak: s.current_streak, badge_is_active_today: s.badge_is_active_today },
           ]),
@@ -171,7 +175,7 @@ export function postService(client: GymCircleClient) {
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []) as PostRow[];
     },
 
     async like(postId: string, userId: string): Promise<void> {

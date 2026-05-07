@@ -5,12 +5,12 @@ export function statsService(client: GymCircleClient) {
   return {
     async forUser(userId: string): Promise<UserStatsRow | null> {
       const { data, error } = await client
-        .from("user_stats")
+        .from("user_stats_live")
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
       if (error) throw error;
-      return data;
+      return data as UserStatsRow | null;
     },
 
     async refreshMine(): Promise<void> {

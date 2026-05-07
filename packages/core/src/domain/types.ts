@@ -3,22 +3,76 @@ import type { Database } from "../database.types";
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type GymRow = Database["public"]["Tables"]["gyms"]["Row"];
 export type UserGymRow = Database["public"]["Tables"]["user_gyms"]["Row"];
-export type PostRow = Database["public"]["Tables"]["posts"]["Row"];
-export type StoryRow = Database["public"]["Tables"]["stories"]["Row"];
 export type PostLikeRow = Database["public"]["Tables"]["post_likes"]["Row"];
 export type PostCommentRow = Database["public"]["Tables"]["post_comments"]["Row"];
-export type FollowRow = Database["public"]["Tables"]["follows"]["Row"];
 export type CheckinRow = Database["public"]["Tables"]["checkins"]["Row"];
 export type UserActivityDayRow =
   Database["public"]["Tables"]["user_activity_days"]["Row"];
-export type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
-export type DirectMessageRow = Database["public"]["Tables"]["direct_messages"]["Row"];
-export type FeedPostRow = Database["public"]["Views"]["feed_posts"]["Row"];
 
 export type PostMediaType = "image" | "video";
-
 export type PostLocationSource = "none" | "gym" | "current" | "custom";
+export type StoredFollowStatus = "pending" | "accepted";
+
+export type PostRow = Database["public"]["Tables"]["posts"]["Row"] & {
+  media_type: PostMediaType;
+  location_source: PostLocationSource;
+};
+
+export type StoryRow = Database["public"]["Tables"]["stories"]["Row"] & {
+  media_type: PostMediaType;
+};
+
+export type FollowRow = Database["public"]["Tables"]["follows"]["Row"] & {
+  status: StoredFollowStatus;
+};
+
+export type DirectMessageRow =
+  Omit<Database["public"]["Tables"]["direct_messages"]["Row"], "media_type"> & {
+    media_type: PostMediaType | null;
+  };
+
+export type UserStatsRow =
+  Omit<
+    Database["public"]["Views"]["user_stats_live"]["Row"],
+    | "user_id"
+    | "current_streak"
+    | "best_streak"
+    | "workouts_this_month"
+    | "active_days_this_year"
+    | "badge_is_active_today"
+  > & {
+    user_id: string;
+    current_streak: number;
+    best_streak: number;
+    workouts_this_month: number;
+    active_days_this_year: number;
+    badge_is_active_today: boolean;
+  };
+
+export type FeedPostRow =
+  Omit<
+    Database["public"]["Views"]["feed_posts"]["Row"],
+    | "id"
+    | "user_id"
+    | "image_url"
+    | "media_type"
+    | "location_source"
+    | "created_at"
+    | "workout_date"
+    | "likes_count"
+    | "comments_count"
+  > & {
+    id: string;
+    user_id: string;
+    image_url: string;
+    media_type: PostMediaType;
+    location_source: PostLocationSource;
+    created_at: string;
+    workout_date: string;
+    likes_count: number;
+    comments_count: number;
+  };
 
 export type CreatePostInput = {
   imageUrl: string;

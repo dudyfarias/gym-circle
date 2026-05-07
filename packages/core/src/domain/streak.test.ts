@@ -45,6 +45,17 @@ describe("calcStreakSnapshot — regras", () => {
     expect(s.currentStreak).toBe(1);
   });
 
+  it("post com foto acende badge", () => {
+    const s = calcStreakSnapshot([{ date: TODAY, hasPhoto: true }], TODAY);
+    expect(s.badgeIsActiveToday).toBe(true);
+  });
+
+  it("story acende badge", () => {
+    const s = calcStreakSnapshot([{ date: TODAY, hasPhoto: true }], TODAY);
+    expect(s.badgeIsActiveToday).toBe(true);
+    expect(s.currentStreak).toBe(1);
+  });
+
   it("não acende o badge quando o post de hoje não tem foto", () => {
     const s = calcStreakSnapshot([{ date: TODAY, hasPhoto: false }], TODAY);
     expect(s.badgeIsActiveToday).toBe(false);
@@ -76,6 +87,12 @@ describe("calcStreakSnapshot — regras", () => {
     );
     expect(s.currentStreak).toBe(2);
     expect(s.bestStreak).toBe(2);
+  });
+
+  it("badge apaga no dia seguinte sem post", () => {
+    const s = calcStreakSnapshot([{ date: addDays(TODAY, -1), hasPhoto: true }], TODAY);
+    expect(s.badgeIsActiveToday).toBe(false);
+    expect(s.currentStreak).toBe(1);
   });
 
   it("quebra o streak quando há gap de 1 dia", () => {

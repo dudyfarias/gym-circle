@@ -35,10 +35,13 @@ create policy "notifications_delete_self" on public.notifications
   for delete to authenticated using ((select auth.uid()) = user_id);
 
 grant select, update, delete on public.notifications to authenticated;
+-- Inserts via triggers SECURITY DEFINER. anon/authenticated não podem inserir direto.
 
 alter publication supabase_realtime add table public.notifications;
 
+-- ---------------------------------------------------------------------
 -- Triggers
+-- ---------------------------------------------------------------------
 create or replace function private.notify_post_like()
 returns trigger language plpgsql security definer set search_path = public, pg_temp
 as $$
@@ -64,9 +67,9 @@ begin
     values (v_owner, new.user_id, 'comment', new.post_id, new.id, left(new.body, 140));
   end if;
 
-  -- regexp_matches retorna text[] de capture groups; pegar m.match[1]
+  -- @mentions: para cada @username único no body, notifica
   for v_mention in
-    select distinct lower(m.match[1])
+    select distinct lower(substring(m.match from 2))
       from regexp_matches(new.body, '@([a-zA-Z0-9_.]{3,32})', 'g') as m(match)
   loop
     insert into public.notifications (user_id, actor_id, kind, post_id, comment_id, body)
@@ -103,4 +106,4 @@ create trigger follows_after_insert_notify
   after insert on public.follows
   for each row execute function private.notify_follow();
 
-comment on table public.notifications is 'Notificações sociais. Triggers em post_likes, post_comments, follows preenchem.';
+comment on table public.notifications is 'Notificações sociais. Triggers em post_likes, post_comments, follows preenchem.';;

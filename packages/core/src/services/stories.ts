@@ -4,6 +4,9 @@ import type { GymCircleClient } from "./supabase";
 export function storyService(client: GymCircleClient) {
   return {
     async create(userId: string, input: CreateStoryInput): Promise<StoryRow> {
+      if (!input.mediaUrl?.trim()) {
+        throw new Error("foto ou vídeo obrigatório");
+      }
       const { data, error } = await client
         .from("stories")
         .insert({
@@ -16,7 +19,7 @@ export function storyService(client: GymCircleClient) {
         .select("*")
         .single();
       if (error) throw error;
-      return data;
+      return data as StoryRow;
     },
 
     async remove(storyId: string): Promise<void> {
@@ -42,7 +45,7 @@ export function storyService(client: GymCircleClient) {
           .select("user_id, username, display_name, avatar_url")
           .in("user_id", userIds),
         client
-          .from("user_stats")
+          .from("user_stats_live")
           .select("user_id, current_streak, badge_is_active_today")
           .in("user_id", userIds),
       ]);
@@ -53,7 +56,11 @@ export function storyService(client: GymCircleClient) {
         (profilesRes.data ?? []).map((p) => [p.user_id, p]),
       );
       const statsById = new Map(
-        (statsRes.data ?? []).map((s) => [s.user_id, s]),
+        ((statsRes.data ?? []) as Array<{
+          user_id: string;
+          current_streak: number;
+          badge_is_active_today: boolean;
+        }>).map((s) => [s.user_id, s]),
       );
 
       return rows.map((row) => {

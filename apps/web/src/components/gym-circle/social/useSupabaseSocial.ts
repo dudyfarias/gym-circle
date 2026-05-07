@@ -208,7 +208,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         chatMessagesRes,
       ] = await Promise.all([
         services.client.from("profiles").select("*"),
-        services.client.from("user_stats").select("*"),
+        services.client.from("user_stats_live").select("*"),
         services.client.from("gyms").select("*"),
         services.client.from("user_gyms").select("*"),
         services.client.from("follows").select("*"),

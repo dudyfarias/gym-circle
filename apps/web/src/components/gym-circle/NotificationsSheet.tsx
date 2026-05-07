@@ -41,6 +41,12 @@ const KIND_TONE = {
   follow_request: "text-[var(--gc-brand)]",
 } as const;
 
+type NotificationKind = keyof typeof KIND_ICON;
+
+function normalizeNotificationKind(kind: string): NotificationKind {
+  return kind in KIND_ICON ? (kind as NotificationKind) : "mention";
+}
+
 function formatRelative(iso: string, now: number): string {
   const diff = now - new Date(iso).getTime();
   const sec = Math.floor(diff / 1000);
@@ -206,11 +212,12 @@ function Section({
       <h3 className="mb-2 text-[12px] font-black uppercase text-white/42">{title}</h3>
       <ul className="space-y-2">
         {items.map((n) => {
-          const Icon = KIND_ICON[n.kind];
-          const tone = KIND_TONE[n.kind];
+          const kind = normalizeNotificationKind(n.kind);
+          const Icon = KIND_ICON[kind];
+          const tone = KIND_TONE[kind];
           const actor = users[n.actor_id];
           const unread = !n.read_at;
-          const isFollowRequest = n.kind === "follow_request";
+          const isFollowRequest = kind === "follow_request";
           // Se o solicitante já foi aprovado em outra aba (followStatus 'accepted')
           // ou se a relação não existe mais (none), oculta os botões.
           const stillPending =
@@ -241,7 +248,7 @@ function Section({
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-bold text-white/82">
                     <span className="text-white">{actor?.name ?? "Alguém"}</span>{" "}
-                    <span className="font-semibold text-white/64">{KIND_LABEL[n.kind]}</span>
+                    <span className="font-semibold text-white/64">{KIND_LABEL[kind]}</span>
                   </p>
                   {n.body ? (
                     <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
@@ -250,7 +257,7 @@ function Section({
                   ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Icon className={tone} size={18} fill={n.kind === "like" ? "currentColor" : "none"} />
+                  <Icon className={tone} size={18} fill={kind === "like" ? "currentColor" : "none"} />
                   <span className="text-[10px] font-black text-white/36">
                     {formatRelative(n.created_at, now)}
                   </span>
