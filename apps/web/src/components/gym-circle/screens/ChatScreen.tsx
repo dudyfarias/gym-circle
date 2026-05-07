@@ -36,23 +36,34 @@ export function ChatScreen({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const visiblePeople = useMemo(() => {
+  const friends = useMemo(
+    () =>
+      suggestedUsers
+        .filter((user) => user.followStatus === "accepted" || user.isFollowing)
+        .sort((a, b) => {
+          const aHasThread = messages.some(
+            (message) =>
+              (message.senderId === currentUser.id && message.receiverId === a.id) ||
+              (message.senderId === a.id && message.receiverId === currentUser.id),
+          );
+          const bHasThread = messages.some(
+            (message) =>
+              (message.senderId === currentUser.id && message.receiverId === b.id) ||
+              (message.senderId === b.id && message.receiverId === currentUser.id),
+          );
+          return Number(bHasThread) - Number(aHasThread) || b.currentStreak - a.currentStreak;
+        })
+        .slice(0, 14),
+    [currentUser.id, messages, suggestedUsers],
+  );
+  const searchResults = useMemo(() => {
     const q = chatQuery.trim().replace(/^@/, "").toLowerCase();
-    if (q) {
-      return suggestedUsers
-        .filter((user) => user.username.toLowerCase().includes(q))
-        .slice(0, 10);
-    }
+    if (!q) return [];
     return suggestedUsers
-      .filter((user) =>
-        messages.some(
-          (message) =>
-            (message.senderId === currentUser.id && message.receiverId === user.id) ||
-            (message.senderId === user.id && message.receiverId === currentUser.id),
-        ),
-      )
+      .filter((user) => user.username.toLowerCase().includes(q))
       .slice(0, 10);
-  }, [chatQuery, currentUser.id, messages, suggestedUsers]);
+  }, [chatQuery, suggestedUsers]);
+  const visiblePeople = chatQuery.trim() ? searchResults : friends;
   const selectedUser =
     suggestedUsers.find((user) => user.id === selectedUserId) ??
     visiblePeople[0];
@@ -125,7 +136,17 @@ export function ChatScreen({
             value={chatQuery}
           />
         </div>
-        <div className="gc-scrollbar mt-4 flex gap-3 overflow-x-auto pb-1">
+        <div className="mt-4 flex items-center justify-between gap-3 px-1">
+          <p className="text-[12px] font-black uppercase tracking-[0.08em] text-white/42">
+            {chatQuery.trim() ? "Resultados" : "Amigos"}
+          </p>
+          {!chatQuery.trim() && friends.length > 0 ? (
+            <span className="rounded-full bg-white/[0.055] px-2.5 py-1 text-[10px] font-black text-white/38">
+              {friends.length} seguindo
+            </span>
+          ) : null}
+        </div>
+        <div className="gc-scrollbar mt-2 flex gap-3 overflow-x-auto pb-1">
           {visiblePeople.map((person) => (
             <button
               className="gc-pressable w-[68px] shrink-0 text-center"
@@ -155,7 +176,9 @@ export function ChatScreen({
           ))}
           {visiblePeople.length === 0 ? (
             <p className="py-3 text-[12px] font-bold text-white/38">
-              {chatQuery ? "Nenhum @username encontrado." : "Busque pelo @username para iniciar uma conversa."}
+              {chatQuery
+                ? "Nenhum @username encontrado."
+                : "Siga pessoas para seus amigos aparecerem aqui."}
             </p>
           ) : null}
         </div>
