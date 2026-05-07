@@ -3,6 +3,9 @@ import type { Database } from "../database.types";
 export type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 export type GymRow = Database["public"]["Tables"]["gyms"]["Row"];
 export type UserGymRow = Database["public"]["Tables"]["user_gyms"]["Row"];
+export type ConversationRow = Database["public"]["Tables"]["conversations"]["Row"];
+export type ConversationParticipantRow =
+  Database["public"]["Tables"]["conversation_participants"]["Row"];
 export type PostLikeRow = Database["public"]["Tables"]["post_likes"]["Row"];
 export type PostCommentRow = Database["public"]["Tables"]["post_comments"]["Row"];
 export type CheckinRow = Database["public"]["Tables"]["checkins"]["Row"];

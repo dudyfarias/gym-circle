@@ -132,6 +132,7 @@ export type EnrichedStory = GymStory & {
 
 export type ChatMessage = {
   id: string;
+  conversationId?: string | null;
   senderId: string;
   receiverId: string;
   body: string | null;

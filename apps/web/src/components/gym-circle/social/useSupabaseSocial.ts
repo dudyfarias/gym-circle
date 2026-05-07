@@ -314,6 +314,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants" }, () => refresh())
       .on(
         "postgres_changes",
         {
@@ -641,6 +643,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     () =>
       agg.chatMessages.map((message) => ({
         id: message.id,
+        conversationId: message.conversation_id,
         senderId: message.sender_id,
         receiverId: message.receiver_id,
         body: message.body,
@@ -772,28 +775,17 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("success", "Post apagado");
       },
       async sendChatMessage(input: SendChatMessageInput) {
-        const body = input.body?.trim() || null;
-        const mediaUrl = input.mediaUrl?.trim() || null;
-        if (!body && !mediaUrl) return;
-        const { error } = await services.client.from("direct_messages").insert({
-          sender_id: currentUserId,
-          receiver_id: input.receiverId,
-          body,
-          media_url: mediaUrl,
-          media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+        await services.messages.sendDirect(currentUserId, {
+          receiverId: input.receiverId,
+          body: input.body,
+          mediaUrl: input.mediaUrl,
+          mediaType: input.mediaType,
         });
-        if (error) throw error;
         await refresh();
-        showFeedback("comment", mediaUrl ? "Mídia enviada" : "Mensagem enviada");
+        showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
       },
       async markChatThreadRead(userId: string) {
-        const { error } = await services.client
-          .from("direct_messages")
-          .update({ read_at: new Date().toISOString() })
-          .eq("sender_id", userId)
-          .eq("receiver_id", currentUserId)
-          .is("read_at", null);
-        if (error) throw error;
+        await services.messages.markDirectRead(currentUserId, userId);
         await refresh();
       },
       async signOut() {

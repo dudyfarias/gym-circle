@@ -7,6 +7,7 @@ import { followService } from "./follows";
 import { gymService } from "./gyms";
 import { notificationService } from "./notifications";
 import { onboardingService } from "./onboarding";
+import { messageService } from "./messages";
 import { postService } from "./posts";
 import { profileService } from "./profiles";
 import { pushService } from "./push";
@@ -23,6 +24,7 @@ export * from "./follows";
 export * from "./gyms";
 export * from "./notifications";
 export * from "./onboarding";
+export * from "./messages";
 export * from "./posts";
 export * from "./profiles";
 export * from "./push";
@@ -38,6 +40,7 @@ export function createGymCircleServices(client: GymCircleClient) {
     auth: authService(client),
     profiles: profileService(client),
     onboarding: onboardingService(client),
+    messages: messageService(client),
     push: pushService(client),
     safety: safetyService(client),
     posts: postService(client),

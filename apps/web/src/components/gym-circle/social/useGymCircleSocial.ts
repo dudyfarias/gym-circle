@@ -445,6 +445,7 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       if (!body && !mediaUrl) return state;
       const message: ChatMessage = {
         id: `msg-${Date.now()}`,
+        conversationId: [state.currentUserId, action.input.receiverId].sort().join(":"),
         senderId: state.currentUserId,
         receiverId: action.input.receiverId,
         body,

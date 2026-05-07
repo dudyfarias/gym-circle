@@ -103,9 +103,66 @@ export type Database = {
           },
         ]
       }
+      conversation_participants: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          last_read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          last_read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          last_read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          direct_key: string | null
+          id: string
+          last_message_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          direct_key?: string | null
+          id?: string
+          last_message_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          direct_key?: string | null
+          id?: string
+          last_message_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       direct_messages: {
         Row: {
           body: string | null
+          conversation_id: string | null
           created_at: string
           id: string
           media_type: string | null
@@ -116,6 +173,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          conversation_id?: string | null
           created_at?: string
           id?: string
           media_type?: string | null
@@ -126,6 +184,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          conversation_id?: string | null
           created_at?: string
           id?: string
           media_type?: string | null
@@ -134,7 +193,15 @@ export type Database = {
           receiver_id?: string
           sender_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "direct_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       follows: {
         Row: {

@@ -477,6 +477,7 @@ const stories: GymStory[] = [
 const chatMessages: ChatMessage[] = [
   {
     id: "msg-1",
+    conversationId: "conv-edu-maya",
     senderId: "user-maya",
     receiverId: "user-edu",
     body: "Treino hoje no Wellness?",
@@ -487,6 +488,7 @@ const chatMessages: ChatMessage[] = [
   },
   {
     id: "msg-2",
+    conversationId: "conv-edu-maya",
     senderId: "user-edu",
     receiverId: "user-maya",
     body: "Vou postar depois do cardio.",
