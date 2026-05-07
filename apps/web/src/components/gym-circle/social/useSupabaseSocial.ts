@@ -583,32 +583,52 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         setSelectedStoryId(null);
       },
       async publishWorkout(input: CreateWorkoutPostInput) {
-        await services.posts.create(currentUserId, {
-          imageUrl: input.imageUrl,
-          mediaType: input.mediaType,
-          caption: input.caption,
-          gymId: input.gymId ?? null,
-          workoutType: input.workoutType ?? null,
-          locationSource: input.locationSource ?? "none",
-          locationName: input.locationName ?? null,
-          locationLatitude: input.locationLatitude ?? null,
-          locationLongitude: input.locationLongitude ?? null,
-          locationGoogleMapsUrl: input.locationGoogleMapsUrl ?? null,
-        });
-        // Garantir só 1 story ativo por usuário (substitui o anterior, se houver)
-        await services.client
-          .from("stories")
-          .delete()
-          .eq("user_id", currentUserId);
-        await services.stories.create(currentUserId, {
-          mediaUrl: input.imageUrl,
-          mediaType: input.mediaType,
-          gymId: input.gymId ?? null,
-          workoutType: input.workoutType ?? null,
-        });
+        const destinations = input.destinations ?? { feed: true, story: true };
+        const wantsFeed = destinations.feed;
+        const wantsStory = destinations.story;
+        if (!wantsFeed && !wantsStory) {
+          showFeedback("brand", "Escolha onde postar", "Feed, Story, ou ambos");
+          return;
+        }
+
+        if (wantsFeed) {
+          await services.posts.create(currentUserId, {
+            imageUrl: input.imageUrl,
+            mediaType: input.mediaType,
+            caption: input.caption,
+            gymId: input.gymId ?? null,
+            workoutType: input.workoutType ?? null,
+            locationSource: input.locationSource ?? "none",
+            locationName: input.locationName ?? null,
+            locationLatitude: input.locationLatitude ?? null,
+            locationLongitude: input.locationLongitude ?? null,
+            locationGoogleMapsUrl: input.locationGoogleMapsUrl ?? null,
+          });
+        }
+
+        if (wantsStory) {
+          // Garante só 1 story ativo por usuário — substitui o anterior, se houver.
+          await services.client
+            .from("stories")
+            .delete()
+            .eq("user_id", currentUserId);
+          await services.stories.create(currentUserId, {
+            mediaUrl: input.imageUrl,
+            mediaType: input.mediaType,
+            gymId: input.gymId ?? null,
+            workoutType: input.workoutType ?? null,
+          });
+        }
+
         await services.stats.refreshMine();
         await refresh();
-        showFeedback("success", "Treino publicado", "Streak + story atualizados");
+
+        const detail = wantsFeed && wantsStory
+          ? "Feed + story atualizados"
+          : wantsFeed
+            ? "Postado no feed"
+            : "Story publicado";
+        showFeedback("success", "Treino publicado", detail);
       },
       async checkIn(gymName: string) {
         const gym = agg.gyms.find((g) => g.name === gymName);

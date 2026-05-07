@@ -210,46 +210,57 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
     case "publish-workout": {
       const currentUser = state.users[state.currentUserId];
       const todayKey = formatDateKey(new Date());
+      const destinations = action.input.destinations ?? { feed: true, story: true };
+      const wantsFeed = destinations.feed;
+      const wantsStory = destinations.story;
+
+      // Sem destino selecionado, sem mudança (a UI não deveria deixar chegar aqui).
+      if (!wantsFeed && !wantsStory) return state;
+
       const isNewWorkoutDay = !currentUser.workoutDays.includes(todayKey);
       const workoutDays = Array.from(new Set([...currentUser.workoutDays, todayKey]));
       const stats = calculateWorkoutStats(workoutDays, todayKey);
       const createdAt = new Date().toISOString();
       const postId = `post-${Date.now()}`;
 
-      const post: GymPost = {
-        id: postId,
-        userId: currentUser.id,
-        imageUrl: action.input.imageUrl,
-        mediaType: action.input.mediaType,
-        caption: action.input.caption.trim() || "Treino publicado.",
-        workoutType: action.input.workoutType ?? null,
-        gymName: action.input.locationName ?? action.input.gymName ?? "",
-        gymId: action.input.gymId ?? "",
-        locationSource: action.input.locationSource ?? "none",
-        locationName: action.input.locationName ?? null,
-        locationLatitude: action.input.locationLatitude ?? null,
-        locationLongitude: action.input.locationLongitude ?? null,
-        locationGoogleMapsUrl: action.input.locationGoogleMapsUrl ?? null,
-        createdAt,
-        workoutDate: todayKey,
-        isWorkoutPost: true,
-        streakAtPost: stats.currentStreak,
-        likesCount: 0,
-        likedByCurrentUser: false,
-        comments: [],
-      };
+      const newPost: GymPost | null = wantsFeed
+        ? {
+            id: postId,
+            userId: currentUser.id,
+            imageUrl: action.input.imageUrl,
+            mediaType: action.input.mediaType,
+            caption: action.input.caption.trim() || "Treino publicado.",
+            workoutType: action.input.workoutType ?? null,
+            gymName: action.input.locationName ?? action.input.gymName ?? "",
+            gymId: action.input.gymId ?? "",
+            locationSource: action.input.locationSource ?? "none",
+            locationName: action.input.locationName ?? null,
+            locationLatitude: action.input.locationLatitude ?? null,
+            locationLongitude: action.input.locationLongitude ?? null,
+            locationGoogleMapsUrl: action.input.locationGoogleMapsUrl ?? null,
+            createdAt,
+            workoutDate: todayKey,
+            isWorkoutPost: true,
+            streakAtPost: stats.currentStreak,
+            likesCount: 0,
+            likedByCurrentUser: false,
+            comments: [],
+          }
+        : null;
 
-      const story: GymStory = {
-        id: `story-${postId}`,
-        userId: currentUser.id,
-        imageUrl: action.input.imageUrl,
-        mediaType: action.input.mediaType,
-        title: action.input.workoutType ?? "Treino",
-        caption: `${stats.currentStreak} dias de streak`,
-        createdAt,
-        viewed: false,
-        kind: "workout",
-      };
+      const newStory: GymStory | null = wantsStory
+        ? {
+            id: `story-${postId}`,
+            userId: currentUser.id,
+            imageUrl: action.input.imageUrl,
+            mediaType: action.input.mediaType,
+            title: action.input.workoutType ?? "Treino",
+            caption: `${stats.currentStreak} dias de streak`,
+            createdAt,
+            viewed: false,
+            kind: "workout",
+          }
+        : null;
 
       return {
         ...state,
@@ -262,8 +273,11 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
             ...stats,
           },
         },
-        posts: [post, ...state.posts],
-        stories: [story, ...state.stories.filter((item) => item.userId !== currentUser.id)],
+        posts: newPost ? [newPost, ...state.posts] : state.posts,
+        // Se posta story, substitui o anterior do usuário; se não, mantém intactos.
+        stories: newStory
+          ? [newStory, ...state.stories.filter((item) => item.userId !== currentUser.id)]
+          : state.stories,
       };
     }
 

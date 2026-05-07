@@ -101,6 +101,11 @@ export type EnrichedStory = GymStory & {
   author: EnrichedUser;
 };
 
+export type PostDestinations = {
+  feed: boolean;
+  story: boolean;
+};
+
 export type CreateWorkoutPostInput = {
   caption: string;
   workoutType?: string | null;
@@ -113,6 +118,13 @@ export type CreateWorkoutPostInput = {
   locationLatitude?: number | null;
   locationLongitude?: number | null;
   locationGoogleMapsUrl?: string | null;
+  /**
+   * Onde a postagem deve aparecer.
+   * - feed=true: cria post no feed
+   * - story=true: cria/substitui story do usuário
+   * Pelo menos um precisa ser true. Default no UI: ambos.
+   */
+  destinations?: PostDestinations;
 };
 
 export type FeedbackTone = "brand" | "success" | "like" | "comment" | "follow";

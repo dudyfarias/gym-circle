@@ -4,6 +4,7 @@ import Image from "next/image";
 import type { ChangeEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import {
+  BookImage,
   Camera,
   Check,
   Dumbbell,
@@ -14,6 +15,7 @@ import {
   Timer,
   Upload,
   Video,
+  Zap,
 } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { AchievementBadge, StreakBadge } from "../design-system";
@@ -82,6 +84,9 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
+  // Destino default: feed + story (mais social-first; usuário pode desligar antes de publicar)
+  const [postToFeed, setPostToFeed] = useState(true);
+  const [postToStory, setPostToStory] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolvedWorkoutType = useMemo(() => {
@@ -208,6 +213,11 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
       return;
     }
 
+    if (!postToFeed && !postToStory) {
+      setPublishError("Escolha pelo menos um destino: feed ou story.");
+      return;
+    }
+
     setPublishing(true);
     setPublishError(null);
     try {
@@ -223,6 +233,7 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
         locationLatitude: resolvedLocation.latitude,
         locationLongitude: resolvedLocation.longitude,
         locationGoogleMapsUrl: resolvedLocation.googleMapsUrl,
+        destinations: { feed: postToFeed, story: postToStory },
       });
     } catch (err) {
       setPublishError(getErrorMessage(err));
@@ -231,7 +242,17 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
     }
   }
 
-  const canPublish = imageUrl.trim().length > 0 && !uploading && !publishing;
+  const hasDestination = postToFeed || postToStory;
+  const canPublish =
+    imageUrl.trim().length > 0 && hasDestination && !uploading && !publishing;
+
+  const publishLabel = useMemo(() => {
+    if (publishing) return "Publicando...";
+    if (postToFeed && postToStory) return "Publicar no feed + story";
+    if (postToFeed) return "Publicar no feed";
+    if (postToStory) return "Publicar story";
+    return "Escolha um destino";
+  }, [postToFeed, postToStory, publishing]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -441,6 +462,33 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
         ) : null}
       </GlassCard>
 
+      <div className="mt-4">
+        <p className="mb-2 text-[12px] font-black uppercase text-white/52">
+          Onde postar
+        </p>
+        <div className="grid grid-cols-2 gap-2">
+          <DestinationPill
+            active={postToFeed}
+            description="Aparece no feed dos seus seguidores"
+            icon={<BookImage size={18} strokeWidth={2.4} />}
+            label="Feed"
+            onToggle={() => setPostToFeed((value) => !value)}
+          />
+          <DestinationPill
+            active={postToStory}
+            description="Some em 24h, mas acende o badge"
+            icon={<Zap size={18} strokeWidth={2.4} />}
+            label="Story"
+            onToggle={() => setPostToStory((value) => !value)}
+          />
+        </div>
+        {!hasDestination ? (
+          <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
+            Escolha pelo menos um: feed ou story.
+          </p>
+        ) : null}
+      </div>
+
       <button
         className="gc-pressable mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black shadow-[0_0_28px_rgba(92,232,255,0.26)] disabled:opacity-45"
         disabled={!canPublish}
@@ -448,7 +496,7 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
         type="button"
       >
         <Check size={19} strokeWidth={2.8} />
-        {publishing ? "Publicando..." : "Publicar treino"}
+        {publishLabel}
       </button>
 
       {publishError ? (
@@ -467,5 +515,56 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
         {currentUser.streakLitToday ? "Seu badge já está aceso." : "Poste para acender hoje."}
       </div>
     </section>
+  );
+}
+
+type DestinationPillProps = {
+  active: boolean;
+  description: string;
+  icon: React.ReactNode;
+  label: string;
+  onToggle: () => void;
+};
+
+function DestinationPill({
+  active,
+  description,
+  icon,
+  label,
+  onToggle,
+}: DestinationPillProps) {
+  return (
+    <button
+      aria-label={`${active ? "Desativar" : "Ativar"} destino ${label}`}
+      aria-pressed={active}
+      className={[
+        "gc-pressable flex flex-col items-start gap-1 rounded-[20px] border p-3 text-left transition-colors",
+        active
+          ? "border-[var(--gc-brand)]/35 bg-[var(--gc-brand)]/10 text-white shadow-[0_0_22px_rgba(92,232,255,0.16)]"
+          : "border-white/[0.08] bg-white/[0.04] text-white/72",
+      ].join(" ")}
+      onClick={onToggle}
+      type="button"
+    >
+      <span className="flex w-full items-center justify-between">
+        <span className={["flex items-center gap-2 text-[14px] font-black", active ? "text-white" : "text-white/72"].join(" ")}>
+          {icon}
+          {label}
+        </span>
+        <span
+          className={[
+            "grid size-5 place-items-center rounded-full border",
+            active
+              ? "border-[var(--gc-brand)] bg-[var(--gc-brand)] text-black"
+              : "border-white/22 bg-transparent",
+          ].join(" ")}
+        >
+          {active ? <Check size={12} strokeWidth={3.4} /> : null}
+        </span>
+      </span>
+      <span className={["text-[11px] font-bold leading-snug", active ? "text-white/60" : "text-white/40"].join(" ")}>
+        {description}
+      </span>
+    </button>
   );
 }
