@@ -3,13 +3,16 @@ import type { GymCircleClient } from "./supabase";
 export type SignUpInput = {
   email: string;
   password: string;
-  username?: string;
-  displayName?: string;
+  username: string;
 };
 
 export function authService(client: GymCircleClient) {
+  function cleanUsername(value: string): string {
+    return value.trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9_.]/g, "");
+  }
+
   async function resolveEmailForUsername(username: string) {
-    const normalized = username.trim().toLowerCase().replace(/^@/, "");
+    const normalized = cleanUsername(username);
     if (normalized.length < 3) {
       throw new Error("Informe um username ou email válido.");
     }
@@ -36,14 +39,25 @@ export function authService(client: GymCircleClient) {
 
     resolveEmailForUsername,
 
-    async signUp({ email, password, username, displayName }: SignUpInput) {
+    async signUp({ email, password, username }: SignUpInput) {
+      const cleanedUsername = cleanUsername(username);
+      if (cleanedUsername.length < 3) {
+        throw new Error("Username precisa ter pelo menos 3 caracteres.");
+      }
+      const { data: existingProfile, error: existingError } = await client
+        .from("profiles")
+        .select("user_id")
+        .eq("username", cleanedUsername)
+        .maybeSingle();
+      if (existingError) throw existingError;
+      if (existingProfile) throw new Error("Esse username já está em uso.");
+
       const { data, error } = await client.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: {
-            username: username ?? null,
-            display_name: displayName ?? null,
+            username: cleanedUsername,
           },
         },
       });

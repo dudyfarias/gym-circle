@@ -10,7 +10,7 @@ import {
   normalizeInstagramUsername,
   splitSportsInput,
 } from "./social/profile";
-import type { EnrichedUser, ProfileEditInput } from "./social/types";
+import type { EnrichedUser, GymLocationOption, ProfileEditInput } from "./social/types";
 
 type EditProfileSheetProps = {
   open: boolean;
@@ -18,7 +18,14 @@ type EditProfileSheetProps = {
   onClose: () => void;
   onSave: (input: ProfileEditInput) => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<string>;
+  gyms?: GymLocationOption[];
 };
+
+const preferredTimeOptions = ["Manhã", "Almoço", "Tarde", "Noite", "Madrugada"];
+
+function findMainGymId(user: EnrichedUser, gyms: GymLocationOption[]) {
+  return gyms.find((gym) => user.gyms.includes(gym.name))?.id ?? "";
+}
 
 export function EditProfileSheet({
   open,
@@ -26,6 +33,7 @@ export function EditProfileSheet({
   onClose,
   onSave,
   onUploadAvatar,
+  gyms = [],
 }: EditProfileSheetProps) {
   const [displayName, setDisplayName] = useState(currentUser.name);
   const [username, setUsername] = useState(currentUser.username);
@@ -34,6 +42,8 @@ export function EditProfileSheet({
   const [instagramUsername, setInstagramUsername] = useState(currentUser.instagramUsername ?? "");
   const [birthDate, setBirthDate] = useState(currentUser.birthDate ?? "");
   const [sportsInput, setSportsInput] = useState(formatSportsInput(currentUser.sports));
+  const [mainGymId, setMainGymId] = useState(() => findMainGymId(currentUser, gyms));
+  const [preferredTimes, setPreferredTimes] = useState<string[]>(currentUser.preferredTimes);
   const [isPrivate, setIsPrivate] = useState(currentUser.isPrivate ?? false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser.avatarUrl);
   const [uploading, setUploading] = useState(false);
@@ -51,12 +61,14 @@ export function EditProfileSheet({
       setInstagramUsername(currentUser.instagramUsername ?? "");
       setBirthDate(currentUser.birthDate ?? "");
       setSportsInput(formatSportsInput(currentUser.sports));
+      setMainGymId(findMainGymId(currentUser, gyms));
+      setPreferredTimes(currentUser.preferredTimes);
       setIsPrivate(currentUser.isPrivate ?? false);
       setAvatarUrl(currentUser.avatarUrl);
       setError(null);
     }, 0);
     return () => window.clearTimeout(id);
-  }, [open, currentUser]);
+  }, [open, currentUser, gyms]);
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -91,6 +103,8 @@ export function EditProfileSheet({
         instagramUsername: normalizeInstagramUsername(instagramUsername),
         birthDate: birthDate || null,
         sports: splitSportsInput(sportsInput),
+        mainGymId: mainGymId || null,
+        preferredTimes,
         isPrivate,
         ...(avatarUrl !== currentUser.avatarUrl ? { avatarUrl } : {}),
       });
@@ -100,6 +114,14 @@ export function EditProfileSheet({
     } finally {
       setSaving(false);
     }
+  }
+
+  function togglePreferredTime(time: string) {
+    setPreferredTimes((current) =>
+      current.includes(time)
+        ? current.filter((item) => item !== time)
+        : [...current, time],
+    );
   }
 
   if (!open) return null;
@@ -199,6 +221,49 @@ export function EditProfileSheet({
               placeholder="Ex: Hipertrofia, Corrida 10K, Consistência"
               value={fitnessGoal}
             />
+          </FormField>
+
+          {gyms.length > 0 ? (
+            <FormField label="Academia" hint="opcional">
+              <select
+                className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
+                onChange={(e) => setMainGymId(e.target.value)}
+                value={mainGymId}
+              >
+                <option className="bg-black" value="">
+                  Sem academia definida
+                </option>
+                {gyms.map((gym) => (
+                  <option className="bg-black" key={gym.id} value={gym.id}>
+                    {gym.name}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          ) : null}
+
+          <FormField label="Horários de treino" hint="opcional">
+            <div className="flex flex-wrap gap-2">
+              {preferredTimeOptions.map((time) => {
+                const active = preferredTimes.includes(time);
+                return (
+                  <button
+                    aria-pressed={active}
+                    className={[
+                      "gc-pressable h-10 rounded-full border px-4 text-[12px] font-black transition-colors",
+                      active
+                        ? "border-[var(--gc-brand)]/35 bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
+                        : "border-white/[0.08] bg-white/[0.04] text-white/56",
+                    ].join(" ")}
+                    key={time}
+                    onClick={() => togglePreferredTime(time)}
+                    type="button"
+                  >
+                    {time}
+                  </button>
+                );
+              })}
+            </div>
           </FormField>
 
           <FormField label="Instagram">

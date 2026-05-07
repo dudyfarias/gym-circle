@@ -386,6 +386,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         .map((ug) => gymsById.get(ug.gym_id)?.name)
         .filter((n): n is string => Boolean(n));
       const mainUserGym = userGyms.find((ug) => ug.is_main);
+      const preferredTimes =
+        profile.preferred_training_times?.length
+          ? profile.preferred_training_times
+          : mainUserGym?.preferred_times ?? [];
       const followStatus =
         myFollowStatusByTarget.get(profile.user_id) ?? "none";
       const enriched: EnrichedUser = {
@@ -408,7 +412,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         accountStatus: profile.account_status ?? "active",
         location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
         gyms: gymNames,
-        preferredTimes: mainUserGym?.preferred_times ?? [],
+        preferredTimes,
         currentStreak: stats?.current_streak ?? 0,
         longestStreak: stats?.best_streak ?? 0,
         lastWorkoutDate: stats?.last_active_date ?? "",
@@ -792,7 +796,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.auth.signOut();
       },
       async updateProfile(input: ProfileEditInput) {
-        await services.profiles.update(currentUserId, {
+        const patch = {
           ...(input.displayName !== undefined ? { display_name: input.displayName } : {}),
           ...(input.username !== undefined ? { username: input.username } : {}),
           ...(input.bio !== undefined ? { bio: input.bio } : {}),
@@ -804,7 +808,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             : {}),
           ...(input.birthDate !== undefined ? { birth_date: input.birthDate } : {}),
           ...(input.sports !== undefined ? { sports: input.sports } : {}),
+          ...(input.mainGymId !== undefined ? { main_gym_id: input.mainGymId } : {}),
+          ...(input.preferredTimes !== undefined
+            ? { preferred_training_times: input.preferredTimes }
+            : {}),
+        };
+        await services.profiles.update(currentUserId, {
+          ...patch,
         });
+        if (input.mainGymId) {
+          await services.gyms.addUserGym(currentUserId, input.mainGymId, true).catch((err) => {
+            if ((err as { code?: string }).code !== "23505") throw err;
+          });
+        }
         await refresh();
         showFeedback("success", "Perfil atualizado");
       },

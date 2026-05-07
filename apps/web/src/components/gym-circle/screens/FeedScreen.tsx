@@ -1,9 +1,13 @@
 import {
+  Camera,
+  Clock3,
+  Dumbbell,
   LocateFixed,
   MapPin,
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  UserPlus,
 } from "lucide-react";
 import {
   DiscoveryUserCard,
@@ -11,6 +15,7 @@ import {
   SocialPostCard,
   StoryBubbles,
 } from "../design-system";
+import { calculateProfileCompletion, type ProfileCompletion } from "../social/profile";
 import type { EnrichedPost, EnrichedStory, EnrichedUser } from "../social/types";
 import type { ViewerLocationStatus } from "../social/useViewerLocation";
 import { TopBar } from "../TopBar";
@@ -26,6 +31,8 @@ type FeedScreenProps = {
   onCommentPost: (postId: string, body: string) => void;
   onToggleFollow: (userId: string) => void;
   onOpenStory: (storyId: string) => void;
+  onEditProfile?: () => void;
+  onFindPeople?: () => void;
   onRequestViewerLocation?: () => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
@@ -50,6 +57,8 @@ export function FeedScreen({
   onCommentPost,
   onToggleFollow,
   onOpenStory,
+  onEditProfile,
+  onFindPeople,
   onRequestViewerLocation,
   onSelectUser,
   resolveUser,
@@ -58,10 +67,22 @@ export function FeedScreen({
   viewerLocationStatus = "idle",
   hasDistancePosts = false,
 }: FeedScreenProps) {
+  const profileCompletion = calculateProfileCompletion(currentUser);
+  const hasFirstPost = feedPosts.some((post) => post.userId === currentUser.id);
+
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar eyebrow="Gym Circle" title="Hoje" />
       <StoryBubbles onOpenStory={onOpenStory} stories={stories} />
+      <ProgressiveOnboardingCard
+        completion={profileCompletion}
+        followingCount={currentUser.followingCount}
+        hasFirstPost={hasFirstPost}
+        hasSuggestedUsers={suggestedUsers.length > 0}
+        onCreatePost={onCreatePost}
+        onEditProfile={onEditProfile}
+        onFindPeople={onFindPeople}
+      />
       <DistancePermissionCard
         error={viewerLocationError}
         hasDistancePosts={hasDistancePosts}
@@ -123,6 +144,120 @@ export function FeedScreen({
           title="Seu feed está quieto"
         />
       )}
+    </section>
+  );
+}
+
+type ProgressiveOnboardingCardProps = {
+  completion: ProfileCompletion;
+  followingCount: number;
+  hasFirstPost: boolean;
+  hasSuggestedUsers: boolean;
+  onCreatePost: () => void;
+  onEditProfile?: () => void;
+  onFindPeople?: () => void;
+};
+
+const completionCopy: Record<string, string> = {
+  avatar: "Adicione uma foto para ganhar mais destaque.",
+  gym: "Escolha sua academia para encontrar gente do mesmo circle.",
+  goal: "Conte seu objetivo fitness em uma linha.",
+  bio: "Uma bio curta ajuda as pessoas a entenderem seu ritmo.",
+  preferredTimes: "Mostre quando você costuma treinar.",
+  identity: "Finalize seu nome público.",
+};
+
+function ProgressiveOnboardingCard({
+  completion,
+  followingCount,
+  hasFirstPost,
+  hasSuggestedUsers,
+  onCreatePost,
+  onEditProfile,
+  onFindPeople,
+}: ProgressiveOnboardingCardProps) {
+  const shouldSuggestPeople = followingCount === 0 && hasSuggestedUsers;
+  const shouldShow =
+    completion.percentage < 100 || !hasFirstPost || shouldSuggestPeople;
+
+  if (!shouldShow) return null;
+
+  const nextMissing = completion.missing[0];
+  const detail = !hasFirstPost
+    ? "Fez seu treino hoje? Poste para acender seu círculo."
+    : nextMissing
+      ? completionCopy[nextMissing.id]
+      : "Siga pessoas para deixar seu feed mais vivo.";
+
+  return (
+    <section className="mb-5 rounded-[30px] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(140,251,255,0.12),rgba(255,255,255,0.045)_42%,rgba(0,0,0,0.2))] p-4 shadow-[0_22px_64px_rgba(0,0,0,0.38)] backdrop-blur-2xl">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="grid size-9 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)] shadow-[0_0_24px_rgba(92,232,255,0.14)]">
+              <Sparkles size={16} strokeWidth={2.6} />
+            </span>
+            <p className="text-[12px] font-black uppercase tracking-[0.02em] text-white/42">
+              Comece leve
+            </p>
+          </div>
+          <h2 className="mt-3 text-[19px] font-black leading-tight text-white">
+            Seu perfil está {completion.percentage}% completo
+          </h2>
+          <p className="mt-1 text-[13px] font-bold leading-5 text-white/52">
+            {detail}
+          </p>
+        </div>
+        <div className="grid size-14 shrink-0 place-items-center rounded-full border border-[var(--gc-brand)]/18 bg-black/40 text-[15px] font-black text-[var(--gc-brand)] shadow-[0_0_28px_rgba(48,213,255,0.12)]">
+          {completion.percentage}%
+        </div>
+      </div>
+
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+        <div
+          className="h-full rounded-full bg-[linear-gradient(90deg,#8CFBFF,#30D5FF,#0066FF)] transition-all duration-500"
+          style={{ width: `${completion.percentage}%` }}
+        />
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {!hasFirstPost ? (
+          <button
+            className="gc-pressable flex h-11 items-center gap-2 rounded-full bg-[var(--gc-brand)] px-4 text-[13px] font-black text-black"
+            onClick={onCreatePost}
+            type="button"
+          >
+            <Camera size={15} strokeWidth={2.7} />
+            Postar treino
+          </button>
+        ) : null}
+        {completion.percentage < 100 && onEditProfile ? (
+          <button
+            className="gc-pressable flex h-11 items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.06] px-4 text-[13px] font-black text-white"
+            onClick={onEditProfile}
+            type="button"
+          >
+            {nextMissing?.id === "gym" ? (
+              <MapPin size={15} strokeWidth={2.7} />
+            ) : nextMissing?.id === "preferredTimes" ? (
+              <Clock3 size={15} strokeWidth={2.7} />
+            ) : (
+              <Dumbbell size={15} strokeWidth={2.7} />
+            )}
+            Completar perfil
+          </button>
+        ) : null}
+        {shouldSuggestPeople && onFindPeople ? (
+          <button
+            className="gc-pressable flex h-11 items-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.06] px-4 text-[13px] font-black text-white"
+            onClick={onFindPeople}
+            type="button"
+          >
+            <UserPlus size={15} strokeWidth={2.7} />
+            Seguir pessoas
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }

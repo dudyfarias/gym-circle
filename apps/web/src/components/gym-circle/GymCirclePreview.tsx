@@ -376,6 +376,8 @@ export function GymCirclePreview({
             onLikePost={social.actions.likePost}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
+            onEditProfile={handleEditProfile}
+            onFindPeople={openSearch}
             onRequestViewerLocation={viewerLocation.request}
             onSelectUser={openProfile}
             onToggleFollow={social.actions.toggleFollow}
@@ -397,6 +399,7 @@ export function GymCirclePreview({
     handleEditProfile,
     handleSignOut,
     openAdmin,
+    openSearch,
     openProfile,
     resolveUser,
     openPostMenu,
@@ -478,6 +481,7 @@ export function GymCirclePreview({
             <EditProfileSheet
               currentUser={social.currentUser}
               onClose={closeEditProfile}
+              gyms={social.gyms ?? []}
               onSave={social.actions.updateProfile}
               onUploadAvatar={onUploadAvatar}
               open={editOpen}

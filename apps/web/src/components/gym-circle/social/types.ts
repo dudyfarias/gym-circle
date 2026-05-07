@@ -194,6 +194,8 @@ export type ProfileEditInput = {
   instagramUsername?: string | null;
   birthDate?: string | null;
   sports?: string[];
+  mainGymId?: string | null;
+  preferredTimes?: string[];
 };
 
 export type EditPostInput = {

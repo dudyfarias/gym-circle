@@ -26,9 +26,7 @@ export function onboardingService(client: GymCircleClient) {
     isProfileReady(profile: ProfileRow | null): boolean {
       return Boolean(
         profile?.display_name?.trim() &&
-          profile?.username?.trim() &&
-          profile?.fitness_goal?.trim() &&
-          profile?.main_gym_id,
+          profile?.username?.trim(),
       );
     },
   };

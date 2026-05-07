@@ -7,6 +7,7 @@ import {
   MapPin,
   Pencil,
   ShieldCheck,
+  Sparkles,
   Trash2,
   Trophy,
 } from "lucide-react";
@@ -18,6 +19,7 @@ import {
   StatsWidget,
   StreakBadge,
 } from "../design-system";
+import { calculateProfileCompletion } from "../social/profile";
 import { formatWorkoutDate, getAllStreakLevels, getStreakLevel } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { TopBar } from "../TopBar";
@@ -53,6 +55,7 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const latestPost = posts[0];
   const currentLevel = getStreakLevel(currentUser.currentStreak);
+  const profileCompletion = calculateProfileCompletion(currentUser);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -91,6 +94,40 @@ export function ProfileScreen({
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {onEditProfile && profileCompletion.percentage < 100 ? (
+        <section className="mt-4 rounded-[24px] border border-white/[0.08] bg-white/[0.045] p-4 shadow-[0_18px_54px_rgba(0,0,0,0.26)] backdrop-blur-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Sparkles size={15} className="text-[var(--gc-brand)]" />
+                <p className="text-[12px] font-black uppercase text-white/42">
+                  Perfil social
+                </p>
+              </div>
+              <p className="mt-1 text-[16px] font-black">
+                {profileCompletion.percentage}% completo
+              </p>
+              <p className="mt-1 text-[12px] font-bold text-white/46">
+                Próximo: {profileCompletion.missing[0]?.label ?? "primeiro post"}
+              </p>
+            </div>
+            <button
+              className="gc-pressable h-10 rounded-full bg-[var(--gc-brand)] px-4 text-[12px] font-black text-black"
+              onClick={onEditProfile}
+              type="button"
+            >
+              Completar
+            </button>
+          </div>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+            <div
+              className="h-full rounded-full bg-[linear-gradient(90deg,#8CFBFF,#30D5FF,#0066FF)]"
+              style={{ width: `${profileCompletion.percentage}%` }}
+            />
+          </div>
+        </section>
       ) : null}
 
       <div className="mt-5">

@@ -288,6 +288,9 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
               : {}),
             ...(action.input.birthDate !== undefined ? { birthDate: action.input.birthDate } : {}),
             ...(action.input.sports !== undefined ? { sports: action.input.sports } : {}),
+            ...(action.input.preferredTimes !== undefined
+              ? { preferredTimes: action.input.preferredTimes }
+              : {}),
           },
         },
       };

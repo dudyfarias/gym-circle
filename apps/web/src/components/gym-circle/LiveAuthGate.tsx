@@ -47,8 +47,12 @@ export function LiveAuthGate() {
         if (cleanedUsername.length < 3) {
           throw new Error("Username precisa ter pelo menos 3 caracteres.");
         }
-        await signUp({ email, password, username: cleanedUsername });
-        setSuccess("Conta criada. Confira seu email para confirmar o cadastro.");
+        const data = await signUp({ email, password, username: cleanedUsername });
+        setSuccess(
+          data.session
+            ? "Conta criada. Entrando no feed..."
+            : "Conta criada. Se o app não abrir agora, confirme seu email.",
+        );
       }
     } catch (err) {
       setError((err as Error).message);
@@ -73,10 +77,10 @@ export function LiveAuthGate() {
           </h1>
           <p className="mt-1 text-[13px] font-bold text-white/52">
             {mode === "sign-in"
-              ? "Entre com sua conta do Gym Circle."
+              ? "Entre e vá direto para o feed."
               : mode === "forgot-password"
                 ? "Digite seu email cadastrado para receber o link de alteração."
-                : "Cadastro rápido para a alpha: email, usuário e senha."}
+                : "Cadastro rápido: email, senha e username. O resto fica para depois."}
           </p>
 
           <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
@@ -90,6 +94,16 @@ export function LiveAuthGate() {
             />
             {mode === "sign-up" ? (
               <input
+                autoComplete="new-password"
+                className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="senha"
+                type="password"
+                value={password}
+              />
+            ) : null}
+            {mode === "sign-up" ? (
+              <input
                 autoComplete="username"
                 className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
                 onChange={(e) => setUsername(e.target.value)}
@@ -97,9 +111,9 @@ export function LiveAuthGate() {
                 value={username}
               />
             ) : null}
-            {mode !== "forgot-password" ? (
+            {mode === "sign-in" ? (
               <input
-                autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+                autoComplete="current-password"
                 className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="senha"

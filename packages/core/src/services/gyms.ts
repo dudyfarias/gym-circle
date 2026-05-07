@@ -54,9 +54,20 @@ export function gymService(client: GymCircleClient) {
     },
 
     async addUserGym(userId: string, gymId: string, isMain = false) {
+      if (isMain) {
+        const { error: resetError } = await client
+          .from("user_gyms")
+          .update({ is_main: false })
+          .eq("user_id", userId);
+        if (resetError) throw resetError;
+      }
+
       const { data, error } = await client
         .from("user_gyms")
-        .insert({ user_id: userId, gym_id: gymId, is_main: isMain })
+        .upsert(
+          { user_id: userId, gym_id: gymId, is_main: isMain },
+          { onConflict: "user_id,gym_id" },
+        )
         .select("*")
         .single();
       if (error) throw error;
