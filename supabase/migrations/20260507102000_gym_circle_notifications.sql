@@ -64,8 +64,9 @@ begin
     values (v_owner, new.user_id, 'comment', new.post_id, new.id, left(new.body, 140));
   end if;
 
+  -- regexp_matches retorna text[] de capture groups; pegar m.match[1]
   for v_mention in
-    select distinct lower(substring(m.match from 2))
+    select distinct lower(m.match[1])
       from regexp_matches(new.body, '@([a-zA-Z0-9_.]{3,32})', 'g') as m(match)
   loop
     insert into public.notifications (user_id, actor_id, kind, post_id, comment_id, body)
