@@ -500,12 +500,20 @@ export function useGymCircleSocial() {
   }, [currentUser, suggestedUsers]);
 
   const socialStats = useMemo(() => {
+    const todayKey = formatDateKey(new Date());
     return {
-      trainedToday: new Set(state.posts.filter((post) => post.workoutDate === formatDateKey(new Date())).map((post) => post.userId)).size,
+      trainedToday: new Set([
+        ...state.posts
+          .filter((post) => post.workoutDate === todayKey)
+          .map((post) => post.userId),
+        ...state.stories
+          .filter((story) => formatDateKey(new Date(story.createdAt)) === todayKey)
+          .map((story) => story.userId),
+      ]).size,
       checkInsToday: state.checkInsToday.length,
       monthDays: buildMonthWorkoutDays(currentUser.workoutDays),
     };
-  }, [currentUser.workoutDays, state.checkInsToday.length, state.posts]);
+  }, [currentUser.workoutDays, state.checkInsToday.length, state.posts, state.stories]);
 
   const actions = useMemo(
     () => ({

@@ -6,6 +6,7 @@ export * from "./DiscoveryUserCard";
 export * from "./EmptyState";
 export * from "./FloatingCreatePostButton";
 export * from "./GymCheckInCard";
+export * from "./LatestPostPreview";
 export * from "./ProfileHeader";
 export * from "./SocialPostCard";
 export * from "./StatsWidget";

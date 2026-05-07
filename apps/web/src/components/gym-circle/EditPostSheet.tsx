@@ -30,9 +30,12 @@ export function EditPostSheet({ open, post, onClose, onSave }: EditPostSheetProp
 
   useEffect(() => {
     if (!open || !post) return;
-    setCaption(post.caption ?? "");
-    setWorkoutType(post.workoutType ?? "");
-    setError(null);
+    const id = window.setTimeout(() => {
+      setCaption(post.caption ?? "");
+      setWorkoutType(post.workoutType ?? "");
+      setError(null);
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [open, post]);
 
   async function handleSave() {

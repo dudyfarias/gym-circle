@@ -5,6 +5,7 @@ import { CheckCircle2, Clock3, Lock, UserCheck, UserPlus, X } from "lucide-react
 import { Avatar } from "@/components/ui/Avatar";
 import {
   AchievementBadge,
+  LatestPostPreview,
   ProfileHeader,
   StatsWidget,
 } from "./design-system";
@@ -60,7 +61,11 @@ export function ProfileSheet({
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar accent={user.accent} name={user.name} src={undefined} />
+            <Avatar
+              accent={user.accent}
+              name={user.name}
+              src={user.avatarUrl ?? undefined}
+            />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="truncate text-[17px] font-black">{user.name}</p>
@@ -134,7 +139,8 @@ export function ProfileSheet({
               <PrivateLockedNotice latestPost={latestPost} userIsPrivate={user.isPrivate} />
             ) : (
               <>
-                <h3 className="mb-3 text-[15px] font-extrabold text-white/82">
+                <LatestPostPreview post={latestPost} />
+                <h3 className="mb-3 mt-5 text-[15px] font-extrabold text-white/82">
                   Treinos ({posts.length})
                 </h3>
                 {posts.length === 0 ? (

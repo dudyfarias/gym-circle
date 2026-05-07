@@ -362,6 +362,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         name: profile.display_name,
         username: profile.username,
         accent: accentForId(profile.user_id),
+        avatarUrl: profile.avatar_url ?? null,
         bio: profile.bio ?? "",
         goal: profile.fitness_goal ?? "",
         location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
@@ -394,6 +395,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         name: "—",
         username: "—",
         accent: "var(--gc-brand)",
+        avatarUrl: null,
         bio: "",
         goal: "",
         location: "",
@@ -557,14 +559,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const socialStats = useMemo(
     () => ({
       trainedToday: new Set(
-        agg.feedPosts
-          .filter((p) => p.workout_date === new Date().toISOString().slice(0, 10))
-          .map((p) => p.user_id),
+        [
+          ...agg.feedPosts
+            .filter((p) => p.workout_date === new Date().toISOString().slice(0, 10))
+            .map((p) => p.user_id),
+          ...agg.stories
+            .filter((story) => story.created_at.slice(0, 10) === new Date().toISOString().slice(0, 10))
+            .map((story) => story.user_id),
+        ],
       ).size,
       checkInsToday: agg.checkinsToday.length,
       monthDays: buildMonthWorkoutDays(currentUser.workoutDays),
     }),
-    [agg.feedPosts, agg.checkinsToday, currentUser.workoutDays],
+    [agg.feedPosts, agg.stories, agg.checkinsToday, currentUser.workoutDays],
   );
 
   const actions = useMemo<SupabaseSocialActions>(

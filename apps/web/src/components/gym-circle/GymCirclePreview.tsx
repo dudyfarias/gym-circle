@@ -4,10 +4,10 @@ import { useCallback, useMemo, useState } from "react";
 import { FloatingCreatePostButton, StoryViewer, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
+import { ChatScreen } from "./screens/ChatScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { PostScreen } from "./screens/PostScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
-import { StreakScreen } from "./screens/StreakScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
 import { UserSearchSheet } from "./UserSearchSheet";
 import { ProfileSheet } from "./ProfileSheet";
@@ -151,6 +151,10 @@ export function GymCirclePreview({
     if (!profileOpenId) return [];
     return social.feedPosts.filter((p) => p.userId === profileOpenId);
   }, [profileOpenId, social.feedPosts]);
+  const currentUserPosts = useMemo(
+    () => social.feedPosts.filter((p) => p.userId === social.currentUser.id),
+    [social.feedPosts, social.currentUser.id],
+  );
 
   const screen = useMemo(() => {
     switch (activeScreen) {
@@ -158,11 +162,21 @@ export function GymCirclePreview({
         return (
           <ProfileScreen
             currentUser={social.currentUser}
+            monthDays={social.socialStats.monthDays}
             nearbyUsers={social.nearbyUsers}
             onEditProfile={handleEditProfile}
             onSelectUser={openProfile}
             onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
+            posts={currentUserPosts}
+          />
+        );
+      case "chat":
+        return (
+          <ChatScreen
+            currentUser={social.currentUser}
+            onSelectUser={openProfile}
+            suggestedUsers={social.suggestedUsers}
           />
         );
       case "post":
@@ -184,13 +198,6 @@ export function GymCirclePreview({
             nearbyUsers={social.nearbyUsers}
             onCheckIn={social.actions.checkIn}
             onToggleFollow={social.actions.toggleFollow}
-          />
-        );
-      case "streak":
-        return (
-          <StreakScreen
-            currentUser={social.currentUser}
-            monthDays={social.socialStats.monthDays}
           />
         );
       case "feed":
@@ -223,6 +230,7 @@ export function GymCirclePreview({
     resolveUser,
     canManageOwnPost,
     openPostMenu,
+    currentUserPosts,
   ]);
 
   return (

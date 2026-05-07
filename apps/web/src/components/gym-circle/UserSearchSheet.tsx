@@ -132,7 +132,11 @@ export function UserSearchSheet({
                   className="gc-ios-sheet flex items-center gap-3 rounded-[20px] p-3"
                   key={user.id}
                 >
-                  <Avatar accent={user.accent} name={user.name} />
+                  <Avatar
+                    accent={user.accent}
+                    name={user.name}
+                    src={user.avatarUrl ?? undefined}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
                       <p className="truncate text-[15px] font-black">{user.name}</p>

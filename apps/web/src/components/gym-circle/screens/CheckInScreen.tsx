@@ -58,7 +58,11 @@ export function CheckInScreen({
               key={person.id}
             >
               <div className="flex items-center gap-3">
-                <Avatar accent={person.accent} name={person.name} />
+                <Avatar
+                  accent={person.accent}
+                  name={person.name}
+                  src={person.avatarUrl ?? undefined}
+                />
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-[15px] font-bold">{person.name}</p>

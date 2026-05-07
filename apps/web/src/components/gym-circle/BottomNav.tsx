@@ -3,13 +3,13 @@
 import {
   Camera,
   CircleUserRound,
-  Flame,
   House,
   MapPin,
+  MessageCircle,
 } from "lucide-react";
 import { BottomTabBar } from "./design-system";
 
-export type ScreenKey = "feed" | "profile" | "post" | "checkin" | "streak";
+export type ScreenKey = "feed" | "chat" | "post" | "checkin" | "profile";
 
 type BottomNavProps = {
   active: ScreenKey;
@@ -18,10 +18,10 @@ type BottomNavProps = {
 
 const navItems = [
   { key: "feed", label: "Home", icon: House },
+  { key: "chat", label: "Chat", icon: MessageCircle },
+  { key: "post", label: "Câmera", icon: Camera },
+  { key: "checkin", label: "Localização", icon: MapPin },
   { key: "profile", label: "Perfil", icon: CircleUserRound },
-  { key: "post", label: "Post", icon: Camera },
-  { key: "checkin", label: "Check-in", icon: MapPin },
-  { key: "streak", label: "Streak", icon: Flame },
 ] satisfies Array<{
   key: ScreenKey;
   label: string;

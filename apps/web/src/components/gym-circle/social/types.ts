@@ -5,6 +5,7 @@ export type GymUser = {
   name: string;
   username: string;
   accent: string;
+  avatarUrl: string | null;
   bio: string;
   goal: string;
   location: string;

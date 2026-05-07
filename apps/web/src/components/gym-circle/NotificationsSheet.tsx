@@ -232,7 +232,11 @@ function Section({
                   onClick={() => actor && onSelectUser?.(actor.id)}
                   type="button"
                 >
-                  <Avatar accent={actor?.accent ?? "var(--gc-brand)"} name={actor?.name ?? "?"} />
+                  <Avatar
+                    accent={actor?.accent ?? "var(--gc-brand)"}
+                    name={actor?.name ?? "?"}
+                    src={actor?.avatarUrl ?? undefined}
+                  />
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-bold text-white/82">

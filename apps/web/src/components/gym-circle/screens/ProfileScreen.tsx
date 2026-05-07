@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  Check,
   CheckCircle2,
   Dumbbell,
   LogOut,
@@ -10,16 +11,23 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import {
   AchievementBadge,
+  LatestPostPreview,
   ProfileHeader,
   StatsWidget,
   StreakBadge,
 } from "../design-system";
-import { formatWorkoutDate } from "../social/streak";
-import type { EnrichedUser } from "../social/types";
+import { formatWorkoutDate, getAllStreakLevels, getStreakLevel } from "../social/streak";
+import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { TopBar } from "../TopBar";
 
 type ProfileScreenProps = {
   currentUser: EnrichedUser;
+  posts: EnrichedPost[];
+  monthDays: Array<{
+    day: number;
+    dateKey: string;
+    trained: boolean;
+  }>;
   nearbyUsers: EnrichedUser[];
   onToggleFollow: (userId: string) => void | Promise<void>;
   onEditProfile?: () => void;
@@ -29,12 +37,17 @@ type ProfileScreenProps = {
 
 export function ProfileScreen({
   currentUser,
+  posts,
+  monthDays,
   nearbyUsers,
   onToggleFollow,
   onEditProfile,
   onSignOut,
   onSelectUser,
 }: ProfileScreenProps) {
+  const latestPost = posts[0];
+  const currentLevel = getStreakLevel(currentUser.currentStreak);
+
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar eyebrow="Perfil" title={currentUser.name} />
@@ -68,6 +81,10 @@ export function ProfileScreen({
         <ProfileHeader user={currentUser} />
       </div>
 
+      <div className="mt-4">
+        <LatestPostPreview post={latestPost} />
+      </div>
+
       <div className="mt-4 grid grid-cols-2 gap-3">
         <StatsWidget
           tone="blue"
@@ -99,16 +116,47 @@ export function ProfileScreen({
         />
       </div>
 
-      <div className="gc-ios-sheet mt-4 flex items-center justify-between gap-3 rounded-[24px] p-4">
-        <div>
-          <p className="text-[13px] font-bold text-white/42">Ultimo treino</p>
-          <p className="mt-1 text-[16px] font-black">
-            {formatWorkoutDate(currentUser.lastWorkoutDate)}
-          </p>
+      <div className="gc-ios-sheet mt-4 rounded-[24px] p-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-[17px] font-extrabold">Consistência</h3>
+            <p className="mt-1 text-[12px] font-bold text-white/42">
+              Último treino: {formatWorkoutDate(currentUser.lastWorkoutDate)}
+            </p>
+          </div>
+          <AchievementBadge label={currentLevel.label} tone="brand" />
         </div>
-        <div className="flex flex-wrap justify-end gap-2">
-          {currentUser.achievements.map((achievement) => (
-            <AchievementBadge key={achievement} label={achievement} tone="brand" />
+        <div className="grid grid-cols-7 gap-2">
+          {monthDays.map((item) => (
+            <div
+              className={[
+                "grid aspect-square place-items-center rounded-full text-[12px] font-extrabold transition-transform duration-200",
+                item.trained
+                  ? "bg-[radial-gradient(circle_at_35%_25%,var(--gc-consistency-daily),var(--gc-consistency-month)_52%,var(--gc-consistency-year))] text-black shadow-[0_0_18px_rgba(48,213,255,0.32)]"
+                  : "bg-white/[0.055] text-white/34",
+              ].join(" ")}
+              key={item.day}
+            >
+              {item.trained ? <Check size={14} strokeWidth={3} /> : item.day}
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {getAllStreakLevels().map((level) => (
+            <div
+              className={[
+                "rounded-[18px] border px-3 py-2",
+                level.id === currentLevel.id
+                  ? "border-[var(--gc-consistency-month)]/28 bg-[var(--gc-consistency-quiet)]"
+                  : "border-white/[0.07] bg-white/[0.04]",
+              ].join(" ")}
+              key={level.id}
+            >
+              <p className="text-[12px] font-black">{level.label}</p>
+              <p className="mt-0.5 text-[11px] font-bold text-white/38">
+                {level.minDays}+ dias
+              </p>
+            </div>
           ))}
         </div>
       </div>
@@ -126,7 +174,11 @@ export function ProfileScreen({
                 onClick={() => onSelectUser?.(person.id)}
                 type="button"
               >
-                <Avatar accent={person.accent} name={person.name} />
+                <Avatar
+                  accent={person.accent}
+                  name={person.name}
+                  src={person.avatarUrl ?? undefined}
+                />
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-[15px] font-bold">{person.name}</p>
