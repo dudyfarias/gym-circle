@@ -30,6 +30,7 @@ type ChatScreenProps = {
   onSelectUser?: (userId: string) => void;
   onSendMessage?: (input: SendChatMessageInput) => Promise<void> | void;
   onThreadOpen?: (userId: string) => Promise<void> | void;
+  onThreadViewChange?: (open: boolean) => void;
   onUploadImage?: (file: File) => Promise<string>;
 };
 
@@ -71,6 +72,7 @@ export function ChatScreen({
   onSelectUser,
   onSendMessage,
   onThreadOpen,
+  onThreadViewChange,
   onUploadImage,
 }: ChatScreenProps) {
   const safeMessages = useMemo(() => messages ?? [], [messages]);
@@ -147,6 +149,12 @@ export function ChatScreen({
   }, [chatQuery, currentUser.id, suggestedUsers]);
 
   const selectedUser = selectedUserId ? usersById.get(selectedUserId) ?? null : null;
+
+  useEffect(() => {
+    onThreadViewChange?.(Boolean(selectedUser));
+    return () => onThreadViewChange?.(false);
+  }, [onThreadViewChange, selectedUser]);
+
   const thread = useMemo(() => {
     if (!selectedUser) return [];
     return safeMessages

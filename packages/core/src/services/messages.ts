@@ -12,26 +12,6 @@ function createDirectKey(userA: string, userB: string): string {
   return [userA, userB].sort().join(":");
 }
 
-function createUuid(): string {
-  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-
-  return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (char) =>
-    (
-      Number(char) ^
-      (Math.random() * 16) >> (Number(char) / 4)
-    ).toString(16),
-  );
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "23505"
-  );
-}
-
 export function messageService(client: GymCircleClient) {
   async function findDirectConversationId(
     currentUserId: string,
@@ -46,51 +26,6 @@ export function messageService(client: GymCircleClient) {
     return data?.id ?? null;
   }
 
-  async function ensureDirectConversation(
-    currentUserId: string,
-    otherUserId: string,
-  ): Promise<string> {
-    if (currentUserId === otherUserId) {
-      throw new Error("não dá para mandar mensagem para si mesmo");
-    }
-
-    const existingId = await findDirectConversationId(currentUserId, otherUserId);
-    if (existingId) return existingId;
-
-    const conversationId = createUuid();
-    const directKey = createDirectKey(currentUserId, otherUserId);
-    const { error } = await client.from("conversations").insert({
-      id: conversationId,
-      created_by: currentUserId,
-      direct_key: directKey,
-      last_message_at: null,
-    });
-
-    if (error) {
-      if (isUniqueViolation(error)) {
-        const createdByRace = await findDirectConversationId(currentUserId, otherUserId);
-        if (createdByRace) return createdByRace;
-      }
-      throw error;
-    }
-
-    const { error: participantsError } = await client
-      .from("conversation_participants")
-      .upsert(
-        [
-          { conversation_id: conversationId, user_id: currentUserId },
-          { conversation_id: conversationId, user_id: otherUserId },
-        ],
-        {
-          ignoreDuplicates: true,
-          onConflict: "conversation_id,user_id",
-        },
-      );
-    if (participantsError) throw participantsError;
-
-    return conversationId;
-  }
-
   return {
     createDirectKey,
 
@@ -101,20 +36,17 @@ export function messageService(client: GymCircleClient) {
       const body = input.body?.trim() || null;
       const mediaUrl = input.mediaUrl?.trim() || null;
       if (!body && !mediaUrl) throw new Error("mensagem vazia");
+      if (senderId === input.receiverId) {
+        throw new Error("não dá para mandar mensagem para si mesmo");
+      }
 
-      const conversationId = await ensureDirectConversation(senderId, input.receiverId);
       const { data, error } = await client
-        .from("direct_messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_id: senderId,
-          receiver_id: input.receiverId,
-          body,
-          media_url: mediaUrl,
-          media_type: mediaUrl ? (input.mediaType ?? "image") : null,
-        })
-        .select("*")
-        .single();
+        .rpc("send_direct_message", {
+          p_receiver_id: input.receiverId,
+          p_body: body,
+          p_media_url: mediaUrl,
+          p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+        });
       if (error) throw error;
       return data as DirectMessageRow;
     },

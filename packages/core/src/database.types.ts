@@ -900,6 +900,25 @@ export type Database = {
         Args: { p_username: string }
         Returns: string
       }
+      send_direct_message: {
+        Args: {
+          p_body?: string | null
+          p_media_type?: string | null
+          p_media_url?: string | null
+          p_receiver_id: string
+        }
+        Returns: {
+          body: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          media_type: string | null
+          media_url: string | null
+          read_at: string | null
+          receiver_id: string
+          sender_id: string
+        }
+      }
     }
     Enums: {
       [_ in never]: never

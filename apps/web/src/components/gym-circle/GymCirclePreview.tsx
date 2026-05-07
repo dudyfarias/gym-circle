@@ -48,6 +48,8 @@ export function GymCirclePreview({
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [chatThreadOpen, setChatThreadOpen] = useState(false);
   const viewerLocation = useViewerLocation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
@@ -215,6 +217,21 @@ export function GymCirclePreview({
 
   const handleEditProfile = social.actions.updateProfile ? openEditProfile : undefined;
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.visualViewport) return;
+    const viewport = window.visualViewport;
+    const updateKeyboardState = () => {
+      setKeyboardOpen(window.innerHeight - viewport.height > 120);
+    };
+    updateKeyboardState();
+    viewport.addEventListener("resize", updateKeyboardState);
+    viewport.addEventListener("scroll", updateKeyboardState);
+    return () => {
+      viewport.removeEventListener("resize", updateKeyboardState);
+      viewport.removeEventListener("scroll", updateKeyboardState);
+    };
+  }, []);
+
   const refresh = social.refresh;
   const triggerRefresh = useCallback(async () => {
     if (!refresh || refreshing) return;
@@ -336,6 +353,7 @@ export function GymCirclePreview({
             onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
             onThreadOpen={social.actions.markChatThreadRead}
+            onThreadViewChange={setChatThreadOpen}
             onUploadImage={onUploadChatImage}
             suggestedUsers={social.suggestedUsers}
           />
@@ -441,13 +459,15 @@ export function GymCirclePreview({
                 {screen}
               </div>
             </div>
-            <BottomNav
-              active={activeScreen}
-              onChange={setActiveScreen}
-              unreadMessages={social.unreadMessages ?? 0}
-            />
+            {!keyboardOpen && !(activeScreen === "chat" && chatThreadOpen) ? (
+              <BottomNav
+                active={activeScreen}
+                onChange={setActiveScreen}
+                unreadMessages={social.unreadMessages ?? 0}
+              />
+            ) : null}
           </div>
-          {activeScreen === "feed" ? (
+          {activeScreen === "feed" && !keyboardOpen ? (
             <FloatingCreatePostButton onClick={() => setActiveScreen("post")} />
           ) : null}
           <StoryViewer
