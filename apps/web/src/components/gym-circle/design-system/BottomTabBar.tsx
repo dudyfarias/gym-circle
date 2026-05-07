@@ -20,7 +20,7 @@ export function BottomTabBar<Key extends string>({
   onChange,
 }: BottomTabBarProps<Key>) {
   return (
-    <nav className="sticky bottom-0 z-30 px-3 pb-4 pt-2">
+    <nav className="z-30 shrink-0 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
       <div className="gc-ios-tabbar grid rounded-full p-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const Icon = item.icon;

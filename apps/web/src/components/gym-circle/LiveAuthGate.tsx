@@ -7,8 +7,8 @@ import { BrandMark } from "./design-system";
 export function LiveAuthGate() {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
-  const [email, setEmail] = useState("edu@gymcircle.test");
-  const [password, setPassword] = useState("gymcircle");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export function LiveAuthGate() {
           </h1>
           <p className="mt-1 text-[13px] font-bold text-white/52">
             {mode === "sign-in"
-              ? "Use as credenciais do seed para testar (edu@gymcircle.test / gymcircle)."
+              ? "Entre com sua conta do Gym Circle."
               : "Crie uma nova conta. Um perfil será criado automaticamente."}
           </p>
 

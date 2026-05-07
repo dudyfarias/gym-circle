@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { StoryViewer, ToastFeedback } from "./design-system";
+import { FloatingCreatePostButton, StoryViewer, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
@@ -183,12 +183,17 @@ export function GymCirclePreview({
 
   return (
     <SearchSheetProvider value={sheetContextValue}>
-      <main className="min-h-screen bg-black text-white lg:bg-[#050505]">
-        <div className="relative mx-auto min-h-screen w-full max-w-[480px] overflow-hidden border-white/[0.06] bg-black shadow-[0_0_90px_rgba(0,0,0,0.92)] lg:border-x">
-          <div className="gc-phone-shell flex min-h-screen flex-col">
-            <div className="flex-1">{screen}</div>
+      <main className="min-h-[100dvh] bg-black text-white lg:bg-[#050505]">
+        <div className="relative mx-auto h-[100dvh] min-h-[100dvh] w-full max-w-[480px] overflow-hidden border-white/[0.06] bg-black shadow-[0_0_90px_rgba(0,0,0,0.92)] lg:border-x">
+          <div className="gc-phone-shell flex h-full min-h-0 flex-col">
+            <div className="gc-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-24">
+              {screen}
+            </div>
             <BottomNav active={activeScreen} onChange={setActiveScreen} />
           </div>
+          {activeScreen === "feed" ? (
+            <FloatingCreatePostButton onClick={() => setActiveScreen("post")} />
+          ) : null}
           <StoryViewer onClose={social.actions.closeStory} story={social.selectedStory} />
           <UserSearchSheet
             currentUserId={social.currentUser.id}

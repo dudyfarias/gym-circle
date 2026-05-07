@@ -70,29 +70,17 @@ psql "postgresql://postgres.<ref>:<DB_PASSWORD>@<host>:5432/postgres" \
   -f supabase/migrations/20260506184118_gym_circle_backend_core.sql
 ```
 
-## Aplicar o seed
+## Seed local
 
-O seed cria 8 usuários (todos com senha `gymcircle`), 4 academias, ~40 posts
-históricos, stories ativos, follows, likes, comentários e check-ins.
+O [`seed.sql`](seed.sql) era usado apenas para desenvolvimento local com usuários
+fake. Para produção/beta, a migration
+[`20260507141530_remove_seed_fake_users.sql`](migrations/20260507141530_remove_seed_fake_users.sql)
+remove todos os usuários `@gymcircle.test` e seus dados sociais por cascade.
 
 ```bash
+# Use apenas em banco local descartável.
 psql "<connection-string>" -f supabase/seed.sql
 ```
-
-Ou cole o conteúdo de [`seed.sql`](seed.sql) no SQL Editor do dashboard.
-
-### Usuários do seed
-
-| Email                    | Username       | Senha       | Streak esperado |
-| ------------------------ | -------------- | ----------- | --------------- |
-| edu@gymcircle.test       | edu_fit        | gymcircle   | 5 (até ontem)   |
-| maya@gymcircle.test      | maya_move      | gymcircle   | 1 (hoje)        |
-| rafa@gymcircle.test      | rafa_strength  | gymcircle   | 9 (incl. hoje)  |
-| bia@gymcircle.test       | bia_run        | gymcircle   | 1 (hoje)        |
-| leo@gymcircle.test       | leo_daily      | gymcircle   | 32 (lendário)   |
-| ana@gymcircle.test       | ana_core       | gymcircle   | 1 (até ontem)   |
-| caio@gymcircle.test      | caio_lift      | gymcircle   | 0               |
-| nina@gymcircle.test      | nina_fitclub   | gymcircle   | 0               |
 
 ## Conectar o app web
 
@@ -110,10 +98,8 @@ Ou cole o conteúdo de [`seed.sql`](seed.sql) no SQL Editor do dashboard.
    npm run dev
    ```
 4. Abra:
-   - `/` — preview com mock local (ainda funciona sem Supabase)
-   - `/live` — feed de verdade puxado do Supabase com login real
-
-Use `edu@gymcircle.test` / `gymcircle` para entrar no `/live`.
+   - `/` — feed de verdade puxado do Supabase com login real
+   - `/demo` — demo visual com dados estáticos, sem tocar na base
 
 ## Como o streak funciona
 
@@ -177,17 +163,14 @@ policies estão criadas.
 O que está pronto:
 
 - [x] Migration completa (11 tabelas, triggers, RLS, storage, Realtime)
-- [x] Seed com 8 usuários e histórico realista
+- [x] Cleanup de usuários fake do seed para beta/produção
 - [x] Services + hooks reutilizáveis em `packages/core`
 - [x] SupabaseProvider integrado no layout do Next.js
-- [x] Tela `/live` com feed real, login e stories
+- [x] Tela `/` com feed real, login e stories
 - [x] 18 testes Vitest da lógica de streak
 
-O que ficou para iteração seguinte (a UI principal em `/` ainda usa mock):
+O que ficou para iteração seguinte:
 
-- [ ] Migrar `FeedScreen`, `ProfileScreen`, `PostScreen`, `CheckInScreen`
-      e `StreakScreen` para os hooks de `@gym-circle/core/hooks`.
-- [ ] Upload real de imagem para o bucket `posts/<user_id>/...` em `PostScreen`.
 - [ ] PWA manifest + ícones.
 - [ ] Auto-expurgo de stories (`pg_cron` ou Edge Function chamando
       `delete from stories where expires_at < now()`).

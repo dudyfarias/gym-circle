@@ -1,7 +1,6 @@
 import {
   DiscoveryUserCard,
   EmptyState,
-  FloatingCreatePostButton,
   SocialPostCard,
   StoryBubbles,
 } from "../design-system";
@@ -98,7 +97,6 @@ export function FeedScreen({
           title="Seu feed esta quieto"
         />
       )}
-      <FloatingCreatePostButton onClick={onCreatePost} />
     </section>
   );
 }
