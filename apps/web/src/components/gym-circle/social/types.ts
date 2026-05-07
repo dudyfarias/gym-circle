@@ -144,6 +144,11 @@ export type ProfileEditInput = {
   avatarUrl?: string | null;
 };
 
+export type EditPostInput = {
+  caption?: string | null;
+  workoutType?: string | null;
+};
+
 export type SocialActions = {
   likePost: (postId: string) => void | Promise<void>;
   commentPost: (postId: string, body: string) => void | Promise<void>;
@@ -154,6 +159,8 @@ export type SocialActions = {
   checkIn: (gymName: string) => void | Promise<void>;
   signOut?: () => Promise<void>;
   updateProfile?: (input: ProfileEditInput) => Promise<void>;
+  editPost?: (postId: string, input: EditPostInput) => Promise<void>;
+  deletePost?: (postId: string) => Promise<void>;
 };
 
 export type SocialBundle = {

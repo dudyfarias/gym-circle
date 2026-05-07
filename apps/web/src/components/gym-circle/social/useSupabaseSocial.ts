@@ -20,6 +20,7 @@ import { simulateHaptic } from "./haptics";
 import { buildMonthWorkoutDays } from "./streak";
 import type {
   CreateWorkoutPostInput,
+  EditPostInput,
   EnrichedPost,
   EnrichedStory,
   EnrichedUser,
@@ -140,6 +141,8 @@ export type SupabaseSocialActions = {
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
   checkIn: (gymName: string) => Promise<void>;
+  editPost: (postId: string, input: EditPostInput) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileEditInput) => Promise<void>;
 };
@@ -638,6 +641,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         }
         await services.checkins.checkIn(currentUserId, gym.id);
         showFeedback("brand", "Check-in ativo", gymName);
+      },
+      async editPost(postId: string, input: EditPostInput) {
+        const patch: { caption?: string | null; workout_type?: string | null } = {};
+        if (input.caption !== undefined) patch.caption = input.caption;
+        if (input.workoutType !== undefined) patch.workout_type = input.workoutType;
+        await services.posts.update(postId, patch);
+        await refresh();
+        showFeedback("success", "Post atualizado");
+      },
+      async deletePost(postId: string) {
+        await services.posts.remove(postId);
+        await refresh();
+        showFeedback("success", "Post apagado");
       },
       async signOut() {
         await services.auth.signOut();

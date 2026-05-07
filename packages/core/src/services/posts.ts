@@ -49,6 +49,20 @@ export function postService(client: GymCircleClient) {
       if (error) throw error;
     },
 
+    async update(
+      postId: string,
+      patch: { caption?: string | null; workout_type?: string | null },
+    ): Promise<PostRow> {
+      const { data, error } = await client
+        .from("posts")
+        .update(patch)
+        .eq("id", postId)
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+
     /**
      * Carrega o feed enriquecido com counts, autor e streak.
      * Usa a view `feed_posts` (security_invoker) e completa em TS com:

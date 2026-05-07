@@ -12,8 +12,10 @@ import { SearchSheetProvider } from "./SearchSheetContext";
 import { UserSearchSheet } from "./UserSearchSheet";
 import { ProfileSheet } from "./ProfileSheet";
 import { EditProfileSheet } from "./EditProfileSheet";
+import { EditPostSheet } from "./EditPostSheet";
 import { NotificationsSheet } from "./NotificationsSheet";
-import type { EnrichedUser, SocialBundle } from "./social/types";
+import { PostMenuSheet } from "./PostMenuSheet";
+import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
@@ -31,6 +33,8 @@ export function GymCirclePreview({
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [postMenuId, setPostMenuId] = useState<string | null>(null);
+  const [editPostId, setEditPostId] = useState<string | null>(null);
 
   const allUsers = useMemo<EnrichedUser[]>(() => {
     const fromUsers = social.users
@@ -76,6 +80,42 @@ export function GymCirclePreview({
   const closeEditProfile = useCallback(() => setEditOpen(false), []);
   const openNotifications = useCallback(() => setNotificationsOpen(true), []);
   const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
+
+  const editPost = social.actions.editPost;
+  const deletePost = social.actions.deletePost;
+  const canManageOwnPost = Boolean(editPost && deletePost);
+
+  const openPostMenu = useCallback(
+    (postId: string) => {
+      if (!canManageOwnPost) return;
+      setPostMenuId(postId);
+    },
+    [canManageOwnPost],
+  );
+  const closePostMenu = useCallback(() => setPostMenuId(null), []);
+  const closeEditPost = useCallback(() => setEditPostId(null), []);
+
+  const handleStartEditPost = useCallback(() => {
+    if (!postMenuId) return;
+    setEditPostId(postMenuId);
+    setPostMenuId(null);
+  }, [postMenuId]);
+
+  const handleConfirmDeletePost = useCallback(async () => {
+    if (!postMenuId || !deletePost) return;
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm("Apagar esse post? Não dá pra desfazer.");
+    if (!ok) return;
+    setPostMenuId(null);
+    await deletePost(postMenuId);
+  }, [postMenuId, deletePost]);
+
+  const editPostTarget: EnrichedPost | null = useMemo(() => {
+    if (!editPostId) return null;
+    return social.feedPosts.find((p) => p.id === editPostId) ?? null;
+  }, [editPostId, social.feedPosts]);
 
   const sheetContextValue = useMemo(
     () => ({
@@ -163,6 +203,7 @@ export function GymCirclePreview({
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
             onLikePost={social.actions.likePost}
+            onOpenPostMenu={canManageOwnPost ? openPostMenu : undefined}
             onOpenStory={social.actions.openStory}
             onSelectUser={openProfile}
             onToggleFollow={social.actions.toggleFollow}
@@ -180,6 +221,8 @@ export function GymCirclePreview({
     handleSignOut,
     openProfile,
     resolveUser,
+    canManageOwnPost,
+    openPostMenu,
   ]);
 
   return (
@@ -231,6 +274,20 @@ export function GymCirclePreview({
             open={notificationsOpen}
             users={usersById}
           />
+          <PostMenuSheet
+            onClose={closePostMenu}
+            onDelete={handleConfirmDeletePost}
+            onEdit={handleStartEditPost}
+            open={postMenuId !== null}
+          />
+          {editPost ? (
+            <EditPostSheet
+              onClose={closeEditPost}
+              onSave={editPost}
+              open={editPostId !== null}
+              post={editPostTarget}
+            />
+          ) : null}
           <ToastFeedback feedback={social.feedback} />
         </div>
       </main>

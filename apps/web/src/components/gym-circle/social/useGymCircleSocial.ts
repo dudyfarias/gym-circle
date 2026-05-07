@@ -11,6 +11,7 @@ import {
 } from "./streak";
 import type {
   CreateWorkoutPostInput,
+  EditPostInput,
   EnrichedUser,
   EnrichedPost,
   EnrichedStory,
@@ -29,7 +30,9 @@ type SocialAction =
   | { type: "toggle-follow"; userId: string }
   | { type: "view-story"; storyId: string }
   | { type: "publish-workout"; input: CreateWorkoutPostInput }
-  | { type: "check-in"; gymName: string };
+  | { type: "check-in"; gymName: string }
+  | { type: "edit-post"; postId: string; input: EditPostInput }
+  | { type: "delete-post"; postId: string };
 
 function formatPostClock(createdAt: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -311,6 +314,39 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       };
     }
 
+    case "edit-post": {
+      // Mock só edita posts do dono atual; UI só expõe o menu para posts próprios.
+      const target = state.posts.find((p) => p.id === action.postId);
+      if (!target || target.userId !== state.currentUserId) return state;
+
+      return {
+        ...state,
+        posts: state.posts.map((post) => {
+          if (post.id !== action.postId) return post;
+          return {
+            ...post,
+            caption:
+              action.input.caption !== undefined
+                ? (action.input.caption?.trim() || "")
+                : post.caption,
+            workoutType:
+              action.input.workoutType !== undefined
+                ? action.input.workoutType
+                : post.workoutType,
+          };
+        }),
+      };
+    }
+
+    case "delete-post": {
+      const target = state.posts.find((p) => p.id === action.postId);
+      if (!target || target.userId !== state.currentUserId) return state;
+      return {
+        ...state,
+        posts: state.posts.filter((p) => p.id !== action.postId),
+      };
+    }
+
     default:
       return state;
   }
@@ -435,6 +471,14 @@ export function useGymCircleSocial() {
       checkIn(gymName: string) {
         dispatch({ type: "check-in", gymName });
         showFeedback("brand", "Check-in ativo", gymName);
+      },
+      async editPost(postId: string, input: EditPostInput) {
+        dispatch({ type: "edit-post", postId, input });
+        showFeedback("success", "Post atualizado");
+      },
+      async deletePost(postId: string) {
+        dispatch({ type: "delete-post", postId });
+        showFeedback("success", "Post apagado");
       },
     }),
     [showFeedback, state.users],

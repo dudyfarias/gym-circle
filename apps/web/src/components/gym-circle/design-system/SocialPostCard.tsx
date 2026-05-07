@@ -29,6 +29,8 @@ type SocialPostCardProps = {
   onToggleFollow: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
+  /** Quando o usuário atual é o dono do post, esta callback abre o menu (Editar/Apagar). */
+  onOpenPostMenu?: (postId: string) => void;
 };
 
 export function SocialPostCard({
@@ -40,6 +42,7 @@ export function SocialPostCard({
   onToggleFollow,
   onSelectUser,
   resolveUser,
+  onOpenPostMenu,
 }: SocialPostCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
@@ -129,9 +132,15 @@ export function SocialPostCard({
               {post.author.isFollowing ? <UserCheck size={17} /> : <UserPlus size={17} />}
             </button>
           ) : null}
-          <IconButton className="size-10" label="Mais opções">
-            <MoreHorizontal size={18} />
-          </IconButton>
+          {post.author.id === currentUserId && onOpenPostMenu ? (
+            <IconButton
+              className="size-10"
+              label="Mais opções"
+              onClick={() => onOpenPostMenu(post.id)}
+            >
+              <MoreHorizontal size={18} />
+            </IconButton>
+          ) : null}
         </div>
       </div>
 

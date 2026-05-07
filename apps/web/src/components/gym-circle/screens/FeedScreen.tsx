@@ -20,6 +20,7 @@ type FeedScreenProps = {
   onOpenStory: (storyId: string) => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
+  onOpenPostMenu?: (postId: string) => void;
 };
 
 function getSharedGymCount(currentUser: EnrichedUser, user: EnrichedUser) {
@@ -39,6 +40,7 @@ export function FeedScreen({
   onOpenStory,
   onSelectUser,
   resolveUser,
+  onOpenPostMenu,
 }: FeedScreenProps) {
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -54,6 +56,7 @@ export function FeedScreen({
                 formatTime={formatTime}
                 onComment={onCommentPost}
                 onLike={onLikePost}
+                onOpenPostMenu={onOpenPostMenu}
                 onSelectUser={onSelectUser}
                 onToggleFollow={onToggleFollow}
                 post={post}
