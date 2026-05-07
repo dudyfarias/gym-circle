@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { Camera, Check, Dumbbell, MapPin, Sparkles, Timer } from "lucide-react";
+import { useRef, useState } from "react";
+import { Camera, Check, Dumbbell, MapPin, Sparkles, Timer, Upload } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { AchievementBadge, StreakBadge } from "../design-system";
 import { workoutImagePool } from "../social/mock-data";
@@ -12,6 +12,7 @@ import { TopBar } from "../TopBar";
 type PostScreenProps = {
   currentUser: EnrichedUser;
   onPublish: (input: CreateWorkoutPostInput) => void;
+  onUploadImage?: (file: File) => Promise<string>;
 };
 
 const workoutTypes = ["Push day", "Leg day", "Full body", "Cardio"];
@@ -21,20 +22,46 @@ const gyms = [
   { id: "gym-flow", name: "Studio Flow" },
 ];
 
-export function PostScreen({ currentUser, onPublish }: PostScreenProps) {
+export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreenProps) {
   const [caption, setCaption] = useState("Treino concluido. Push day pesado, mas no controle.");
   const [workoutType, setWorkoutType] = useState(workoutTypes[0]);
   const [gym, setGym] = useState(gyms[0]);
   const [imageUrl, setImageUrl] = useState(workoutImagePool[0]);
+  const [uploading, setUploading] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  function publishWorkout() {
-    onPublish({
-      caption,
-      workoutType,
-      gymId: gym.id,
-      gymName: gym.name,
-      imageUrl,
-    });
+  async function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !onUploadImage) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const url = await onUploadImage(file);
+      setImageUrl(url);
+    } catch (err) {
+      setUploadError((err as Error).message ?? "falha no upload");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function publishWorkout() {
+    if (publishing) return;
+    setPublishing(true);
+    try {
+      await onPublish({
+        caption,
+        workoutType,
+        gymId: gym.id,
+        gymName: gym.name,
+        imageUrl,
+      });
+    } finally {
+      setPublishing(false);
+    }
   }
 
   return (
@@ -76,6 +103,26 @@ export function PostScreen({ currentUser, onPublish }: PostScreenProps) {
           value={caption}
         />
         <div className="gc-scrollbar -mx-1 mt-1 flex gap-2 overflow-x-auto px-1 pb-2">
+          {onUploadImage ? (
+            <>
+              <button
+                aria-label="Enviar foto do dispositivo"
+                className="gc-pressable relative grid size-16 shrink-0 place-items-center rounded-[20px] border border-white/[0.16] bg-white/[0.06] text-white/72 disabled:opacity-50"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
+                <Upload size={18} strokeWidth={2.4} />
+                <input
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleFileChange}
+                  ref={fileInputRef}
+                  type="file"
+                />
+              </button>
+            </>
+          ) : null}
           {workoutImagePool.map((image) => (
             <button
               aria-label="Selecionar foto do treino"
@@ -97,6 +144,14 @@ export function PostScreen({ currentUser, onPublish }: PostScreenProps) {
             </button>
           ))}
         </div>
+        {uploadError ? (
+          <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
+            Upload falhou: {uploadError}
+          </p>
+        ) : null}
+        {uploading ? (
+          <p className="mt-2 text-[12px] font-bold text-white/52">Enviando foto...</p>
+        ) : null}
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div className="rounded-[20px] bg-white/[0.055] p-3">
             <Dumbbell className="mb-3 text-[var(--gc-blue)]" size={18} />

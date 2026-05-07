@@ -106,3 +106,30 @@ export type FeedbackMessage = {
   title: string;
   detail?: string;
 };
+
+export type SocialActions = {
+  likePost: (postId: string) => void | Promise<void>;
+  commentPost: (postId: string, body: string) => void | Promise<void>;
+  toggleFollow: (userId: string) => void | Promise<void>;
+  openStory: (storyId: string) => void;
+  closeStory: () => void;
+  publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;
+  checkIn: (gymName: string) => void | Promise<void>;
+};
+
+export type SocialBundle = {
+  currentUser: EnrichedUser;
+  feedPosts: EnrichedPost[];
+  storyBubbles: EnrichedStory[];
+  selectedStory: EnrichedStory | null;
+  suggestedUsers: EnrichedUser[];
+  nearbyUsers: EnrichedUser[];
+  socialStats: {
+    trainedToday: number;
+    checkInsToday: number;
+    monthDays: Array<{ day: number; dateKey: string; trained: boolean }>;
+  };
+  feedback: FeedbackMessage | null;
+  formatPostClock: (createdAt: string) => string;
+  actions: SocialActions;
+};

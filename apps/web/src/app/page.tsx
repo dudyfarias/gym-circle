@@ -1,6 +1,6 @@
-import { LiveGymCirclePreview } from "@/components/gym-circle/LiveGymCirclePreview";
-import { readSupabaseEnv } from "@/lib/supabase/env";
 import Link from "next/link";
+import { LiveHomeWrapper } from "@/components/gym-circle/LiveHomeWrapper";
+import { readSupabaseEnv } from "@/lib/supabase/env";
 
 export default function Home() {
   const env = readSupabaseEnv();
@@ -15,12 +15,16 @@ export default function Home() {
             <code className="rounded bg-white/[0.08] px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> no ambiente.
           </p>
           <p className="mt-4 text-[13px] font-bold text-white/52">
-            Enquanto isso, veja a <Link className="text-[var(--gc-brand)] underline-offset-4 hover:underline" href="/demo">demo visual</Link>.
+            Enquanto isso, veja a{" "}
+            <Link className="text-[var(--gc-brand)] underline-offset-4 hover:underline" href="/demo">
+              demo visual
+            </Link>
+            .
           </p>
         </div>
       </main>
     );
   }
 
-  return <LiveGymCirclePreview />;
+  return <LiveHomeWrapper />;
 }

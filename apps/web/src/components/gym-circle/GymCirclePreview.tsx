@@ -8,11 +8,15 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { PostScreen } from "./screens/PostScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { StreakScreen } from "./screens/StreakScreen";
-import { useGymCircleSocial } from "./social/useGymCircleSocial";
+import type { SocialBundle } from "./social/types";
 
-export function GymCirclePreview() {
+type GymCirclePreviewProps = {
+  social: SocialBundle;
+  onUploadImage?: (file: File) => Promise<string>;
+};
+
+export function GymCirclePreview({ social, onUploadImage }: GymCirclePreviewProps) {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
-  const social = useGymCircleSocial();
 
   const screen = useMemo(() => {
     switch (activeScreen) {
@@ -32,6 +36,7 @@ export function GymCirclePreview() {
               social.actions.publishWorkout(input);
               setActiveScreen("feed");
             }}
+            onUploadImage={onUploadImage}
           />
         );
       case "checkin":
@@ -68,7 +73,7 @@ export function GymCirclePreview() {
           />
         );
     }
-  }, [activeScreen, social]);
+  }, [activeScreen, social, onUploadImage]);
 
   return (
     <main className="min-h-screen bg-black text-white lg:bg-[#050505]">

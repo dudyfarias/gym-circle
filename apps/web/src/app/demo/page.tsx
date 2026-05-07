@@ -1,4 +1,4 @@
-import { GymCirclePreview } from "@/components/gym-circle/GymCirclePreview";
+import { MockHomeWrapper } from "@/components/gym-circle/MockHomeWrapper";
 
 export const metadata = {
   title: "Gym Circle — Demo visual",
@@ -6,5 +6,5 @@ export const metadata = {
 };
 
 export default function DemoPage() {
-  return <GymCirclePreview />;
+  return <MockHomeWrapper />;
 }
