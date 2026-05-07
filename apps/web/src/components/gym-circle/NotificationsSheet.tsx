@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Heart, MessageCircle, AtSign, UserPlus, X } from "lucide-react";
+import { AtSign, BellRing, Check, Heart, MessageCircle, UserPlus, X } from "lucide-react";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type { NotificationRow } from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
@@ -13,6 +13,8 @@ type NotificationsSheetProps = {
   currentUserId: string;
   users: Record<string, EnrichedUser>;
   onSelectUser?: (userId: string) => void;
+  onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
+  onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
 };
 
 const KIND_ICON = {
@@ -20,6 +22,7 @@ const KIND_ICON = {
   comment: MessageCircle,
   follow: UserPlus,
   mention: AtSign,
+  follow_request: BellRing,
 } as const;
 
 const KIND_LABEL = {
@@ -27,6 +30,7 @@ const KIND_LABEL = {
   comment: "comentou seu treino",
   follow: "começou a seguir você",
   mention: "mencionou você",
+  follow_request: "quer te seguir",
 } as const;
 
 const KIND_TONE = {
@@ -34,6 +38,7 @@ const KIND_TONE = {
   comment: "text-[var(--gc-brand)]",
   follow: "text-[var(--gc-consistency-month)]",
   mention: "text-[var(--gc-consistency-daily)]",
+  follow_request: "text-[var(--gc-brand)]",
 } as const;
 
 function formatRelative(iso: string, now: number): string {
@@ -54,6 +59,8 @@ export function NotificationsSheet({
   currentUserId,
   users,
   onSelectUser,
+  onAcceptFollowRequest,
+  onRejectFollowRequest,
 }: NotificationsSheetProps) {
   const services = useGymCircleServices();
   const [items, setItems] = useState<NotificationRow[]>([]);
@@ -154,6 +161,8 @@ export function NotificationsSheet({
                   items={grouped.today}
                   users={users}
                   onSelectUser={onSelectUser}
+                  onAcceptFollowRequest={onAcceptFollowRequest}
+                  onRejectFollowRequest={onRejectFollowRequest}
                 />
               ) : null}
               {grouped.earlier.length > 0 ? (
@@ -163,6 +172,8 @@ export function NotificationsSheet({
                   items={grouped.earlier}
                   users={users}
                   onSelectUser={onSelectUser}
+                  onAcceptFollowRequest={onAcceptFollowRequest}
+                  onRejectFollowRequest={onRejectFollowRequest}
                 />
               ) : null}
             </>
@@ -179,12 +190,16 @@ function Section({
   users,
   now,
   onSelectUser,
+  onAcceptFollowRequest,
+  onRejectFollowRequest,
 }: {
   title: string;
   items: NotificationRow[];
   users: Record<string, EnrichedUser>;
   now: number;
   onSelectUser?: (userId: string) => void;
+  onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
+  onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
 }) {
   return (
     <div className="mb-4">
@@ -195,41 +210,72 @@ function Section({
           const tone = KIND_TONE[n.kind];
           const actor = users[n.actor_id];
           const unread = !n.read_at;
+          const isFollowRequest = n.kind === "follow_request";
+          // Se o solicitante já foi aprovado em outra aba (followStatus 'accepted')
+          // ou se a relação não existe mais (none), oculta os botões.
+          const stillPending =
+            isFollowRequest && actor?.followStatus !== "accepted";
           return (
             <li
               className={[
-                "flex items-center gap-3 rounded-[20px] border p-3",
+                "flex flex-col gap-3 rounded-[20px] border p-3",
                 unread
                   ? "border-[var(--gc-brand)]/24 bg-[var(--gc-brand)]/6"
                   : "border-white/[0.06] bg-white/[0.02]",
               ].join(" ")}
               key={n.id}
             >
-              <button
-                aria-label={`Ver ${actor?.name ?? "perfil"}`}
-                className="gc-pressable shrink-0"
-                onClick={() => actor && onSelectUser?.(actor.id)}
-                type="button"
-              >
-                <Avatar accent={actor?.accent ?? "var(--gc-brand)"} name={actor?.name ?? "?"} />
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-bold text-white/82">
-                  <span className="text-white">{actor?.name ?? "Alguém"}</span>{" "}
-                  <span className="font-semibold text-white/64">{KIND_LABEL[n.kind]}</span>
-                </p>
-                {n.body ? (
-                  <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
-                    &ldquo;{n.body}&rdquo;
+              <div className="flex items-center gap-3">
+                <button
+                  aria-label={`Ver ${actor?.name ?? "perfil"}`}
+                  className="gc-pressable shrink-0"
+                  onClick={() => actor && onSelectUser?.(actor.id)}
+                  type="button"
+                >
+                  <Avatar accent={actor?.accent ?? "var(--gc-brand)"} name={actor?.name ?? "?"} />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-bold text-white/82">
+                    <span className="text-white">{actor?.name ?? "Alguém"}</span>{" "}
+                    <span className="font-semibold text-white/64">{KIND_LABEL[n.kind]}</span>
                   </p>
-                ) : null}
+                  {n.body ? (
+                    <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
+                      &ldquo;{n.body}&rdquo;
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <Icon className={tone} size={18} fill={n.kind === "like" ? "currentColor" : "none"} />
+                  <span className="text-[10px] font-black text-white/36">
+                    {formatRelative(n.created_at, now)}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col items-end gap-1">
-                <Icon className={tone} size={18} fill={n.kind === "like" ? "currentColor" : "none"} />
-                <span className="text-[10px] font-black text-white/36">
-                  {formatRelative(n.created_at, now)}
-                </span>
-              </div>
+
+              {isFollowRequest && stillPending && actor && onAcceptFollowRequest && onRejectFollowRequest ? (
+                <div className="flex gap-2">
+                  <button
+                    className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-black"
+                    onClick={() => onAcceptFollowRequest(actor.id)}
+                    type="button"
+                  >
+                    <Check size={14} strokeWidth={2.8} />
+                    Aceitar
+                  </button>
+                  <button
+                    className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
+                    onClick={() => onRejectFollowRequest(actor.id)}
+                    type="button"
+                  >
+                    Recusar
+                  </button>
+                </div>
+              ) : null}
+
+              {isFollowRequest && actor?.followStatus === "accepted" ? (
+                <p className="text-[11px] font-bold text-white/40">Solicitação aceita.</p>
+              ) : null}
             </li>
           );
         })}

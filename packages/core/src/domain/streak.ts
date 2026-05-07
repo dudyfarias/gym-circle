@@ -4,7 +4,7 @@ export const streakLevels: StreakLevel[] = [
   { id: "iniciante",   label: "Iniciante",   shortLabel: "Novo",        minDays: 0,  nextLevelAt: 4,    tone: "cyan" },
   { id: "consistente", label: "Consistente", shortLabel: "Consistente", minDays: 4,  nextLevelAt: 14,   tone: "electric" },
   { id: "elite",       label: "Elite",       shortLabel: "Elite",       minDays: 14, nextLevelAt: 30,   tone: "blue" },
-  { id: "lendario",    label: "Lendario",    shortLabel: "Lenda",       minDays: 30, nextLevelAt: null, tone: "deep" },
+  { id: "lendario",    label: "Lendário",    shortLabel: "Lenda",       minDays: 30, nextLevelAt: null, tone: "deep" },
 ];
 
 export function getStreakLevel(days: number): StreakLevel {

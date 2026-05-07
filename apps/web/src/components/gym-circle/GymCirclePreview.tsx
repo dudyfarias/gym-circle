@@ -249,6 +249,7 @@ export function GymCirclePreview({
             users={allUsers}
           />
           <ProfileSheet
+            currentUserId={social.currentUser.id}
             onClose={closeProfile}
             onToggleFollow={social.actions.toggleFollow}
             open={profileOpenId !== null}
@@ -266,7 +267,9 @@ export function GymCirclePreview({
           ) : null}
           <NotificationsSheet
             currentUserId={social.currentUser.id}
+            onAcceptFollowRequest={social.actions.acceptFollowRequest}
             onClose={closeNotifications}
+            onRejectFollowRequest={social.actions.rejectFollowRequest}
             onSelectUser={(userId) => {
               setNotificationsOpen(false);
               openProfile(userId);

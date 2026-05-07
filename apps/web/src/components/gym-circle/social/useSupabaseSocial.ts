@@ -143,6 +143,8 @@ export type SupabaseSocialActions = {
   checkIn: (gymName: string) => Promise<void>;
   editPost: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
+  acceptFollowRequest: (requesterId: string) => Promise<void>;
+  rejectFollowRequest: (requesterId: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileEditInput) => Promise<void>;
 };
@@ -324,15 +326,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       list.push(ug);
       userGymsByUser.set(ug.user_id, list);
     }
+    // Counts só consideram relações aceitas. Pending fica fora.
     const followersCountByUser = new Map<string, number>();
     const followingCountByUser = new Map<string, number>();
     for (const f of agg.follows) {
+      if (f.status !== "accepted") continue;
       followersCountByUser.set(f.following_id, (followersCountByUser.get(f.following_id) ?? 0) + 1);
       followingCountByUser.set(f.follower_id, (followingCountByUser.get(f.follower_id) ?? 0) + 1);
     }
-    const followingByMe = new Set(
-      agg.follows.filter((f) => f.follower_id === currentUserId).map((f) => f.following_id),
-    );
+    // Para o usuário atual: mapa user_id → status do follow que parto pra esse user.
+    const myFollowStatusByTarget = new Map<string, "pending" | "accepted">();
+    for (const f of agg.follows) {
+      if (f.follower_id === currentUserId) {
+        myFollowStatusByTarget.set(f.following_id, f.status);
+      }
+    }
     const checkinsCountByUser = new Map<string, number>();
     for (const c of agg.checkinsToday) {
       checkinsCountByUser.set(c.user_id, (checkinsCountByUser.get(c.user_id) ?? 0) + 1);
@@ -347,6 +355,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         .map((ug) => gymsById.get(ug.gym_id)?.name)
         .filter((n): n is string => Boolean(n));
       const mainUserGym = userGyms.find((ug) => ug.is_main);
+      const followStatus =
+        myFollowStatusByTarget.get(profile.user_id) ?? "none";
       const enriched: EnrichedUser = {
         id: profile.user_id,
         name: profile.display_name,
@@ -366,7 +376,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         achievements: deriveAchievements(stats),
         followersCount: followersCountByUser.get(profile.user_id) ?? 0,
         followingCount: followingCountByUser.get(profile.user_id) ?? 0,
-        isFollowing: followingByMe.has(profile.user_id),
+        isFollowing: followStatus === "accepted",
+        followStatus,
+        isPrivate: profile.is_private ?? false,
         workoutDays: profile.user_id === currentUserId ? Array.from(myActivityDates) : [],
         ...getDailyPresenceFromStats(stats),
       };
@@ -397,6 +409,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followersCount: 0,
         followingCount: 0,
         isFollowing: false,
+        followStatus: "none",
+        isPrivate: false,
         workoutDays: [],
         streakLitToday: false,
         streakPresenceSource: "none",
@@ -572,11 +586,23 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       async toggleFollow(userId: string) {
         const target = enrichedAll.get(userId);
         const result = await services.follows.toggle(currentUserId, userId);
-        showFeedback(
-          "follow",
-          result.isFollowing ? "Agora no seu circle" : "Você deixou de seguir",
-          target?.name,
-        );
+        let title: string;
+        switch (result.followStatus) {
+          case "accepted":
+            title = "Agora no seu circle";
+            break;
+          case "pending":
+            title = "Solicitação enviada";
+            break;
+          case "none":
+          default:
+            title = target?.followStatus === "pending"
+              ? "Solicitação cancelada"
+              : "Você deixou de seguir";
+            break;
+        }
+        showFeedback("follow", title, target?.name);
+        await refresh();
       },
       openStory(storyId: string) {
         setSelectedStoryId(storyId);
@@ -665,8 +691,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ...(input.bio !== undefined ? { bio: input.bio } : {}),
           ...(input.fitnessGoal !== undefined ? { fitness_goal: input.fitnessGoal } : {}),
           ...(input.avatarUrl !== undefined ? { avatar_url: input.avatarUrl } : {}),
+          ...(input.isPrivate !== undefined ? { is_private: input.isPrivate } : {}),
         });
+        await refresh();
         showFeedback("success", "Perfil atualizado");
+      },
+      async acceptFollowRequest(requesterId: string) {
+        const requester = enrichedAll.get(requesterId);
+        await services.follows.acceptRequest(currentUserId, requesterId);
+        await refresh();
+        showFeedback("follow", "Solicitação aceita", requester?.name);
+      },
+      async rejectFollowRequest(requesterId: string) {
+        await services.follows.rejectRequest(currentUserId, requesterId);
+        await refresh();
+        showFeedback("brand", "Solicitação recusada");
       },
     }),
     [services, currentUserId, feedPosts, enrichedAll, agg.gyms, refresh, showFeedback],

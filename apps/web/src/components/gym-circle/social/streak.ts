@@ -46,7 +46,7 @@ const streakLevels: StreakLevel[] = [
   },
   {
     id: "lendario",
-    label: "Lendario",
+    label: "Lendário",
     shortLabel: "Lenda",
     minDays: 30,
     nextLevelAt: null,
@@ -119,7 +119,7 @@ export function buildConsistencyRings(input: ConsistencyProgressInput) {
     },
     {
       id: "month",
-      label: "Mes",
+      label: "Mês",
       color: "var(--gc-consistency-month)",
       glow: "rgba(48,213,255,0.24)",
       value: progress.month,

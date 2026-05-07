@@ -1,4 +1,4 @@
-import { Plus, UserCheck } from "lucide-react";
+import { Clock3, Lock, Plus, UserCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedUser } from "../social/types";
 import { StreakBadge } from "./StreakBadge";
@@ -9,28 +9,60 @@ type DiscoveryUserCardProps = {
   onToggleFollow: (userId: string) => void;
 };
 
+function followIconState(user: EnrichedUser) {
+  switch (user.followStatus) {
+    case "accepted":
+      return {
+        Icon: UserCheck,
+        title: "Seguindo",
+        ariaLabel: `Seguindo ${user.name}`,
+        classes: "bg-white text-black",
+      };
+    case "pending":
+      return {
+        Icon: Clock3,
+        title: "Solicitação enviada",
+        ariaLabel: `Solicitação enviada para ${user.name}`,
+        classes: "border border-white/[0.16] bg-white/[0.05] text-white/72",
+      };
+    case "none":
+    default:
+      return user.isPrivate
+        ? {
+            Icon: Lock,
+            title: "Solicitar para seguir",
+            ariaLabel: `Solicitar para seguir ${user.name}`,
+            classes:
+              "bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.22)]",
+          }
+        : {
+            Icon: Plus,
+            title: "Seguir",
+            ariaLabel: `Seguir ${user.name}`,
+            classes:
+              "bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.22)]",
+          };
+  }
+}
+
 export function DiscoveryUserCard({
   user,
   sharedGymCount,
   onToggleFollow,
 }: DiscoveryUserCardProps) {
+  const cta = followIconState(user);
   return (
     <div className="gc-ios-sheet gc-pressable min-w-[220px] rounded-[28px] p-4">
       <div className="flex items-start justify-between gap-4">
         <Avatar accent={user.accent} name={user.name} />
         <button
-          aria-label={user.isFollowing ? `Seguindo ${user.name}` : `Seguir ${user.name}`}
-          className={[
-            "gc-pressable grid size-10 place-items-center rounded-full",
-            user.isFollowing
-              ? "bg-white text-black"
-              : "bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.22)]",
-          ].join(" ")}
+          aria-label={cta.ariaLabel}
+          className={["gc-pressable grid size-10 place-items-center rounded-full", cta.classes].join(" ")}
           onClick={() => onToggleFollow(user.id)}
-          title={user.isFollowing ? "Seguindo" : "Seguir"}
+          title={cta.title}
           type="button"
         >
-          {user.isFollowing ? <UserCheck size={17} /> : <Plus size={18} />}
+          <cta.Icon size={17} />
         </button>
       </div>
       <p className="mt-4 truncate text-[16px] font-black">{user.name}</p>

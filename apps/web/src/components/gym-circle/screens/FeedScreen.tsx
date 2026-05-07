@@ -96,8 +96,8 @@ export function FeedScreen({
               Postar primeiro treino
             </button>
           }
-          detail="Quando seu circle publicar treinos, eles aparecem aqui com streak, curtidas e comentarios."
-          title="Seu feed esta quieto"
+          detail="Quando seu circle publicar treinos, eles aparecem aqui com streak, curtidas e comentários."
+          title="Seu feed está quieto"
         />
       )}
     </section>

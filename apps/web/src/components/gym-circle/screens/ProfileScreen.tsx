@@ -147,9 +147,23 @@ export function ProfileScreen({
                 type="button"
               >
                 <AchievementBadge
-                  icon={person.isFollowing ? <CheckCircle2 size={13} /> : undefined}
-                  label={person.isFollowing ? "Seguindo" : "Seguir"}
-                  tone={person.isFollowing ? "brand" : "blue"}
+                  icon={person.followStatus === "accepted" ? <CheckCircle2 size={13} /> : undefined}
+                  label={
+                    person.followStatus === "accepted"
+                      ? "Seguindo"
+                      : person.followStatus === "pending"
+                        ? "Pendente"
+                        : person.isPrivate
+                          ? "Solicitar"
+                          : "Seguir"
+                  }
+                  tone={
+                    person.followStatus === "accepted"
+                      ? "brand"
+                      : person.followStatus === "pending"
+                        ? "energy"
+                        : "blue"
+                  }
                 />
               </button>
             </div>

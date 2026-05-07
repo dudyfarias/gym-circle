@@ -1,3 +1,5 @@
+export type FollowStatus = "none" | "pending" | "accepted";
+
 export type GymUser = {
   id: string;
   name: string;
@@ -17,7 +19,10 @@ export type GymUser = {
   achievements: string[];
   followersCount: number;
   followingCount: number;
+  /** @deprecated derive from `followStatus === "accepted"` */
   isFollowing: boolean;
+  followStatus: FollowStatus;
+  isPrivate: boolean;
   workoutDays: string[];
 };
 
@@ -142,6 +147,7 @@ export type ProfileEditInput = {
   bio?: string | null;
   fitnessGoal?: string | null;
   avatarUrl?: string | null;
+  isPrivate?: boolean;
 };
 
 export type EditPostInput = {
@@ -161,6 +167,8 @@ export type SocialActions = {
   updateProfile?: (input: ProfileEditInput) => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
+  acceptFollowRequest?: (requesterId: string) => Promise<void>;
+  rejectFollowRequest?: (requesterId: string) => Promise<void>;
 };
 
 export type SocialBundle = {

@@ -175,11 +175,17 @@ export interface Database {
         Relationships: [];
       };
       follows: {
-        Row: { follower_id: string; following_id: string; created_at: string };
+        Row: {
+          follower_id: string;
+          following_id: string;
+          created_at: string;
+          status: "pending" | "accepted";
+        };
         Insert: {
           follower_id: string;
           following_id: string;
           created_at?: string;
+          status?: "pending" | "accepted";
         };
         Update: Partial<Database["public"]["Tables"]["follows"]["Insert"]>;
         Relationships: [];
@@ -254,7 +260,7 @@ export interface Database {
           id: string;
           user_id: string;
           actor_id: string;
-          kind: "like" | "comment" | "follow" | "mention";
+          kind: "like" | "comment" | "follow" | "mention" | "follow_request";
           post_id: string | null;
           comment_id: string | null;
           body: string | null;
@@ -265,7 +271,7 @@ export interface Database {
           id?: string;
           user_id: string;
           actor_id: string;
-          kind: "like" | "comment" | "follow" | "mention";
+          kind: "like" | "comment" | "follow" | "mention" | "follow_request";
           post_id?: string | null;
           comment_id?: string | null;
           body?: string | null;

@@ -3,8 +3,10 @@
 import Image from "next/image";
 import { FormEvent, useState } from "react";
 import {
+  Clock3,
   Flame,
   Heart,
+  Lock,
   MapPin,
   MessageCircle,
   MoreHorizontal,
@@ -112,26 +114,39 @@ export function SocialPostCard({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {canFollow ? (
-            <button
-              aria-label={
-                post.author.isFollowing
-                  ? `Seguindo ${post.author.name}`
-                  : `Seguir ${post.author.name}`
-              }
-              className={[
-                "gc-pressable grid size-10 place-items-center rounded-full",
-                post.author.isFollowing
-                  ? "bg-white text-black"
-                  : "bg-[var(--gc-brand)] text-black",
-              ].join(" ")}
-              onClick={() => onToggleFollow(post.author.id)}
-              title={post.author.isFollowing ? "Seguindo" : "Seguir"}
-              type="button"
-            >
-              {post.author.isFollowing ? <UserCheck size={17} /> : <UserPlus size={17} />}
-            </button>
-          ) : null}
+          {canFollow ? (() => {
+            const author = post.author;
+            const status = author.followStatus ?? (author.isFollowing ? "accepted" : "none");
+            let Icon = UserPlus;
+            let title = "Seguir";
+            let cls = "bg-[var(--gc-brand)] text-black";
+            if (status === "accepted") {
+              Icon = UserCheck;
+              title = "Seguindo";
+              cls = "bg-white text-black";
+            } else if (status === "pending") {
+              Icon = Clock3;
+              title = "Solicitação enviada";
+              cls = "border border-white/[0.16] bg-white/[0.05] text-white/72";
+            } else if (author.isPrivate) {
+              Icon = Lock;
+              title = "Solicitar para seguir";
+            }
+            return (
+              <button
+                aria-label={`${title} ${author.name}`}
+                className={[
+                  "gc-pressable grid size-10 place-items-center rounded-full",
+                  cls,
+                ].join(" ")}
+                onClick={() => onToggleFollow(author.id)}
+                title={title}
+                type="button"
+              >
+                <Icon size={17} />
+              </button>
+            );
+          })() : null}
           {post.author.id === currentUserId && onOpenPostMenu ? (
             <IconButton
               className="size-10"
@@ -170,7 +185,7 @@ export function SocialPostCard({
               className="text-[var(--gc-consistency-daily)]"
               fill="currentColor"
             />
-            {post.author.name} esta ha {post.streakAtPost} dias treinando
+            {post.author.name} está há {post.streakAtPost} dias treinando
           </div>
           {mediaType === "video" ? (
             <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-white/72 backdrop-blur-xl">
@@ -303,8 +318,8 @@ export function SocialPostCard({
               ))
             ) : (
               <EmptyState
-                detail="Comece a conversa com uma mensagem rapida."
-                title="Nenhum comentario ainda"
+                detail="Comece a conversa com uma mensagem rápida."
+                title="Nenhum comentário ainda"
               />
             )}
             <form className="flex items-center gap-2" onSubmit={submitComment}>
@@ -315,7 +330,7 @@ export function SocialPostCard({
                 value={draft}
               />
               <button
-                aria-label="Enviar comentario"
+                aria-label="Enviar comentário"
                 className="gc-pressable grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black"
                 type="submit"
               >

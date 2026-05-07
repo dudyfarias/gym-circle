@@ -21,6 +21,7 @@ import type {
   GymPost,
   GymStory,
   GymUser,
+  ProfileEditInput,
   SocialState,
 } from "./types";
 
@@ -32,7 +33,10 @@ type SocialAction =
   | { type: "publish-workout"; input: CreateWorkoutPostInput }
   | { type: "check-in"; gymName: string }
   | { type: "edit-post"; postId: string; input: EditPostInput }
-  | { type: "delete-post"; postId: string };
+  | { type: "delete-post"; postId: string }
+  | { type: "accept-follow-request"; requesterId: string }
+  | { type: "reject-follow-request"; requesterId: string }
+  | { type: "update-profile"; input: ProfileEditInput };
 
 function formatPostClock(createdAt: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -175,12 +179,19 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
 
     case "toggle-follow": {
       const user = state.users[action.userId];
+      if (!user || user.id === state.currentUserId) return state;
 
-      if (!user || user.id === state.currentUserId) {
-        return state;
+      const current = user.followStatus ?? (user.isFollowing ? "accepted" : "none");
+      let next: typeof current;
+      if (current === "accepted" || current === "pending") {
+        next = "none";
+      } else {
+        next = user.isPrivate ? "pending" : "accepted";
       }
 
-      const isFollowing = !user.isFollowing;
+      const followersDelta =
+        (current === "accepted" ? -1 : 0) + (next === "accepted" ? 1 : 0);
+      const followingDelta = followersDelta;
 
       return {
         ...state,
@@ -188,14 +199,73 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
           ...state.users,
           [action.userId]: {
             ...user,
-            isFollowing,
-            followersCount: user.followersCount + (isFollowing ? 1 : -1),
+            followStatus: next,
+            isFollowing: next === "accepted",
+            followersCount: user.followersCount + followersDelta,
           },
           [state.currentUserId]: {
             ...state.users[state.currentUserId],
             followingCount:
-              state.users[state.currentUserId].followingCount +
-              (isFollowing ? 1 : -1),
+              state.users[state.currentUserId].followingCount + followingDelta,
+          },
+        },
+      };
+    }
+
+    case "accept-follow-request": {
+      const requester = state.users[action.requesterId];
+      if (!requester || requester.followStatus !== "pending") return state;
+      const me = state.users[state.currentUserId];
+      return {
+        ...state,
+        users: {
+          ...state.users,
+          [requester.id]: {
+            ...requester,
+            followStatus: "accepted",
+            isFollowing: true,
+            followersCount: requester.followersCount + 1,
+          },
+          [state.currentUserId]: {
+            ...me,
+            followingCount: me.followingCount + 1,
+          },
+        },
+      };
+    }
+
+    case "reject-follow-request": {
+      const requester = state.users[action.requesterId];
+      if (!requester || requester.followStatus !== "pending") return state;
+      return {
+        ...state,
+        users: {
+          ...state.users,
+          [requester.id]: {
+            ...requester,
+            followStatus: "none",
+            isFollowing: false,
+          },
+        },
+      };
+    }
+
+    case "update-profile": {
+      const me = state.users[state.currentUserId];
+      if (!me) return state;
+      return {
+        ...state,
+        users: {
+          ...state.users,
+          [state.currentUserId]: {
+            ...me,
+            ...(action.input.displayName !== undefined ? { name: action.input.displayName } : {}),
+            ...(action.input.username !== undefined ? { username: action.input.username } : {}),
+            ...(action.input.bio !== undefined ? { bio: action.input.bio ?? "" } : {}),
+            ...(action.input.fitnessGoal !== undefined
+              ? { goal: action.input.fitnessGoal ?? "" }
+              : {}),
+            ...(action.input.isPrivate !== undefined ? { isPrivate: action.input.isPrivate } : {}),
           },
         },
       };
@@ -445,16 +515,19 @@ export function useGymCircleSocial() {
       },
       commentPost(postId: string, body: string) {
         dispatch({ type: "comment-post", postId, body });
-        showFeedback("comment", "Comentario publicado");
+        showFeedback("comment", "Comentário publicado");
       },
       toggleFollow(userId: string) {
         const user = state.users[userId];
+        const wasAccepted = user?.followStatus === "accepted";
+        const wasPending = user?.followStatus === "pending";
         dispatch({ type: "toggle-follow", userId });
-        showFeedback(
-          "follow",
-          user?.isFollowing ? "Voce deixou de seguir" : "Agora no seu circle",
-          user?.name,
-        );
+        let title: string;
+        if (wasAccepted) title = "Você deixou de seguir";
+        else if (wasPending) title = "Solicitação cancelada";
+        else if (user?.isPrivate) title = "Solicitação enviada";
+        else title = "Agora no seu circle";
+        showFeedback("follow", title, user?.name);
       },
       openStory(storyId: string) {
         dispatch({ type: "view-story", storyId });
@@ -479,6 +552,19 @@ export function useGymCircleSocial() {
       async deletePost(postId: string) {
         dispatch({ type: "delete-post", postId });
         showFeedback("success", "Post apagado");
+      },
+      async acceptFollowRequest(requesterId: string) {
+        const requester = state.users[requesterId];
+        dispatch({ type: "accept-follow-request", requesterId });
+        showFeedback("follow", "Solicitação aceita", requester?.name);
+      },
+      async rejectFollowRequest(requesterId: string) {
+        dispatch({ type: "reject-follow-request", requesterId });
+        showFeedback("brand", "Solicitação recusada");
+      },
+      async updateProfile(input: ProfileEditInput) {
+        dispatch({ type: "update-profile", input });
+        showFeedback("success", "Perfil atualizado");
       },
     }),
     [showFeedback, state.users],

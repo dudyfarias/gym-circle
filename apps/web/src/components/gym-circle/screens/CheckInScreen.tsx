@@ -79,8 +79,22 @@ export function CheckInScreen({
                 type="button"
               >
                 <AchievementBadge
-                  label={person.isFollowing ? "Seguindo" : "Seguir"}
-                  tone={person.isFollowing ? "brand" : "blue"}
+                  label={
+                    person.followStatus === "accepted"
+                      ? "Seguindo"
+                      : person.followStatus === "pending"
+                        ? "Pendente"
+                        : person.isPrivate
+                          ? "Solicitar"
+                          : "Seguir"
+                  }
+                  tone={
+                    person.followStatus === "accepted"
+                      ? "brand"
+                      : person.followStatus === "pending"
+                        ? "energy"
+                        : "blue"
+                  }
                 />
               </button>
             </div>

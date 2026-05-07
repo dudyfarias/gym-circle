@@ -72,7 +72,7 @@ export function StreakCard({
             color: "var(--gc-consistency-daily)",
           },
           {
-            label: "Mes",
+            label: "Mês",
             value: `${Math.round(progress.month)}%`,
             color: "var(--gc-consistency-month)",
           },

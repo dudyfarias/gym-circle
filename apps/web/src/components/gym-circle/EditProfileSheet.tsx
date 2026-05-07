@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Camera, Check, X } from "lucide-react";
+import { Camera, Check, Lock, Unlock, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedUser, ProfileEditInput } from "./social/types";
 
@@ -25,6 +25,7 @@ export function EditProfileSheet({
   const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio ?? "");
   const [fitnessGoal, setFitnessGoal] = useState(currentUser.goal ?? "");
+  const [isPrivate, setIsPrivate] = useState(currentUser.isPrivate ?? false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -38,6 +39,7 @@ export function EditProfileSheet({
       setUsername(currentUser.username);
       setBio(currentUser.bio ?? "");
       setFitnessGoal(currentUser.goal ?? "");
+      setIsPrivate(currentUser.isPrivate ?? false);
       setAvatarUrl(null);
       setError(null);
     }, 0);
@@ -74,6 +76,7 @@ export function EditProfileSheet({
         username: cleanedUsername,
         bio: bio.trim() || null,
         fitnessGoal: fitnessGoal.trim() || null,
+        isPrivate,
         ...(avatarUrl ? { avatarUrl } : {}),
       });
       onClose();
@@ -175,6 +178,47 @@ export function EditProfileSheet({
               value={fitnessGoal}
             />
           </FormField>
+
+          <button
+            aria-pressed={isPrivate}
+            className={[
+              "gc-pressable flex w-full items-start gap-3 rounded-[20px] border p-4 text-left transition-colors",
+              isPrivate
+                ? "border-[var(--gc-brand)]/35 bg-[var(--gc-brand)]/10"
+                : "border-white/[0.08] bg-white/[0.04]",
+            ].join(" ")}
+            onClick={() => setIsPrivate((value) => !value)}
+            type="button"
+          >
+            <span
+              className={[
+                "grid size-10 place-items-center rounded-[14px]",
+                isPrivate ? "bg-[var(--gc-brand)]/20 text-[var(--gc-brand)]" : "bg-white/[0.06] text-white/72",
+              ].join(" ")}
+            >
+              {isPrivate ? <Lock size={18} strokeWidth={2.4} /> : <Unlock size={18} strokeWidth={2.4} />}
+            </span>
+            <span className="flex-1">
+              <span className={["block text-[14px] font-black", isPrivate ? "text-white" : "text-white/82"].join(" ")}>
+                {isPrivate ? "Perfil privado" : "Perfil público"}
+              </span>
+              <span className="mt-0.5 block text-[12px] font-bold leading-snug text-white/52">
+                {isPrivate
+                  ? "Quem quiser te seguir vai precisar enviar uma solicitação. Só seguidores aprovados veem seus posts."
+                  : "Qualquer pessoa pode te seguir e ver a foto do seu último treino."}
+              </span>
+            </span>
+            <span
+              className={[
+                "mt-1 grid size-6 shrink-0 place-items-center rounded-full border",
+                isPrivate
+                  ? "border-[var(--gc-brand)] bg-[var(--gc-brand)] text-black"
+                  : "border-white/22 bg-transparent",
+              ].join(" ")}
+            >
+              {isPrivate ? <Check size={14} strokeWidth={3.2} /> : null}
+            </span>
+          </button>
 
           {error ? (
             <p className="rounded-[16px] border border-[var(--gc-pink)]/30 bg-[var(--gc-pink)]/10 p-3 text-[12px] font-bold text-[var(--gc-pink)]">
