@@ -43,7 +43,8 @@ type SocialAction =
   | { type: "accept-follow-request"; requesterId: string }
   | { type: "reject-follow-request"; requesterId: string }
   | { type: "update-profile"; input: ProfileEditInput }
-  | { type: "send-chat-message"; input: SendChatMessageInput };
+  | { type: "send-chat-message"; input: SendChatMessageInput }
+  | { type: "mark-chat-thread-read"; userId: string };
 
 function formatPostClock(createdAt: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -453,6 +454,19 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       };
     }
 
+    case "mark-chat-thread-read": {
+      return {
+        ...state,
+        chatMessages: state.chatMessages.map((message) =>
+          message.senderId === action.userId &&
+          message.receiverId === state.currentUserId &&
+          !message.readAt
+            ? { ...message, readAt: new Date().toISOString() }
+            : message,
+        ),
+      };
+    }
+
     default:
       return state;
   }
@@ -495,7 +509,7 @@ export function useGymCircleSocial() {
           smartReason: getSmartReason(post, author, currentUser),
         };
       })
-      .sort((a, b) => b.smartScore - a.smartScore);
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [currentUser, state]);
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
@@ -601,6 +615,9 @@ export function useGymCircleSocial() {
         dispatch({ type: "send-chat-message", input });
         showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
       },
+      async markChatThreadRead(userId: string) {
+        dispatch({ type: "mark-chat-thread-read", userId });
+      },
       async acceptFollowRequest(requesterId: string) {
         const requester = state.users[requesterId];
         dispatch({ type: "accept-follow-request", requesterId });
@@ -634,6 +651,7 @@ export function useGymCircleSocial() {
     feedback,
     formatPostClock,
     actions,
+    unreadMessages: state.chatMessages.filter((m) => m.receiverId === state.currentUserId && !m.readAt).length,
     refresh: actions.refresh,
   };
 }

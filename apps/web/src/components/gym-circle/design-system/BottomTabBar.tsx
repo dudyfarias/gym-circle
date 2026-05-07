@@ -6,6 +6,7 @@ export type BottomTabItem<Key extends string> = {
   key: Key;
   label: string;
   icon: LucideIcon;
+  badge?: number;
 };
 
 type BottomTabBarProps<Key extends string> = {
@@ -30,7 +31,7 @@ export function BottomTabBar<Key extends string>({
             <button
               aria-label={item.label}
               className={[
-                "gc-pressable flex h-12 items-center justify-center rounded-full",
+                "gc-pressable relative flex h-12 items-center justify-center rounded-full",
                 isActive
                   ? "bg-[var(--gc-brand)] text-black shadow-[0_0_24px_rgba(92,232,255,0.28)]"
                   : "text-white/56",
@@ -45,6 +46,11 @@ export function BottomTabBar<Key extends string>({
                 strokeWidth={2.55}
                 style={{ animation: isActive ? "gc-tab-settle 260ms var(--gc-ease-snap) both" : undefined }}
               />
+              {item.badge ? (
+                <span className="absolute right-2 top-1 grid min-w-5 place-items-center rounded-full bg-[var(--gc-pink)] px-1.5 py-0.5 text-[10px] font-black leading-none text-white shadow-[0_0_18px_rgba(255,45,85,0.38)]">
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              ) : null}
             </button>
           );
         })}

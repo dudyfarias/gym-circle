@@ -12,6 +12,7 @@ type CheckInScreenProps = {
   checkInsToday: number;
   onCheckIn: (gymName: string) => void;
   onToggleFollow: (userId: string) => void;
+  onSelectUser?: (userId: string) => void;
 };
 
 export function CheckInScreen({
@@ -20,6 +21,7 @@ export function CheckInScreen({
   checkInsToday,
   onCheckIn,
   onToggleFollow,
+  onSelectUser,
 }: CheckInScreenProps) {
   const gymName = "Pulse Club";
 
@@ -57,7 +59,11 @@ export function CheckInScreen({
               className="gc-ios-sheet flex items-center justify-between rounded-[24px] p-4"
               key={person.id}
             >
-              <div className="flex items-center gap-3">
+              <button
+                className="gc-pressable flex flex-1 items-center gap-3 text-left"
+                onClick={() => onSelectUser?.(person.id)}
+                type="button"
+              >
                 <Avatar
                   accent={person.accent}
                   name={person.name}
@@ -76,7 +82,7 @@ export function CheckInScreen({
                     {person.goal} · {person.checkInsCount} check-ins
                   </p>
                 </div>
-              </div>
+              </button>
               <button
                 className="gc-pressable"
                 onClick={() => onToggleFollow(person.id)}

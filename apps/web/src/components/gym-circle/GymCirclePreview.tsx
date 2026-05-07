@@ -1,6 +1,6 @@
 "use client";
 
-import { type TouchEvent, useCallback, useMemo, useRef, useState } from "react";
+import { type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { FloatingCreatePostButton, StoryViewer, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
@@ -42,6 +42,14 @@ export function GymCirclePreview({
   const [refreshing, setRefreshing] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const touchStartYRef = useRef<number | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchLastYRef = useRef<number | null>(null);
+  const touchLastXRef = useRef<number | null>(null);
+  const touchStartScreenRef = useRef<ScreenKey>("feed");
+  const screenOrder: ScreenKey[] = useMemo(
+    () => ["feed", "chat", "post", "checkin", "profile"],
+    [],
+  );
 
   const allUsers = useMemo<EnrichedUser[]>(() => {
     const fromUsers = social.users
@@ -165,15 +173,21 @@ export function GymCirclePreview({
   }, [refresh, refreshing]);
 
   const handleTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    if ((scrollRef.current?.scrollTop ?? 0) <= 0) {
-      touchStartYRef.current = event.touches[0]?.clientY ?? null;
-    }
-  }, []);
+    const touch = event.touches[0];
+    touchStartXRef.current = touch?.clientX ?? null;
+    touchLastXRef.current = touch?.clientX ?? null;
+    touchLastYRef.current = touch?.clientY ?? null;
+    touchStartScreenRef.current = activeScreen;
+    touchStartYRef.current = touch?.clientY ?? null;
+  }, [activeScreen]);
 
   const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const startY = touchStartYRef.current;
+    const touch = event.touches[0];
+    touchLastXRef.current = touch?.clientX ?? touchLastXRef.current;
+    touchLastYRef.current = touch?.clientY ?? touchLastYRef.current;
     if (startY === null || (scrollRef.current?.scrollTop ?? 0) > 0) return;
-    const currentY = event.touches[0]?.clientY ?? startY;
+    const currentY = touch?.clientY ?? startY;
     const delta = currentY - startY;
     if (delta <= 0) {
       setPullDistance(0);
@@ -184,10 +198,25 @@ export function GymCirclePreview({
 
   const handleTouchEnd = useCallback(() => {
     const shouldRefresh = pullDistance > 62;
+    const startX = touchStartXRef.current;
+    const startY = touchStartYRef.current;
+    const endX = touchLastXRef.current;
+    const endY = touchLastYRef.current;
     touchStartYRef.current = null;
+    touchStartXRef.current = null;
+    touchLastXRef.current = null;
+    touchLastYRef.current = null;
     setPullDistance(0);
     if (shouldRefresh) void triggerRefresh();
-  }, [pullDistance, triggerRefresh]);
+    if (shouldRefresh || startX === null || startY === null || endX === null || endY === null) return;
+    const deltaX = endX - startX;
+    const deltaY = endY - startY;
+    if (Math.abs(deltaX) < 74 || Math.abs(deltaY) > 44) return;
+    const currentIndex = screenOrder.indexOf(touchStartScreenRef.current);
+    const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+    const next = screenOrder[nextIndex];
+    if (next) setActiveScreen(next);
+  }, [pullDistance, screenOrder, triggerRefresh]);
 
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
   const profileSheetPosts = useMemo(() => {
@@ -198,6 +227,29 @@ export function GymCirclePreview({
     () => social.feedPosts.filter((p) => p.userId === social.currentUser.id),
     [social.feedPosts, social.currentUser.id],
   );
+
+  useEffect(() => {
+    const urls = [
+      ...social.feedPosts
+        .filter((post) => post.mediaType !== "video")
+        .slice(0, 5)
+        .map((post) => post.imageUrl),
+      ...social.storyBubbles
+        .filter((story) => story.mediaType !== "video")
+        .slice(0, 4)
+        .map((story) => story.imageUrl),
+      ...allUsers
+        .map((user) => user.avatarUrl)
+        .filter((url): url is string => Boolean(url))
+        .slice(0, 12),
+    ];
+
+    for (const url of Array.from(new Set(urls))) {
+      const image = new window.Image();
+      image.decoding = "async";
+      image.src = url;
+    }
+  }, [allUsers, social.feedPosts, social.storyBubbles]);
 
   const screen = useMemo(() => {
     switch (activeScreen) {
@@ -221,6 +273,7 @@ export function GymCirclePreview({
             currentUser={social.currentUser}
             onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
+            onThreadOpen={social.actions.markChatThreadRead}
             onUploadImage={onUploadChatImage}
             suggestedUsers={social.suggestedUsers}
           />
@@ -243,6 +296,7 @@ export function GymCirclePreview({
             currentUser={social.currentUser}
             nearbyUsers={social.nearbyUsers}
             onCheckIn={social.actions.checkIn}
+            onSelectUser={openProfile}
             onToggleFollow={social.actions.toggleFollow}
           />
         );
@@ -312,12 +366,23 @@ export function GymCirclePreview({
                 {screen}
               </div>
             </div>
-            <BottomNav active={activeScreen} onChange={setActiveScreen} />
+            <BottomNav
+              active={activeScreen}
+              onChange={setActiveScreen}
+              unreadMessages={social.unreadMessages ?? 0}
+            />
           </div>
           {activeScreen === "feed" ? (
             <FloatingCreatePostButton onClick={() => setActiveScreen("post")} />
           ) : null}
-          <StoryViewer onClose={social.actions.closeStory} story={social.selectedStory} />
+          <StoryViewer
+            onClose={social.actions.closeStory}
+            onSelectUser={(userId) => {
+              social.actions.closeStory();
+              openProfile(userId);
+            }}
+            story={social.selectedStory}
+          />
           <UserSearchSheet
             currentUserId={social.currentUser.id}
             onClose={closeSearch}

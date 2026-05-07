@@ -74,6 +74,7 @@ export function FeedScreen({
                     {suggestedUsers.slice(0, 5).map((user) => (
                       <DiscoveryUserCard
                         key={user.id}
+                        onSelectUser={onSelectUser}
                         onToggleFollow={onToggleFollow}
                         sharedGymCount={getSharedGymCount(currentUser, user)}
                         user={user}

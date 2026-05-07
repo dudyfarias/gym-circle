@@ -7,6 +7,7 @@ type DiscoveryUserCardProps = {
   user: EnrichedUser;
   sharedGymCount: number;
   onToggleFollow: (userId: string) => void;
+  onSelectUser?: (userId: string) => void;
 };
 
 function followIconState(user: EnrichedUser) {
@@ -49,16 +50,24 @@ export function DiscoveryUserCard({
   user,
   sharedGymCount,
   onToggleFollow,
+  onSelectUser,
 }: DiscoveryUserCardProps) {
   const cta = followIconState(user);
   return (
     <div className="gc-ios-sheet gc-pressable min-w-[220px] rounded-[28px] p-4">
       <div className="flex items-start justify-between gap-4">
-        <Avatar
-          accent={user.accent}
-          name={user.name}
-          src={user.avatarUrl ?? undefined}
-        />
+        <button
+          aria-label={`Ver perfil de ${user.name}`}
+          className="gc-pressable shrink-0"
+          onClick={() => onSelectUser?.(user.id)}
+          type="button"
+        >
+          <Avatar
+            accent={user.accent}
+            name={user.name}
+            src={user.avatarUrl ?? undefined}
+          />
+        </button>
         <button
           aria-label={cta.ariaLabel}
           className={["gc-pressable grid size-10 place-items-center rounded-full", cta.classes].join(" ")}
@@ -69,7 +78,13 @@ export function DiscoveryUserCard({
           <cta.Icon size={17} />
         </button>
       </div>
-      <p className="mt-4 truncate text-[16px] font-black">{user.name}</p>
+      <button
+        className="gc-pressable mt-4 block max-w-full truncate text-left text-[16px] font-black"
+        onClick={() => onSelectUser?.(user.id)}
+        type="button"
+      >
+        {user.name}
+      </button>
       <p className="mt-1 truncate text-[12px] font-bold text-white/44">
         {sharedGymCount > 0 ? `${sharedGymCount} academia em comum` : user.goal}
       </p>

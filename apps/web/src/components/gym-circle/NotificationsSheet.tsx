@@ -247,7 +247,13 @@ function Section({
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-bold text-white/82">
-                    <span className="text-white">{actor?.name ?? "Alguém"}</span>{" "}
+                    <button
+                      className="gc-pressable text-white"
+                      onClick={() => actor && onSelectUser?.(actor.id)}
+                      type="button"
+                    >
+                      {actor?.name ?? "Alguém"}
+                    </button>{" "}
                     <span className="font-semibold text-white/64">{KIND_LABEL[kind]}</span>
                   </p>
                   {n.body ? (

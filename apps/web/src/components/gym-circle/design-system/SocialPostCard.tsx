@@ -258,9 +258,16 @@ export function SocialPostCard({
                 </div>
                 <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-white/58">
                   Curtido por{" "}
-                  <span className="text-white">
+                  <button
+                    className="gc-pressable text-white"
+                    onClick={() => {
+                      const firstLike = post.likedByPreview[0];
+                      if (firstLike) onSelectUser?.(firstLike.id);
+                    }}
+                    type="button"
+                  >
                     {post.likedByPreview[0]?.username ?? "seu circle"}
-                  </span>{" "}
+                  </button>{" "}
                   e {post.likesCount.toLocaleString("pt-BR")} pessoas
                 </p>
                 {post.likedByPreview[0] ? (

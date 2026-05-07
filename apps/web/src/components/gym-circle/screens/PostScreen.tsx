@@ -88,6 +88,7 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
   const [postToFeed, setPostToFeed] = useState(true);
   const [postToStory, setPostToStory] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const resolvedWorkoutType = useMemo(() => {
     if (workoutType === "Outro") {
@@ -319,20 +320,39 @@ export function PostScreen({ currentUser, onPublish, onUploadImage }: PostScreen
       </GlassCard>
 
       <GlassCard className="mt-4 p-4">
-        <button
-          className="gc-pressable flex h-14 w-full items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[14px] font-black text-white disabled:opacity-55"
-          disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
-          type="button"
-        >
-          <Upload size={18} strokeWidth={2.5} />
-          {uploading ? "Enviando mídia..." : imageUrl ? "Trocar mídia" : "Escolher foto ou vídeo"}
-        </button>
+        <div className="grid grid-cols-[1.25fr_0.75fr] gap-2">
+          <button
+            className="gc-pressable flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black shadow-[0_0_26px_rgba(92,232,255,0.22)] disabled:opacity-55"
+            disabled={uploading}
+            onClick={() => cameraInputRef.current?.click()}
+            type="button"
+          >
+            <Camera size={18} strokeWidth={2.5} />
+            {uploading ? "Enviando..." : "Abrir câmera"}
+          </button>
+          <button
+            className="gc-pressable flex h-14 items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[14px] font-black text-white disabled:opacity-55"
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
+          >
+            <Upload size={18} strokeWidth={2.5} />
+            Galeria
+          </button>
+        </div>
         <input
           accept="image/*,video/*"
           className="hidden"
           onChange={handleFileChange}
           ref={fileInputRef}
+          type="file"
+        />
+        <input
+          accept="image/*,video/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileChange}
+          ref={cameraInputRef}
           type="file"
         />
         {uploadError ? (

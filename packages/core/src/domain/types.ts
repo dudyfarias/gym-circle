@@ -9,6 +9,8 @@ export type CheckinRow = Database["public"]["Tables"]["checkins"]["Row"];
 export type UserActivityDayRow =
   Database["public"]["Tables"]["user_activity_days"]["Row"];
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
+export type PushSubscriptionRow =
+  Database["public"]["Tables"]["push_subscriptions"]["Row"];
 
 export type PostMediaType = "image" | "video";
 export type PostLocationSource = "none" | "gym" | "current" | "custom";

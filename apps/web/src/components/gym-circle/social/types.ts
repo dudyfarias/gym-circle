@@ -196,6 +196,7 @@ export type SocialActions = {
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
+  markChatThreadRead?: (userId: string) => Promise<void>;
   acceptFollowRequest?: (requesterId: string) => Promise<void>;
   rejectFollowRequest?: (requesterId: string) => Promise<void>;
 };
@@ -218,5 +219,6 @@ export type SocialBundle = {
   formatPostClock: (createdAt: string) => string;
   actions: SocialActions;
   unreadNotifications?: number;
+  unreadMessages?: number;
   refresh?: () => void | Promise<void>;
 };

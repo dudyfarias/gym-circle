@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, useMemo, useRef, useState } from "react";
-import { ImagePlus, MessageCircle, Search, Send } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, ImagePlus, MessageCircle, Search, Send } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { AchievementBadge, StreakBadge } from "../design-system";
@@ -19,6 +19,7 @@ type ChatScreenProps = {
   messages?: ChatMessage[];
   onSelectUser?: (userId: string) => void;
   onSendMessage?: (input: SendChatMessageInput) => Promise<void> | void;
+  onThreadOpen?: (userId: string) => Promise<void> | void;
   onUploadImage?: (file: File) => Promise<string>;
 };
 
@@ -28,6 +29,7 @@ export function ChatScreen({
   messages = [],
   onSelectUser,
   onSendMessage,
+  onThreadOpen,
   onUploadImage,
 }: ChatScreenProps) {
   const [selectedUserId, setSelectedUserId] = useState("");
@@ -36,6 +38,7 @@ export function ChatScreen({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const cameraRef = useRef<HTMLInputElement | null>(null);
   const friends = useMemo(
     () =>
       suggestedUsers
@@ -68,6 +71,38 @@ export function ChatScreen({
     suggestedUsers.find((user) => user.id === selectedUserId) ??
     visiblePeople[0];
 
+  const inbox = useMemo(() => {
+    const users = new Map<string, EnrichedUser>();
+    for (const user of friends) users.set(user.id, user);
+    for (const message of messages) {
+      const otherId =
+        message.senderId === currentUser.id ? message.receiverId : message.senderId;
+      const user = suggestedUsers.find((candidate) => candidate.id === otherId);
+      if (user) users.set(user.id, user);
+    }
+
+    return Array.from(users.values())
+      .map((user) => {
+        const threadMessages = messages.filter(
+          (message) =>
+            (message.senderId === currentUser.id && message.receiverId === user.id) ||
+            (message.senderId === user.id && message.receiverId === currentUser.id),
+        );
+        const last = [...threadMessages].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        )[0];
+        const unread = threadMessages.filter(
+          (message) => message.receiverId === currentUser.id && !message.readAt,
+        ).length;
+        return { user, last, unread };
+      })
+      .sort((a, b) => {
+        const aTime = a.last ? new Date(a.last.createdAt).getTime() : 0;
+        const bTime = b.last ? new Date(b.last.createdAt).getTime() : 0;
+        return bTime - aTime || b.user.currentStreak - a.user.currentStreak;
+      });
+  }, [currentUser.id, friends, messages, suggestedUsers]);
+
   const thread = useMemo(() => {
     if (!selectedUser) return [];
     return messages.filter(
@@ -76,6 +111,18 @@ export function ChatScreen({
         (message.senderId === selectedUser.id && message.receiverId === currentUser.id),
     );
   }, [currentUser.id, messages, selectedUser]);
+
+  const selectedUnreadCount = useMemo(
+    () =>
+      thread.filter((message) => message.receiverId === currentUser.id && !message.readAt)
+        .length,
+    [currentUser.id, thread],
+  );
+
+  useEffect(() => {
+    if (!selectedUser || selectedUnreadCount === 0) return;
+    void onThreadOpen?.(selectedUser.id);
+  }, [onThreadOpen, selectedUnreadCount, selectedUser]);
 
   async function send(input: Omit<SendChatMessageInput, "receiverId">) {
     if (!selectedUser || !onSendMessage || sending) return;
@@ -185,7 +232,59 @@ export function ChatScreen({
       </div>
 
       {selectedUser ? (
-        <div className="mt-4 flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.035]">
+        <div className="mt-4 grid gap-4">
+          <div className="rounded-[30px] border border-white/[0.08] bg-white/[0.035] p-2">
+            {inbox.length > 0 ? (
+              inbox.slice(0, 8).map(({ user, last, unread }) => (
+                <button
+                  className={[
+                    "gc-pressable flex w-full items-center gap-3 rounded-[24px] p-2 text-left",
+                    user.id === selectedUser.id ? "bg-white/[0.075]" : "hover:bg-white/[0.04]",
+                  ].join(" ")}
+                  key={user.id}
+                  onClick={() => setSelectedUserId(user.id)}
+                  type="button"
+                >
+                  <div className="relative shrink-0">
+                    <Avatar
+                      accent={user.accent}
+                      name={user.name}
+                      src={user.avatarUrl ?? undefined}
+                    />
+                    {unread > 0 ? (
+                      <span className="absolute -right-0.5 -top-0.5 grid size-5 place-items-center rounded-full bg-[var(--gc-pink)] text-[10px] font-black text-white">
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-[14px] font-black text-white">{user.name}</p>
+                      <StreakBadge
+                        isLit={user.streakLitToday}
+                        size="xs"
+                        streak={user.currentStreak}
+                      />
+                    </div>
+                    <p className="mt-0.5 truncate text-[12px] font-bold text-white/44">
+                      {last?.body ?? (last?.mediaUrl ? "Mídia enviada" : user.username)}
+                    </p>
+                  </div>
+                  {last ? (
+                    <span className="text-[11px] font-black text-white/34">
+                      {new Intl.DateTimeFormat("pt-BR", { hour: "2-digit", minute: "2-digit" }).format(new Date(last.createdAt))}
+                    </span>
+                  ) : null}
+                </button>
+              ))
+            ) : (
+              <p className="px-3 py-4 text-center text-[12px] font-bold text-white/38">
+                Suas mensagens aparecem aqui.
+              </p>
+            )}
+          </div>
+
+          <div className="flex min-h-[420px] flex-1 flex-col overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.035]">
           <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
             <button
               className="gc-pressable flex min-w-0 items-center gap-3 text-left"
@@ -270,6 +369,13 @@ export function ChatScreen({
           <form className="flex items-center gap-2 border-t border-white/[0.06] p-3" onSubmit={submit}>
             <IconButton
               className="size-11"
+              label="Abrir câmera"
+              onClick={() => cameraRef.current?.click()}
+            >
+              <Camera size={18} />
+            </IconButton>
+            <IconButton
+              className="size-11"
               label="Enviar foto ou vídeo"
               onClick={() => fileRef.current?.click()}
             >
@@ -280,6 +386,14 @@ export function ChatScreen({
               className="hidden"
               onChange={(event) => handleMedia(event.target.files?.[0])}
               ref={fileRef}
+              type="file"
+            />
+            <input
+              accept="image/*,video/*"
+              capture="environment"
+              className="hidden"
+              onChange={(event) => handleMedia(event.target.files?.[0])}
+              ref={cameraRef}
               type="file"
             />
             <input
@@ -300,6 +414,7 @@ export function ChatScreen({
           {error ? (
             <p className="px-4 pb-3 text-[12px] font-bold text-[var(--gc-pink)]">{error}</p>
           ) : null}
+          </div>
         </div>
       ) : (
         <div className="gc-ios-sheet mt-5 rounded-[24px] p-5 text-center">

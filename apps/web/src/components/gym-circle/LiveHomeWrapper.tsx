@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useAuth, useGymCircleServices } from "@gym-circle/core/hooks";
 import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
+import { PwaController } from "./PwaController";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
 export function LiveHomeWrapper() {
@@ -11,14 +12,22 @@ export function LiveHomeWrapper() {
 
   if (loading) {
     return (
-      <main className="grid min-h-screen place-items-center bg-black text-white">
-        <p className="text-[14px] font-bold text-white/60">Carregando sessão...</p>
-      </main>
+      <>
+        <main className="grid min-h-screen place-items-center bg-black text-white">
+          <p className="text-[14px] font-bold text-white/60">Carregando sessão...</p>
+        </main>
+        <PwaController />
+      </>
     );
   }
 
   if (!user) {
-    return <LiveAuthGate />;
+    return (
+      <>
+        <LiveAuthGate />
+        <PwaController />
+      </>
+    );
   }
 
   return <AuthenticatedShell userId={user.id} />;
@@ -78,11 +87,14 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   }
 
   return (
-    <GymCirclePreview
-      onUploadAvatar={onUploadAvatar}
-      onUploadChatImage={onUploadChatImage}
-      onUploadImage={onUploadImage}
-      social={social}
-    />
+    <>
+      <GymCirclePreview
+        onUploadAvatar={onUploadAvatar}
+        onUploadChatImage={onUploadChatImage}
+        onUploadImage={onUploadImage}
+        social={social}
+      />
+      <PwaController userId={userId} />
+    </>
   );
 }

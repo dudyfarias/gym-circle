@@ -6,6 +6,7 @@ import { gymService } from "./gyms";
 import { notificationService } from "./notifications";
 import { postService } from "./posts";
 import { profileService } from "./profiles";
+import { pushService } from "./push";
 import { statsService } from "./stats";
 import { storyService } from "./stories";
 
@@ -17,6 +18,7 @@ export * from "./gyms";
 export * from "./notifications";
 export * from "./posts";
 export * from "./profiles";
+export * from "./push";
 export * from "./stats";
 export * from "./stories";
 
@@ -25,6 +27,7 @@ export function createGymCircleServices(client: GymCircleClient) {
     client,
     auth: authService(client),
     profiles: profileService(client),
+    push: pushService(client),
     posts: postService(client),
     stories: storyService(client),
     follows: followService(client),

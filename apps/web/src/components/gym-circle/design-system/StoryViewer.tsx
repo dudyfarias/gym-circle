@@ -7,9 +7,10 @@ import { StreakBadge } from "./StreakBadge";
 type StoryViewerProps = {
   story: EnrichedStory | null;
   onClose: () => void;
+  onSelectUser?: (userId: string) => void;
 };
 
-export function StoryViewer({ story, onClose }: StoryViewerProps) {
+export function StoryViewer({ story, onClose, onSelectUser }: StoryViewerProps) {
   if (!story) {
     return null;
   }
@@ -41,7 +42,11 @@ export function StoryViewer({ story, onClose }: StoryViewerProps) {
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/82" />
 
         <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-8">
-          <div className="flex min-w-0 items-center gap-3">
+          <button
+            className="gc-pressable flex min-w-0 items-center gap-3 text-left"
+            onClick={() => onSelectUser?.(story.author.id)}
+            type="button"
+          >
             <Avatar
               accent={story.author.accent}
               name={story.author.name}
@@ -60,7 +65,7 @@ export function StoryViewer({ story, onClose }: StoryViewerProps) {
                 {story.caption}
               </p>
             </div>
-          </div>
+          </button>
           <button
             aria-label="Fechar story"
             className="gc-pressable grid size-11 place-items-center rounded-full bg-black/52 text-white backdrop-blur-xl"
@@ -76,9 +81,13 @@ export function StoryViewer({ story, onClose }: StoryViewerProps) {
             {story.kind === "checkin" ? "Check-in" : "Treino"}
           </p>
           <h2 className="mt-1 text-[34px] font-black leading-tight">{story.title}</h2>
-          <p className="mt-2 text-[15px] font-bold text-white/68">
+          <button
+            className="gc-pressable mt-2 text-left text-[15px] font-bold text-white/68"
+            onClick={() => onSelectUser?.(story.author.id)}
+            type="button"
+          >
             {story.author.username}
-          </p>
+          </button>
         </div>
       </div>
     </div>

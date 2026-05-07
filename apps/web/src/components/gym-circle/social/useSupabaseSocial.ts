@@ -153,6 +153,7 @@ export type SupabaseSocialActions = {
   editPost: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
+  markChatThreadRead: (userId: string) => Promise<void>;
   acceptFollowRequest: (requesterId: string) => Promise<void>;
   rejectFollowRequest: (requesterId: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -177,6 +178,7 @@ export type SupabaseSocialResult = {
   formatPostClock: typeof formatPostClock;
   actions: SupabaseSocialActions;
   unreadNotifications: number;
+  unreadMessages: number;
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
@@ -538,7 +540,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           smartReason: getSmartReason(row, author, currentUser),
         };
       })
-      .sort((a, b) => b.smartScore - a.smartScore);
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [agg, enrichedAll, currentUser, currentUserId]);
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
@@ -757,6 +759,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await refresh();
         showFeedback("comment", mediaUrl ? "Mídia enviada" : "Mensagem enviada");
       },
+      async markChatThreadRead(userId: string) {
+        const { error } = await services.client
+          .from("direct_messages")
+          .update({ read_at: new Date().toISOString() })
+          .eq("sender_id", userId)
+          .eq("receiver_id", currentUserId)
+          .is("read_at", null);
+        if (error) throw error;
+        await refresh();
+      },
       async signOut() {
         await services.auth.signOut();
       },
@@ -797,6 +809,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [agg.myNotifications],
   );
 
+  const unreadMessages = useMemo(
+    () => agg.chatMessages.filter((m) => m.receiver_id === currentUserId && !m.read_at).length,
+    [agg.chatMessages, currentUserId],
+  );
+
   return {
     currentUser,
     users: usersRecord,
@@ -811,6 +828,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     formatPostClock,
     actions,
     unreadNotifications,
+    unreadMessages,
     loading,
     error,
     refresh,
