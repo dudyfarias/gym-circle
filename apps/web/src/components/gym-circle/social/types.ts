@@ -119,6 +119,7 @@ export type SocialActions = {
 
 export type SocialBundle = {
   currentUser: EnrichedUser;
+  users?: Record<string, GymUser>;
   feedPosts: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   selectedStory: EnrichedStory | null;

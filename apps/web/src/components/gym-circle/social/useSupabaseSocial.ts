@@ -553,8 +553,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           gymId: input.gymId || null,
           workoutType: input.workoutType,
         });
+        // Garantir só 1 story ativo por usuário (substitui o anterior, se houver)
+        await services.client
+          .from("stories")
+          .delete()
+          .eq("user_id", currentUserId);
+        await services.stories.create(currentUserId, {
+          mediaUrl: input.imageUrl,
+          gymId: input.gymId || null,
+          workoutType: input.workoutType,
+        });
         await services.stats.refreshMine();
-        showFeedback("success", "Treino publicado", "Streak atualizado");
+        showFeedback("success", "Treino publicado", "Streak + story atualizados");
       },
       async checkIn(gymName: string) {
         const gym = agg.gyms.find((g) => g.name === gymName);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { StoryViewer, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
@@ -8,7 +8,9 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { PostScreen } from "./screens/PostScreen";
 import { ProfileScreen } from "./screens/ProfileScreen";
 import { StreakScreen } from "./screens/StreakScreen";
-import type { SocialBundle } from "./social/types";
+import { SearchSheetProvider } from "./SearchSheetContext";
+import { UserSearchSheet } from "./UserSearchSheet";
+import type { EnrichedUser, SocialBundle } from "./social/types";
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
@@ -17,6 +19,26 @@ type GymCirclePreviewProps = {
 
 export function GymCirclePreview({ social, onUploadImage }: GymCirclePreviewProps) {
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  const closeSearch = useCallback(() => setSearchOpen(false), []);
+  const searchValue = useMemo(() => ({ openSearch }), [openSearch]);
+  const allUsers = useMemo<EnrichedUser[]>(() => {
+    const fromUsers = social.users
+      ? (Object.values(social.users) as EnrichedUser[])
+      : [];
+    if (fromUsers.length > 0) return fromUsers;
+    const seen = new Set<string>();
+    const out: EnrichedUser[] = [social.currentUser];
+    seen.add(social.currentUser.id);
+    for (const u of social.suggestedUsers) {
+      if (!seen.has(u.id)) {
+        seen.add(u.id);
+        out.push(u);
+      }
+    }
+    return out;
+  }, [social.users, social.currentUser, social.suggestedUsers]);
 
   const screen = useMemo(() => {
     switch (activeScreen) {
@@ -76,15 +98,24 @@ export function GymCirclePreview({ social, onUploadImage }: GymCirclePreviewProp
   }, [activeScreen, social, onUploadImage]);
 
   return (
-    <main className="min-h-screen bg-black text-white lg:bg-[#050505]">
-      <div className="relative mx-auto min-h-screen w-full max-w-[480px] overflow-hidden border-white/[0.06] bg-black shadow-[0_0_90px_rgba(0,0,0,0.92)] lg:border-x">
-        <div className="gc-phone-shell flex min-h-screen flex-col">
-          <div className="flex-1">{screen}</div>
-          <BottomNav active={activeScreen} onChange={setActiveScreen} />
+    <SearchSheetProvider value={searchValue}>
+      <main className="min-h-screen bg-black text-white lg:bg-[#050505]">
+        <div className="relative mx-auto min-h-screen w-full max-w-[480px] overflow-hidden border-white/[0.06] bg-black shadow-[0_0_90px_rgba(0,0,0,0.92)] lg:border-x">
+          <div className="gc-phone-shell flex min-h-screen flex-col">
+            <div className="flex-1">{screen}</div>
+            <BottomNav active={activeScreen} onChange={setActiveScreen} />
+          </div>
+          <StoryViewer onClose={social.actions.closeStory} story={social.selectedStory} />
+          <UserSearchSheet
+            currentUserId={social.currentUser.id}
+            onClose={closeSearch}
+            onToggleFollow={social.actions.toggleFollow}
+            open={searchOpen}
+            users={allUsers}
+          />
+          <ToastFeedback feedback={social.feedback} />
         </div>
-        <StoryViewer onClose={social.actions.closeStory} story={social.selectedStory} />
-        <ToastFeedback feedback={social.feedback} />
-      </div>
-    </main>
+      </main>
+    </SearchSheetProvider>
   );
 }
