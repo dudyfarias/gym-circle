@@ -269,7 +269,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   useEffect(() => {
     mountedRef.current = true;
-    refresh();
+    const refreshId = window.setTimeout(() => {
+      void refresh();
+    }, 0);
     const channel = services.client
       .channel("supabase-social")
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => refresh())
@@ -291,10 +293,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       )
       .subscribe();
     return () => {
+      window.clearTimeout(refreshId);
       mountedRef.current = false;
       services.client.removeChannel(channel);
     };
-  }, [services, refresh]);
+  }, [services, refresh, currentUserId]);
 
   const showFeedback = useCallback(
     (tone: FeedbackTone, title: string, detail?: string) => {
@@ -452,10 +455,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           id: row.id,
           userId: row.user_id,
           imageUrl: row.image_url,
+          mediaType: row.media_type ?? "image",
           caption: row.caption ?? "",
-          workoutType: row.workout_type,
-          gymName: agg.gyms.find((g) => g.id === row.gym_id)?.name ?? "",
+          workoutType: row.workout_type ?? null,
+          gymName: row.location_name ?? agg.gyms.find((g) => g.id === row.gym_id)?.name ?? "",
           gymId: row.gym_id ?? "",
+          locationSource: row.location_source ?? "none",
+          locationName: row.location_name ?? null,
+          locationLatitude: row.location_latitude ?? null,
+          locationLongitude: row.location_longitude ?? null,
+          locationGoogleMapsUrl: row.location_google_maps_url ?? null,
           createdAt: row.created_at,
           workoutDate: row.workout_date,
           isWorkoutPost: true as const,
@@ -488,6 +497,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         id: row.id,
         userId: row.user_id,
         imageUrl: row.media_url,
+        mediaType: row.media_type ?? "image",
         title: row.workout_type ?? "Treino",
         caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
         createdAt: row.created_at,
@@ -575,9 +585,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       async publishWorkout(input: CreateWorkoutPostInput) {
         await services.posts.create(currentUserId, {
           imageUrl: input.imageUrl,
+          mediaType: input.mediaType,
           caption: input.caption,
-          gymId: input.gymId || null,
-          workoutType: input.workoutType,
+          gymId: input.gymId ?? null,
+          workoutType: input.workoutType ?? null,
+          locationSource: input.locationSource ?? "none",
+          locationName: input.locationName ?? null,
+          locationLatitude: input.locationLatitude ?? null,
+          locationLongitude: input.locationLongitude ?? null,
+          locationGoogleMapsUrl: input.locationGoogleMapsUrl ?? null,
         });
         // Garantir só 1 story ativo por usuário (substitui o anterior, se houver)
         await services.client
@@ -586,10 +602,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .eq("user_id", currentUserId);
         await services.stories.create(currentUserId, {
           mediaUrl: input.imageUrl,
-          gymId: input.gymId || null,
-          workoutType: input.workoutType,
+          mediaType: input.mediaType,
+          gymId: input.gymId ?? null,
+          workoutType: input.workoutType ?? null,
         });
         await services.stats.refreshMine();
+        await refresh();
         showFeedback("success", "Treino publicado", "Streak + story atualizados");
       },
       async checkIn(gymName: string) {
@@ -615,7 +633,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("success", "Perfil atualizado");
       },
     }),
-    [services, currentUserId, feedPosts, enrichedAll, agg.gyms, showFeedback],
+    [services, currentUserId, feedPosts, enrichedAll, agg.gyms, refresh, showFeedback],
   );
 
   const unreadNotifications = useMemo(

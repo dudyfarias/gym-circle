@@ -5,11 +5,13 @@ import { FormEvent, useState } from "react";
 import {
   Flame,
   Heart,
+  MapPin,
   MessageCircle,
   MoreHorizontal,
   Send,
   UserCheck,
   UserPlus,
+  Video,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
@@ -42,6 +44,8 @@ export function SocialPostCard({
   const [commentsOpen, setCommentsOpen] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
   const canFollow = post.author.id !== currentUserId;
+  const locationLabel = post.locationName || post.gymName;
+  const mediaType = post.mediaType ?? "image";
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,16 +62,24 @@ export function SocialPostCard({
   return (
     <article className="gc-screen-enter overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#0c0d0e] shadow-[0_24px_64px_rgba(0,0,0,0.48)]">
       <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-        <button
-          aria-label={`Ver ${post.author.name}`}
-          className="gc-pressable flex min-w-0 flex-1 items-center gap-3 text-left"
-          onClick={() => onSelectUser?.(post.author.id)}
-          type="button"
-        >
-          <Avatar accent={post.author.accent} name={post.author.name} />
+        <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          <button
+            aria-label={`Ver ${post.author.name}`}
+            className="gc-pressable shrink-0"
+            onClick={() => onSelectUser?.(post.author.id)}
+            type="button"
+          >
+            <Avatar accent={post.author.accent} name={post.author.name} />
+          </button>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="truncate text-[15px] font-black">{post.author.name}</h2>
+              <button
+                className="gc-pressable min-w-0 truncate text-[15px] font-black"
+                onClick={() => onSelectUser?.(post.author.id)}
+                type="button"
+              >
+                {post.author.name}
+              </button>
               <StreakBadge
                 best={post.author.longestStreak}
                 isLit={post.author.streakLitToday}
@@ -75,11 +87,27 @@ export function SocialPostCard({
                 streak={post.author.currentStreak}
               />
             </div>
-            <p className="truncate text-[12px] font-bold text-white/46">
-              {post.gymName} · {formatTime(post.createdAt)}
+            <p className="flex min-w-0 items-center gap-1 truncate text-[12px] font-bold text-white/46">
+              {locationLabel ? (
+                post.locationGoogleMapsUrl ? (
+                  <a
+                    className="gc-pressable inline-flex min-w-0 items-center gap-1 truncate hover:text-[var(--gc-brand)]"
+                    href={post.locationGoogleMapsUrl}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <MapPin size={12} className="shrink-0" />
+                    <span className="truncate">{locationLabel}</span>
+                  </a>
+                ) : (
+                  <span className="truncate">{locationLabel}</span>
+                )
+              ) : null}
+              {locationLabel ? <span className="shrink-0">·</span> : null}
+              <span className="shrink-0">{formatTime(post.createdAt)}</span>
             </p>
           </div>
-        </button>
+        </div>
         <div className="flex items-center gap-2">
           {canFollow ? (
             <button
@@ -108,15 +136,25 @@ export function SocialPostCard({
       </div>
 
       <div className="relative aspect-[4/5] overflow-hidden bg-zinc-950">
-        <Image
-          alt={`Treino de ${post.author.name}`}
-          className="object-cover"
-          fill
-          priority={post.author.username === "edu.fit"}
-          sizes="(max-width: 480px) 100vw, 480px"
-          src={post.imageUrl}
-        />
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/84 via-black/18 to-transparent p-4">
+        {mediaType === "video" ? (
+          <video
+            className="h-full w-full object-cover"
+            controls
+            playsInline
+            preload="metadata"
+            src={post.imageUrl}
+          />
+        ) : (
+          <Image
+            alt={`Treino de ${post.author.name}`}
+            className="object-cover"
+            fill
+            priority={post.author.username === "edu.fit"}
+            sizes="(max-width: 480px) 100vw, 480px"
+            src={post.imageUrl}
+          />
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/84 via-black/18 to-transparent p-4">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/48 px-3 py-2 text-[12px] font-black backdrop-blur-xl">
             <Flame
               size={15}
@@ -125,6 +163,12 @@ export function SocialPostCard({
             />
             {post.author.name} esta ha {post.streakAtPost} dias treinando
           </div>
+          {mediaType === "video" ? (
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-white/72 backdrop-blur-xl">
+              <Video size={13} />
+              Vídeo
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -156,9 +200,11 @@ export function SocialPostCard({
               <Send size={18} strokeWidth={2.4} />
             </IconButton>
           </div>
-          <span className="rounded-full bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-white/72">
-            {post.workoutType}
-          </span>
+          {post.workoutType ? (
+            <span className="rounded-full bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-white/72">
+              {post.workoutType}
+            </span>
+          ) : null}
         </div>
 
         {post.likesCount > 0 || post.likedByCurrentUser ? (

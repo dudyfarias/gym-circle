@@ -18,17 +18,25 @@ export function postService(client: GymCircleClient) {
   return {
     async create(userId: string, input: CreatePostInput): Promise<PostRow> {
       if (!input.imageUrl?.trim()) {
-        throw new Error("imagem obrigatória");
+        throw new Error("foto ou vídeo obrigatório");
       }
+      const locationSource = input.locationSource ?? "none";
       const { data, error } = await client
         .from("posts")
         .insert({
           user_id: userId,
           image_url: input.imageUrl,
+          media_type: input.mediaType,
           caption: input.caption.trim() || null,
           gym_id: input.gymId,
-          workout_type: input.workoutType,
+          workout_type: input.workoutType?.trim() || null,
           workout_date: input.workoutDate,
+          location_source: locationSource,
+          location_name: locationSource === "none" ? null : input.locationName?.trim() || null,
+          location_latitude: locationSource === "none" ? null : input.locationLatitude ?? null,
+          location_longitude: locationSource === "none" ? null : input.locationLongitude ?? null,
+          location_google_maps_url:
+            locationSource === "none" ? null : input.locationGoogleMapsUrl?.trim() || null,
         })
         .select("*")
         .single();

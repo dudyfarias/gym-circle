@@ -32,14 +32,16 @@ export function EditProfileSheet({
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (open) {
+    if (!open) return;
+    const id = window.setTimeout(() => {
       setDisplayName(currentUser.name);
       setUsername(currentUser.username);
       setBio(currentUser.bio ?? "");
       setFitnessGoal(currentUser.goal ?? "");
       setAvatarUrl(null);
       setError(null);
-    }
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [open, currentUser]);
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {

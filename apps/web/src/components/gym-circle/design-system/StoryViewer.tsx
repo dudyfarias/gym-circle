@@ -21,14 +21,24 @@ export function StoryViewer({ story, onClose }: StoryViewerProps) {
           <div className="h-full rounded-full bg-white" style={{ animation: "gc-story-progress 4.6s linear both" }} />
         </div>
 
-        <Image
-          alt={story.title}
-          className="object-cover"
-          fill
-          sizes="(max-width: 480px) 100vw, 480px"
-          src={story.imageUrl}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/82" />
+        {story.mediaType === "video" ? (
+          <video
+            className="absolute inset-0 h-full w-full object-cover"
+            controls
+            playsInline
+            preload="metadata"
+            src={story.imageUrl}
+          />
+        ) : (
+          <Image
+            alt={story.title}
+            className="object-cover"
+            fill
+            sizes="(max-width: 480px) 100vw, 480px"
+            src={story.imageUrl}
+          />
+        )}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/82" />
 
         <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-8">
           <div className="flex min-w-0 items-center gap-3">

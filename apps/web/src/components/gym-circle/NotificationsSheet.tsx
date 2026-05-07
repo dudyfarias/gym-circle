@@ -36,8 +36,8 @@ const KIND_TONE = {
   mention: "text-[var(--gc-consistency-daily)]",
 } as const;
 
-function formatRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+function formatRelative(iso: string, now: number): string {
+  const diff = now - new Date(iso).getTime();
   const sec = Math.floor(diff / 1000);
   if (sec < 60) return "agora";
   const min = Math.floor(sec / 60);
@@ -58,6 +58,7 @@ export function NotificationsSheet({
   const services = useGymCircleServices();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
     if (!open) return;
@@ -72,7 +73,10 @@ export function NotificationsSheet({
 
   useEffect(() => {
     if (!open) return;
-    refresh();
+    const refreshId = window.setTimeout(() => {
+      setNow(Date.now());
+      void refresh();
+    }, 0);
     const channel = services.client
       .channel(`notifications:${currentUserId}`)
       .on(
@@ -87,6 +91,7 @@ export function NotificationsSheet({
       )
       .subscribe();
     return () => {
+      window.clearTimeout(refreshId);
       services.client.removeChannel(channel);
     };
   }, [services, currentUserId, open, refresh]);
@@ -102,13 +107,12 @@ export function NotificationsSheet({
   const grouped = useMemo(() => {
     const today: NotificationRow[] = [];
     const earlier: NotificationRow[] = [];
-    const now = Date.now();
     for (const n of items) {
       if (now - new Date(n.created_at).getTime() < 24 * 60 * 60 * 1000) today.push(n);
       else earlier.push(n);
     }
     return { today, earlier };
-  }, [items]);
+  }, [items, now]);
 
   if (!open) return null;
 
@@ -144,10 +148,17 @@ export function NotificationsSheet({
           ) : (
             <>
               {grouped.today.length > 0 ? (
-                <Section title="Hoje" items={grouped.today} users={users} onSelectUser={onSelectUser} />
+                <Section
+                  now={now}
+                  title="Hoje"
+                  items={grouped.today}
+                  users={users}
+                  onSelectUser={onSelectUser}
+                />
               ) : null}
               {grouped.earlier.length > 0 ? (
                 <Section
+                  now={now}
                   title="Anteriores"
                   items={grouped.earlier}
                   users={users}
@@ -166,11 +177,13 @@ function Section({
   title,
   items,
   users,
+  now,
   onSelectUser,
 }: {
   title: string;
   items: NotificationRow[];
   users: Record<string, EnrichedUser>;
+  now: number;
   onSelectUser?: (userId: string) => void;
 }) {
   return (
@@ -207,14 +220,14 @@ function Section({
                 </p>
                 {n.body ? (
                   <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
-                    "{n.body}"
+                    &ldquo;{n.body}&rdquo;
                   </p>
                 ) : null}
               </div>
               <div className="flex flex-col items-end gap-1">
                 <Icon className={tone} size={18} fill={n.kind === "like" ? "currentColor" : "none"} />
                 <span className="text-[10px] font-black text-white/36">
-                  {formatRelative(n.created_at)}
+                  {formatRelative(n.created_at, now)}
                 </span>
               </div>
             </li>

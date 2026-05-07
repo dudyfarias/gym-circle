@@ -9,8 +9,9 @@ export function storyService(client: GymCircleClient) {
         .insert({
           user_id: userId,
           media_url: input.mediaUrl,
+          media_type: input.mediaType,
           gym_id: input.gymId,
-          workout_type: input.workoutType,
+          workout_type: input.workoutType?.trim() || null,
         })
         .select("*")
         .single();

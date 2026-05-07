@@ -7,7 +7,6 @@ import {
   AchievementBadge,
   ProfileHeader,
   StatsWidget,
-  StreakBadge,
 } from "./design-system";
 import type { EnrichedPost, EnrichedUser } from "./social/types";
 
@@ -92,17 +91,27 @@ export function ProfileSheet({ open, user, posts, onClose, onToggleFollow }: Pro
                     className="relative aspect-square overflow-hidden rounded-[14px] bg-zinc-950"
                     key={post.id}
                   >
-                    <Image
-                      alt={post.workoutType}
-                      className="object-cover"
-                      fill
-                      sizes="120px"
-                      src={post.imageUrl}
-                    />
+                    {post.mediaType === "video" ? (
+                      <video
+                        className="h-full w-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                        src={post.imageUrl}
+                      />
+                    ) : (
+                      <Image
+                        alt={post.workoutType ?? "Treino"}
+                        className="object-cover"
+                        fill
+                        sizes="120px"
+                        src={post.imageUrl}
+                      />
+                    )}
                     <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1 rounded-full bg-black/52 px-2 py-0.5 backdrop-blur-md">
                       <CheckCircle2 className="text-[var(--gc-brand)]" size={10} />
                       <span className="truncate text-[10px] font-black text-white/82">
-                        {post.workoutType}
+                        {post.workoutType ?? "Treino"}
                       </span>
                     </div>
                   </div>

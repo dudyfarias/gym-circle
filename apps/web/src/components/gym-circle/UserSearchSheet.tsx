@@ -33,8 +33,10 @@ export function UserSearchSheet({
 
   useEffect(() => {
     if (open) {
-      setQuery("");
-      const id = window.setTimeout(() => inputRef.current?.focus(), 60);
+      const id = window.setTimeout(() => {
+        setQuery("");
+        inputRef.current?.focus();
+      }, 60);
       return () => window.clearTimeout(id);
     }
   }, [open]);

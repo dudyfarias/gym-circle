@@ -15,16 +15,27 @@ export type UserStatsRow = Database["public"]["Tables"]["user_stats"]["Row"];
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 export type FeedPostRow = Database["public"]["Views"]["feed_posts"]["Row"];
 
+export type PostMediaType = "image" | "video";
+
+export type PostLocationSource = "none" | "gym" | "current" | "custom";
+
 export type CreatePostInput = {
   imageUrl: string;
+  mediaType: PostMediaType;
   caption: string;
-  workoutType: string;
+  workoutType?: string | null;
   gymId: string | null;
   workoutDate?: string;
+  locationSource?: PostLocationSource;
+  locationName?: string | null;
+  locationLatitude?: number | null;
+  locationLongitude?: number | null;
+  locationGoogleMapsUrl?: string | null;
 };
 
 export type CreateStoryInput = {
   mediaUrl: string;
+  mediaType: PostMediaType;
   gymId: string | null;
   workoutType: string | null;
 };

@@ -94,14 +94,15 @@ export function GymCirclePreview({
     ],
   );
 
+  const signOut = social.actions.signOut;
   const handleSignOut = useMemo(() => {
-    if (!social.actions.signOut) return undefined;
+    if (!signOut) return undefined;
     return async () => {
-      if (social.actions.signOut) {
-        await social.actions.signOut();
+      if (signOut) {
+        await signOut();
       }
     };
-  }, [social.actions.signOut]);
+  }, [signOut]);
 
   const handleEditProfile = social.actions.updateProfile ? openEditProfile : undefined;
 
@@ -128,8 +129,8 @@ export function GymCirclePreview({
         return (
           <PostScreen
             currentUser={social.currentUser}
-            onPublish={(input) => {
-              social.actions.publishWorkout(input);
+            onPublish={async (input) => {
+              await social.actions.publishWorkout(input);
               setActiveScreen("feed");
             }}
             onUploadImage={onUploadImage}

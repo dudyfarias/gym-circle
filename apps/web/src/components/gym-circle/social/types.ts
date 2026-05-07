@@ -30,6 +30,10 @@ export type StreakPresence = {
 
 export type EnrichedUser = GymUser & StreakPresence;
 
+export type PostMediaType = "image" | "video";
+
+export type PostLocationSource = "none" | "gym" | "current" | "custom";
+
 export type GymComment = {
   id: string;
   postId: string;
@@ -42,10 +46,16 @@ export type GymPost = {
   id: string;
   userId: string;
   imageUrl: string;
+  mediaType: PostMediaType;
   caption: string;
-  workoutType: string;
+  workoutType: string | null;
   gymName: string;
   gymId: string;
+  locationSource: PostLocationSource;
+  locationName: string | null;
+  locationLatitude: number | null;
+  locationLongitude: number | null;
+  locationGoogleMapsUrl: string | null;
   createdAt: string;
   workoutDate: string;
   isWorkoutPost: true;
@@ -59,6 +69,7 @@ export type GymStory = {
   id: string;
   userId: string;
   imageUrl: string;
+  mediaType: PostMediaType;
   title: string;
   caption: string;
   createdAt: string;
@@ -92,10 +103,16 @@ export type EnrichedStory = GymStory & {
 
 export type CreateWorkoutPostInput = {
   caption: string;
-  workoutType: string;
-  gymName: string;
-  gymId: string;
+  workoutType?: string | null;
+  gymName?: string;
+  gymId?: string | null;
   imageUrl: string;
+  mediaType: PostMediaType;
+  locationSource?: PostLocationSource;
+  locationName?: string | null;
+  locationLatitude?: number | null;
+  locationLongitude?: number | null;
+  locationGoogleMapsUrl?: string | null;
 };
 
 export type FeedbackTone = "brand" | "success" | "like" | "comment" | "follow";
