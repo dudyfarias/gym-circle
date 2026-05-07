@@ -1,0 +1,100 @@
+"use client";
+
+import { useState } from "react";
+import { useAuth } from "@gym-circle/core/hooks";
+import { BrandMark } from "./design-system";
+
+export function LiveAuthGate() {
+  const { signIn, signUp } = useAuth();
+  const [mode, setMode] = useState<"sign-in" | "sign-up">("sign-in");
+  const [email, setEmail] = useState("edu@gymcircle.test");
+  const [password, setPassword] = useState("gymcircle");
+  const [username, setUsername] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (mode === "sign-in") {
+        await signIn(email, password);
+      } else {
+        await signUp({ email, password, username: username || undefined });
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <main className="grid min-h-screen place-items-center bg-black px-6 text-white">
+      <div className="w-full max-w-[400px]">
+        <div className="mb-6 flex justify-center">
+          <BrandMark showWordmark size={64} />
+        </div>
+        <div className="rounded-[32px] border border-white/[0.08] bg-white/[0.03] p-6 shadow-[0_28px_72px_rgba(0,0,0,0.56)]">
+          <h1 className="text-[24px] font-black">
+            {mode === "sign-in" ? "Entrar" : "Criar conta"}
+          </h1>
+          <p className="mt-1 text-[13px] font-bold text-white/52">
+            {mode === "sign-in"
+              ? "Use as credenciais do seed para testar (edu@gymcircle.test / gymcircle)."
+              : "Crie uma nova conta. Um perfil será criado automaticamente."}
+          </p>
+
+          <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+            <input
+              autoComplete="email"
+              className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email"
+              type="email"
+              value={email}
+            />
+            <input
+              autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
+              className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="senha"
+              type="password"
+              value={password}
+            />
+            {mode === "sign-up" ? (
+              <input
+                autoComplete="username"
+                className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="username (opcional, gerado se vazio)"
+                value={username}
+              />
+            ) : null}
+            {error ? (
+              <p className="rounded-[16px] border border-[var(--gc-pink)]/30 bg-[var(--gc-pink)]/10 p-3 text-[12px] font-bold text-[var(--gc-pink)]">
+                {error}
+              </p>
+            ) : null}
+            <button
+              className="gc-pressable mt-2 flex h-12 w-full items-center justify-center rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
+              disabled={submitting}
+              type="submit"
+            >
+              {submitting ? "Aguarde..." : mode === "sign-in" ? "Entrar" : "Criar conta"}
+            </button>
+          </form>
+
+          <button
+            className="mt-4 w-full text-center text-[12px] font-bold text-white/52 underline-offset-4 hover:underline"
+            onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}
+            type="button"
+          >
+            {mode === "sign-in" ? "Não tenho conta" : "Já tenho conta"}
+          </button>
+        </div>
+      </div>
+    </main>
+  );
+}

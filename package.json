@@ -1,0 +1,19 @@
+{
+  "name": "gym-circle",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/web run build",
+    "lint": "npm --workspace apps/web run lint",
+    "test": "vitest run",
+    "test:streak": "vitest run packages/core/src/domain/streak.test.ts"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.5"
+  }
+}

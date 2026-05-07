@@ -1,0 +1,457 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+
+  --gc-bg: #000000;
+  --gc-bg-elevated: #050607;
+  --gc-card: #111111;
+  --gc-card-elevated: #1c1c1e;
+  --gc-card-soft: #17181a;
+  --gc-separator: rgba(255, 255, 255, 0.06);
+  --gc-separator-strong: rgba(255, 255, 255, 0.1);
+  --gc-glass: rgba(28, 28, 30, 0.72);
+  --gc-glass-strong: rgba(18, 20, 22, 0.84);
+
+  --gc-text-primary: #ffffff;
+  --gc-text-secondary: #a1a1aa;
+  --gc-text-tertiary: rgba(255, 255, 255, 0.52);
+
+  --gc-brand: #8af7ff;
+  --gc-brand-soft: #c7fcff;
+  --gc-brand-deep: #30d5ff;
+  --gc-brand-glow: rgba(92, 232, 255, 0.42);
+  --gc-brand-ink: #061116;
+
+  --gc-consistency-daily: #8cfbff;
+  --gc-consistency-month: #30d5ff;
+  --gc-consistency-mid: #009dff;
+  --gc-consistency-year: #0066ff;
+  --gc-consistency-glow: rgba(48, 213, 255, 0.3);
+  --gc-consistency-quiet: rgba(48, 213, 255, 0.12);
+
+  --gc-energy: #8cfbff;
+  --gc-blue: #30d5ff;
+  --gc-pink: #ff2d55;
+  --gc-orange: #ff9f0a;
+  --gc-green: #30d5ff;
+
+  --gc-radius-md: 20px;
+  --gc-radius-lg: 24px;
+  --gc-radius-xl: 28px;
+  --gc-radius-2xl: 32px;
+  --gc-radius-3xl: 40px;
+  --gc-radius-full: 999px;
+
+  --gc-ease-ios: cubic-bezier(0.2, 0.9, 0.2, 1);
+  --gc-ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --gc-ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --gc-font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", Inter, system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--gc-bg);
+  --color-foreground: var(--gc-text-primary);
+  --color-gc-card: var(--gc-card);
+  --color-gc-card-elevated: var(--gc-card-elevated);
+  --color-gc-brand: var(--gc-brand);
+  --color-gc-brand-soft: var(--gc-brand-soft);
+  --color-gc-brand-deep: var(--gc-brand-deep);
+  --color-gc-consistency-daily: var(--gc-consistency-daily);
+  --color-gc-consistency-month: var(--gc-consistency-month);
+  --color-gc-consistency-mid: var(--gc-consistency-mid);
+  --color-gc-consistency-year: var(--gc-consistency-year);
+  --color-gc-separator: var(--gc-separator);
+  --color-gc-energy: var(--gc-energy);
+  --color-gc-blue: var(--gc-blue);
+  --color-gc-pink: var(--gc-pink);
+  --color-gc-orange: var(--gc-orange);
+  --color-gc-green: var(--gc-green);
+  --font-sans: var(--gc-font-sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(92, 232, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 28%),
+    var(--gc-bg);
+  color: var(--gc-text-primary);
+  font-family: var(--gc-font-sans);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: rgba(184, 255, 44, 0.32);
+  color: white;
+}
+
+@keyframes gc-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes gc-soft-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.015);
+  }
+}
+
+@keyframes gc-ring-sweep {
+  from {
+    filter: saturate(0.72) brightness(0.86);
+    transform: rotate(-4deg);
+  }
+
+  to {
+    filter: saturate(1.18) brightness(1.04);
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes gc-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gc-story-progress {
+  from {
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+
+  to {
+    transform: scaleX(1);
+    transform-origin: left;
+  }
+}
+
+@keyframes gc-toast-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+
+  12%,
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+@keyframes gc-heart-pop {
+  0% {
+    transform: scale(0.82);
+  }
+
+  55% {
+    transform: scale(1.18);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes gc-brand-breathe {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 14px rgba(92, 232, 255, 0.34));
+    opacity: 0.92;
+  }
+
+  50% {
+    filter: drop-shadow(0 0 28px rgba(92, 232, 255, 0.58));
+    opacity: 1;
+  }
+}
+
+@keyframes gc-streak-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 16px rgba(48, 213, 255, 0.16),
+      0 0 0 rgba(92, 232, 255, 0);
+    transform: translateZ(0) scale(1);
+  }
+
+  50% {
+    box-shadow:
+      0 0 26px rgba(48, 213, 255, 0.3),
+      0 0 38px rgba(0, 157, 255, 0.14);
+    transform: translateZ(0) scale(1.018);
+  }
+}
+
+@keyframes gc-streak-ring-awake {
+  from {
+    filter: saturate(0.65) brightness(0.78);
+    transform: rotate(-18deg) scale(0.9);
+  }
+
+  to {
+    filter: saturate(1.18) brightness(1.08);
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes gc-activity-fill {
+  from {
+    stroke-dashoffset: 100;
+  }
+
+  to {
+    stroke-dashoffset: var(--gc-ring-target);
+  }
+}
+
+@keyframes gc-tab-settle {
+  from {
+    transform: scale(0.92);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+.gc-phone-shell {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(92, 232, 255, 0.105), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), transparent 22%),
+    #000;
+}
+
+.gc-glass {
+  border: 1px solid var(--gc-separator);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent),
+    var(--gc-glass);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.gc-glass-strong {
+  border: 1px solid var(--gc-separator-strong);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.085), transparent 46%),
+    var(--gc-glass-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 28px 72px rgba(0, 0, 0, 0.56);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+}
+
+.gc-pressable {
+  transform: translateZ(0);
+  transition:
+    transform 220ms var(--gc-ease-ios),
+    border-color 220ms var(--gc-ease-ios),
+    background-color 220ms var(--gc-ease-ios),
+    opacity 220ms var(--gc-ease-ios);
+}
+
+.gc-pressable:hover {
+  transform: translateY(-1px);
+}
+
+.gc-pressable:active {
+  transform: scale(0.975);
+}
+
+.gc-brand-mark {
+  animation: gc-brand-breathe 3.4s var(--gc-ease-ios) infinite;
+}
+
+.gc-brand-card {
+  background:
+    radial-gradient(circle at 50% 25%, rgba(138, 247, 255, 0.2), transparent 42%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.02)),
+    #0d1215;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 38px rgba(92, 232, 255, 0.16),
+    0 24px 60px rgba(0, 0, 0, 0.52);
+}
+
+.gc-screen-enter {
+  animation: gc-rise 520ms var(--gc-ease-spring) both;
+}
+
+.gc-toast {
+  animation: gc-toast-in 2200ms var(--gc-ease-spring) both;
+}
+
+.gc-heart-pop {
+  animation: gc-heart-pop 320ms var(--gc-ease-snap) both;
+}
+
+.gc-ios-sheet {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 45%),
+    #111;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.gc-activity-ring-track {
+  opacity: 0.82;
+}
+
+.gc-activity-ring-value {
+  transform: rotate(-90deg);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: gc-activity-fill 980ms var(--gc-ease-spring) both;
+  transition:
+    stroke-dashoffset 720ms var(--gc-ease-spring),
+    stroke 260ms var(--gc-ease-ios),
+    filter 260ms var(--gc-ease-ios),
+    opacity 260ms var(--gc-ease-ios);
+}
+
+.gc-streak-badge-lit {
+  border-color: rgba(140, 251, 255, 0.28);
+  background:
+    linear-gradient(180deg, rgba(140, 251, 255, 0.18), rgba(0, 102, 255, 0.065)),
+    rgba(5, 12, 15, 0.72);
+  color: var(--gc-streak-color, var(--gc-brand));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 22px rgba(48, 213, 255, 0.2);
+  animation: gc-streak-breathe 3s var(--gc-ease-ios) infinite;
+  transition:
+    border-color 240ms var(--gc-ease-ios),
+    background 240ms var(--gc-ease-ios),
+    color 240ms var(--gc-ease-ios),
+    box-shadow 240ms var(--gc-ease-ios),
+    opacity 240ms var(--gc-ease-ios);
+}
+
+.gc-streak-badge-dim {
+  border-color: rgba(48, 213, 255, 0.085);
+  background:
+    linear-gradient(180deg, rgba(48, 213, 255, 0.045), rgba(0, 102, 255, 0.018)),
+    rgba(12, 15, 18, 0.78);
+  color: rgba(188, 244, 255, 0.42);
+  box-shadow: none;
+  opacity: 0.84;
+  transition:
+    border-color 240ms var(--gc-ease-ios),
+    background 240ms var(--gc-ease-ios),
+    color 240ms var(--gc-ease-ios),
+    box-shadow 240ms var(--gc-ease-ios),
+    opacity 240ms var(--gc-ease-ios);
+}
+
+.gc-streak-ring {
+  background: conic-gradient(
+    from -18deg,
+    var(--gc-streak-color, var(--gc-brand)) 0deg 360deg
+  );
+}
+
+.gc-streak-badge-lit .gc-streak-ring {
+  box-shadow:
+    0 0 14px rgba(48, 213, 255, 0.28),
+    0 0 24px rgba(0, 157, 255, 0.12);
+  animation: gc-streak-ring-awake 480ms var(--gc-ease-spring) both;
+}
+
+.gc-streak-badge-dim .gc-streak-ring {
+  background: conic-gradient(
+    from -28deg,
+    rgba(140, 251, 255, 0.34) 0deg 248deg,
+    rgba(0, 102, 255, 0.08) 248deg 360deg
+  );
+  box-shadow: none;
+}
+
+.gc-ios-tabbar {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+    rgba(13, 15, 17, 0.84);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 18px 42px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+}
+
+.gc-subtle-border {
+  border: 1px solid var(--gc-separator);
+}
+
+.gc-story-ring {
+  background: conic-gradient(
+    from 160deg,
+    var(--gc-consistency-year),
+    var(--gc-consistency-mid),
+    var(--gc-consistency-month),
+    var(--gc-consistency-daily),
+    var(--gc-consistency-year)
+  );
+}
+
+.gc-brand-ring {
+  background: conic-gradient(
+    from 130deg,
+    var(--gc-brand-soft),
+    var(--gc-brand),
+    var(--gc-brand-deep),
+    rgba(48, 213, 255, 0.18),
+    var(--gc-brand-soft)
+  );
+}
+
+.gc-scrollbar {
+  scrollbar-width: none;
+}
+
+.gc-scrollbar::-webkit-scrollbar {
+  display: none;
+}
