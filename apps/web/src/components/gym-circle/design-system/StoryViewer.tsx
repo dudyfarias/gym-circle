@@ -283,10 +283,15 @@ function StoryViewerContent({
 
         {story.mediaType === "video" ? (
           <video
+            // Story plays automatically. Começa muted para garantir auto-play
+            // em qualquer browser; o user pode dar tap pra ativar som
+            // (handled em outro lugar quando implementar mute toggle).
+            autoPlay
             className="absolute inset-0 h-full w-full object-cover"
-            controls
+            loop
+            muted
             playsInline
-            preload="metadata"
+            preload="auto"
             src={story.imageUrl}
           />
         ) : (
@@ -304,8 +309,8 @@ function StoryViewerContent({
         {heartBurst ? (
           <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center">
             <Heart
-              className="gc-heart-pop text-[var(--gc-consistency-month)] drop-shadow-[0_0_32px_rgba(48,213,255,0.52)]"
-              fill="none"
+              className="gc-heart-pop text-[var(--gc-blue)] drop-shadow-[0_0_32px_rgba(48,213,255,0.65)]"
+              fill="currentColor"
               size={96}
               strokeWidth={2.4}
             />
@@ -478,7 +483,7 @@ function StoryViewerContent({
               className={[
                 "gc-pressable grid size-12 place-items-center rounded-full border backdrop-blur-2xl disabled:opacity-60",
                 story.likedByCurrentUser
-                  ? "border-[var(--gc-consistency-month)]/34 bg-[var(--gc-consistency-month)]/14 text-[var(--gc-consistency-month)] shadow-[0_0_24px_rgba(48,213,255,0.26)]"
+                  ? "border-[var(--gc-blue)]/34 bg-[var(--gc-blue)]/14 text-[var(--gc-blue)] shadow-[0_0_24px_rgba(48,213,255,0.42)]"
                   : "border-white/[0.1] bg-black/38 text-white",
               ].join(" ")}
               disabled={isOwner || liking || story.likedByCurrentUser}
@@ -489,9 +494,9 @@ function StoryViewerContent({
                 <Loader2 className="animate-spin" size={18} />
               ) : (
                 <Heart
-                  fill="none"
+                  fill={story.likedByCurrentUser ? "currentColor" : "none"}
                   size={19}
-                  strokeWidth={story.likedByCurrentUser ? 2.9 : 2.4}
+                  strokeWidth={2.4}
                 />
               )}
             </button>

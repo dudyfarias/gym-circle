@@ -186,10 +186,15 @@ export function SocialPostCard({
       <div className="relative aspect-[4/5] overflow-hidden bg-zinc-950">
         {mediaType === "video" ? (
           <video
+            // Estilo Instagram Reels: auto-play silencioso em loop, sem barra
+            // de controles. iOS Safari + WKWebView só auto-tocam vídeos com
+            // muted + playsInline + autoPlay simultâneos.
+            autoPlay
             className="h-full w-full object-cover"
-            controls
+            loop
+            muted
             playsInline
-            preload="metadata"
+            preload="auto"
             src={post.imageUrl}
           />
         ) : (
@@ -226,15 +231,17 @@ export function SocialPostCard({
             <IconButton
               className={[
                 "size-11",
-                post.likedByCurrentUser ? "gc-heart-pop text-[var(--gc-consistency-month)]" : "",
+                post.likedByCurrentUser
+                  ? "gc-heart-pop text-[var(--gc-blue)] drop-shadow-[0_0_18px_rgba(48,213,255,0.55)]"
+                  : "text-white",
               ].join(" ")}
               label="Curtir"
               onClick={() => onLike(post.id)}
             >
               <Heart
-                fill="none"
+                fill={post.likedByCurrentUser ? "currentColor" : "none"}
                 size={19}
-                strokeWidth={post.likedByCurrentUser ? 2.9 : 2.4}
+                strokeWidth={post.likedByCurrentUser ? 2.4 : 2.4}
               />
             </IconButton>
             <IconButton
@@ -300,15 +307,15 @@ export function SocialPostCard({
             ) : (
               <div className="flex flex-1 items-center gap-2 rounded-full bg-white/[0.045] px-3 py-2">
                 <Heart
-                  className={post.likedByCurrentUser ? "text-[var(--gc-consistency-month)]" : "text-white/42"}
-                  fill="none"
+                  className={post.likedByCurrentUser ? "text-[var(--gc-blue)]" : "text-white/42"}
+                  fill={post.likedByCurrentUser ? "currentColor" : "none"}
                   size={14}
-                  strokeWidth={post.likedByCurrentUser ? 2.8 : 2.3}
+                  strokeWidth={2.4}
                 />
                 <span
                   className={[
                     "text-[12px] font-black",
-                    post.likedByCurrentUser ? "text-[var(--gc-consistency-month)]" : "text-white/58",
+                    post.likedByCurrentUser ? "text-[var(--gc-blue)]" : "text-white/58",
                   ].join(" ")}
                 >
                   {post.likesCount.toLocaleString("pt-BR")} curtidas

@@ -136,6 +136,8 @@ type AggregateState = {
   myActivityDays: UserActivityDayRow[];
   myNotifications: NotificationRow[];
   chatMessages: DirectMessageRow[];
+  /** IDs que EU bloqueei. Filtramos feed/stories/profiles/comments/messages. */
+  blockedUserIds: string[];
 };
 
 const EMPTY: AggregateState = {
@@ -154,6 +156,7 @@ const EMPTY: AggregateState = {
   myActivityDays: [],
   myNotifications: [],
   chatMessages: [],
+  blockedUserIds: [],
 };
 
 type OptionalStorySocialTable = "story_likes" | "story_mutes";
@@ -275,6 +278,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsTodayRes,
         myNotificationsRes,
         chatMessagesRes,
+        blocksRes,
       ] = await Promise.all([
         services.client.from("profiles").select("*"),
         services.client.from("user_stats_live").select("*"),
@@ -308,6 +312,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
           .order("created_at", { ascending: true })
           .limit(200),
+        // Apple Guideline 1.2: app de UGC precisa filtrar conteúdo de
+        // blocked users de TODOS os surfaces (feed, stories, profiles,
+        // comments, search, mensagens). Carrego a lista no refresh
+        // e propago via blockedUserIds Set nos derivados abaixo.
+        services.client
+          .from("user_blocks")
+          .select("blocked_id")
+          .eq("blocker_id", currentUserId),
       ]);
 
       for (const r of [
@@ -322,6 +334,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsTodayRes,
         myNotificationsRes,
         chatMessagesRes,
+        blocksRes,
       ]) {
         if (r.error) throw r.error;
       }
@@ -364,6 +377,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       );
 
       if (!mountedRef.current) return;
+      const blockedUserIds = ((blocksRes.data ?? []) as Array<{ blocked_id: string }>)
+        .map((row) => row.blocked_id);
       setAgg({
         profiles: (profilesRes.data ?? []) as ProfileRow[],
         stats: (statsRes.data ?? []) as UserStatsRow[],
@@ -380,6 +395,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
         myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
         chatMessages: (chatMessagesRes.data ?? []) as DirectMessageRow[],
+        blockedUserIds,
       });
       setError(null);
     } catch (err) {
@@ -439,6 +455,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   // ---- Derivações memoizadas ----
+  // Set de IDs que bloqueei. Usado para filtrar tudo que vai pra UI.
+  const blockedSet = useMemo(
+    () => new Set(agg.blockedUserIds),
+    [agg.blockedUserIds],
+  );
+
   const enrichedAll = useMemo(() => {
     const statsByUser = new Map(agg.stats.map((s) => [s.user_id, s]));
     const gymsById = new Map(agg.gyms.map((g) => [g.id, g]));
@@ -471,6 +493,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
     const map = new Map<string, EnrichedUser>();
     for (const profile of agg.profiles) {
+      // Bloqueio mútuo: o app de A não vê B, e o app de B não vê A.
+      // Eu mantenho o próprio usuário fora dessa filtragem (preciso me
+      // ver pra saber meu badge/streak).
+      if (
+        profile.user_id !== currentUserId &&
+        blockedSet.has(profile.user_id)
+      ) {
+        continue;
+      }
       const stats = statsByUser.get(profile.user_id);
       const birthDate = profile.birth_date ?? null;
       const userGyms = userGymsByUser.get(profile.user_id) ?? [];
@@ -523,7 +554,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       map.set(profile.user_id, enriched);
     }
     return map;
-  }, [agg, currentUserId]);
+  }, [agg, currentUserId, blockedSet]);
 
   const currentUser = useMemo<EnrichedUser>(() => {
     return (
@@ -608,6 +639,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }
 
     return agg.feedPosts
+      // Esconde posts cujo autor está bloqueado. Apple Guideline 1.2:
+      // bloqueio precisa esconder TODO conteúdo do bloqueado.
+      .filter((row) => row.user_id === currentUserId || !blockedSet.has(row.user_id))
       .map((row) => {
         const author = enrichedAll.get(row.user_id) ?? currentUser;
         const likesCount = row.likes_count ?? 0;
@@ -666,7 +700,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [agg, enrichedAll, currentUser, currentUserId]);
+  }, [agg, enrichedAll, currentUser, currentUserId, blockedSet]);
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     const out: EnrichedStory[] = [];
@@ -756,21 +790,30 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   const chatMessages = useMemo<ChatMessage[]>(
     () =>
-      agg.chatMessages.map((message) => ({
-        id: message.id,
-        conversationId: message.conversation_id,
-        senderId: message.sender_id,
-        receiverId: message.receiver_id,
-        body: message.body,
-        mediaUrl: message.media_url,
-        mediaType: message.media_type,
-        storyId: message.story_id,
-        replyToStory: message.reply_to_story,
-        storyPreviewUrl: message.story_preview_url,
-        createdAt: message.created_at,
-        readAt: message.read_at,
-      })),
-    [agg.chatMessages],
+      agg.chatMessages
+        // Mensagens de/para usuários bloqueados não aparecem no chat.
+        // Eu também não consigo enviar — RPC do server bloqueia (já tratado
+        // em outros lugares por RLS de safety/messages). Aqui só hide UI.
+        .filter(
+          (message) =>
+            !blockedSet.has(message.sender_id) &&
+            !blockedSet.has(message.receiver_id),
+        )
+        .map((message) => ({
+          id: message.id,
+          conversationId: message.conversation_id,
+          senderId: message.sender_id,
+          receiverId: message.receiver_id,
+          body: message.body,
+          mediaUrl: message.media_url,
+          mediaType: message.media_type,
+          storyId: message.story_id,
+          replyToStory: message.reply_to_story,
+          storyPreviewUrl: message.story_preview_url,
+          createdAt: message.created_at,
+          readAt: message.read_at,
+        })),
+    [agg.chatMessages, blockedSet],
   );
 
   const actions = useMemo<SupabaseSocialActions>(
