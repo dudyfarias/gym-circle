@@ -22,6 +22,7 @@ import { EditProfileSheet } from "./EditProfileSheet";
 import { EditPostSheet } from "./EditPostSheet";
 import { MonthlyRecapSheet } from "./MonthlyRecapSheet";
 import { NotificationsSheet } from "./NotificationsSheet";
+import { ConfirmSheet } from "./ConfirmSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -57,6 +58,13 @@ export function GymCirclePreview({
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
+  // Sheet de confirmação genérico — substitui window.confirm em ações
+  // destrutivas. `intent` decide qual handler dispara no botão "Confirmar".
+  const [confirmIntent, setConfirmIntent] = useState<
+    | { kind: "delete-post"; postId: string }
+    | { kind: "delete-account" }
+    | null
+  >(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -144,15 +152,10 @@ export function GymCirclePreview({
     setPostMenuId(null);
   }, [postMenuId]);
 
-  const handleConfirmDeletePost = useCallback(async () => {
+  const handleConfirmDeletePost = useCallback(() => {
     if (!postMenuId || !deletePost) return;
-    const ok =
-      typeof window === "undefined"
-        ? true
-        : window.confirm("Apagar esse post? Não dá pra desfazer.");
-    if (!ok) return;
+    setConfirmIntent({ kind: "delete-post", postId: postMenuId });
     setPostMenuId(null);
-    await deletePost(postMenuId);
   }, [postMenuId, deletePost]);
 
   const editPostTarget: EnrichedPost | null = useMemo(() => {
@@ -407,13 +410,11 @@ export function GymCirclePreview({
             nearbyUsers={social.nearbyUsers}
             onEditProfile={handleEditProfile}
             onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
-            onRequestAccountDeletion={social.actions.requestAccountDeletion
-              ? async () => {
-                  const ok = window.confirm("Excluir sua conta? Seu perfil será desativado e o pedido ficará pendente para processamento interno.");
-                  if (!ok) return;
-                  await social.actions.requestAccountDeletion?.("Solicitado pelo usuário no app");
-                }
-              : undefined}
+            onRequestAccountDeletion={
+              social.actions.requestAccountDeletion
+                ? () => setConfirmIntent({ kind: "delete-account" })
+                : undefined
+            }
             onSelectUser={openProfile}
             onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
@@ -666,6 +667,41 @@ export function GymCirclePreview({
               post={editPostTarget}
             />
           ) : null}
+          <ConfirmSheet
+            cancelLabel="Cancelar"
+            confirmLabel={
+              confirmIntent?.kind === "delete-account"
+                ? "Excluir minha conta"
+                : "Apagar post"
+            }
+            description={
+              confirmIntent?.kind === "delete-account"
+                ? "Seu perfil será desativado e o pedido fica pendente pra processamento interno. Você pode pedir restauração contatando suporte antes do prazo final."
+                : "Não dá pra desfazer. O post some do feed e do seu perfil."
+            }
+            onClose={() => setConfirmIntent(null)}
+            onConfirm={async () => {
+              const intent = confirmIntent;
+              if (!intent) return;
+              setConfirmIntent(null);
+              if (intent.kind === "delete-post" && deletePost) {
+                await deletePost(intent.postId);
+                return;
+              }
+              if (intent.kind === "delete-account") {
+                await social.actions.requestAccountDeletion?.(
+                  "Solicitado pelo usuário no app",
+                );
+              }
+            }}
+            open={confirmIntent !== null}
+            title={
+              confirmIntent?.kind === "delete-account"
+                ? "Excluir sua conta?"
+                : "Apagar esse post?"
+            }
+            tone="destructive"
+          />
           <ToastFeedback feedback={social.feedback} />
         </div>
       </main>

@@ -227,7 +227,18 @@ function loadStoredViewedStoryIds(userId: string) {
 function persistStoredViewedStoryIds(userId: string, ids: Set<string>) {
   if (typeof window === "undefined") return;
   const compact = Array.from(ids).slice(-MAX_STORED_VIEWED_STORIES);
-  window.localStorage.setItem(getViewedStoriesStorageKey(userId), JSON.stringify(compact));
+  // iOS Safari Private Mode + alguns ad blockers throwam em
+  // localStorage.setItem. Não é crítico — perdemos persistência de
+  // "stories vistos" entre sessões, mas o app continua funcionando.
+  // Servidor já tem story_views como fonte de verdade.
+  try {
+    window.localStorage.setItem(
+      getViewedStoriesStorageKey(userId),
+      JSON.stringify(compact),
+    );
+  } catch {
+    // ignorar — fail-soft
+  }
 }
 
 export type SupabaseSocialActions = {
