@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Ban, Flag, Pencil, Trash2 } from "lucide-react";
+import { Ban, Flag, Pencil, Trash2, VolumeX } from "lucide-react";
 
 type PostMenuSheetProps = {
   open: boolean;
@@ -11,6 +11,8 @@ type PostMenuSheetProps = {
   onDelete?: () => void;
   onReport?: () => void;
   onBlock?: () => void;
+  /** Silencia posts desse autor sem deixar de seguir nem bloquear. */
+  onMute?: () => void;
 };
 
 /**
@@ -25,6 +27,7 @@ export function PostMenuSheet({
   onDelete,
   onReport,
   onBlock,
+  onMute,
 }: PostMenuSheetProps) {
   useEffect(() => {
     if (!open) return;
@@ -68,6 +71,14 @@ export function PostMenuSheet({
             </>
           ) : (
             <>
+              <button
+                className="gc-pressable flex h-14 w-full items-center justify-center gap-2 border-b border-white/[0.06] text-[15px] font-black text-white"
+                onClick={onMute}
+                type="button"
+              >
+                <VolumeX size={17} strokeWidth={2.6} />
+                Silenciar usuário
+              </button>
               <button
                 className="gc-pressable flex h-14 w-full items-center justify-center gap-2 border-b border-white/[0.06] text-[15px] font-black text-white"
                 onClick={onReport}

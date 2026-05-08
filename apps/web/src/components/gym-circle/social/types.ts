@@ -235,6 +235,8 @@ export type SocialActions = {
   deleteStory?: (storyId: string) => Promise<void>;
   reportStory?: (storyId: string, authorId: string, reason?: string) => Promise<void>;
   muteStoryAuthor?: (authorId: string) => Promise<void>;
+  /** Silencia posts desse autor no feed. Stories e perfil continuam acessíveis. */
+  mutePostAuthor?: (authorId: string) => Promise<void>;
   shareStoryToChat?: (storyId: string, receiverId: string) => Promise<void>;
   requestAccountDeletion?: (reason?: string) => Promise<void>;
   completeOnboarding?: () => Promise<void>;

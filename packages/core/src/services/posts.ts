@@ -3,6 +3,7 @@ import type {
   EnrichedPost,
   FeedPostRow,
   PostCommentRow,
+  PostMuteRow,
   PostRow,
 } from "../domain/types";
 import type { GymCircleClient } from "./supabase";
@@ -203,6 +204,41 @@ export function postService(client: GymCircleClient) {
         .single();
       if (error) throw error;
       return data;
+    },
+
+    /**
+     * Silenciar posts de outro usuário.
+     * Não afeta follow nem stories — só esconde posts no feed.
+     * Idempotente via upsert + ignoreDuplicates.
+     */
+    async mute(userId: string, mutedUserId: string): Promise<PostMuteRow> {
+      if (userId === mutedUserId) {
+        throw new Error("não dá para silenciar a si mesmo");
+      }
+      const { data, error } = await client
+        .from("post_mutes")
+        .upsert(
+          { user_id: userId, muted_user_id: mutedUserId },
+          { onConflict: "user_id,muted_user_id", ignoreDuplicates: true },
+        )
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return (
+        data ?? {
+          user_id: userId,
+          muted_user_id: mutedUserId,
+          created_at: new Date().toISOString(),
+        }
+      );
+    },
+
+    async unmute(userId: string, mutedUserId: string): Promise<void> {
+      const { error } = await client
+        .from("post_mutes")
+        .delete()
+        .match({ user_id: userId, muted_user_id: mutedUserId });
+      if (error) throw error;
     },
   };
 }

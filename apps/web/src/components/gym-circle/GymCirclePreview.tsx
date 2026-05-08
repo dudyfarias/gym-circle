@@ -646,6 +646,11 @@ export function GymCirclePreview({
             onClose={closePostMenu}
             onDelete={handleConfirmDeletePost}
             onEdit={handleStartEditPost}
+            onMute={() => {
+              const userId = postMenuTarget?.userId;
+              setPostMenuId(null);
+              if (userId) void social.actions.mutePostAuthor?.(userId);
+            }}
             onReport={() => {
               const target = postMenuTarget;
               setPostMenuId(null);

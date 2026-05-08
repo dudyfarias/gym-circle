@@ -440,6 +440,24 @@ export type Database = {
           },
         ]
       }
+      post_mutes: {
+        Row: {
+          created_at: string
+          muted_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          muted_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          muted_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       posts: {
         Row: {
           caption: string | null

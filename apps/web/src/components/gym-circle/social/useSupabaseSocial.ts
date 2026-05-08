@@ -138,6 +138,8 @@ type AggregateState = {
   chatMessages: DirectMessageRow[];
   /** IDs que EU bloqueei. Filtramos feed/stories/profiles/comments/messages. */
   blockedUserIds: string[];
+  /** IDs cujos posts no feed eu silenciei. Stories continuam aparecendo. */
+  mutedPostUserIds: string[];
 };
 
 const EMPTY: AggregateState = {
@@ -157,6 +159,7 @@ const EMPTY: AggregateState = {
   myNotifications: [],
   chatMessages: [],
   blockedUserIds: [],
+  mutedPostUserIds: [],
 };
 
 type OptionalStorySocialTable = "story_likes" | "story_mutes";
@@ -223,6 +226,8 @@ export type SupabaseSocialActions = {
   deleteStory: (storyId: string) => Promise<void>;
   reportStory: (storyId: string, authorId: string, reason?: string) => Promise<void>;
   muteStoryAuthor: (authorId: string) => Promise<void>;
+  /** Silencia posts desse autor no feed. Stories continuam aparecendo. */
+  mutePostAuthor: (authorId: string) => Promise<void>;
   shareStoryToChat: (storyId: string, receiverId: string) => Promise<void>;
   requestAccountDeletion: (reason?: string) => Promise<void>;
   completeOnboarding: () => Promise<void>;
@@ -279,6 +284,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myNotificationsRes,
         chatMessagesRes,
         blocksRes,
+        postMutesRes,
       ] = await Promise.all([
         services.client.from("profiles").select("*"),
         services.client.from("user_stats_live").select("*"),
@@ -320,6 +326,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .from("user_blocks")
           .select("blocked_id")
           .eq("blocker_id", currentUserId),
+        // Post mute — alternativa menos drástica ao bloqueio. Esconde só
+        // posts no feed; stories e perfil continuam acessíveis.
+        services.client
+          .from("post_mutes")
+          .select("muted_user_id")
+          .eq("user_id", currentUserId),
       ]);
 
       for (const r of [
@@ -335,6 +347,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myNotificationsRes,
         chatMessagesRes,
         blocksRes,
+        postMutesRes,
       ]) {
         if (r.error) throw r.error;
       }
@@ -379,6 +392,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       if (!mountedRef.current) return;
       const blockedUserIds = ((blocksRes.data ?? []) as Array<{ blocked_id: string }>)
         .map((row) => row.blocked_id);
+      const mutedPostUserIds = (
+        (postMutesRes.data ?? []) as Array<{ muted_user_id: string }>
+      ).map((row) => row.muted_user_id);
       setAgg({
         profiles: (profilesRes.data ?? []) as ProfileRow[],
         stats: (statsRes.data ?? []) as UserStatsRow[],
@@ -396,6 +412,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
         chatMessages: (chatMessagesRes.data ?? []) as DirectMessageRow[],
         blockedUserIds,
+        mutedPostUserIds,
       });
       setError(null);
     } catch (err) {
@@ -416,6 +433,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "story_likes" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "story_mutes" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_mutes" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => refresh())
@@ -459,6 +477,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const blockedSet = useMemo(
     () => new Set(agg.blockedUserIds),
     [agg.blockedUserIds],
+  );
+
+  // Set de IDs cujos posts no feed eu silenciei. Diferente de blockedSet:
+  // mute só esconde feed posts; stories, perfil e busca continuam normais.
+  const mutedPostAuthorsSet = useMemo(
+    () => new Set(agg.mutedPostUserIds),
+    [agg.mutedPostUserIds],
   );
 
   const enrichedAll = useMemo(() => {
@@ -639,9 +664,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }
 
     return agg.feedPosts
-      // Esconde posts cujo autor está bloqueado. Apple Guideline 1.2:
-      // bloqueio precisa esconder TODO conteúdo do bloqueado.
-      .filter((row) => row.user_id === currentUserId || !blockedSet.has(row.user_id))
+      // Esconde posts cujo autor está bloqueado ou silenciado pra feed.
+      // Próprio usuário sempre passa (preciso ver meu próprio post).
+      // Block: Apple Guideline 1.2 — esconder TODO conteúdo do bloqueado.
+      // Mute: alternativa menos drástica, só esconde no feed.
+      .filter((row) => {
+        if (row.user_id === currentUserId) return true;
+        if (blockedSet.has(row.user_id)) return false;
+        if (mutedPostAuthorsSet.has(row.user_id)) return false;
+        return true;
+      })
       .map((row) => {
         const author = enrichedAll.get(row.user_id) ?? currentUser;
         const likesCount = row.likes_count ?? 0;
@@ -700,7 +732,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [agg, enrichedAll, currentUser, currentUserId, blockedSet]);
+  }, [agg, enrichedAll, currentUser, currentUserId, blockedSet, mutedPostAuthorsSet]);
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     const out: EnrichedStory[] = [];
@@ -955,6 +987,22 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.stories.mute(currentUserId, authorId);
         await refresh();
         showFeedback("brand", "Stories silenciados", target.name);
+      },
+      async mutePostAuthor(authorId: string) {
+        const target = enrichedAll.get(authorId);
+        if (!target || authorId === currentUserId) return;
+        // Optimistic: tira posts do autor do feed local + grava no
+        // mutedPostUserIds. Servidor confirma via realtime e refresh().
+        setAgg((current) => ({
+          ...current,
+          feedPosts: current.feedPosts.filter((row) => row.user_id !== authorId),
+          mutedPostUserIds: current.mutedPostUserIds.includes(authorId)
+            ? current.mutedPostUserIds
+            : [...current.mutedPostUserIds, authorId],
+        }));
+        await services.posts.mute(currentUserId, authorId);
+        await refresh();
+        showFeedback("brand", "Posts silenciados", target.name);
       },
       async shareStoryToChat(storyId: string, receiverId: string) {
         const story = storyBubbles.find((item) => item.id === storyId);
