@@ -121,11 +121,13 @@ function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser 
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.88)),radial-gradient(circle_at_82%_18%,rgba(48,213,255,0.38),transparent_32%),radial-gradient(circle_at_15%_88%,rgba(0,102,255,0.34),transparent_38%)]" />
 
       <div className="absolute inset-0 flex flex-col p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <BrandMark size={34} />
-          <div className="rounded-full bg-black/42 px-3 py-1 text-[11px] font-black text-white/82 backdrop-blur-xl">
-            @{user.username}
-          </div>
+          <RecapRings
+            month={recap.monthProgressPercent}
+            week={recap.weekProgressPercent}
+            year={recap.yearProgressPercent}
+          />
         </div>
 
         <div className="mt-auto">
@@ -148,12 +150,82 @@ function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser 
               <PosterStat label="Lugar" value={recap.topLocation} />
             </div>
           </div>
-          <p className="mt-4 text-[13px] font-black text-white/74">
-            Train together.
-          </p>
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <p className="text-[13px] font-black text-white/74">Train together.</p>
+            <div className="rounded-full bg-black/42 px-2.5 py-1 text-[10px] font-black text-white/72 backdrop-blur-xl">
+              @{user.username}
+            </div>
+          </div>
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * 3 anéis aninhados (Apple Fitness idiom): ano (externo, azul deep) ·
+ * mês (médio, ciano) · semana (interno, mais claro). Mostramos rings sem
+ * texto inline pra ficar limpo na composição — o card já tem "Você treinou
+ * X dias" em destaque.
+ */
+function RecapRings({ week, month, year }: { week: number; month: number; year: number }) {
+  return (
+    <div className="rounded-[18px] bg-black/42 p-2 backdrop-blur-xl">
+      <svg
+        aria-label={`Consistência: ${year}% no ano, ${month}% no mês, ${week}% na semana`}
+        height={68}
+        role="img"
+        viewBox="0 0 84 84"
+        width={68}
+      >
+        <RingArc color="var(--gc-consistency-year)" percent={year} radius={36} />
+        <RingArc color="var(--gc-consistency-month)" percent={month} radius={26} />
+        <RingArc color="var(--gc-consistency-daily)" percent={week} radius={16} />
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * Um ring (track + progress). Track é uma linha leve do mesmo color
+ * com opacity baixa pra dar contexto do "100%". Progress arc rotaciona
+ * -90deg pra começar no topo (12h), igual Apple Fitness.
+ */
+function RingArc({
+  color,
+  percent,
+  radius,
+}: {
+  color: string;
+  percent: number;
+  radius: number;
+}) {
+  const strokeWidth = 6;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - Math.max(0, Math.min(100, percent)) / 100);
+  return (
+    <g style={{ transform: "rotate(-90deg)", transformOrigin: "42px 42px" }}>
+      <circle
+        cx={42}
+        cy={42}
+        fill="none"
+        opacity={0.18}
+        r={radius}
+        stroke={color}
+        strokeWidth={strokeWidth}
+      />
+      <circle
+        cx={42}
+        cy={42}
+        fill="none"
+        r={radius}
+        stroke={color}
+        strokeDasharray={circumference}
+        strokeDashoffset={dashOffset}
+        strokeLinecap="round"
+        strokeWidth={strokeWidth}
+      />
+    </g>
   );
 }
 
@@ -234,9 +306,15 @@ function drawRecapText(ctx: CanvasRenderingContext2D, recap: MonthlyRecap, user:
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "900 42px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillText("GYM CIRCLE", 72, 104);
-  ctx.font = "800 34px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.68)";
-  ctx.fillText(`@${user.username}`, 72, 154);
+
+  // Anéis no canto superior direito (espelha o RecapPoster JSX).
+  drawRecapRings(ctx, {
+    cx: 920,
+    cy: 170,
+    week: recap.weekProgressPercent,
+    month: recap.monthProgressPercent,
+    year: recap.yearProgressPercent,
+  });
 
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "900 96px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
@@ -258,6 +336,77 @@ function drawRecapText(ctx: CanvasRenderingContext2D, recap: MonthlyRecap, user:
   ctx.fillStyle = "rgba(255,255,255,0.76)";
   ctx.font = "900 34px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillText("Train together.", 72, 1290);
+
+  // @username no canto inferior direito — discreto, balanceando "Train together"
+  drawUsernameBadge(ctx, user.username, 1008, 1290);
+}
+
+/**
+ * Desenha os 3 anéis (ano externo, mês médio, semana interno) no canvas.
+ * Espelha geometricamente o componente RecapRings do RecapPoster.
+ */
+function drawRecapRings(
+  ctx: CanvasRenderingContext2D,
+  { cx, cy, week, month, year }: { cx: number; cy: number; week: number; month: number; year: number },
+) {
+  const strokeWidth = 14;
+  const rings: Array<{ radius: number; percent: number; color: string }> = [
+    { radius: 80, percent: year, color: "#0066FF" },
+    { radius: 58, percent: month, color: "#30D5FF" },
+    { radius: 36, percent: week, color: "#8CFBFF" },
+  ];
+
+  for (const ring of rings) {
+    // Track (background) — opacidade baixa, mesma cor
+    ctx.strokeStyle = ring.color;
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = strokeWidth;
+    ctx.beginPath();
+    ctx.arc(cx, cy, ring.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Progress arc — começa no topo (12h = -π/2), avança no sentido horário
+    const clamped = Math.max(0, Math.min(100, ring.percent));
+    if (clamped <= 0) continue;
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + (clamped / 100) * Math.PI * 2;
+    ctx.strokeStyle = ring.color;
+    ctx.lineWidth = strokeWidth;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(cx, cy, ring.radius, startAngle, endAngle);
+    ctx.stroke();
+  }
+  ctx.lineCap = "butt";
+}
+
+/**
+ * Pílula com @username no canto inferior direito da arte.
+ * Anchor x é a borda DIREITA da pill (não a esquerda) — o callsite
+ * passa onde a pill termina, e a função mede o texto pra alinhar.
+ */
+function drawUsernameBadge(
+  ctx: CanvasRenderingContext2D,
+  username: string,
+  rightX: number,
+  centerY: number,
+) {
+  const text = `@${username}`;
+  ctx.font = "900 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  const textWidth = ctx.measureText(text).width;
+  const paddingX = 22;
+  const height = 44;
+  const width = textWidth + paddingX * 2;
+  const x = rightX - width;
+  const y = centerY - height / 2;
+
+  ctx.fillStyle = "rgba(0,0,0,0.42)";
+  roundRect(ctx, x, y, width, height, height / 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(255,255,255,0.78)";
+  ctx.fillText(text, x + paddingX, y + height / 2 + 8);
 }
 
 function drawCanvasStat(
