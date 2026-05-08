@@ -63,25 +63,32 @@ No Xcode:
 - **Version** → `1.0.0`, **Build** → `1` (incrementa em cada upload)
 - **Capabilities** → adiciona `Push Notifications` (se for usar)
 
-### 3. Permissions (Info.plist)
-Editar `ios/App/App/Info.plist`. Strings que a Apple **exige**:
+### 3. Permissions (Info.plist) — **automatizado**
 
-```xml
-<key>NSCameraUsageDescription</key>
-<string>O Gym Circle usa a câmera para você publicar fotos e vídeos do seu treino.</string>
+As strings de permissão em PT-BR vivem em [`scripts/patch-ios-permissions.mjs`](scripts/patch-ios-permissions.mjs).
+O script roda automaticamente toda vez que você executa:
 
-<key>NSPhotoLibraryUsageDescription</key>
-<string>Para selecionar fotos e vídeos do seu treino na galeria.</string>
-
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>Para mostrar onde foi o treino e descobrir gente que treina perto de você.</string>
-
-<key>NSMicrophoneUsageDescription</key>
-<string>Necessária para gravar o áudio dos vídeos do seu treino.</string>
+```bash
+npm run cap:add:ios   # primeira vez (cap add ios + patch)
+npm run cap:sync      # subsequentes (cap sync + patch)
+npm run cap:patch:ios # só o patch, se quiser rodar manualmente
 ```
 
-**Importante**: rejection clássica é não ter essas strings ou usar texto vago.
-Apple lê.
+Idempotente: insere as chaves se faltam, atualiza o texto se existem.
+
+Permissões cobertas:
+- `NSCameraUsageDescription` — câmera (publicar foto/vídeo de treino)
+- `NSPhotoLibraryUsageDescription` — galeria (escolher mídia)
+- `NSPhotoLibraryAddUsageDescription` — salvar mídia na galeria
+- `NSMicrophoneUsageDescription` — áudio nos vídeos
+- `NSLocationWhenInUseUsageDescription` — localização do treino
+- `NSUserNotificationsUsageDescription` — push notifications
+
+**Importante**: a Apple lê o texto literal das strings durante o review.
+Texto genérico tipo "to use camera" é rejection garantida. As strings em
+`patch-ios-permissions.mjs` foram redigidas pra explicar BENEFÍCIO ao
+usuário, não tecnologia. Se mudar o texto, edite só o script — não o
+Info.plist diretamente, porque o próximo `cap:sync` sobrescreve.
 
 ### 4. Splash + Ícones
 - Ícone: `apps/web/public/icons/icon-1024.png` → Xcode Assets.xcassets → AppIcon

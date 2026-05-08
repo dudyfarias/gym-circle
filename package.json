@@ -12,9 +12,10 @@
     "lint": "npm --workspace apps/web run lint",
     "test": "vitest run",
     "test:streak": "vitest run packages/core/src/domain/streak.test.ts",
-    "cap:add:ios": "cap add ios",
+    "cap:add:ios": "cap add ios && npm run cap:patch:ios",
     "cap:add:android": "cap add android",
-    "cap:sync": "cap sync",
+    "cap:sync": "cap sync && npm run cap:patch:ios",
+    "cap:patch:ios": "node scripts/patch-ios-permissions.mjs",
     "cap:open:ios": "cap open ios",
     "cap:open:android": "cap open android"
   },
