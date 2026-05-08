@@ -1,37 +1,108 @@
 "use client";
 
 import Image from "next/image";
-import { type MouseEvent, type TouchEvent, useCallback, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import {
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+  type TouchEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  Copy,
+  Flag,
+  Heart,
+  Loader2,
+  MoreHorizontal,
+  Send,
+  Share2,
+  Trash2,
+  UserMinus,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
-import type { EnrichedStory } from "../social/types";
+import type { EnrichedStory, EnrichedUser } from "../social/types";
+import { formatStoryAge } from "../social/storyInteractions";
 import { StreakBadge } from "./StreakBadge";
 
-const STORY_DURATION_MS = 4600;
+const STORY_DURATION_MS = 5200;
 const STORY_SWIPE_THRESHOLD = 54;
 
 type StoryViewerProps = {
   story: EnrichedStory | null;
+  currentUserId?: string;
+  shareTargets?: EnrichedUser[];
   onClose: () => void;
   onNext?: () => void;
   onPrevious?: () => void;
   onSelectUser?: (userId: string) => void;
+  onReplyStory?: (storyId: string, body: string) => Promise<void> | void;
+  onLikeStory?: (storyId: string) => Promise<void> | void;
+  onShareStoryToChat?: (storyId: string, receiverId: string) => Promise<void> | void;
+  onDeleteStory?: (storyId: string) => Promise<void> | void;
+  onReportStory?: (storyId: string, authorId: string) => Promise<void> | void;
+  onMuteStoryAuthor?: (authorId: string) => Promise<void> | void;
+  onUnfollowUser?: (authorId: string) => Promise<void> | void;
   hasNext?: boolean;
   hasPrevious?: boolean;
 };
 
-export function StoryViewer({
+type ActiveStoryViewerProps = Omit<StoryViewerProps, "story"> & {
+  story: EnrichedStory;
+};
+
+export function StoryViewer(props: StoryViewerProps) {
+  if (!props.story) {
+    return null;
+  }
+
+  return <StoryViewerContent key={props.story.id} {...props} story={props.story} />;
+}
+
+function StoryViewerContent({
   story,
+  currentUserId,
+  shareTargets = [],
   onClose,
   onNext,
   onPrevious,
   onSelectUser,
+  onReplyStory,
+  onLikeStory,
+  onShareStoryToChat,
+  onDeleteStory,
+  onReportStory,
+  onMuteStoryAuthor,
+  onUnfollowUser,
   hasNext = false,
   hasPrevious = false,
-}: StoryViewerProps) {
+}: ActiveStoryViewerProps) {
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const [liking, setLiking] = useState(false);
+  const [heartBurst, setHeartBurst] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+
+  const isOwner = Boolean(story && currentUserId === story.userId);
+  const isInteracting =
+    inputFocused || menuOpen || shareOpen || sendingReply || sharingToUserId !== null;
+
+  const storyUrl = useMemo(() => {
+    if (!story || typeof window === "undefined") return "";
+    return `${window.location.origin}/?story=${story.id}`;
+  }, [story]);
 
   const goNext = useCallback(() => {
     if (hasNext) {
@@ -46,11 +117,11 @@ export function StoryViewer({
   }, [hasPrevious, onPrevious]);
 
   useEffect(() => {
-    if (!story) return;
+    if (!story || isInteracting) return;
 
     const timeout = window.setTimeout(goNext, STORY_DURATION_MS);
     return () => window.clearTimeout(timeout);
-  }, [goNext, story]);
+  }, [goNext, isInteracting, story]);
 
   const handleTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
@@ -93,7 +164,7 @@ export function StoryViewer({
       const target = event.target;
       if (
         target instanceof Element &&
-        target.closest("button,a,video,[data-gc-story-control]")
+        target.closest("button,a,video,input,form,[data-gc-story-control]")
       ) {
         return;
       }
@@ -106,9 +177,90 @@ export function StoryViewer({
     [goNext, goPrevious],
   );
 
-  if (!story) {
-    return null;
-  }
+  const handleReply = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!story || isOwner || !replyDraft.trim() || sendingReply) return;
+      setSendingReply(true);
+      try {
+        await onReplyStory?.(story.id, replyDraft.trim());
+        setReplyDraft("");
+      } finally {
+        setSendingReply(false);
+      }
+    },
+    [isOwner, onReplyStory, replyDraft, sendingReply, story],
+  );
+
+  const handleLike = useCallback(async () => {
+    if (!story || isOwner || story.likedByCurrentUser || liking) return;
+    setLiking(true);
+    setHeartBurst(true);
+    window.setTimeout(() => setHeartBurst(false), 480);
+    try {
+      await onLikeStory?.(story.id);
+    } finally {
+      setLiking(false);
+    }
+  }, [isOwner, liking, onLikeStory, story]);
+
+  const copyStoryLink = useCallback(async () => {
+    if (!storyUrl) return;
+    await navigator.clipboard?.writeText(storyUrl);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1400);
+  }, [storyUrl]);
+
+  const nativeShare = useCallback(async () => {
+    if (!story || !storyUrl) return;
+    if (navigator.share) {
+      await navigator.share({
+        title: `Story de ${story.author.name}`,
+        text: `Veja o story de @${story.author.username} no Gym Circle`,
+        url: storyUrl,
+      });
+      return;
+    }
+    await copyStoryLink();
+  }, [copyStoryLink, story, storyUrl]);
+
+  const shareToUser = useCallback(
+    async (userId: string) => {
+      if (!story || sharingToUserId) return;
+      setSharingToUserId(userId);
+      try {
+        await onShareStoryToChat?.(story.id, userId);
+        setShareOpen(false);
+      } finally {
+        setSharingToUserId(null);
+      }
+    },
+    [onShareStoryToChat, sharingToUserId, story],
+  );
+
+  const deleteStory = useCallback(async () => {
+    if (!story) return;
+    await onDeleteStory?.(story.id);
+  }, [onDeleteStory, story]);
+
+  const reportStory = useCallback(async () => {
+    if (!story) return;
+    await onReportStory?.(story.id, story.author.id);
+    setMenuOpen(false);
+  }, [onReportStory, story]);
+
+  const muteStoryAuthor = useCallback(async () => {
+    if (!story) return;
+    await onMuteStoryAuthor?.(story.author.id);
+    setMenuOpen(false);
+  }, [onMuteStoryAuthor, story]);
+
+  const unfollowUser = useCallback(async () => {
+    if (!story) return;
+    await onUnfollowUser?.(story.author.id);
+    setMenuOpen(false);
+    onClose();
+  }, [onClose, onUnfollowUser, story]);
 
   return (
     <div
@@ -125,7 +277,7 @@ export function StoryViewer({
           <div
             className="h-full rounded-full bg-white"
             key={story.id}
-            style={{ animation: "gc-story-progress 4.6s linear both" }}
+            style={{ animation: "gc-story-progress 5.2s linear both" }}
           />
         </div>
 
@@ -142,11 +294,23 @@ export function StoryViewer({
             alt={story.title}
             className="object-cover"
             fill
+            priority
             sizes="(max-width: 480px) 100vw, 480px"
             src={story.imageUrl}
           />
         )}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/82" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/86" />
+
+        {heartBurst ? (
+          <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center">
+            <Heart
+              className="gc-heart-pop text-[var(--gc-consistency-month)] drop-shadow-[0_0_32px_rgba(48,213,255,0.52)]"
+              fill="none"
+              size={96}
+              strokeWidth={2.4}
+            />
+          </div>
+        ) : null}
 
         <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-8">
           <button
@@ -164,7 +328,10 @@ export function StoryViewer({
             />
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <p className="truncate text-[15px] font-black">{story.author.name}</p>
+                <p className="truncate text-[15px] font-black">{story.author.username}</p>
+                <span className="shrink-0 text-[12px] font-black text-white/52">
+                  {formatStoryAge(story.createdAt)}
+                </span>
                 <StreakBadge
                   isLit={story.author.streakLitToday}
                   size="xs"
@@ -176,36 +343,258 @@ export function StoryViewer({
               </p>
             </div>
           </button>
-          <button
-            aria-label="Fechar story"
-            className="gc-pressable grid size-11 place-items-center rounded-full bg-black/52 text-white backdrop-blur-xl"
-            onClick={(event) => {
-              event.stopPropagation();
-              onClose();
-            }}
-            type="button"
-          >
-            <X size={19} />
-          </button>
+
+          <div className="flex shrink-0 items-center gap-2" data-gc-story-control>
+            <button
+              aria-label="Opções do story"
+              className="gc-pressable grid size-10 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
+              onClick={(event) => {
+                event.stopPropagation();
+                setMenuOpen((value) => !value);
+                setShareOpen(false);
+              }}
+              type="button"
+            >
+              <MoreHorizontal size={19} />
+            </button>
+            <button
+              aria-label="Fechar story"
+              className="gc-pressable grid size-10 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+              }}
+              type="button"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        <div className="relative z-10 mt-auto p-5">
-          <p className="text-[13px] font-black uppercase text-white/48">
-            {story.kind === "checkin" ? "Check-in" : "Treino"}
-          </p>
-          <h2 className="mt-1 text-[34px] font-black leading-tight">{story.title}</h2>
-          <button
-            className="gc-pressable mt-2 text-left text-[15px] font-bold text-white/68"
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelectUser?.(story.author.id);
-            }}
-            type="button"
+        {menuOpen ? (
+          <StoryOptionsMenu
+            isOwner={isOwner}
+            onCancel={() => setMenuOpen(false)}
+            onDelete={deleteStory}
+            onMute={muteStoryAuthor}
+            onReport={reportStory}
+            onUnfollow={unfollowUser}
+          />
+        ) : null}
+
+        <div className="relative z-10 mt-auto space-y-4 p-5">
+          <div>
+            <p className="text-[13px] font-black uppercase text-white/48">
+              {story.kind === "checkin" ? "Check-in" : "Treino"}
+            </p>
+            <h2 className="mt-1 text-[30px] font-black leading-tight">{story.title}</h2>
+          </div>
+
+          {shareOpen ? (
+            <div
+              className="rounded-[28px] border border-white/[0.08] bg-black/58 p-3 backdrop-blur-2xl"
+              data-gc-story-control
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[12px] font-black uppercase text-white/44">
+                  Compartilhar
+                </p>
+                <button
+                  className="gc-pressable grid size-8 place-items-center rounded-full bg-white/[0.08] text-white/72"
+                  onClick={() => setShareOpen(false)}
+                  type="button"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              {shareTargets.length > 0 ? (
+                <div className="gc-scrollbar mt-3 flex gap-3 overflow-x-auto pb-1">
+                  {shareTargets.slice(0, 10).map((user) => (
+                    <button
+                      className="gc-pressable w-[64px] shrink-0 text-center disabled:opacity-55"
+                      disabled={sharingToUserId === user.id}
+                      key={user.id}
+                      onClick={() => shareToUser(user.id)}
+                      type="button"
+                    >
+                      <div className="mx-auto grid size-12 place-items-center rounded-full bg-white/[0.08] p-[2px]">
+                        <Avatar
+                          accent={user.accent}
+                          name={user.name}
+                          size="md"
+                          src={user.avatarUrl ?? undefined}
+                        />
+                      </div>
+                      <p className="mt-1 truncate text-[10px] font-black text-white/54">
+                        {sharingToUserId === user.id ? "..." : user.name.split(" ")[0]}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <StoryActionButton icon={<Share2 size={16} />} label="Sistema" onClick={nativeShare} />
+                <StoryActionButton icon={<Copy size={16} />} label={copied ? "Copiado" : "Copiar"} onClick={copyStoryLink} />
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            className="grid grid-cols-[1fr_auto_auto] items-center gap-2"
+            data-gc-story-control
           >
-            {story.author.username}
-          </button>
+            {isOwner ? (
+              <div className="flex h-12 items-center rounded-full border border-white/[0.1] bg-black/38 px-4 text-[13px] font-black text-white/64 backdrop-blur-2xl">
+                Seu story · {story.likesCount} curtidas
+              </div>
+            ) : (
+              <form
+                className="flex h-12 min-w-0 items-center rounded-full border border-white/[0.12] bg-black/38 px-3 backdrop-blur-2xl"
+                onSubmit={handleReply}
+              >
+                <input
+                  className="h-full min-w-0 flex-1 bg-transparent px-2 text-[14px] font-bold text-white outline-none placeholder:text-white/48"
+                  disabled={sendingReply}
+                  onBlur={() => setInputFocused(false)}
+                  onChange={(event) => setReplyDraft(event.target.value)}
+                  onFocus={() => setInputFocused(true)}
+                  placeholder="Enviar mensagem..."
+                  value={replyDraft}
+                />
+                {replyDraft.trim() ? (
+                  <button
+                    aria-label="Responder story"
+                    className="gc-pressable grid size-9 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
+                    disabled={sendingReply}
+                    type="submit"
+                  >
+                    {sendingReply ? <Loader2 className="animate-spin" size={15} /> : <Send size={15} />}
+                  </button>
+                ) : null}
+              </form>
+            )}
+            <button
+              aria-label="Curtir story"
+              className={[
+                "gc-pressable grid size-12 place-items-center rounded-full border backdrop-blur-2xl disabled:opacity-60",
+                story.likedByCurrentUser
+                  ? "border-[var(--gc-consistency-month)]/34 bg-[var(--gc-consistency-month)]/14 text-[var(--gc-consistency-month)] shadow-[0_0_24px_rgba(48,213,255,0.26)]"
+                  : "border-white/[0.1] bg-black/38 text-white",
+              ].join(" ")}
+              disabled={isOwner || liking || story.likedByCurrentUser}
+              onClick={handleLike}
+              type="button"
+            >
+              {liking ? (
+                <Loader2 className="animate-spin" size={18} />
+              ) : (
+                <Heart
+                  fill="none"
+                  size={19}
+                  strokeWidth={story.likedByCurrentUser ? 2.9 : 2.4}
+                />
+              )}
+            </button>
+            <button
+              aria-label="Compartilhar story"
+              className="gc-pressable grid size-12 place-items-center rounded-full border border-white/[0.1] bg-black/38 text-white backdrop-blur-2xl"
+              onClick={() => {
+                setShareOpen((value) => !value);
+                setMenuOpen(false);
+              }}
+              type="button"
+            >
+              <Share2 size={18} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function StoryOptionsMenu({
+  isOwner,
+  onCancel,
+  onDelete,
+  onMute,
+  onReport,
+  onUnfollow,
+}: {
+  isOwner: boolean;
+  onCancel: () => void;
+  onDelete: () => void | Promise<void>;
+  onMute: () => void | Promise<void>;
+  onReport: () => void | Promise<void>;
+  onUnfollow: () => void | Promise<void>;
+}) {
+  return (
+    <div
+      className="absolute right-4 top-[88px] z-30 w-[224px] overflow-hidden rounded-[26px] border border-white/[0.1] bg-[#151719]/92 p-1 shadow-[0_24px_70px_rgba(0,0,0,0.52)] backdrop-blur-2xl"
+      data-gc-story-control
+    >
+      {isOwner ? (
+        <MenuButton
+          danger
+          icon={<Trash2 size={16} />}
+          label="Apagar story"
+          onClick={onDelete}
+        />
+      ) : (
+        <>
+          <MenuButton icon={<Flag size={16} />} label="Denunciar story" onClick={onReport} />
+          <MenuButton icon={<VolumeX size={16} />} label="Silenciar usuário" onClick={onMute} />
+          <MenuButton icon={<UserMinus size={16} />} label="Deixar de seguir" onClick={onUnfollow} />
+        </>
+      )}
+      <MenuButton icon={<X size={16} />} label="Cancelar" onClick={onCancel} />
+    </div>
+  );
+}
+
+function MenuButton({
+  danger = false,
+  icon,
+  label,
+  onClick,
+}: {
+  danger?: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void | Promise<void>;
+}) {
+  return (
+    <button
+      className={[
+        "gc-pressable flex h-11 w-full items-center gap-2 rounded-[20px] px-3 text-left text-[13px] font-black",
+        danger ? "text-[var(--gc-pink)]" : "text-white/78 hover:bg-white/[0.06]",
+      ].join(" ")}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function StoryActionButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void | Promise<void>;
+}) {
+  return (
+    <button
+      className="gc-pressable flex h-10 items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[12px] font-black text-white"
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
   );
 }

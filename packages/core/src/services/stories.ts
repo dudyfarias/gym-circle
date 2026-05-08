@@ -1,4 +1,10 @@
-import type { CreateStoryInput, EnrichedStory, StoryRow } from "../domain/types";
+import type {
+  CreateStoryInput,
+  EnrichedStory,
+  StoryLikeRow,
+  StoryMuteRow,
+  StoryRow,
+} from "../domain/types";
 import type { GymCircleClient } from "./supabase";
 
 export function storyService(client: GymCircleClient) {
@@ -24,6 +30,59 @@ export function storyService(client: GymCircleClient) {
 
     async remove(storyId: string): Promise<void> {
       const { error } = await client.from("stories").delete().eq("id", storyId);
+      if (error) throw error;
+    },
+
+    async like(storyId: string, userId: string): Promise<StoryLikeRow> {
+      const { data, error } = await client
+        .from("story_likes")
+        .upsert(
+          { story_id: storyId, user_id: userId },
+          { onConflict: "story_id,user_id", ignoreDuplicates: true },
+        )
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? {
+        story_id: storyId,
+        user_id: userId,
+        created_at: new Date().toISOString(),
+      };
+    },
+
+    async unlike(storyId: string, userId: string): Promise<void> {
+      const { error } = await client
+        .from("story_likes")
+        .delete()
+        .match({ story_id: storyId, user_id: userId });
+      if (error) throw error;
+    },
+
+    async mute(userId: string, mutedUserId: string): Promise<StoryMuteRow> {
+      if (userId === mutedUserId) {
+        throw new Error("não dá para silenciar a si mesmo");
+      }
+      const { data, error } = await client
+        .from("story_mutes")
+        .upsert(
+          { user_id: userId, muted_user_id: mutedUserId },
+          { onConflict: "user_id,muted_user_id", ignoreDuplicates: true },
+        )
+        .select("*")
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? {
+        user_id: userId,
+        muted_user_id: mutedUserId,
+        created_at: new Date().toISOString(),
+      };
+    },
+
+    async unmute(userId: string, mutedUserId: string): Promise<void> {
+      const { error } = await client
+        .from("story_mutes")
+        .delete()
+        .match({ user_id: userId, muted_user_id: mutedUserId });
       if (error) throw error;
     },
 

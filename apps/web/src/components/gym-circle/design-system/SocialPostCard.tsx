@@ -232,9 +232,9 @@ export function SocialPostCard({
               onClick={() => onLike(post.id)}
             >
               <Heart
-                fill={post.likedByCurrentUser ? "currentColor" : "none"}
+                fill="none"
                 size={19}
-                strokeWidth={2.4}
+                strokeWidth={post.likedByCurrentUser ? 2.9 : 2.4}
               />
             </IconButton>
             <IconButton
@@ -301,8 +301,9 @@ export function SocialPostCard({
               <div className="flex flex-1 items-center gap-2 rounded-full bg-white/[0.045] px-3 py-2">
                 <Heart
                   className={post.likedByCurrentUser ? "text-[var(--gc-consistency-month)]" : "text-white/42"}
-                  fill={post.likedByCurrentUser ? "currentColor" : "none"}
+                  fill="none"
                   size={14}
+                  strokeWidth={post.likedByCurrentUser ? 2.8 : 2.3}
                 />
                 <span
                   className={[

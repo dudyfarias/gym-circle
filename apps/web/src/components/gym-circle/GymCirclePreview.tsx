@@ -554,15 +554,24 @@ export function GymCirclePreview({
             <FloatingCreatePostButton onClick={() => setActiveScreen("post")} />
           ) : null}
           <StoryViewer
+            currentUserId={social.currentUser.id}
             hasNext={Boolean(nextStoryId)}
             hasPrevious={Boolean(previousStoryId)}
             onClose={social.actions.closeStory}
+            onDeleteStory={social.actions.deleteStory}
+            onLikeStory={social.actions.likeStory}
             onNext={openNextStory}
             onPrevious={openPreviousStory}
+            onMuteStoryAuthor={social.actions.muteStoryAuthor}
+            onReportStory={social.actions.reportStory}
+            onReplyStory={social.actions.replyToStory}
             onSelectUser={(userId) => {
               social.actions.closeStory();
               openProfile(userId);
             }}
+            onShareStoryToChat={social.actions.shareStoryToChat}
+            onUnfollowUser={social.actions.toggleFollow}
+            shareTargets={social.suggestedUsers.filter((user) => user.id !== social.currentUser.id)}
             story={social.selectedStory}
           />
           <UserSearchSheet

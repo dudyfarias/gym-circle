@@ -38,6 +38,9 @@ type SocialAction =
   | { type: "comment-post"; postId: string; body: string }
   | { type: "toggle-follow"; userId: string }
   | { type: "view-story"; storyId: string }
+  | { type: "like-story"; storyId: string }
+  | { type: "delete-story"; storyId: string }
+  | { type: "mute-story-author"; authorId: string }
   | { type: "publish-workout"; input: CreateWorkoutPostInput }
   | { type: "check-in"; gymName: string }
   | { type: "edit-post"; postId: string; input: EditPostInput }
@@ -306,6 +309,37 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       };
     }
 
+    case "like-story": {
+      return {
+        ...state,
+        stories: state.stories.map((story) => {
+          if (story.id !== action.storyId || story.likedByCurrentUser) return story;
+          return {
+            ...story,
+            likedByCurrentUser: true,
+            likesCount: story.likesCount + 1,
+          };
+        }),
+      };
+    }
+
+    case "delete-story": {
+      const target = state.stories.find((story) => story.id === action.storyId);
+      if (!target || target.userId !== state.currentUserId) return state;
+      return {
+        ...state,
+        stories: state.stories.filter((story) => story.id !== action.storyId),
+      };
+    }
+
+    case "mute-story-author": {
+      if (action.authorId === state.currentUserId) return state;
+      return {
+        ...state,
+        stories: state.stories.filter((story) => story.userId !== action.authorId),
+      };
+    }
+
     case "publish-workout": {
       const currentUser = state.users[state.currentUserId];
       const todayKey = formatDateKey(new Date());
@@ -357,6 +391,8 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
             caption: `${stats.currentStreak} dias de streak`,
             createdAt,
             viewed: false,
+            likedByCurrentUser: false,
+            likesCount: 0,
             kind: "workout",
           }
         : null;
@@ -393,6 +429,8 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
         caption: `${currentUser.currentStreak}d · ${action.gymName}`,
         createdAt,
         viewed: false,
+        likedByCurrentUser: false,
+        likesCount: 0,
         kind: "checkin",
       };
 
@@ -455,6 +493,9 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
         body,
         mediaUrl,
         mediaType: mediaUrl ? (action.input.mediaType ?? "image") : null,
+        storyId: action.input.storyId ?? null,
+        replyToStory: Boolean(action.input.replyToStory),
+        storyPreviewUrl: action.input.storyPreviewUrl ?? null,
         createdAt: new Date().toISOString(),
         readAt: null,
       };
@@ -625,6 +666,60 @@ export function useGymCircleSocial() {
       closeStory() {
         setSelectedStoryId(null);
       },
+      async replyToStory(storyId: string, body: string) {
+        const story = state.stories.find((item) => item.id === storyId);
+        const reply = body.trim();
+        if (!story || !reply || story.userId === state.currentUserId) return;
+        dispatch({
+          type: "send-chat-message",
+          input: {
+            receiverId: story.userId,
+            body: reply,
+            storyId: story.id,
+            replyToStory: true,
+            storyPreviewUrl: story.imageUrl,
+          },
+        });
+        showFeedback("comment", "Resposta enviada", state.users[story.userId]?.name);
+      },
+      async likeStory(storyId: string) {
+        const story = state.stories.find((item) => item.id === storyId);
+        dispatch({ type: "like-story", storyId });
+        showFeedback(
+          "like",
+          story?.likedByCurrentUser ? "Story já curtido" : "Story curtido",
+          story ? state.users[story.userId]?.name : undefined,
+        );
+      },
+      async deleteStory(storyId: string) {
+        dispatch({ type: "delete-story", storyId });
+        setSelectedStoryId(null);
+        showFeedback("success", "Story apagado");
+      },
+      async reportStory(storyId: string, authorId: string) {
+        const author = state.users[authorId];
+        showFeedback("brand", "Story denunciado", author?.name);
+      },
+      async muteStoryAuthor(authorId: string) {
+        dispatch({ type: "mute-story-author", authorId });
+        setSelectedStoryId(null);
+        showFeedback("brand", "Stories silenciados", state.users[authorId]?.name);
+      },
+      async shareStoryToChat(storyId: string, receiverId: string) {
+        const story = state.stories.find((item) => item.id === storyId);
+        if (!story) return;
+        dispatch({
+          type: "send-chat-message",
+          input: {
+            receiverId,
+            body: `Compartilhou um story de @${state.users[story.userId]?.username ?? "gymcircle"}`,
+            storyId,
+            replyToStory: false,
+            storyPreviewUrl: story.imageUrl,
+          },
+        });
+        showFeedback("comment", "Story enviado");
+      },
       publishWorkout(input: CreateWorkoutPostInput) {
         dispatch({ type: "publish-workout", input });
         showFeedback("success", "Treino publicado", "Streak atualizado");
@@ -665,7 +760,7 @@ export function useGymCircleSocial() {
         showFeedback("brand", "Atualizado");
       },
     }),
-    [showFeedback, state.users],
+    [showFeedback, state.currentUserId, state.stories, state.users],
   );
 
   return {

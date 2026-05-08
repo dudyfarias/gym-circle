@@ -422,6 +422,8 @@ const stories: GymStory[] = [
     caption: "6 dias de streak",
     createdAt: "2026-05-05T07:20:00",
     viewed: false,
+    likedByCurrentUser: false,
+    likesCount: 7,
     kind: "workout",
   },
   {
@@ -434,6 +436,8 @@ const stories: GymStory[] = [
     caption: "Wellness Lab",
     createdAt: "2026-05-06T18:45:00",
     viewed: false,
+    likedByCurrentUser: false,
+    likesCount: 18,
     kind: "workout",
   },
   {
@@ -446,6 +450,8 @@ const stories: GymStory[] = [
     caption: "9 dias sem falhar",
     createdAt: "2026-05-06T08:09:00",
     viewed: false,
+    likedByCurrentUser: false,
+    likesCount: 11,
     kind: "workout",
   },
   {
@@ -458,6 +464,8 @@ const stories: GymStory[] = [
     caption: "Corrida leve",
     createdAt: "2026-05-06T06:24:00",
     viewed: false,
+    likedByCurrentUser: false,
+    likesCount: 9,
     kind: "workout",
   },
   {
@@ -470,6 +478,8 @@ const stories: GymStory[] = [
     caption: "Nível lendário",
     createdAt: "2026-05-06T06:58:00",
     viewed: false,
+    likedByCurrentUser: true,
+    likesCount: 32,
     kind: "milestone",
   },
 ];

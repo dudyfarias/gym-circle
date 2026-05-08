@@ -169,7 +169,10 @@ export type Database = {
           media_url: string | null
           read_at: string | null
           receiver_id: string
+          reply_to_story: boolean
           sender_id: string
+          story_id: string | null
+          story_preview_url: string | null
         }
         Insert: {
           body?: string | null
@@ -180,7 +183,10 @@ export type Database = {
           media_url?: string | null
           read_at?: string | null
           receiver_id: string
+          reply_to_story?: boolean
           sender_id: string
+          story_id?: string | null
+          story_preview_url?: string | null
         }
         Update: {
           body?: string | null
@@ -191,7 +197,10 @@ export type Database = {
           media_url?: string | null
           read_at?: string | null
           receiver_id?: string
+          reply_to_story?: boolean
           sender_id?: string
+          story_id?: string | null
+          story_preview_url?: string | null
         }
         Relationships: [
           {
@@ -199,6 +208,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "direct_messages_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
             referencedColumns: ["id"]
           },
         ]
@@ -294,6 +310,7 @@ export type Database = {
           kind: string
           post_id: string | null
           read_at: string | null
+          story_id: string | null
           user_id: string
         }
         Insert: {
@@ -305,6 +322,7 @@ export type Database = {
           kind: string
           post_id?: string | null
           read_at?: string | null
+          story_id?: string | null
           user_id: string
         }
         Update: {
@@ -316,6 +334,7 @@ export type Database = {
           kind?: string
           post_id?: string | null
           read_at?: string | null
+          story_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -338,6 +357,13 @@ export type Database = {
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
             referencedColumns: ["id"]
           },
         ]
@@ -644,6 +670,50 @@ export type Database = {
           },
         ]
       }
+      story_likes: {
+        Row: {
+          created_at: string
+          story_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          story_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          story_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_likes_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_mutes: {
+        Row: {
+          created_at: string
+          muted_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          muted_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          muted_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       stories: {
         Row: {
           created_at: string
@@ -906,6 +976,9 @@ export type Database = {
           p_media_type?: string | null
           p_media_url?: string | null
           p_receiver_id: string
+          p_reply_to_story?: boolean
+          p_story_id?: string | null
+          p_story_preview_url?: string | null
         }
         Returns: {
           body: string | null
@@ -916,7 +989,10 @@ export type Database = {
           media_url: string | null
           read_at: string | null
           receiver_id: string
+          reply_to_story: boolean
           sender_id: string
+          story_id: string | null
+          story_preview_url: string | null
         }
       }
     }

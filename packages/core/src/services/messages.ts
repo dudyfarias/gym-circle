@@ -6,6 +6,9 @@ export type SendDirectMessageInput = {
   body?: string | null;
   mediaUrl?: string | null;
   mediaType?: "image" | "video" | null;
+  storyId?: string | null;
+  replyToStory?: boolean;
+  storyPreviewUrl?: string | null;
 };
 
 function createDirectKey(userA: string, userB: string): string {
@@ -35,7 +38,9 @@ export function messageService(client: GymCircleClient) {
     ): Promise<DirectMessageRow> {
       const body = input.body?.trim() || null;
       const mediaUrl = input.mediaUrl?.trim() || null;
-      if (!body && !mediaUrl) throw new Error("mensagem vazia");
+      const storyId = input.storyId?.trim() || null;
+      const storyPreviewUrl = input.storyPreviewUrl?.trim() || null;
+      if (!body && !mediaUrl && !storyId) throw new Error("mensagem vazia");
       if (senderId === input.receiverId) {
         throw new Error("não dá para mandar mensagem para si mesmo");
       }
@@ -46,6 +51,9 @@ export function messageService(client: GymCircleClient) {
           p_body: body,
           p_media_url: mediaUrl,
           p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+          p_story_id: storyId,
+          p_reply_to_story: Boolean(input.replyToStory),
+          p_story_preview_url: storyPreviewUrl,
         });
       if (error) throw error;
       return data as DirectMessageRow;

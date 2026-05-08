@@ -12,6 +12,8 @@ import type {
   PostCommentRow,
   PostLikeRow,
   ProfileRow,
+  StoryLikeRow,
+  StoryMuteRow,
   StoryRow,
   UserActivityDayRow,
   UserGymRow,
@@ -23,6 +25,12 @@ import {
   isBirthdayFromBirthDate,
 } from "./profile";
 import { sortStoriesNewestFirst } from "./stories";
+import {
+  buildStoryShareBody,
+  countStoryLikes,
+  filterMutedStories,
+  hasUserLikedStory,
+} from "./storyInteractions";
 import { buildMonthWorkoutDays } from "./streak";
 import type {
   ChatMessage,
@@ -120,6 +128,8 @@ type AggregateState = {
   follows: FollowRow[];
   feedPosts: FeedPostRow[];
   stories: StoryRow[];
+  storyLikes: StoryLikeRow[];
+  storyMutes: StoryMuteRow[];
   postLikes: PostLikeRow[];
   postComments: PostCommentRow[];
   checkinsToday: CheckinRow[];
@@ -136,6 +146,8 @@ const EMPTY: AggregateState = {
   follows: [],
   feedPosts: [],
   stories: [],
+  storyLikes: [],
+  storyMutes: [],
   postLikes: [],
   postComments: [],
   checkinsToday: [],
@@ -160,6 +172,17 @@ export type SupabaseSocialActions = {
   rejectFollowRequest: (requesterId: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileEditInput) => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  reportUser: (userId: string, reason?: string) => Promise<void>;
+  reportPost: (postId: string, authorId: string, reason?: string) => Promise<void>;
+  replyToStory: (storyId: string, body: string) => Promise<void>;
+  likeStory: (storyId: string) => Promise<void>;
+  deleteStory: (storyId: string) => Promise<void>;
+  reportStory: (storyId: string, authorId: string, reason?: string) => Promise<void>;
+  muteStoryAuthor: (authorId: string) => Promise<void>;
+  shareStoryToChat: (storyId: string, receiverId: string) => Promise<void>;
+  requestAccountDeletion: (reason?: string) => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 };
 
 export type SupabaseSocialResult = {
@@ -208,6 +231,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followsRes,
         feedRes,
         storiesRes,
+        storyMutesRes,
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
@@ -224,6 +248,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .select("*")
           .gt("expires_at", new Date().toISOString())
           .order("created_at", { ascending: false }),
+        services.client
+          .from("story_mutes")
+          .select("*")
+          .eq("user_id", currentUserId),
         services.client
           .from("user_activity_days")
           .select("*")
@@ -255,6 +283,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followsRes,
         feedRes,
         storiesRes,
+        storyMutesRes,
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
@@ -265,7 +294,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
       const feedPosts = (feedRes.data ?? []) as FeedPostRow[];
       const postIds = feedPosts.map((p) => p.id);
-      const [likesRes, commentsRes] = await Promise.all([
+      const stories = (storiesRes.data ?? []) as StoryRow[];
+      const storyIds = stories.map((story) => story.id);
+      const [likesRes, commentsRes, storyLikesRes] = await Promise.all([
         postIds.length > 0
           ? services.client.from("post_likes").select("*").in("post_id", postIds)
           : Promise.resolve({ data: [] as PostLikeRow[], error: null }),
@@ -276,9 +307,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
               .in("post_id", postIds)
               .order("created_at", { ascending: true })
           : Promise.resolve({ data: [] as PostCommentRow[], error: null }),
+        storyIds.length > 0
+          ? services.client
+              .from("story_likes")
+              .select("*")
+              .in("story_id", storyIds)
+          : Promise.resolve({ data: [] as StoryLikeRow[], error: null }),
       ]);
       if (likesRes.error) throw likesRes.error;
       if (commentsRes.error) throw commentsRes.error;
+      if (storyLikesRes.error) throw storyLikesRes.error;
 
       if (!mountedRef.current) return;
       setAgg({
@@ -288,7 +326,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         userGyms: (userGymsRes.data ?? []) as UserGymRow[],
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
-        stories: (storiesRes.data ?? []) as StoryRow[],
+        stories,
+        storyLikes: (storyLikesRes.data ?? []) as StoryLikeRow[],
+        storyMutes: (storyMutesRes.data ?? []) as StoryMuteRow[],
         postLikes: (likesRes.data ?? []) as PostLikeRow[],
         postComments: (commentsRes.data ?? []) as PostCommentRow[],
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
@@ -313,6 +353,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .channel("supabase-social")
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "story_likes" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "story_mutes" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, () => refresh())
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => refresh())
@@ -583,7 +625,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     const out: EnrichedStory[] = [];
-    for (const row of agg.stories) {
+    const visibleStories = filterMutedStories(
+      agg.stories.map((story) => ({ ...story, userId: story.user_id })),
+      agg.storyMutes.map((mute) => ({ mutedUserId: mute.muted_user_id })),
+    );
+    for (const row of visibleStories) {
       const author = enrichedAll.get(row.user_id);
       if (!author) continue;
       out.push({
@@ -595,12 +641,27 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
         createdAt: row.created_at,
         viewed: viewedStoryIds.has(row.id),
+        likedByCurrentUser: hasUserLikedStory(
+          agg.storyLikes.map((like) => ({
+            storyId: like.story_id,
+            userId: like.user_id,
+          })),
+          row.id,
+          currentUserId,
+        ),
+        likesCount: countStoryLikes(
+          agg.storyLikes.map((like) => ({
+            storyId: like.story_id,
+            userId: like.user_id,
+          })),
+          row.id,
+        ),
         kind: "workout",
         author,
       });
     }
     return sortStoriesNewestFirst(out);
-  }, [agg.stories, enrichedAll, viewedStoryIds]);
+  }, [agg.stories, agg.storyLikes, agg.storyMutes, currentUserId, enrichedAll, viewedStoryIds]);
 
   const selectedStory = useMemo(
     () => storyBubbles.find((s) => s.id === selectedStoryId) ?? null,
@@ -658,6 +719,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         body: message.body,
         mediaUrl: message.media_url,
         mediaType: message.media_type,
+        storyId: message.story_id,
+        replyToStory: message.reply_to_story,
+        storyPreviewUrl: message.story_preview_url,
         createdAt: message.created_at,
         readAt: message.read_at,
       })),
@@ -712,6 +776,111 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       },
       closeStory() {
         setSelectedStoryId(null);
+      },
+      async replyToStory(storyId: string, body: string) {
+        const story = storyBubbles.find((item) => item.id === storyId);
+        const reply = body.trim();
+        if (!story || !reply) return;
+        await services.messages.sendDirect(currentUserId, {
+          receiverId: story.userId,
+          body: reply,
+          storyId: story.id,
+          replyToStory: true,
+          storyPreviewUrl: story.imageUrl,
+        });
+        await refresh();
+        showFeedback("comment", "Resposta enviada", story.author.name);
+      },
+      async likeStory(storyId: string) {
+        const story = storyBubbles.find((item) => item.id === storyId);
+        if (!story) return;
+        if (story.likedByCurrentUser) {
+          showFeedback("like", "Story já curtido", story.author.name);
+          return;
+        }
+        const optimisticLike: StoryLikeRow = {
+          story_id: storyId,
+          user_id: currentUserId,
+          created_at: new Date().toISOString(),
+        };
+        setAgg((current) => {
+          const exists = current.storyLikes.some(
+            (like) => like.story_id === storyId && like.user_id === currentUserId,
+          );
+          return exists
+            ? current
+            : { ...current, storyLikes: [...current.storyLikes, optimisticLike] };
+        });
+        try {
+          await services.stories.like(storyId, currentUserId);
+          showFeedback("like", "Story curtido", story.author.name);
+          await refresh();
+        } catch (err) {
+          setAgg((current) => ({
+            ...current,
+            storyLikes: current.storyLikes.filter(
+              (like) => !(like.story_id === storyId && like.user_id === currentUserId),
+            ),
+          }));
+          throw err;
+        }
+      },
+      async deleteStory(storyId: string) {
+        const story = storyBubbles.find((item) => item.id === storyId);
+        if (!story || story.userId !== currentUserId) return;
+        setSelectedStoryId(null);
+        setAgg((current) => ({
+          ...current,
+          stories: current.stories.filter((item) => item.id !== storyId),
+          storyLikes: current.storyLikes.filter((like) => like.story_id !== storyId),
+        }));
+        await services.stories.remove(storyId);
+        await services.stats.refreshMine();
+        await refresh();
+        showFeedback("success", "Story apagado");
+      },
+      async reportStory(storyId: string, authorId: string, reason = "other") {
+        const story = storyBubbles.find((item) => item.id === storyId);
+        await services.safety.report(currentUserId, {
+          storyId,
+          reportedUserId: authorId,
+          reason: reason as "other",
+        });
+        showFeedback("brand", "Story denunciado", story?.author.name ?? "Vamos revisar.");
+      },
+      async muteStoryAuthor(authorId: string) {
+        const target = enrichedAll.get(authorId);
+        if (!target || authorId === currentUserId) return;
+        setSelectedStoryId(null);
+        setAgg((current) => ({
+          ...current,
+          stories: current.stories.filter((story) => story.user_id !== authorId),
+          storyMutes: [
+            ...current.storyMutes.filter((mute) => mute.muted_user_id !== authorId),
+            {
+              user_id: currentUserId,
+              muted_user_id: authorId,
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }));
+        await services.stories.mute(currentUserId, authorId);
+        await refresh();
+        showFeedback("brand", "Stories silenciados", target.name);
+      },
+      async shareStoryToChat(storyId: string, receiverId: string) {
+        const story = storyBubbles.find((item) => item.id === storyId);
+        const receiver = enrichedAll.get(receiverId);
+        if (!story || !receiver || receiverId === currentUserId) return;
+        await services.messages.sendDirect(currentUserId, {
+          receiverId,
+          body: buildStoryShareBody(story.author.username),
+          storyId,
+          replyToStory: false,
+          storyPreviewUrl: story.imageUrl,
+        });
+        await refresh();
+        showFeedback("comment", "Story enviado", receiver.name);
       },
       async publishWorkout(input: CreateWorkoutPostInput) {
         const destinations = input.destinations ?? { feed: true, story: true };
@@ -789,6 +958,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           body: input.body,
           mediaUrl: input.mediaUrl,
           mediaType: input.mediaType,
+          storyId: input.storyId,
+          replyToStory: input.replyToStory,
+          storyPreviewUrl: input.storyPreviewUrl,
         });
         await refresh();
         showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
@@ -873,7 +1045,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("success", "Perfil pronto para alpha");
       },
     }),
-    [services, currentUserId, feedPosts, enrichedAll, agg.gyms, refresh, showFeedback],
+    [services, currentUserId, feedPosts, storyBubbles, enrichedAll, agg.gyms, refresh, showFeedback],
   );
 
   useEffect(() => {

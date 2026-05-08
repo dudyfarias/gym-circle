@@ -51,6 +51,8 @@ function formatMessageTime(createdAt?: string | null): string {
 
 function getMessagePreview(message: ChatMessage | null): string {
   if (!message) return "Comece a conversa";
+  if (message.replyToStory) return "Respondeu ao story";
+  if (message.storyId) return "Compartilhou um story";
   if (message.body) return message.body;
   if (message.mediaType === "video") return "Vídeo enviado";
   if (message.mediaUrl) return "Foto enviada";
@@ -669,6 +671,29 @@ function MessageBubble({
             : "rounded-bl-[8px] bg-white/[0.09] text-white",
         ].join(" ")}
       >
+        {message.storyId && message.storyPreviewUrl ? (
+          <div
+            className={[
+              "mb-2 overflow-hidden rounded-[18px] border p-2",
+              mine
+                ? "border-black/10 bg-black/10"
+                : "border-white/[0.08] bg-black/24",
+            ].join(" ")}
+          >
+            <div className="relative h-24 w-36 overflow-hidden rounded-[14px] bg-black/24">
+              <Image
+                alt={message.replyToStory ? "Story respondido" : "Story compartilhado"}
+                className="object-cover"
+                fill
+                sizes="144px"
+                src={message.storyPreviewUrl}
+              />
+            </div>
+            <p className={["mt-2 text-[11px] font-black", mine ? "text-black/54" : "text-white/48"].join(" ")}>
+              {message.replyToStory ? "Resposta ao story" : "Story compartilhado"}
+            </p>
+          </div>
+        ) : null}
         {message.mediaUrl && message.mediaType === "video" ? (
           <video
             className="mb-1 aspect-square w-48 rounded-[18px] bg-black/20 object-cover"

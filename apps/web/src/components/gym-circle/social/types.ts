@@ -100,6 +100,8 @@ export type GymStory = {
   caption: string;
   createdAt: string;
   viewed: boolean;
+  likedByCurrentUser: boolean;
+  likesCount: number;
   kind: "workout" | "checkin" | "milestone";
 };
 
@@ -138,6 +140,9 @@ export type ChatMessage = {
   body: string | null;
   mediaUrl: string | null;
   mediaType: "image" | "video" | null;
+  storyId?: string | null;
+  replyToStory?: boolean;
+  storyPreviewUrl?: string | null;
   createdAt: string;
   readAt: string | null;
 };
@@ -147,6 +152,9 @@ export type SendChatMessageInput = {
   body?: string | null;
   mediaUrl?: string | null;
   mediaType?: "image" | "video" | null;
+  storyId?: string | null;
+  replyToStory?: boolean;
+  storyPreviewUrl?: string | null;
 };
 
 export type PostDestinations = {
@@ -222,6 +230,12 @@ export type SocialActions = {
   blockUser?: (userId: string) => Promise<void>;
   reportUser?: (userId: string, reason?: string) => Promise<void>;
   reportPost?: (postId: string, authorId: string, reason?: string) => Promise<void>;
+  replyToStory?: (storyId: string, body: string) => Promise<void>;
+  likeStory?: (storyId: string) => Promise<void>;
+  deleteStory?: (storyId: string) => Promise<void>;
+  reportStory?: (storyId: string, authorId: string, reason?: string) => Promise<void>;
+  muteStoryAuthor?: (authorId: string) => Promise<void>;
+  shareStoryToChat?: (storyId: string, receiverId: string) => Promise<void>;
   requestAccountDeletion?: (reason?: string) => Promise<void>;
   completeOnboarding?: () => Promise<void>;
 };

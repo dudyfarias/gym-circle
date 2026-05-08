@@ -23,6 +23,8 @@ const KIND_ICON = {
   follow: UserPlus,
   mention: AtSign,
   follow_request: BellRing,
+  story_like: Heart,
+  story_reply: MessageCircle,
 } as const;
 
 const KIND_LABEL = {
@@ -31,14 +33,18 @@ const KIND_LABEL = {
   follow: "começou a seguir você",
   mention: "mencionou você",
   follow_request: "quer te seguir",
+  story_like: "curtiu seu story",
+  story_reply: "respondeu seu story",
 } as const;
 
 const KIND_TONE = {
-  like: "text-[var(--gc-pink)]",
+  like: "text-[var(--gc-consistency-month)]",
   comment: "text-[var(--gc-brand)]",
   follow: "text-[var(--gc-consistency-month)]",
   mention: "text-[var(--gc-consistency-daily)]",
   follow_request: "text-[var(--gc-brand)]",
+  story_like: "text-[var(--gc-consistency-month)]",
+  story_reply: "text-[var(--gc-brand)]",
 } as const;
 
 type NotificationKind = keyof typeof KIND_ICON;
@@ -263,7 +269,7 @@ function Section({
                   ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Icon className={tone} size={18} fill={kind === "like" ? "currentColor" : "none"} />
+                  <Icon className={tone} size={18} fill="none" />
                   <span className="text-[10px] font-black text-white/36">
                     {formatRelative(n.created_at, now)}
                   </span>
