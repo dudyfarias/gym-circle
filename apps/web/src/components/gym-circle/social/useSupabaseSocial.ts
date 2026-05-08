@@ -156,6 +156,46 @@ const EMPTY: AggregateState = {
   chatMessages: [],
 };
 
+type OptionalStorySocialTable = "story_likes" | "story_mutes";
+
+function isMissingOptionalStorySocialTable(
+  error: unknown,
+  table: OptionalStorySocialTable,
+) {
+  const postgrestError = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+    hint?: string;
+  };
+  const haystack = [
+    postgrestError.code,
+    postgrestError.message,
+    postgrestError.details,
+    postgrestError.hint,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    postgrestError.code === "PGRST205" ||
+    postgrestError.code === "42P01" ||
+    (haystack.includes("schema cache") && haystack.includes(table)) ||
+    haystack.includes(`public.${table}`) ||
+    haystack.includes(`relation "${table}" does not exist`)
+  );
+}
+
+function optionalStorySocialRows<T>(
+  response: { data: T[] | null; error: unknown },
+  table: OptionalStorySocialTable,
+) {
+  if (!response.error) return response.data ?? [];
+  if (isMissingOptionalStorySocialTable(response.error, table)) return [];
+  throw response.error;
+}
+
 export type SupabaseSocialActions = {
   likePost: (postId: string) => Promise<void>;
   commentPost: (postId: string, body: string) => Promise<void>;
@@ -231,7 +271,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followsRes,
         feedRes,
         storiesRes,
-        storyMutesRes,
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
@@ -248,10 +287,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .select("*")
           .gt("expires_at", new Date().toISOString())
           .order("created_at", { ascending: false }),
-        services.client
-          .from("story_mutes")
-          .select("*")
-          .eq("user_id", currentUserId),
         services.client
           .from("user_activity_days")
           .select("*")
@@ -283,7 +318,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followsRes,
         feedRes,
         storiesRes,
-        storyMutesRes,
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
@@ -296,7 +330,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const postIds = feedPosts.map((p) => p.id);
       const stories = (storiesRes.data ?? []) as StoryRow[];
       const storyIds = stories.map((story) => story.id);
-      const [likesRes, commentsRes, storyLikesRes] = await Promise.all([
+      const [likesRes, commentsRes, storyLikesRes, storyMutesRes] = await Promise.all([
         postIds.length > 0
           ? services.client.from("post_likes").select("*").in("post_id", postIds)
           : Promise.resolve({ data: [] as PostLikeRow[], error: null }),
@@ -313,10 +347,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
               .select("*")
               .in("story_id", storyIds)
           : Promise.resolve({ data: [] as StoryLikeRow[], error: null }),
+        services.client
+          .from("story_mutes")
+          .select("*")
+          .eq("user_id", currentUserId),
       ]);
       if (likesRes.error) throw likesRes.error;
       if (commentsRes.error) throw commentsRes.error;
-      if (storyLikesRes.error) throw storyLikesRes.error;
+      const storyLikes = optionalStorySocialRows(
+        storyLikesRes as { data: StoryLikeRow[] | null; error: unknown },
+        "story_likes",
+      );
+      const storyMutes = optionalStorySocialRows(
+        storyMutesRes as { data: StoryMuteRow[] | null; error: unknown },
+        "story_mutes",
+      );
 
       if (!mountedRef.current) return;
       setAgg({
@@ -327,8 +372,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
         stories,
-        storyLikes: (storyLikesRes.data ?? []) as StoryLikeRow[],
-        storyMutes: (storyMutesRes.data ?? []) as StoryMuteRow[],
+        storyLikes,
+        storyMutes,
         postLikes: (likesRes.data ?? []) as PostLikeRow[],
         postComments: (commentsRes.data ?? []) as PostCommentRow[],
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],

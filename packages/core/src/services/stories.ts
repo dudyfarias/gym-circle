@@ -7,6 +7,32 @@ import type {
 } from "../domain/types";
 import type { GymCircleClient } from "./supabase";
 
+function isOptionalStorySocialTableMissing(error: unknown, table: "story_likes" | "story_mutes") {
+  const postgrestError = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+    hint?: string;
+  };
+  const haystack = [
+    postgrestError.code,
+    postgrestError.message,
+    postgrestError.details,
+    postgrestError.hint,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    postgrestError.code === "PGRST205" ||
+    postgrestError.code === "42P01" ||
+    (haystack.includes("schema cache") && haystack.includes(table)) ||
+    haystack.includes(`public.${table}`) ||
+    haystack.includes(`relation "${table}" does not exist`)
+  );
+}
+
 export function storyService(client: GymCircleClient) {
   return {
     async create(userId: string, input: CreateStoryInput): Promise<StoryRow> {
@@ -42,7 +68,9 @@ export function storyService(client: GymCircleClient) {
         )
         .select("*")
         .maybeSingle();
-      if (error) throw error;
+      if (error && !isOptionalStorySocialTableMissing(error, "story_likes")) {
+        throw error;
+      }
       return data ?? {
         story_id: storyId,
         user_id: userId,
@@ -55,7 +83,9 @@ export function storyService(client: GymCircleClient) {
         .from("story_likes")
         .delete()
         .match({ story_id: storyId, user_id: userId });
-      if (error) throw error;
+      if (error && !isOptionalStorySocialTableMissing(error, "story_likes")) {
+        throw error;
+      }
     },
 
     async mute(userId: string, mutedUserId: string): Promise<StoryMuteRow> {
@@ -70,7 +100,9 @@ export function storyService(client: GymCircleClient) {
         )
         .select("*")
         .maybeSingle();
-      if (error) throw error;
+      if (error && !isOptionalStorySocialTableMissing(error, "story_mutes")) {
+        throw error;
+      }
       return data ?? {
         user_id: userId,
         muted_user_id: mutedUserId,
@@ -83,7 +115,9 @@ export function storyService(client: GymCircleClient) {
         .from("story_mutes")
         .delete()
         .match({ user_id: userId, muted_user_id: mutedUserId });
-      if (error) throw error;
+      if (error && !isOptionalStorySocialTableMissing(error, "story_mutes")) {
+        throw error;
+      }
     },
 
     async listActive(limit = 50): Promise<EnrichedStory[]> {

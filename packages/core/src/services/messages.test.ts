@@ -10,6 +10,16 @@ function createClientMock(result: unknown) {
   };
 }
 
+function createClientMockWithRpcSequence(
+  sequence: Array<{ data: unknown; error: unknown }>,
+) {
+  return {
+    rpc: vi.fn().mockImplementation(() => Promise.resolve(sequence.shift())),
+  } as unknown as GymCircleClient & {
+    rpc: ReturnType<typeof vi.fn>;
+  };
+}
+
 const messageRow = {
   id: "message-1",
   conversation_id: "conversation-1",
@@ -98,6 +108,42 @@ describe("messageService.sendDirect", () => {
       p_reply_to_story: true,
       p_story_preview_url: "https://cdn.gym/story.jpg",
     });
+  });
+
+  it("falls back to the older direct-message RPC while production migrations catch up", async () => {
+    const client = createClientMockWithRpcSequence([
+      {
+        data: null,
+        error: {
+          code: "PGRST202",
+          message: "Could not find the function public.send_direct_message in the schema cache",
+        },
+      },
+      {
+        data: Object.fromEntries(
+          Object.entries(messageRow).filter(
+            ([key]) => !["story_id", "reply_to_story", "story_preview_url"].includes(key),
+          ),
+        ),
+        error: null,
+      },
+    ]);
+    const service = messageService(client);
+
+    const result = await service.sendDirect("user-a", {
+      receiverId: "user-b",
+      body: "primeira mensagem",
+    });
+
+    expect(client.rpc).toHaveBeenNthCalledWith(2, "send_direct_message", {
+      p_receiver_id: "user-b",
+      p_body: "primeira mensagem",
+      p_media_url: null,
+      p_media_type: null,
+    });
+    expect(result.reply_to_story).toBe(false);
+    expect(result.story_id).toBeNull();
+    expect(result.story_preview_url).toBeNull();
   });
 
   it("rejects empty messages before calling Supabase", async () => {

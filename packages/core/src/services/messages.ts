@@ -15,6 +15,39 @@ function createDirectKey(userA: string, userB: string): string {
   return [userA, userB].sort().join(":");
 }
 
+function isMissingNewDirectRpcSignature(error: unknown) {
+  const postgrestError = error as {
+    code?: string;
+    message?: string;
+    details?: string;
+    hint?: string;
+  };
+  const haystack = [
+    postgrestError.code,
+    postgrestError.message,
+    postgrestError.details,
+    postgrestError.hint,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    postgrestError.code === "PGRST202" ||
+    (haystack.includes("send_direct_message") && haystack.includes("schema cache"))
+  );
+}
+
+function withStoryDefaults(row: unknown): DirectMessageRow {
+  const message = row as Partial<DirectMessageRow>;
+  return {
+    ...message,
+    story_id: message.story_id ?? null,
+    reply_to_story: message.reply_to_story ?? false,
+    story_preview_url: message.story_preview_url ?? null,
+  } as DirectMessageRow;
+}
+
 export function messageService(client: GymCircleClient) {
   async function findDirectConversationId(
     currentUserId: string,
@@ -45,18 +78,29 @@ export function messageService(client: GymCircleClient) {
         throw new Error("não dá para mandar mensagem para si mesmo");
       }
 
-      const { data, error } = await client
-        .rpc("send_direct_message", {
+      const { data, error } = await client.rpc("send_direct_message", {
+        p_receiver_id: input.receiverId,
+        p_body: body,
+        p_media_url: mediaUrl,
+        p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+        p_story_id: storyId,
+        p_reply_to_story: Boolean(input.replyToStory),
+        p_story_preview_url: storyPreviewUrl,
+      });
+
+      if (error && isMissingNewDirectRpcSignature(error)) {
+        const fallback = await client.rpc("send_direct_message", {
           p_receiver_id: input.receiverId,
           p_body: body,
           p_media_url: mediaUrl,
           p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
-          p_story_id: storyId,
-          p_reply_to_story: Boolean(input.replyToStory),
-          p_story_preview_url: storyPreviewUrl,
         });
+        if (fallback.error) throw fallback.error;
+        return withStoryDefaults(fallback.data);
+      }
+
       if (error) throw error;
-      return data as DirectMessageRow;
+      return withStoryDefaults(data);
     },
 
     async markDirectRead(currentUserId: string, otherUserId: string): Promise<void> {
