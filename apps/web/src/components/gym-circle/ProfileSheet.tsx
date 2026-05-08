@@ -1,7 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { Ban, CheckCircle2, Clock3, Flag, Lock, UserCheck, UserPlus, X } from "lucide-react";
+import {
+  Ban,
+  CheckCircle2,
+  Clock3,
+  Flag,
+  Lock,
+  MessageCircle,
+  UserCheck,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   LatestPostPreview,
@@ -17,6 +27,7 @@ type ProfileSheetProps = {
   currentUserId: string;
   onClose: () => void;
   onToggleFollow: (userId: string) => void | Promise<void>;
+  onMessageUser?: (userId: string) => void;
   onBlockUser?: (userId: string) => void | Promise<void>;
   onReportUser?: (userId: string) => void | Promise<void>;
   hasStory?: boolean;
@@ -51,6 +62,7 @@ export function ProfileSheet({
   currentUserId,
   onClose,
   onToggleFollow,
+  onMessageUser,
   onBlockUser,
   onReportUser,
   hasStory,
@@ -131,7 +143,7 @@ export function ProfileSheet({
           />
 
           {!isMe ? (
-            <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
+            <div className="mt-3 grid grid-cols-[1fr_1fr_auto_auto] gap-2">
               <button
                 className={[
                   "gc-pressable flex h-11 min-w-0 items-center justify-center gap-2 rounded-full px-3 text-[13px] font-black",
@@ -146,6 +158,14 @@ export function ProfileSheet({
               >
                 <cta.Icon className="shrink-0" size={16} />
                 <span className="truncate">{cta.label}</span>
+              </button>
+              <button
+                className="gc-pressable flex h-11 min-w-0 items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.06] px-3 text-[13px] font-black text-white"
+                onClick={() => onMessageUser?.(user.id)}
+                type="button"
+              >
+                <MessageCircle className="shrink-0" size={16} />
+                <span className="truncate">Mensagem</span>
               </button>
               <button
                 aria-label="Denunciar usuário"

@@ -27,6 +27,8 @@ type ChatScreenProps = {
   currentUser: EnrichedUser;
   suggestedUsers: EnrichedUser[];
   messages?: ChatMessage[];
+  selectedUserId?: string | null;
+  onSelectedUserIdChange?: (userId: string | null) => void;
   onSelectUser?: (userId: string) => void;
   onSendMessage?: (input: SendChatMessageInput) => Promise<void> | void;
   onThreadOpen?: (userId: string) => Promise<void> | void;
@@ -71,6 +73,8 @@ export function ChatScreen({
   currentUser,
   suggestedUsers,
   messages,
+  selectedUserId: controlledSelectedUserId,
+  onSelectedUserIdChange,
   onSelectUser,
   onSendMessage,
   onThreadOpen,
@@ -79,7 +83,7 @@ export function ChatScreen({
 }: ChatScreenProps) {
   const safeMessages = useMemo(() => messages ?? [], [messages]);
   const loading = messages === undefined;
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [internalSelectedUserId, setInternalSelectedUserId] = useState<string | null>(null);
   const [chatQuery, setChatQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -150,6 +154,10 @@ export function ChatScreen({
       .slice(0, 12);
   }, [chatQuery, currentUser.id, suggestedUsers]);
 
+  const hasControlledSelectedUserId = controlledSelectedUserId !== undefined;
+  const selectedUserId = hasControlledSelectedUserId
+    ? controlledSelectedUserId
+    : internalSelectedUserId;
   const selectedUser = selectedUserId ? usersById.get(selectedUserId) ?? null : null;
 
   useEffect(() => {
@@ -186,9 +194,15 @@ export function ChatScreen({
   }, [selectedUser, thread.length]);
 
   function openThread(userId: string) {
-    setSelectedUserId(userId);
+    if (onSelectedUserIdChange) onSelectedUserIdChange(userId);
+    else setInternalSelectedUserId(userId);
     setChatQuery("");
     setError(null);
+  }
+
+  function closeThread() {
+    if (onSelectedUserIdChange) onSelectedUserIdChange(null);
+    else setInternalSelectedUserId(null);
   }
 
   async function send(input: Omit<SendChatMessageInput, "receiverId">) {
@@ -244,7 +258,7 @@ export function ChatScreen({
         error={error}
         fileRef={fileRef}
         cameraRef={cameraRef}
-        onBack={() => setSelectedUserId(null)}
+        onBack={closeThread}
         onDraftChange={setDraft}
         onMedia={handleMedia}
         onQuickReaction={() => send({ body: "🔥" })}

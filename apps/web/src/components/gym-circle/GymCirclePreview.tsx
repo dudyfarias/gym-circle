@@ -58,6 +58,7 @@ export function GymCirclePreview({
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [chatTargetUserId, setChatTargetUserId] = useState<string | null>(null);
   // Sheet de confirmação genérico — substitui window.confirm em ações
   // destrutivas. `intent` decide qual handler dispara no botão "Confirmar".
   const [confirmIntent, setConfirmIntent] = useState<
@@ -126,6 +127,11 @@ export function GymCirclePreview({
     setProfileOpenId(userId);
   }, []);
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
+  const openChatWithUser = useCallback((userId: string) => {
+    setProfileOpenId(null);
+    setChatTargetUserId(userId);
+    setActiveScreen("chat");
+  }, []);
   const openEditProfile = useCallback(() => setEditOpen(true), []);
   const closeEditProfile = useCallback(() => setEditOpen(false), []);
   const openNotifications = useCallback(() => setNotificationsOpen(true), []);
@@ -266,6 +272,21 @@ export function GymCirclePreview({
       setRefreshing(false);
     }
   }, [refresh, refreshing]);
+
+  const scrollFeedToTop = useCallback(() => {
+    scrollRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+  }, []);
+
+  const handleBottomNavChange = useCallback(
+    (screen: ScreenKey) => {
+      if (screen === "feed" && activeScreen === "feed") {
+        scrollFeedToTop();
+        return;
+      }
+      setActiveScreen(screen);
+    },
+    [activeScreen, scrollFeedToTop],
+  );
 
   const handleTouchStart = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
@@ -437,9 +458,11 @@ export function GymCirclePreview({
             currentUser={social.currentUser}
             onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
+            onSelectedUserIdChange={setChatTargetUserId}
             onThreadOpen={social.actions.markChatThreadRead}
             onThreadViewChange={setChatThreadOpen}
             onUploadImage={onUploadChatImage}
+            selectedUserId={chatTargetUserId}
             suggestedUsers={social.suggestedUsers}
           />
         );
@@ -496,6 +519,7 @@ export function GymCirclePreview({
     }
   }, [
     activeScreen,
+    chatTargetUserId,
     feedPosts,
     hasDistancePosts,
     social,
@@ -552,7 +576,7 @@ export function GymCirclePreview({
             {!keyboardOpen && !(activeScreen === "chat" && chatThreadOpen) ? (
               <BottomNav
                 active={activeScreen}
-                onChange={setActiveScreen}
+                onChange={handleBottomNavChange}
                 unreadMessages={social.unreadMessages ?? 0}
               />
             ) : null}
@@ -594,6 +618,7 @@ export function GymCirclePreview({
             currentUserId={social.currentUser.id}
             onBlockUser={social.actions.blockUser}
             onClose={closeProfile}
+            onMessageUser={openChatWithUser}
             onReportUser={social.actions.reportUser}
             hasStory={Boolean(profileSheetStory)}
             storyViewed={profileSheetStory?.viewed ?? false}
