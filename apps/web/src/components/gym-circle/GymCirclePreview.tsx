@@ -459,12 +459,13 @@ export function GymCirclePreview({
       case "checkin":
         return (
           <CheckInScreen
-            checkInsToday={social.socialStats.checkInsToday}
             currentUser={social.currentUser}
-            nearbyUsers={social.nearbyUsers}
+            gyms={social.gyms ?? []}
+            onCatalogPlace={social.actions.catalogPlace}
             onCheckIn={social.actions.checkIn}
             onSelectUser={openProfile}
-            onToggleFollow={social.actions.toggleFollow}
+            posts={social.feedPosts}
+            users={social.users ?? {}}
           />
         );
       case "feed":
