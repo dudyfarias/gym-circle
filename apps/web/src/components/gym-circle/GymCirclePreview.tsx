@@ -20,8 +20,10 @@ import { UserSearchSheet } from "./UserSearchSheet";
 import { ProfileSheet } from "./ProfileSheet";
 import { EditProfileSheet } from "./EditProfileSheet";
 import { EditPostSheet } from "./EditPostSheet";
+import { MonthlyRecapSheet } from "./MonthlyRecapSheet";
 import { NotificationsSheet } from "./NotificationsSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
+import { buildMonthlyRecap } from "./social/monthlyRecap";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 import { getAdjacentStoryId, getStoryForUser } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
@@ -51,6 +53,8 @@ export function GymCirclePreview({
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [monthlyRecapOpen, setMonthlyRecapOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
@@ -240,6 +244,11 @@ export function GymCirclePreview({
     };
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   const refresh = social.refresh;
   const triggerRefresh = useCallback(async () => {
     if (!refresh || refreshing) return;
@@ -322,6 +331,10 @@ export function GymCirclePreview({
     () => feedPosts.filter((p) => p.userId === social.currentUser.id),
     [feedPosts, social.currentUser.id],
   );
+  const monthlyRecap = useMemo(
+    () => buildMonthlyRecap({ now, posts: currentUserPosts, user: social.currentUser }),
+    [currentUserPosts, now, social.currentUser],
+  );
   const selectedStoryId = social.selectedStory?.id ?? null;
   const nextStoryId = useMemo(
     () => getAdjacentStoryId(social.storyBubbles, selectedStoryId, 1),
@@ -401,6 +414,8 @@ export function GymCirclePreview({
             onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
             posts={currentUserPosts}
+            monthlyRecap={monthlyRecap}
+            onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
             hasStory={Boolean(currentUserStory)}
             storyViewed={currentUserStory?.viewed ?? false}
             onOpenStory={
@@ -487,6 +502,7 @@ export function GymCirclePreview({
     resolveUser,
     openPostMenu,
     currentUserPosts,
+    monthlyRecap,
     currentUserStory,
     openStoryById,
     viewerLocation.error,
@@ -577,6 +593,12 @@ export function GymCirclePreview({
             open={profileOpenId !== null}
             posts={profileSheetPosts}
             user={profileSheetUser}
+          />
+          <MonthlyRecapSheet
+            onClose={() => setMonthlyRecapOpen(false)}
+            open={monthlyRecapOpen}
+            recap={monthlyRecap}
+            user={social.currentUser}
           />
           {social.actions.updateProfile ? (
             <EditProfileSheet

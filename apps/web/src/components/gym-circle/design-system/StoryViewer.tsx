@@ -112,7 +112,7 @@ export function StoryViewer({
 
   return (
     <div
-      className="absolute inset-0 z-50 bg-black/94 px-4 py-4 backdrop-blur-2xl"
+      className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl"
       data-gc-no-screen-swipe
     >
       <div

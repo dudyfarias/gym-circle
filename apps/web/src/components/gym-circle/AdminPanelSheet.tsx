@@ -56,7 +56,7 @@ export function AdminPanelSheet({ open, onClose }: AdminPanelSheetProps) {
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-[56] bg-black/94 px-4 py-4 backdrop-blur-2xl">
+    <div className="gc-safe-overlay absolute inset-0 z-[56] bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[860px] max-w-[480px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#090a0b]">
         <header className="flex items-center justify-between border-b border-white/[0.06] p-4">
           <div>

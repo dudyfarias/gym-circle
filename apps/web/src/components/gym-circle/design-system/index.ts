@@ -7,6 +7,7 @@ export * from "./EmptyState";
 export * from "./FloatingCreatePostButton";
 export * from "./GymCheckInCard";
 export * from "./LatestPostPreview";
+export * from "./MonthlyRecapCard";
 export * from "./ProfileHeader";
 export * from "./SocialPostCard";
 export * from "./StatsWidget";

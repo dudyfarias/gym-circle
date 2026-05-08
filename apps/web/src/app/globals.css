@@ -274,6 +274,13 @@ button {
   background: #000;
 }
 
+.gc-safe-overlay {
+  padding-top: calc(var(--gc-safe-top) + 1rem);
+  padding-right: max(1rem, var(--gc-safe-right));
+  padding-bottom: calc(var(--gc-safe-bottom) + 1rem);
+  padding-left: max(1rem, var(--gc-safe-left));
+}
+
 .gc-glass {
   border: 1px solid var(--gc-separator);
   background:

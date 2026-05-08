@@ -80,7 +80,7 @@ export function UserSearchSheet({
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-50 bg-black/94 px-4 py-4 backdrop-blur-2xl">
+    <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center gap-3 border-b border-white/[0.06] p-4">
           <div className="flex flex-1 items-center gap-3 rounded-full border border-white/[0.08] bg-white/[0.04] px-4">

@@ -15,10 +15,12 @@ import { Avatar } from "@/components/ui/Avatar";
 import {
   AchievementBadge,
   LatestPostPreview,
+  MonthlyRecapCard,
   ProfileHeader,
   StatsWidget,
   StreakBadge,
 } from "../design-system";
+import type { MonthlyRecap } from "../social/monthlyRecap";
 import { calculateProfileCompletion } from "../social/profile";
 import { formatWorkoutDate, getAllStreakLevels, getStreakLevel } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
@@ -42,6 +44,8 @@ type ProfileScreenProps = {
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
+  monthlyRecap: MonthlyRecap;
+  onOpenMonthlyRecap?: () => void;
 };
 
 export function ProfileScreen({
@@ -58,6 +62,8 @@ export function ProfileScreen({
   hasStory,
   storyViewed,
   onOpenStory,
+  monthlyRecap,
+  onOpenMonthlyRecap,
 }: ProfileScreenProps) {
   const latestPost = posts[0];
   const currentLevel = getStreakLevel(currentUser.currentStreak);
@@ -159,7 +165,7 @@ export function ProfileScreen({
         />
         <StatsWidget
           tone="brand"
-          detail="Maio"
+          detail={monthlyRecap.shortMonthLabel}
           icon={<CalendarDays size={18} />}
           label="Treinos"
           value={String(currentUser.workoutsThisMonth)}
@@ -178,6 +184,10 @@ export function ProfileScreen({
           label="Check-ins"
           value={String(currentUser.checkInsCount)}
         />
+      </div>
+
+      <div className="mt-4">
+        <MonthlyRecapCard recap={monthlyRecap} onOpen={onOpenMonthlyRecap} />
       </div>
 
       <div className="gc-ios-sheet mt-4 rounded-[24px] p-4">
