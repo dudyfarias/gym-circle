@@ -927,10 +927,64 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       async likePost(postId: string) {
         const post = feedPosts.find((p) => p.id === postId);
         const liked = post?.likedByCurrentUser ?? false;
-        if (liked) {
-          await services.posts.unlike(postId, currentUserId);
-        } else {
-          await services.posts.like(postId, currentUserId);
+        const optimisticLike: PostLikeRow = {
+          post_id: postId,
+          user_id: currentUserId,
+          created_at: new Date().toISOString(),
+        };
+
+        setAgg((current) => ({
+          ...current,
+          feedPosts: current.feedPosts.map((row) =>
+            row.id === postId
+              ? {
+                  ...row,
+                  likes_count: Math.max(0, (row.likes_count ?? 0) + (liked ? -1 : 1)),
+                }
+              : row,
+          ),
+          postLikes: liked
+            ? current.postLikes.filter(
+                (like) => !(like.post_id === postId && like.user_id === currentUserId),
+              )
+            : current.postLikes.some(
+                  (like) => like.post_id === postId && like.user_id === currentUserId,
+                )
+              ? current.postLikes
+              : [...current.postLikes, optimisticLike],
+        }));
+
+        try {
+          if (liked) {
+            await services.posts.unlike(postId, currentUserId);
+          } else {
+            await services.posts.like(postId, currentUserId);
+          }
+        } catch (err) {
+          setAgg((current) => ({
+            ...current,
+            feedPosts: current.feedPosts.map((row) =>
+              row.id === postId
+                ? {
+                    ...row,
+                    likes_count: Math.max(0, (row.likes_count ?? 0) + (liked ? 1 : -1)),
+                  }
+                : row,
+            ),
+            postLikes: liked
+              ? current.postLikes.some(
+                    (like) => like.post_id === postId && like.user_id === currentUserId,
+                  )
+                ? current.postLikes
+                : [...current.postLikes, optimisticLike]
+              : current.postLikes.filter(
+                  (like) => !(like.post_id === postId && like.user_id === currentUserId),
+                ),
+          }));
+          throw err;
+        }
+
+        if (!liked) {
           showFeedback("like", "Curtida enviada");
         }
       },
@@ -963,8 +1017,27 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         setViewedStoryIds((current) => {
           const next = new Set(current);
           next.add(storyId);
+          persistStoredViewedStoryIds(currentUserId, next);
           return next;
         });
+        setAgg((current) => {
+          const alreadyTracked = current.storyViews.some(
+            (view) => view.story_id === storyId && view.user_id === currentUserId,
+          );
+          if (alreadyTracked) return current;
+          return {
+            ...current,
+            storyViews: [
+              ...current.storyViews,
+              {
+                story_id: storyId,
+                user_id: currentUserId,
+                viewed_at: new Date().toISOString(),
+              },
+            ],
+          };
+        });
+        void services.stories.markViewed(storyId, currentUserId).catch(() => undefined);
         setSelectedStoryId(storyId);
         simulateHaptic("brand");
       },

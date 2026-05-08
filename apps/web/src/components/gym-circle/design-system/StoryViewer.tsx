@@ -486,7 +486,7 @@ function StoryViewerContent({
                   ? "border-[var(--gc-blue)]/34 bg-[var(--gc-blue)]/14 text-[var(--gc-blue)] shadow-[0_0_24px_rgba(48,213,255,0.42)]"
                   : "border-white/[0.1] bg-black/38 text-white",
               ].join(" ")}
-              disabled={isOwner || liking || story.likedByCurrentUser}
+              disabled={isOwner || liking}
               onClick={handleLike}
               type="button"
             >
