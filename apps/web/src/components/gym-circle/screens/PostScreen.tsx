@@ -15,6 +15,7 @@ import {
   ChevronDown,
   LocateFixed,
   RefreshCw,
+  Search,
   Upload,
 } from "lucide-react";
 import type {
@@ -25,12 +26,19 @@ import type {
   PostMediaType,
 } from "../social/types";
 import { TopBar } from "../TopBar";
+import { GymSearchSheet, type PlaceCandidate } from "../GymSearchSheet";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
   gyms?: GymLocationOption[];
   onPublish: (input: CreateWorkoutPostInput) => void | Promise<void>;
   onUploadImage?: (file: File) => Promise<string>;
+  /**
+   * Cataloga um lugar buscado via Maps no banco (dedup + insert) e
+   * vincula ao perfil do user. Se ausente, o botão "Buscar academia"
+   * não aparece. O parent resolve via `gymService.findOrCreateFromPlace`.
+   */
+  onCatalogPlace?: (place: PlaceCandidate) => Promise<GymLocationOption>;
 };
 
 const workoutTypes = [
@@ -156,8 +164,15 @@ export function PostScreen({
   gyms = [],
   onPublish,
   onUploadImage,
+  onCatalogPlace,
 }: PostScreenProps) {
   const [caption, setCaption] = useState("");
+  // Academias catalogadas durante essa sessão de post (via search sheet) —
+  // se juntam às `gyms` recebidas via prop pra que o select reconheça.
+  const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [cataloging, setCataloging] = useState(false);
   const [workoutType, setWorkoutType] = useState("");
   const [customWorkoutType, setCustomWorkoutType] = useState("");
   const [locationMode, setLocationMode] = useState<SelectableLocationSource>("none");
@@ -188,7 +203,16 @@ export function PostScreen({
   }, [customWorkoutType, workoutType]);
 
   const registeredGyms = useMemo<GymLocationOption[]>(() => {
-    if (gyms.length > 0) return gyms;
+    // Mescla 3 fontes priorizando dados ricos:
+    //   1) gyms (tabela real do banco — vem do parent)
+    //   2) localGyms (catalogadas no fluxo de busca dessa sessão)
+    //   3) currentUser.gyms (só nomes, fallback final)
+    // Dedup por id pra não duplicar quando o catalog refresh trouxer
+    // a mesma gym que acabou de ser inserida.
+    const merged = new Map<string, GymLocationOption>();
+    for (const gym of gyms) merged.set(gym.id, gym);
+    for (const gym of localGyms) merged.set(gym.id, gym);
+    if (merged.size > 0) return Array.from(merged.values());
     return currentUser.gyms.map((name, index) => ({
       id: `profile-gym-${index}`,
       name,
@@ -198,7 +222,7 @@ export function PostScreen({
       latitude: null,
       longitude: null,
     }));
-  }, [currentUser.gyms, currentUser.location, gyms]);
+  }, [currentUser.gyms, currentUser.location, gyms, localGyms]);
 
   const selectedGym = useMemo(
     () => registeredGyms.find((gym) => gym.id === selectedGymId) ?? null,
@@ -288,6 +312,34 @@ export function PostScreen({
     setLocationAccuracy(null);
     setLocationStatus("idle");
     setLocationError(null);
+  }
+
+  /**
+   * Cataloga o place vindo da busca via parent callback, vincula como
+   * gym selecionada, e fecha o sheet. Se falhar (RLS, network), mostra
+   * erro inline na seção Local.
+   */
+  async function handleCatalogPlace(place: PlaceCandidate) {
+    if (!onCatalogPlace || cataloging) return;
+    setCataloging(true);
+    setSearchError(null);
+    try {
+      const cataloged = await onCatalogPlace(place);
+      setLocalGyms((current) =>
+        current.some((gym) => gym.id === cataloged.id)
+          ? current
+          : [...current, cataloged],
+      );
+      setLocationMode("gym");
+      setSelectedGymId(cataloged.id);
+      setSearchOpen(false);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Não foi possível salvar o local.";
+      setSearchError(message);
+    } finally {
+      setCataloging(false);
+    }
   }
 
   function handleLocationModeChange(next: SelectableLocationSource) {
@@ -568,6 +620,38 @@ export function PostScreen({
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
                   Local
                 </p>
+                {/* Search via Maps — caminho principal pra encontrar academia/parque/etc.
+                    Quando o user seleciona, automaticamente vira locationMode="gym"
+                    com a gym recém-catalogada selecionada. */}
+                {onCatalogPlace ? (
+                  <button
+                    className="gc-pressable mt-2 flex h-11 w-full items-center gap-3 rounded-[14px] border border-white/[0.1] bg-white/[0.03] px-3 text-left text-[14px] font-bold text-white"
+                    disabled={cataloging}
+                    onClick={() => {
+                      setSearchError(null);
+                      setSearchOpen(true);
+                    }}
+                    type="button"
+                  >
+                    <Search className="text-white/52" size={15} strokeWidth={2.4} />
+                    <span className="flex-1 truncate">
+                      {selectedGym
+                        ? selectedGym.name
+                        : "Buscar academia, parque, lugar..."}
+                    </span>
+                    {selectedGym ? (
+                      <span className="rounded-full bg-[var(--gc-brand)]/14 px-2 py-0.5 text-[10px] font-black text-[var(--gc-brand)]">
+                        Selecionado
+                      </span>
+                    ) : null}
+                  </button>
+                ) : null}
+                {searchError ? (
+                  <p className="mt-2 px-1 text-[11px] font-bold text-[var(--gc-pink)]">
+                    {searchError}
+                  </p>
+                ) : null}
+
                 <select
                   className="mt-2 h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
                   onChange={(event) =>
@@ -699,6 +783,12 @@ export function PostScreen({
           </div>
         </>
       ) : null}
+
+      <GymSearchSheet
+        onClose={() => setSearchOpen(false)}
+        onSelect={handleCatalogPlace}
+        open={searchOpen}
+      />
     </section>
   );
 }

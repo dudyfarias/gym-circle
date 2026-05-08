@@ -238,6 +238,21 @@ export type SocialActions = {
   /** Silencia posts desse autor no feed. Stories e perfil continuam acessíveis. */
   mutePostAuthor?: (authorId: string) => Promise<void>;
   shareStoryToChat?: (storyId: string, receiverId: string) => Promise<void>;
+  /**
+   * Cataloga um lugar (academia/parque/etc) vindo da busca via Maps no
+   * banco — dedup por coords + nome. Vincula ao perfil do user. Retorna
+   * o registro da academia pra uso imediato (selecionar no PostScreen,
+   * mostrar no CheckInScreen, etc).
+   */
+  catalogPlace?: (place: {
+    name: string;
+    address?: string | null;
+    neighborhood?: string | null;
+    city: string;
+    state?: string | null;
+    latitude: number;
+    longitude: number;
+  }) => Promise<GymLocationOption>;
   requestAccountDeletion?: (reason?: string) => Promise<void>;
   completeOnboarding?: () => Promise<void>;
 };

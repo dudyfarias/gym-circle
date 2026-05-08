@@ -249,6 +249,21 @@ export type SupabaseSocialActions = {
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
   checkIn: (gymName: string) => Promise<void>;
+  /**
+   * Cataloga um lugar buscado via Maps (Nominatim/etc) no banco e
+   * vincula ao perfil do user atual. Retorna a gym row pra que o caller
+   * possa usar o id imediatamente. Idempotente — se outro user já
+   * catalogou a mesma gym, retorna a existente.
+   */
+  catalogPlace: (place: {
+    name: string;
+    address?: string | null;
+    neighborhood?: string | null;
+    city: string;
+    state?: string | null;
+    latitude: number;
+    longitude: number;
+  }) => Promise<GymLocationOption>;
   editPost: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
@@ -1133,6 +1148,34 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         }
         await services.checkins.checkIn(currentUserId, gym.id);
         showFeedback("brand", "Check-in ativo", gymName);
+      },
+      async catalogPlace(place) {
+        // 1) Insert no catálogo (ou retorna o existente se outro user já cadastrou)
+        const gym = await services.gyms.findOrCreateFromPlace({
+          name: place.name,
+          address: place.address ?? null,
+          city: place.city,
+          state: place.state ?? null,
+          latitude: place.latitude,
+          longitude: place.longitude,
+        });
+        // 2) Vincula ao perfil do user (idempotente — upsert por (user, gym))
+        await services.gyms
+          .addUserGym(currentUserId, gym.id, false)
+          .catch(() => {
+            // Se falhar (RLS, race), não impede usar a gym recém-catalogada;
+            // o vínculo é cosmético pra "minhas academias".
+          });
+        await refresh();
+        return {
+          id: gym.id,
+          name: gym.name,
+          address: gym.address,
+          city: gym.city,
+          state: gym.state,
+          latitude: gym.latitude,
+          longitude: gym.longitude,
+        };
       },
       async editPost(postId: string, input: EditPostInput) {
         const patch: { caption?: string | null; workout_type?: string | null } = {};

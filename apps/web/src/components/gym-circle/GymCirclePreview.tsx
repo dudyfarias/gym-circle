@@ -448,6 +448,7 @@ export function GymCirclePreview({
           <PostScreen
             currentUser={social.currentUser}
             gyms={social.gyms ?? []}
+            onCatalogPlace={social.actions.catalogPlace}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
               setActiveScreen("feed");
