@@ -74,6 +74,10 @@ export function GymCirclePreview({
     [],
   );
 
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ left: 0, top: 0 });
+  }, [activeScreen]);
+
   const allUsers = useMemo<EnrichedUser[]>(() => {
     const fromUsers = social.users
       ? (Object.values(social.users) as EnrichedUser[])

@@ -71,7 +71,7 @@ export function ProfileScreen({
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Perfil" title={currentUser.name} />
+      <TopBar eyebrow="Gym Circle" title="Perfil" />
 
       {(onEditProfile || onSignOut) ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -146,6 +146,7 @@ export function ProfileScreen({
         <ProfileHeader
           hasStory={hasStory}
           onOpenStory={onOpenStory}
+          postsCount={posts.length}
           storyViewed={storyViewed}
           user={currentUser}
         />

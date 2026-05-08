@@ -4,7 +4,6 @@ import Image from "next/image";
 import { Ban, CheckCircle2, Clock3, Flag, Lock, UserCheck, UserPlus, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import {
-  AchievementBadge,
   LatestPostPreview,
   ProfileHeader,
   StatsWidget,
@@ -125,6 +124,8 @@ export function ProfileSheet({
             compact
             hasStory={hasStory}
             onOpenStory={onOpenStory}
+            postsCount={posts.length}
+            showIdentity={false}
             storyViewed={storyViewed}
             user={user}
           />
@@ -133,7 +134,7 @@ export function ProfileSheet({
             <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">
               <button
                 className={[
-                  "gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-full text-[13px] font-black",
+                  "gc-pressable flex h-11 min-w-0 items-center justify-center gap-2 rounded-full px-3 text-[13px] font-black",
                   cta.tone === "brand"
                     ? "bg-[var(--gc-brand)] text-black"
                     : cta.tone === "white"
@@ -143,8 +144,8 @@ export function ProfileSheet({
                 onClick={() => onToggleFollow(user.id)}
                 type="button"
               >
-                <cta.Icon size={16} />
-                {cta.label}
+                <cta.Icon className="shrink-0" size={16} />
+                <span className="truncate">{cta.label}</span>
               </button>
               <button
                 aria-label="Denunciar usuário"
@@ -170,20 +171,12 @@ export function ProfileSheet({
             <StatsWidget label="Maior" tone="blue" value={`${user.longestStreak}d`} detail="recorde" />
             <StatsWidget label="Treinos" tone="brand" value={String(user.workoutsThisMonth)} detail="mês" />
             <StatsWidget
-              label="Seguidores"
+              label="Check-ins"
               tone="blue"
-              value={user.followersCount.toLocaleString("pt-BR")}
-              detail="no circle"
+              value={String(user.checkInsCount)}
+              detail="locais"
             />
           </div>
-
-          {user.achievements.length > 0 ? (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {user.achievements.map((a) => (
-                <AchievementBadge key={a} label={a} tone="brand" />
-              ))}
-            </div>
-          ) : null}
 
           <div className="mt-5">
             {!canSeePosts ? (
