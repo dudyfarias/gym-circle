@@ -104,13 +104,9 @@ Info.plist diretamente, porque o próximo `cap:sync` sobrescreve.
 
 ### 6. App Store review
 - App Store Connect → My Apps → Gym Circle → Prepare for Submission
-- Screenshots obrigatórios:
-  - iPhone 6.7" (3-10): 1290×2796px
-  - iPhone 6.5" (3-10): 1242×2688px
-  - Você pode reaproveitar mesma arte
-- Description (max 4000 chars), keywords, support URL, marketing URL
-- **Privacy Nutrition Labels**: declarar que coleta Email, User Content (fotos),
-  Usage Data, Identifiers
+- **Toda a metadata** (descrição, keywords, categorias, privacy nutrition
+  labels, demo account) está em [`STORE_METADATA.md`](STORE_METADATA.md) — copy-paste-ready.
+- Screenshots obrigatórios estão na §13 do STORE_METADATA.md
 - Submit for Review
 - Wait: tipicamente 24-48h
 
@@ -165,10 +161,9 @@ Em `android/app/src/main/AndroidManifest.xml`:
 - Promove pra Closed → Open testing → Production conforme valida
 
 ### 6. Play Store review
-- Store listing: descrição, ícone (512x512), feature graphic (1024x500),
-  screenshots (mínimo 2 phone)
-- **Data Safety**: declarar email, fotos do usuário, location, push tokens
-- Content rating questionnaire
+- Store listing, descrição, Data Safety, content rating: tudo em
+  [`STORE_METADATA.md`](STORE_METADATA.md) §10 e §11.
+- Feature graphic 1024×500 + ícone 512×512: criativo manual (ainda não automatizado)
 - Target API level: 34+ (Capacitor 6 já cumpre)
 - Submit for Review
 - Wait: 1-3 dias geralmente

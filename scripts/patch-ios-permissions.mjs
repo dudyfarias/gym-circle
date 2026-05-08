@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 /**
- * Patch ios/App/App/Info.plist com as descrições de permissão em PT-BR
- * que a Apple exige no App Store Review (Guideline 5.1.1).
+ * Patch ios/App/App/Info.plist com:
+ *   - Descrições de permissão em PT-BR (Apple Guideline 5.1.1)
+ *   - Export compliance pra encryption (ITSAppUsesNonExemptEncryption)
+ *
+ * O encryption flag ITSAppUsesNonExemptEncryption=false declara que o
+ * app só usa encryption padrão (HTTPS/TLS). Sem ele, App Store Connect
+ * pede pra preencher um formulário de export compliance a CADA release.
  *
  * Por que script ao invés de manual no Xcode?
  * - Manualmente é fácil esquecer alguma string e o app é rejeitado.
@@ -78,6 +83,25 @@ function upsertKey(plist, key, value) {
   );
 }
 
+/**
+ * Insere ou substitui uma chave booleana (<true/> ou <false/>).
+ * Usado pra ITSAppUsesNonExemptEncryption — não tem <string>.
+ */
+function upsertBoolKey(plist, key, value) {
+  const tag = value ? "<true/>" : "<false/>";
+  const existing = new RegExp(
+    `<key>${key}</key>\\s*<(?:true|false)\\s*/?>`,
+    "g",
+  );
+  if (existing.test(plist)) {
+    return plist.replace(existing, `<key>${key}</key>\n\t${tag}`);
+  }
+  return plist.replace(
+    /(\s*)<\/dict>(\s*<\/plist>)/,
+    `$1\t<key>${key}</key>\n\t${tag}\n</dict>$2`,
+  );
+}
+
 async function fileExists(path) {
   try {
     await access(path);
@@ -101,9 +125,13 @@ async function main() {
     plist = upsertKey(plist, key, value);
   }
 
+  // Export compliance — declarar que só usamos encryption padrão (TLS).
+  // Sem isso, App Store Connect pede formulário a cada release.
+  plist = upsertBoolKey(plist, "ITSAppUsesNonExemptEncryption", false);
+
   await writeFile(INFO_PLIST, plist, "utf8");
   console.log(
-    `[patch-ios-permissions] ${Object.keys(PERMISSIONS).length} chaves de permissão atualizadas em ${INFO_PLIST}`,
+    `[patch-ios-permissions] ${Object.keys(PERMISSIONS).length} chaves de permissão + ITSAppUsesNonExemptEncryption atualizadas em ${INFO_PLIST}`,
   );
 }
 
