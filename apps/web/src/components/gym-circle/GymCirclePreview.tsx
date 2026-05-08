@@ -630,6 +630,7 @@ export function GymCirclePreview({
             currentUserId={social.currentUser.id}
             onAcceptFollowRequest={social.actions.acceptFollowRequest}
             onClose={closeNotifications}
+            onFollowBack={social.actions.toggleFollow}
             onRejectFollowRequest={social.actions.rejectFollowRequest}
             onSelectUser={(userId) => {
               setNotificationsOpen(false);

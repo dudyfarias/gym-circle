@@ -744,7 +744,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         if (row.user_id === currentUserId) return true;
         if (blockedSet.has(row.user_id)) return false;
         if (mutedPostAuthorsSet.has(row.user_id)) return false;
-        return true;
+        const author = enrichedAll.get(row.user_id);
+        return author?.followStatus === "accepted";
       })
       .map((row) => {
         const author = enrichedAll.get(row.user_id) ?? currentUser;
@@ -817,6 +818,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     for (const row of visibleStories) {
       const author = enrichedAll.get(row.user_id);
       if (!author) continue;
+      if (row.user_id !== currentUserId && author.followStatus !== "accepted") continue;
       out.push({
         id: row.id,
         userId: row.user_id,

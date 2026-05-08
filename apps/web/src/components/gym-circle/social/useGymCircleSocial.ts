@@ -544,6 +544,10 @@ export function useGymCircleSocial() {
 
   const feedPosts = useMemo<EnrichedPost[]>(() => {
     return state.posts
+      .filter((post) => {
+        if (post.userId === state.currentUserId) return true;
+        return state.users[post.userId]?.followStatus === "accepted";
+      })
       .map((post) => {
         const author = withStreakPresence(state.users[post.userId], state);
         const smartScore = getSmartScore(post, author, currentUser);
@@ -565,10 +569,15 @@ export function useGymCircleSocial() {
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     return sortStoriesNewestFirst(
-      state.stories.map((story) => ({
-        ...story,
-        author: withStreakPresence(state.users[story.userId], state),
-      })),
+      state.stories
+        .filter((story) => {
+          if (story.userId === state.currentUserId) return true;
+          return state.users[story.userId]?.followStatus === "accepted";
+        })
+        .map((story) => ({
+          ...story,
+          author: withStreakPresence(state.users[story.userId], state),
+        })),
     );
   }, [state]);
 

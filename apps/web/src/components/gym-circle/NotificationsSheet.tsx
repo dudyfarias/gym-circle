@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AtSign, BellRing, Check, Heart, MessageCircle, UserPlus, X } from "lucide-react";
+import {
+  AtSign,
+  BellRing,
+  Check,
+  Heart,
+  Loader2,
+  MessageCircle,
+  UserCheck,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type { NotificationRow } from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
@@ -13,6 +23,7 @@ type NotificationsSheetProps = {
   currentUserId: string;
   users: Record<string, EnrichedUser>;
   onSelectUser?: (userId: string) => void;
+  onFollowBack?: (userId: string) => void | Promise<void>;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
 };
@@ -71,6 +82,7 @@ export function NotificationsSheet({
   currentUserId,
   users,
   onSelectUser,
+  onFollowBack,
   onAcceptFollowRequest,
   onRejectFollowRequest,
 }: NotificationsSheetProps) {
@@ -78,6 +90,20 @@ export function NotificationsSheet({
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
+  const [followBackBusyId, setFollowBackBusyId] = useState<string | null>(null);
+
+  const followBack = useCallback(
+    async (userId: string) => {
+      if (!onFollowBack) return;
+      setFollowBackBusyId(userId);
+      try {
+        await onFollowBack(userId);
+      } finally {
+        setFollowBackBusyId(null);
+      }
+    },
+    [onFollowBack],
+  );
 
   const refresh = useCallback(async () => {
     if (!open) return;
@@ -173,6 +199,8 @@ export function NotificationsSheet({
                   items={grouped.today}
                   users={users}
                   onSelectUser={onSelectUser}
+                  onFollowBack={followBack}
+                  followBackBusyId={followBackBusyId}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
                 />
@@ -184,6 +212,8 @@ export function NotificationsSheet({
                   items={grouped.earlier}
                   users={users}
                   onSelectUser={onSelectUser}
+                  onFollowBack={followBack}
+                  followBackBusyId={followBackBusyId}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
                 />
@@ -202,6 +232,8 @@ function Section({
   users,
   now,
   onSelectUser,
+  onFollowBack,
+  followBackBusyId,
   onAcceptFollowRequest,
   onRejectFollowRequest,
 }: {
@@ -210,6 +242,8 @@ function Section({
   users: Record<string, EnrichedUser>;
   now: number;
   onSelectUser?: (userId: string) => void;
+  onFollowBack?: (userId: string) => void | Promise<void>;
+  followBackBusyId?: string | null;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
 }) {
@@ -224,6 +258,17 @@ function Section({
           const actor = users[n.actor_id];
           const unread = !n.read_at;
           const isFollowRequest = kind === "follow_request";
+          const isFollowNotification = kind === "follow";
+          const isFollowingBack = actor?.followStatus === "accepted";
+          const isFollowBackPending = actor?.followStatus === "pending";
+          const canFollowBack = Boolean(
+            isFollowNotification &&
+              actor &&
+              onFollowBack &&
+              !isFollowingBack &&
+              !isFollowBackPending,
+          );
+          const followBackBusy = Boolean(actor && followBackBusyId === actor.id);
           // Se o solicitante já foi aprovado em outra aba (followStatus 'accepted')
           // ou se a relação não existe mais (none), oculta os botões.
           const stillPending =
@@ -269,7 +314,40 @@ function Section({
                   ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1">
-                  <Icon className={tone} size={18} fill="none" />
+                  {isFollowNotification && actor ? (
+                    <button
+                      aria-label={
+                        isFollowingBack
+                          ? `Você já segue ${actor.name}`
+                          : isFollowBackPending
+                            ? `Solicitação enviada para ${actor.name}`
+                            : `Seguir ${actor.name} de volta`
+                      }
+                      className={[
+                        "gc-pressable grid size-9 place-items-center rounded-full border transition disabled:opacity-100",
+                        isFollowingBack
+                          ? "border-[var(--gc-blue)]/34 bg-[var(--gc-blue)]/12 text-[var(--gc-blue)]"
+                          : isFollowBackPending
+                            ? "border-white/[0.12] bg-white/[0.06] text-white/54"
+                            : "border-[var(--gc-blue)]/42 bg-[var(--gc-blue)] text-black shadow-[0_0_18px_rgba(48,213,255,0.34)]",
+                      ].join(" ")}
+                      disabled={!canFollowBack || followBackBusy}
+                      onClick={() => void onFollowBack?.(actor.id)}
+                      type="button"
+                    >
+                      {followBackBusy ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : isFollowingBack ? (
+                        <UserCheck size={16} strokeWidth={2.7} />
+                      ) : isFollowBackPending ? (
+                        <BellRing size={15} strokeWidth={2.6} />
+                      ) : (
+                        <UserPlus size={16} strokeWidth={2.7} />
+                      )}
+                    </button>
+                  ) : (
+                    <Icon className={tone} size={18} fill="none" />
+                  )}
                   <span className="text-[10px] font-black text-white/36">
                     {formatRelative(n.created_at, now)}
                   </span>
