@@ -10,23 +10,13 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import {
-  BookImage,
   Camera,
   Check,
-  Dumbbell,
-  Link2,
+  ChevronDown,
   LocateFixed,
-  MapPin,
   RefreshCw,
-  Sparkles,
-  Timer,
   Upload,
-  Video,
-  X,
-  Zap,
 } from "lucide-react";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { AchievementBadge, StreakBadge } from "../design-system";
 import type {
   CreateWorkoutPostInput,
   EnrichedUser,
@@ -183,7 +173,8 @@ export function PostScreen({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [locationError, setLocationError] = useState<string | null>(null);
-  // Destino default: feed + story (mais social-first; usuário pode desligar antes de publicar)
+  // Default = feed + story. Story acende o badge do streak; feed dá conteúdo
+  // permanente. Ambos saem da mesma upload — escolher é caso de power user.
   const [postToFeed, setPostToFeed] = useState(true);
   const [postToStory, setPostToStory] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -285,6 +276,7 @@ export function PostScreen({
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   }
 
@@ -422,25 +414,52 @@ export function PostScreen({
 
   const publishLabel = useMemo(() => {
     if (publishing) return "Publicando...";
-    if (postToFeed && postToStory) return "Publicar no feed + story";
+    if (postToFeed && postToStory) return "Publicar";
     if (postToFeed) return "Publicar no feed";
     if (postToStory) return "Publicar story";
     return "Escolha um destino";
   }, [postToFeed, postToStory, publishing]);
 
+  const destinationHint = useMemo(() => {
+    if (postToFeed && postToStory) return "Vai pro feed e pro story (24h)";
+    if (postToFeed) return "Só no feed";
+    if (postToStory) return "Só no story (some em 24h)";
+    return "Escolha um destino em Mais opções";
+  }, [postToFeed, postToStory]);
+
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar eyebrow="Post de treino" title="Publicar" />
 
-      <GlassCard elevated className="mt-5 overflow-hidden">
-        <div className="relative aspect-[4/5] bg-[#050607]">
-          {imageUrl ? (
-            mediaType === "video" ? (
+      {/* Inputs invisíveis pra câmera e galeria */}
+      <input
+        accept="image/*,video/*"
+        className="hidden"
+        onChange={handleFileChange}
+        ref={fileInputRef}
+        type="file"
+      />
+      <input
+        accept="image/*,video/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+        ref={cameraInputRef}
+        type="file"
+      />
+
+      {/* Área de mídia: protagonista quando preenchida, CTA simples quando vazia */}
+      {imageUrl ? (
+        <div className="mt-4 overflow-hidden rounded-[24px] bg-black">
+          <div className="relative aspect-[4/5]">
+            {mediaType === "video" ? (
               <video
+                autoPlay
                 className="h-full w-full object-cover"
-                controls
+                loop
+                muted
                 playsInline
-                preload="metadata"
+                preload="auto"
                 src={imageUrl}
               />
             ) : (
@@ -451,392 +470,273 @@ export function PostScreen({
                 sizes="(max-width: 480px) 100vw, 480px"
                 src={imageUrl}
               />
-            )
-          ) : (
-            <div className="flex h-full flex-col justify-between p-6">
-              <div className="flex items-center justify-between">
-                <div className="grid size-14 place-items-center rounded-[22px] bg-[var(--gc-brand)]/14 text-[var(--gc-brand)] shadow-[0_0_30px_rgba(92,232,255,0.16)]">
-                  <Camera size={24} strokeWidth={2.4} />
-                </div>
-                <AchievementBadge
-                  icon={<Sparkles size={14} />}
-                  label="Streak social"
-                  tone="blue"
-                />
-              </div>
-              <div>
-                <p className="max-w-[280px] text-[30px] font-black leading-[1.02] text-white">
-                  Fez seu treino hoje?
-                </p>
-                <p className="mt-3 max-w-[300px] text-[15px] font-bold leading-5 text-white/58">
-                  Poste uma foto ou vídeo para motivar os outros e mostrar seu streak.
-                </p>
-              </div>
-            </div>
-          )}
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/86 via-black/8 to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4">
-            <div className="flex flex-wrap gap-2">
-              <AchievementBadge
-                icon={mediaType === "video" ? <Video size={15} /> : <Camera size={15} />}
-                label="Foto ou vídeo obrigatório"
-                tone="brand"
-              />
-              <AchievementBadge
-                icon={<Timer size={15} />}
-                label="Post em menos de 10s"
-                tone="blue"
-              />
-            </div>
-          </div>
-        </div>
-      </GlassCard>
-
-      <GlassCard className="mt-4 p-4">
-        <div className="grid grid-cols-[1.25fr_0.75fr] gap-2">
-          <button
-            className="gc-pressable flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black shadow-[0_0_26px_rgba(92,232,255,0.22)] disabled:opacity-55"
-            disabled={uploading}
-            onClick={() => cameraInputRef.current?.click()}
-            type="button"
-          >
-            <Camera size={18} strokeWidth={2.5} />
-            {uploading ? "Enviando..." : "Abrir câmera"}
-          </button>
-          <button
-            className="gc-pressable flex h-14 items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[14px] font-black text-white disabled:opacity-55"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-            type="button"
-          >
-            <Upload size={18} strokeWidth={2.5} />
-            Galeria
-          </button>
-        </div>
-        <input
-          accept="image/*,video/*"
-          className="hidden"
-          onChange={handleFileChange}
-          ref={fileInputRef}
-          type="file"
-        />
-        <input
-          accept="image/*,video/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleFileChange}
-          ref={cameraInputRef}
-          type="file"
-        />
-        {uploadError ? (
-          <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
-            Upload falhou: {uploadError}
-          </p>
-        ) : null}
-
-        <textarea
-          className="mt-4 min-h-24 w-full resize-none bg-transparent text-[17px] font-semibold leading-6 text-white outline-none placeholder:text-white/28"
-          onChange={(event) => setCaption(event.target.value)}
-          placeholder="Como foi o treino?"
-          value={caption}
-        />
-
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div className="rounded-[20px] bg-white/[0.055] p-3">
-            <Dumbbell className="mb-3 text-[var(--gc-blue)]" size={18} />
-            <p className="text-[12px] font-bold text-white/42">Tipo opcional</p>
-            <select
-              className="mt-1 w-full bg-transparent text-[15px] font-extrabold text-white outline-none"
-              onChange={(event) => setWorkoutType(event.target.value)}
-              value={workoutType}
-            >
-              {workoutTypes.map((type) => (
-                <option className="bg-black" key={type.value || "none"} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="rounded-[20px] bg-white/[0.055] p-3">
-            <MapPin className="mb-3 text-[var(--gc-consistency-mid)]" size={18} />
-            <p className="text-[12px] font-bold text-white/42">Local opcional</p>
-            <select
-              className="mt-1 w-full bg-transparent text-[15px] font-extrabold text-white outline-none"
-              onChange={(event) =>
-                handleLocationModeChange(event.target.value as SelectableLocationSource)
-              }
-              value={locationMode}
-            >
-              {locationOptions.map((option) => (
-                <option className="bg-black" key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {workoutType === "Outro" ? (
-          <input
-            className="mt-3 h-12 w-full rounded-[18px] border border-white/[0.08] bg-white/[0.055] px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
-            onChange={(event) => setCustomWorkoutType(event.target.value)}
-            placeholder="Nome do treino"
-            value={customWorkoutType}
-          />
-        ) : null}
-
-        {locationMode === "gym" ? (
-          <div className="mt-3 rounded-[22px] border border-white/[0.08] bg-white/[0.045] p-3">
-            <div className="flex items-center gap-2">
-              <Link2 size={15} className="text-[var(--gc-brand)]" />
-              <p className="text-[12px] font-black text-white/50">
-                Vinculado a uma academia cadastrada
-              </p>
-            </div>
-            {registeredGyms.length > 0 ? (
-              <>
-                <select
-                  className="mt-2 h-12 w-full rounded-[16px] bg-black/28 px-3 text-[14px] font-bold text-white outline-none"
-                  onChange={(event) => setSelectedGymId(event.target.value)}
-                  value={selectedGymId}
-                >
-                  {registeredGyms.map((gym) => (
-                    <option className="bg-black" key={gym.id} value={gym.id}>
-                      {gym.name}
-                    </option>
-                  ))}
-                </select>
-                {selectedGym ? (
-                  <div className="mt-3 rounded-[18px] bg-black/24 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-[14px] font-black text-white">
-                          {selectedGym.name}
-                        </p>
-                        <p className="mt-1 line-clamp-2 text-[12px] font-bold text-white/44">
-                          {getGymMeta(selectedGym) || "Busca segura no Google Maps"}
-                        </p>
-                      </div>
-                      <button
-                        aria-label="Remover localização"
-                        className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-white/72"
-                        onClick={removeLocation}
-                        type="button"
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                    {resolvedLocation.googleMapsUrl ? (
-                      <a
-                        className="mt-2 inline-flex text-[12px] font-black text-[var(--gc-brand)]"
-                        href={resolvedLocation.googleMapsUrl}
-                        rel="noreferrer"
-                        target="_blank"
-                      >
-                        Abrir no Google Maps
-                      </a>
-                    ) : null}
-                  </div>
-                ) : null}
-              </>
-            ) : (
-              <div className="mt-3 rounded-[18px] bg-black/24 p-3">
-                <p className="text-[13px] font-bold text-white/58">
-                  Nenhuma academia cadastrada ainda.
-                </p>
-                <button
-                  className="gc-pressable mt-3 h-10 rounded-full bg-white/[0.08] px-4 text-[12px] font-black text-white"
-                  onClick={removeLocation}
-                  type="button"
-                >
-                  Postar sem localização
-                </button>
-              </div>
             )}
-          </div>
-        ) : null}
-
-        {locationMode === "current" ? (
-          <div className="mt-3 rounded-[22px] border border-white/[0.08] bg-white/[0.045] p-3">
-            {(() => {
-              const copy = getLocationStatusCopy(locationStatus, locationAccuracy);
-              return (
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <LocateFixed
-                        className={
-                          locationStatus === "found"
-                            ? "text-[var(--gc-brand)]"
-                            : "text-white/50"
-                        }
-                        size={16}
-                      />
-                      <p className="text-[13px] font-black text-white">{copy.title}</p>
-                    </div>
-                    <p className="mt-1 text-[12px] font-bold leading-4 text-white/46">
-                      {copy.detail}
-                    </p>
-                  </div>
-                  <button
-                    aria-label="Remover localização"
-                    className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.08] text-white/72"
-                    onClick={removeLocation}
-                    type="button"
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-              );
-            })()}
-            {coordinates ? (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-[18px] bg-[var(--gc-brand)]/10 px-3 py-2 text-[12px] font-bold text-white/62">
-                <span className="inline-flex min-w-0 items-center gap-2 truncate">
-                  <Check size={14} className="text-[var(--gc-brand)]" />
-                  <span className="truncate">Localização atual salva</span>
-                </span>
-                {resolvedLocation.googleMapsUrl ? (
-                  <a
-                    className="shrink-0 font-black text-[var(--gc-brand)]"
-                    href={resolvedLocation.googleMapsUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Maps
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
             <button
-              className="gc-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[13px] font-black text-white disabled:opacity-50"
-              disabled={locationStatus === "requesting"}
-              onClick={requestCurrentLocation}
+              aria-label="Trocar mídia"
+              className="gc-pressable absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
+              onClick={() => fileInputRef.current?.click()}
               type="button"
             >
-              <RefreshCw
-                className={locationStatus === "requesting" ? "animate-spin" : undefined}
-                size={15}
-              />
-              {locationStatus === "requesting"
-                ? "Localizando..."
-                : coordinates
-                  ? "Atualizar localização"
-                  : "Tentar localizar"}
+              <RefreshCw size={16} strokeWidth={2.4} />
             </button>
           </div>
-        ) : null}
-
-        {locationError ? (
-          <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
-            Localização: {locationError}
-          </p>
-        ) : null}
-      </GlassCard>
-
-      <div className="mt-4">
-        <p className="mb-2 text-[12px] font-black uppercase text-white/52">
-          Onde postar
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          <DestinationPill
-            active={postToFeed}
-            description="Aparece no feed dos seus seguidores"
-            icon={<BookImage size={18} strokeWidth={2.4} />}
-            label="Feed"
-            onToggle={() => setPostToFeed((value) => !value)}
-          />
-          <DestinationPill
-            active={postToStory}
-            description="Some em 24h, mas acende o badge"
-            icon={<Zap size={18} strokeWidth={2.4} />}
-            label="Story"
-            onToggle={() => setPostToStory((value) => !value)}
-          />
         </div>
-        {!hasDestination ? (
-          <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
-            Escolha pelo menos um: feed ou story.
+      ) : (
+        <div className="mt-4 flex aspect-[4/5] flex-col items-center justify-center gap-5 rounded-[24px] border border-white/[0.06] bg-white/[0.02] px-6">
+          <div className="grid size-16 place-items-center rounded-full bg-white/[0.06] text-white/72">
+            <Camera size={26} strokeWidth={2.2} />
+          </div>
+          <p className="text-center text-[14px] font-bold text-white/56">
+            Adicione uma foto ou vídeo do treino
           </p>
-        ) : null}
-      </div>
+          <div className="flex w-full max-w-[260px] flex-col gap-2">
+            <button
+              className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-55"
+              disabled={uploading}
+              onClick={() => cameraInputRef.current?.click()}
+              type="button"
+            >
+              <Camera size={16} strokeWidth={2.5} />
+              {uploading ? "Enviando..." : "Tirar foto"}
+            </button>
+            <button
+              className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[14px] font-bold text-white disabled:opacity-55"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+            >
+              <Upload size={16} strokeWidth={2.4} />
+              Escolher da galeria
+            </button>
+          </div>
+        </div>
+      )}
 
-      <button
-        className="gc-pressable mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black shadow-[0_0_28px_rgba(92,232,255,0.26)] disabled:opacity-45"
-        disabled={!canPublish}
-        onClick={publishWorkout}
-        type="button"
-      >
-        <Check size={19} strokeWidth={2.8} />
-        {publishLabel}
-      </button>
-
-      {publishError ? (
-        <p className="mt-3 text-center text-[12px] font-bold text-[var(--gc-pink)]">
-          {publishError}
+      {uploadError ? (
+        <p className="mt-3 text-[12px] font-bold text-[var(--gc-pink)]">
+          Upload falhou: {uploadError}
         </p>
       ) : null}
 
-      <div className="mt-4 flex items-center justify-center gap-2 text-[12px] font-bold text-white/40">
-        <Sparkles size={14} className="text-[var(--gc-consistency-daily)]" />
-        <StreakBadge
-          isLit={currentUser.streakLitToday}
-          size="xs"
-          streak={currentUser.currentStreak}
-        />
-        {currentUser.streakLitToday ? "Seu badge já está aceso." : "Poste para acender hoje."}
-      </div>
+      {/* Caption + opções + publicar — só aparecem quando tem mídia */}
+      {imageUrl ? (
+        <>
+          <textarea
+            aria-label="Legenda do post"
+            className="mt-4 min-h-[88px] w-full resize-none bg-transparent text-[16px] font-medium leading-6 text-white outline-none placeholder:text-white/32"
+            onChange={(event) => setCaption(event.target.value)}
+            placeholder="Como foi o treino?"
+            value={caption}
+          />
+
+          <details className="group mt-2 rounded-[18px] border border-white/[0.06] open:bg-white/[0.02]">
+            <summary className="gc-pressable flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[13px] font-bold text-white/68 [&::-webkit-details-marker]:hidden">
+              <span>Mais opções</span>
+              <ChevronDown
+                className="transition-transform group-open:rotate-180"
+                size={16}
+                strokeWidth={2.4}
+              />
+            </summary>
+            <div className="space-y-4 px-4 pb-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                  Tipo de treino
+                </p>
+                <select
+                  className="mt-2 h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
+                  onChange={(event) => setWorkoutType(event.target.value)}
+                  value={workoutType}
+                >
+                  {workoutTypes.map((type) => (
+                    <option className="bg-black" key={type.value || "none"} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+                {workoutType === "Outro" ? (
+                  <input
+                    className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
+                    onChange={(event) => setCustomWorkoutType(event.target.value)}
+                    placeholder="Nome do treino"
+                    value={customWorkoutType}
+                  />
+                ) : null}
+              </div>
+
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                  Local
+                </p>
+                <select
+                  className="mt-2 h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
+                  onChange={(event) =>
+                    handleLocationModeChange(event.target.value as SelectableLocationSource)
+                  }
+                  value={locationMode}
+                >
+                  {locationOptions.map((option) => (
+                    <option className="bg-black" key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+
+                {locationMode === "gym" && registeredGyms.length > 0 ? (
+                  <div className="mt-2 space-y-2">
+                    <select
+                      className="h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
+                      onChange={(event) => setSelectedGymId(event.target.value)}
+                      value={selectedGymId}
+                    >
+                      {registeredGyms.map((gym) => (
+                        <option className="bg-black" key={gym.id} value={gym.id}>
+                          {gym.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedGym ? (
+                      <p className="px-1 text-[12px] font-bold text-white/44">
+                        {getGymMeta(selectedGym) || "Vai mostrar só nome no post."}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {locationMode === "gym" && registeredGyms.length === 0 ? (
+                  <p className="mt-2 px-1 text-[12px] font-bold text-white/44">
+                    Você não cadastrou nenhuma academia ainda.
+                  </p>
+                ) : null}
+
+                {locationMode === "current" ? (
+                  <div className="mt-2 space-y-2">
+                    {(() => {
+                      const copy = getLocationStatusCopy(locationStatus, locationAccuracy);
+                      return (
+                        <div className="flex items-start gap-2 px-1">
+                          <LocateFixed
+                            className={
+                              locationStatus === "found"
+                                ? "shrink-0 text-[var(--gc-brand)]"
+                                : "shrink-0 text-white/52"
+                            }
+                            size={14}
+                          />
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-black text-white">{copy.title}</p>
+                            <p className="text-[11px] font-bold leading-4 text-white/46">
+                              {copy.detail}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    <button
+                      className="gc-pressable flex h-10 w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[12px] font-black text-white disabled:opacity-50"
+                      disabled={locationStatus === "requesting"}
+                      onClick={requestCurrentLocation}
+                      type="button"
+                    >
+                      <RefreshCw
+                        className={locationStatus === "requesting" ? "animate-spin" : undefined}
+                        size={13}
+                      />
+                      {locationStatus === "requesting"
+                        ? "Localizando..."
+                        : coordinates
+                          ? "Atualizar localização"
+                          : "Tentar localizar"}
+                    </button>
+                  </div>
+                ) : null}
+
+                {locationError ? (
+                  <p className="mt-2 px-1 text-[11px] font-bold text-[var(--gc-pink)]">
+                    {locationError}
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                  Onde postar
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <DestinationToggle
+                    active={postToFeed}
+                    label="Feed"
+                    onToggle={() => setPostToFeed((value) => !value)}
+                  />
+                  <DestinationToggle
+                    active={postToStory}
+                    label="Story (24h)"
+                    onToggle={() => setPostToStory((value) => !value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <div className="mt-4 space-y-2">
+            <button
+              className="gc-pressable flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black shadow-[0_0_24px_rgba(92,232,255,0.32)] disabled:bg-white/[0.05] disabled:text-white/30 disabled:shadow-none"
+              disabled={!canPublish}
+              onClick={publishWorkout}
+              type="button"
+            >
+              {!publishing ? <Check size={18} strokeWidth={2.8} /> : null}
+              {publishLabel}
+            </button>
+            <p className="text-center text-[11px] font-bold text-white/40">
+              {destinationHint}
+            </p>
+            {publishError ? (
+              <p className="text-center text-[12px] font-bold text-[var(--gc-pink)]">
+                {publishError}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }
 
-type DestinationPillProps = {
+type DestinationToggleProps = {
   active: boolean;
-  description: string;
-  icon: React.ReactNode;
   label: string;
   onToggle: () => void;
 };
 
-function DestinationPill({
-  active,
-  description,
-  icon,
-  label,
-  onToggle,
-}: DestinationPillProps) {
+/**
+ * Toggle simples Feed/Story. Sem descrição extra — labels claros já bastam,
+ * e o destinationHint embaixo do publicar resume o estado.
+ */
+function DestinationToggle({ active, label, onToggle }: DestinationToggleProps) {
   return (
     <button
-      aria-label={`${active ? "Desativar" : "Ativar"} destino ${label}`}
+      aria-label={`${active ? "Desativar" : "Ativar"} ${label}`}
       aria-pressed={active}
       className={[
-        "gc-pressable flex flex-col items-start gap-1 rounded-[20px] border p-3 text-left transition-colors",
+        "gc-pressable flex h-11 items-center justify-center gap-2 rounded-full text-[13px] font-black",
         active
-          ? "border-[var(--gc-brand)]/35 bg-[var(--gc-brand)]/10 text-white shadow-[0_0_22px_rgba(92,232,255,0.16)]"
-          : "border-white/[0.08] bg-white/[0.04] text-white/72",
+          ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
+          : "bg-white/[0.05] text-white/56",
       ].join(" ")}
       onClick={onToggle}
       type="button"
     >
-      <span className="flex w-full items-center justify-between">
-        <span className={["flex items-center gap-2 text-[14px] font-black", active ? "text-white" : "text-white/72"].join(" ")}>
-          {icon}
-          {label}
-        </span>
-        <span
-          className={[
-            "grid size-5 place-items-center rounded-full border",
-            active
-              ? "border-[var(--gc-brand)] bg-[var(--gc-brand)] text-black"
-              : "border-white/22 bg-transparent",
-          ].join(" ")}
-        >
-          {active ? <Check size={12} strokeWidth={3.4} /> : null}
-        </span>
+      <span
+        className={[
+          "grid size-4 place-items-center rounded-full",
+          active ? "bg-[var(--gc-brand)] text-black" : "border border-white/22",
+        ].join(" ")}
+      >
+        {active ? <Check size={10} strokeWidth={3.6} /> : null}
       </span>
-      <span className={["text-[11px] font-bold leading-snug", active ? "text-white/60" : "text-white/40"].join(" ")}>
-        {description}
-      </span>
+      {label}
     </button>
   );
 }
+
