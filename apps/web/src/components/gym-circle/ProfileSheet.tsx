@@ -20,6 +20,9 @@ type ProfileSheetProps = {
   onToggleFollow: (userId: string) => void | Promise<void>;
   onBlockUser?: (userId: string) => void | Promise<void>;
   onReportUser?: (userId: string) => void | Promise<void>;
+  hasStory?: boolean;
+  storyViewed?: boolean;
+  onOpenStory?: () => void;
 };
 
 type FollowCtaState = {
@@ -51,6 +54,9 @@ export function ProfileSheet({
   onToggleFollow,
   onBlockUser,
   onReportUser,
+  hasStory,
+  storyViewed,
+  onOpenStory,
 }: ProfileSheetProps) {
   if (!open || !user) return null;
 
@@ -59,17 +65,36 @@ export function ProfileSheet({
   const canSeePosts =
     isMe || !user.isPrivate || user.followStatus === "accepted";
   const latestPost = posts[0];
+  const headerAvatar = (
+    <div className={hasStory ? "rounded-full bg-black p-[2px]" : ""}>
+      <Avatar
+        accent={user.accent}
+        name={user.name}
+        src={user.avatarUrl ?? undefined}
+      />
+    </div>
+  );
 
   return (
     <div className="absolute inset-0 z-50 bg-black/94 px-4 py-4 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
           <div className="flex min-w-0 items-center gap-3">
-            <Avatar
-              accent={user.accent}
-              name={user.name}
-              src={user.avatarUrl ?? undefined}
-            />
+            {hasStory && onOpenStory ? (
+              <button
+                aria-label={`Ver story de ${user.name}`}
+                className={[
+                  "gc-pressable grid size-14 place-items-center rounded-full p-[2px]",
+                  storyViewed ? "bg-white/[0.13]" : "gc-story-ring",
+                ].join(" ")}
+                onClick={onOpenStory}
+                type="button"
+              >
+                {headerAvatar}
+              </button>
+            ) : (
+              <div className="grid size-14 place-items-center">{headerAvatar}</div>
+            )}
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="truncate text-[17px] font-black">{user.name}</p>
@@ -96,7 +121,12 @@ export function ProfileSheet({
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-4">
-          <ProfileHeader user={user} />
+          <ProfileHeader
+            hasStory={hasStory}
+            onOpenStory={onOpenStory}
+            storyViewed={storyViewed}
+            user={user}
+          />
 
           {!isMe ? (
             <div className="mt-3 grid grid-cols-[1fr_auto_auto] gap-2">

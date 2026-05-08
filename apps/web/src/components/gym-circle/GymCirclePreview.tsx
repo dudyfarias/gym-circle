@@ -23,7 +23,14 @@ import { EditPostSheet } from "./EditPostSheet";
 import { NotificationsSheet } from "./NotificationsSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
+import { getAdjacentStoryId, getStoryForUser } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
+
+const NO_SCREEN_SWIPE_SELECTOR =
+  "button,a,input,textarea,select,video,[contenteditable='true'],[data-gc-no-screen-swipe]";
+const SCREEN_SWIPE_THRESHOLD = 132;
+const SCREEN_SWIPE_MAX_VERTICAL = 34;
+const SCREEN_SWIPE_DOMINANCE = 2.15;
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
@@ -57,6 +64,7 @@ export function GymCirclePreview({
   const touchLastYRef = useRef<number | null>(null);
   const touchLastXRef = useRef<number | null>(null);
   const touchStartScreenRef = useRef<ScreenKey>("feed");
+  const touchIgnoreScreenSwipeRef = useRef(false);
   const screenOrder: ScreenKey[] = useMemo(
     () => ["feed", "chat", "post", "checkin", "profile"],
     [],
@@ -243,16 +251,23 @@ export function GymCirclePreview({
     }
   }, [refresh, refreshing]);
 
-  const handleTouchStart = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    const touch = event.touches[0];
-    touchStartXRef.current = touch?.clientX ?? null;
-    touchLastXRef.current = touch?.clientX ?? null;
-    touchLastYRef.current = touch?.clientY ?? null;
-    touchStartScreenRef.current = activeScreen;
-    touchStartYRef.current = touch?.clientY ?? null;
-  }, [activeScreen]);
+  const handleTouchStart = useCallback(
+    (event: TouchEvent<HTMLDivElement>) => {
+      const target = event.target;
+      touchIgnoreScreenSwipeRef.current =
+        target instanceof Element && Boolean(target.closest(NO_SCREEN_SWIPE_SELECTOR));
+      const touch = event.touches[0];
+      touchStartXRef.current = touch?.clientX ?? null;
+      touchLastXRef.current = touch?.clientX ?? null;
+      touchLastYRef.current = touch?.clientY ?? null;
+      touchStartScreenRef.current = activeScreen;
+      touchStartYRef.current = touch?.clientY ?? null;
+    },
+    [activeScreen],
+  );
 
   const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    if (touchIgnoreScreenSwipeRef.current) return;
     const startY = touchStartYRef.current;
     const touch = event.touches[0];
     touchLastXRef.current = touch?.clientX ?? touchLastXRef.current;
@@ -273,16 +288,25 @@ export function GymCirclePreview({
     const startY = touchStartYRef.current;
     const endX = touchLastXRef.current;
     const endY = touchLastYRef.current;
+    const ignoreScreenSwipe = touchIgnoreScreenSwipeRef.current;
     touchStartYRef.current = null;
     touchStartXRef.current = null;
     touchLastXRef.current = null;
     touchLastYRef.current = null;
+    touchIgnoreScreenSwipeRef.current = false;
     setPullDistance(0);
+    if (ignoreScreenSwipe) return;
     if (shouldRefresh) void triggerRefresh();
     if (shouldRefresh || startX === null || startY === null || endX === null || endY === null) return;
     const deltaX = endX - startX;
     const deltaY = endY - startY;
-    if (Math.abs(deltaX) < 74 || Math.abs(deltaY) > 44) return;
+    if (
+      Math.abs(deltaX) < SCREEN_SWIPE_THRESHOLD ||
+      Math.abs(deltaY) > SCREEN_SWIPE_MAX_VERTICAL ||
+      Math.abs(deltaX) < Math.abs(deltaY) * SCREEN_SWIPE_DOMINANCE
+    ) {
+      return;
+    }
     const currentIndex = screenOrder.indexOf(touchStartScreenRef.current);
     const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
     const next = screenOrder[nextIndex];
@@ -298,6 +322,40 @@ export function GymCirclePreview({
     () => feedPosts.filter((p) => p.userId === social.currentUser.id),
     [feedPosts, social.currentUser.id],
   );
+  const selectedStoryId = social.selectedStory?.id ?? null;
+  const nextStoryId = useMemo(
+    () => getAdjacentStoryId(social.storyBubbles, selectedStoryId, 1),
+    [selectedStoryId, social.storyBubbles],
+  );
+  const previousStoryId = useMemo(
+    () => getAdjacentStoryId(social.storyBubbles, selectedStoryId, -1),
+    [selectedStoryId, social.storyBubbles],
+  );
+  const currentUserStory = useMemo(
+    () => getStoryForUser(social.storyBubbles, social.currentUser.id),
+    [social.currentUser.id, social.storyBubbles],
+  );
+  const profileSheetStory = useMemo(
+    () => (profileOpenId ? getStoryForUser(social.storyBubbles, profileOpenId) : null),
+    [profileOpenId, social.storyBubbles],
+  );
+  const openStoryById = useCallback(
+    (storyId: string | null) => {
+      if (!storyId) {
+        social.actions.closeStory();
+        return;
+      }
+      social.actions.openStory(storyId);
+    },
+    [social.actions],
+  );
+  const openNextStory = useCallback(
+    () => openStoryById(nextStoryId),
+    [nextStoryId, openStoryById],
+  );
+  const openPreviousStory = useCallback(() => {
+    if (previousStoryId) openStoryById(previousStoryId);
+  }, [openStoryById, previousStoryId]);
 
   useEffect(() => {
     const urls = [
@@ -343,6 +401,13 @@ export function GymCirclePreview({
             onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
             posts={currentUserPosts}
+            hasStory={Boolean(currentUserStory)}
+            storyViewed={currentUserStory?.viewed ?? false}
+            onOpenStory={
+              currentUserStory
+                ? () => openStoryById(currentUserStory.id)
+                : undefined
+            }
           />
         );
       case "chat":
@@ -422,6 +487,8 @@ export function GymCirclePreview({
     resolveUser,
     openPostMenu,
     currentUserPosts,
+    currentUserStory,
+    openStoryById,
     viewerLocation.error,
     viewerLocation.request,
     viewerLocation.status,
@@ -429,8 +496,8 @@ export function GymCirclePreview({
 
   return (
     <SearchSheetProvider value={sheetContextValue}>
-      <main className="min-h-[100dvh] bg-black text-white lg:bg-[#050505]">
-        <div className="relative mx-auto h-[100dvh] min-h-[100dvh] w-full max-w-[480px] overflow-hidden border-white/[0.06] bg-black shadow-[0_0_90px_rgba(0,0,0,0.92)] lg:border-x">
+      <main className="min-h-[100dvh] bg-black text-white">
+        <div className="relative mx-auto h-[100dvh] min-h-[100dvh] w-full max-w-none overflow-hidden bg-black shadow-none sm:max-w-[480px] lg:border-x lg:border-white/[0.06] lg:shadow-[0_0_90px_rgba(0,0,0,0.92)]">
           <div className="gc-phone-shell flex h-full min-h-0 flex-col">
             <div
               className="pointer-events-none absolute left-1/2 top-[calc(var(--gc-safe-top)+10px)] z-40 grid size-10 -translate-x-1/2 place-items-center rounded-full border border-white/[0.08] bg-black/72 text-[var(--gc-brand)] opacity-0 shadow-[0_0_28px_rgba(48,213,255,0.18)] backdrop-blur-2xl transition-opacity duration-200"
@@ -471,7 +538,11 @@ export function GymCirclePreview({
             <FloatingCreatePostButton onClick={() => setActiveScreen("post")} />
           ) : null}
           <StoryViewer
+            hasNext={Boolean(nextStoryId)}
+            hasPrevious={Boolean(previousStoryId)}
             onClose={social.actions.closeStory}
+            onNext={openNextStory}
+            onPrevious={openPreviousStory}
             onSelectUser={(userId) => {
               social.actions.closeStory();
               openProfile(userId);
@@ -492,6 +563,16 @@ export function GymCirclePreview({
             onBlockUser={social.actions.blockUser}
             onClose={closeProfile}
             onReportUser={social.actions.reportUser}
+            hasStory={Boolean(profileSheetStory)}
+            storyViewed={profileSheetStory?.viewed ?? false}
+            onOpenStory={
+              profileSheetStory
+                ? () => {
+                    closeProfile();
+                    openStoryById(profileSheetStory.id);
+                  }
+                : undefined
+            }
             onToggleFollow={social.actions.toggleFollow}
             open={profileOpenId !== null}
             posts={profileSheetPosts}

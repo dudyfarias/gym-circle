@@ -13,6 +13,7 @@ import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
 } from "./profile";
+import { sortStoriesNewestFirst } from "./stories";
 import type {
   ChatMessage,
   CreateWorkoutPostInput,
@@ -522,10 +523,12 @@ export function useGymCircleSocial() {
   }, [currentUser, state]);
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
-    return state.stories.map((story) => ({
-      ...story,
-      author: withStreakPresence(state.users[story.userId], state),
-    }));
+    return sortStoriesNewestFirst(
+      state.stories.map((story) => ({
+        ...story,
+        author: withStreakPresence(state.users[story.userId], state),
+      })),
+    );
   }, [state]);
 
   const selectedStory = useMemo(() => {

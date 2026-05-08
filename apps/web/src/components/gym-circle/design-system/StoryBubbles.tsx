@@ -11,7 +11,10 @@ type StoryBubblesProps = {
 
 export function StoryBubbles({ stories, onOpenStory }: StoryBubblesProps) {
   return (
-    <div className="gc-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 py-4">
+    <div
+      className="gc-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 py-4"
+      data-gc-no-screen-swipe
+    >
       {stories.map((story) => (
         <button
           className="gc-pressable w-[70px] shrink-0 text-center"

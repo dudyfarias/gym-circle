@@ -39,6 +39,9 @@ type ProfileScreenProps = {
   onSelectUser?: (userId: string) => void;
   onOpenAdmin?: () => void;
   onRequestAccountDeletion?: () => void | Promise<void>;
+  hasStory?: boolean;
+  storyViewed?: boolean;
+  onOpenStory?: () => void;
 };
 
 export function ProfileScreen({
@@ -52,6 +55,9 @@ export function ProfileScreen({
   onSelectUser,
   onOpenAdmin,
   onRequestAccountDeletion,
+  hasStory,
+  storyViewed,
+  onOpenStory,
 }: ProfileScreenProps) {
   const latestPost = posts[0];
   const currentLevel = getStreakLevel(currentUser.currentStreak);
@@ -131,7 +137,12 @@ export function ProfileScreen({
       ) : null}
 
       <div className="mt-5">
-        <ProfileHeader user={currentUser} />
+        <ProfileHeader
+          hasStory={hasStory}
+          onOpenStory={onOpenStory}
+          storyViewed={storyViewed}
+          user={currentUser}
+        />
       </div>
 
       <div className="mt-4">

@@ -8,9 +8,27 @@ import { StreakBadge } from "./StreakBadge";
 
 type ProfileHeaderProps = {
   user: EnrichedUser;
+  hasStory?: boolean;
+  storyViewed?: boolean;
+  onOpenStory?: () => void;
 };
 
-export function ProfileHeader({ user }: ProfileHeaderProps) {
+export function ProfileHeader({
+  user,
+  hasStory = false,
+  storyViewed = false,
+  onOpenStory,
+}: ProfileHeaderProps) {
+  const storyAvatar = (
+    <div className={hasStory ? "rounded-full bg-black p-[3px]" : ""}>
+      <Avatar
+        accent="var(--gc-brand)"
+        name={user.name}
+        size="lg"
+        src={user.avatarUrl ?? undefined}
+      />
+    </div>
+  );
   const rings = buildConsistencyRings({
     activeDaysCount: user.activeDaysCount,
     streakLitToday: user.streakLitToday,
@@ -21,12 +39,23 @@ export function ProfileHeader({ user }: ProfileHeaderProps) {
     <section className="gc-glass-strong rounded-[36px] p-5">
       <div className="flex items-start justify-between gap-5">
         <div className="min-w-0">
-          <Avatar
-            accent="var(--gc-brand)"
-            name={user.name}
-            size="lg"
-            src={user.avatarUrl ?? undefined}
-          />
+          {hasStory && onOpenStory ? (
+            <button
+              aria-label={`Ver story de ${user.name}`}
+              className={[
+                "gc-pressable relative grid size-[86px] place-items-center rounded-full p-[3px]",
+                storyViewed ? "bg-white/[0.13]" : "gc-story-ring",
+              ].join(" ")}
+              onClick={onOpenStory}
+              type="button"
+            >
+              {storyAvatar}
+            </button>
+          ) : (
+            <div className="grid size-[86px] place-items-center">
+              {storyAvatar}
+            </div>
+          )}
           <div className="mt-4 flex items-center gap-2">
             <h2 className="truncate text-[27px] font-black leading-tight">
               {user.name}

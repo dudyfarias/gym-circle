@@ -22,6 +22,7 @@ import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
 } from "./profile";
+import { sortStoriesNewestFirst } from "./stories";
 import { buildMonthWorkoutDays } from "./streak";
 import type {
   ChatMessage,
@@ -218,7 +219,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         services.client.from("user_gyms").select("*"),
         services.client.from("follows").select("*"),
         services.client.from("feed_posts").select("*").order("created_at", { ascending: false }).limit(40),
-        services.client.from("stories").select("*").gt("expires_at", new Date().toISOString()),
+        services.client
+          .from("stories")
+          .select("*")
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false }),
         services.client
           .from("user_activity_days")
           .select("*")
@@ -594,7 +599,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         author,
       });
     }
-    return out;
+    return sortStoriesNewestFirst(out);
   }, [agg.stories, enrichedAll, viewedStoryIds]);
 
   const selectedStory = useMemo(
