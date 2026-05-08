@@ -4,10 +4,14 @@ import type {
   StoryLikeRow,
   StoryMuteRow,
   StoryRow,
+  StoryViewRow,
 } from "../domain/types";
 import type { GymCircleClient } from "./supabase";
 
-function isOptionalStorySocialTableMissing(error: unknown, table: "story_likes" | "story_mutes") {
+function isOptionalStorySocialTableMissing(
+  error: unknown,
+  table: "story_likes" | "story_mutes" | "story_views",
+) {
   const postgrestError = error as {
     code?: string;
     message?: string;
@@ -118,6 +122,26 @@ export function storyService(client: GymCircleClient) {
       if (error && !isOptionalStorySocialTableMissing(error, "story_mutes")) {
         throw error;
       }
+    },
+
+    async markViewed(storyId: string, userId: string): Promise<StoryViewRow> {
+      const viewedAt = new Date().toISOString();
+      const { data, error } = await client
+        .from("story_views")
+        .upsert(
+          { story_id: storyId, user_id: userId, viewed_at: viewedAt },
+          { onConflict: "story_id,user_id" },
+        )
+        .select("*")
+        .maybeSingle();
+      if (error && !isOptionalStorySocialTableMissing(error, "story_views")) {
+        throw error;
+      }
+      return data ?? {
+        story_id: storyId,
+        user_id: userId,
+        viewed_at: viewedAt,
+      };
     },
 
     async listActive(limit = 50): Promise<EnrichedStory[]> {

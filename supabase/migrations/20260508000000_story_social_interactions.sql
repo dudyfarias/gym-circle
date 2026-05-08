@@ -327,7 +327,7 @@ alter table public.notifications
 
 alter table public.notifications
   add constraint notifications_kind_check
-    check (kind in ('like', 'comment', 'follow', 'mention', 'story_like', 'story_reply'));
+    check (kind in ('like', 'comment', 'follow', 'mention', 'follow_request', 'story_like', 'story_reply'));
 
 create index if not exists notifications_story_idx
   on public.notifications (story_id, created_at desc)

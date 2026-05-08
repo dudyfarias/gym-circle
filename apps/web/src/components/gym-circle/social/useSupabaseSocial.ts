@@ -15,6 +15,7 @@ import type {
   StoryLikeRow,
   StoryMuteRow,
   StoryRow,
+  StoryViewRow,
   UserActivityDayRow,
   UserGymRow,
   UserStatsRow,
@@ -130,6 +131,7 @@ type AggregateState = {
   stories: StoryRow[];
   storyLikes: StoryLikeRow[];
   storyMutes: StoryMuteRow[];
+  storyViews: StoryViewRow[];
   postLikes: PostLikeRow[];
   postComments: PostCommentRow[];
   checkinsToday: CheckinRow[];
@@ -152,6 +154,7 @@ const EMPTY: AggregateState = {
   stories: [],
   storyLikes: [],
   storyMutes: [],
+  storyViews: [],
   postLikes: [],
   postComments: [],
   checkinsToday: [],
@@ -162,7 +165,7 @@ const EMPTY: AggregateState = {
   mutedPostUserIds: [],
 };
 
-type OptionalStorySocialTable = "story_likes" | "story_mutes";
+type OptionalStorySocialTable = "story_likes" | "story_mutes" | "story_views";
 
 function isMissingOptionalStorySocialTable(
   error: unknown,
@@ -200,6 +203,31 @@ function optionalStorySocialRows<T>(
   if (!response.error) return response.data ?? [];
   if (isMissingOptionalStorySocialTable(response.error, table)) return [];
   throw response.error;
+}
+
+const VIEWED_STORIES_STORAGE_PREFIX = "gym-circle:viewed-stories:";
+const MAX_STORED_VIEWED_STORIES = 500;
+
+function getViewedStoriesStorageKey(userId: string) {
+  return `${VIEWED_STORIES_STORAGE_PREFIX}${userId}`;
+}
+
+function loadStoredViewedStoryIds(userId: string) {
+  if (typeof window === "undefined") return new Set<string>();
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(getViewedStoriesStorageKey(userId)) ?? "[]",
+    );
+    return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function persistStoredViewedStoryIds(userId: string, ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  const compact = Array.from(ids).slice(-MAX_STORED_VIEWED_STORIES);
+  window.localStorage.setItem(getViewedStoriesStorageKey(userId), JSON.stringify(compact));
 }
 
 export type SupabaseSocialActions = {
@@ -264,7 +292,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
-  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() => new Set());
+  const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() =>
+    loadStoredViewedStoryIds(currentUserId),
+  );
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const mountedRef = useRef(true);
   const analyticsBootRef = useRef(false);
@@ -356,7 +386,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const postIds = feedPosts.map((p) => p.id);
       const stories = (storiesRes.data ?? []) as StoryRow[];
       const storyIds = stories.map((story) => story.id);
-      const [likesRes, commentsRes, storyLikesRes, storyMutesRes] = await Promise.all([
+      const [likesRes, commentsRes, storyLikesRes, storyMutesRes, storyViewsRes] = await Promise.all([
         postIds.length > 0
           ? services.client.from("post_likes").select("*").in("post_id", postIds)
           : Promise.resolve({ data: [] as PostLikeRow[], error: null }),
@@ -377,6 +407,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .from("story_mutes")
           .select("*")
           .eq("user_id", currentUserId),
+        storyIds.length > 0
+          ? services.client
+              .from("story_views")
+              .select("*")
+              .eq("user_id", currentUserId)
+              .in("story_id", storyIds)
+          : Promise.resolve({ data: [] as StoryViewRow[], error: null }),
       ]);
       if (likesRes.error) throw likesRes.error;
       if (commentsRes.error) throw commentsRes.error;
@@ -388,8 +425,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         storyMutesRes as { data: StoryMuteRow[] | null; error: unknown },
         "story_mutes",
       );
+      const storyViews = optionalStorySocialRows(
+        storyViewsRes as { data: StoryViewRow[] | null; error: unknown },
+        "story_views",
+      );
 
       if (!mountedRef.current) return;
+      const nextViewedStoryIds = loadStoredViewedStoryIds(currentUserId);
+      for (const view of storyViews) nextViewedStoryIds.add(view.story_id);
+      persistStoredViewedStoryIds(currentUserId, nextViewedStoryIds);
+      setViewedStoryIds(nextViewedStoryIds);
       const blockedUserIds = ((blocksRes.data ?? []) as Array<{ blocked_id: string }>)
         .map((row) => row.blocked_id);
       const mutedPostUserIds = (
@@ -405,6 +450,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         stories,
         storyLikes,
         storyMutes,
+        storyViews,
         postLikes: (likesRes.data ?? []) as PostLikeRow[],
         postComments: (commentsRes.data ?? []) as PostCommentRow[],
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
@@ -736,6 +782,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     const out: EnrichedStory[] = [];
+    const viewedSet = new Set(viewedStoryIds);
+    for (const view of agg.storyViews) viewedSet.add(view.story_id);
     const visibleStories = filterMutedStories(
       agg.stories.map((story) => ({ ...story, userId: story.user_id })),
       agg.storyMutes.map((mute) => ({ mutedUserId: mute.muted_user_id })),
@@ -751,7 +799,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         title: row.workout_type ?? "Treino",
         caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
         createdAt: row.created_at,
-        viewed: viewedStoryIds.has(row.id),
+        viewed: viewedSet.has(row.id),
         likedByCurrentUser: hasUserLikedStory(
           agg.storyLikes.map((like) => ({
             storyId: like.story_id,
@@ -772,7 +820,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       });
     }
     return sortStoriesNewestFirst(out);
-  }, [agg.stories, agg.storyLikes, agg.storyMutes, currentUserId, enrichedAll, viewedStoryIds]);
+  }, [agg.stories, agg.storyLikes, agg.storyMutes, agg.storyViews, currentUserId, enrichedAll, viewedStoryIds]);
 
   const selectedStory = useMemo(
     () => storyBubbles.find((s) => s.id === selectedStoryId) ?? null,

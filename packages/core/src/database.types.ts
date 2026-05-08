@@ -732,6 +732,32 @@ export type Database = {
         }
         Relationships: []
       }
+      story_views: {
+        Row: {
+          story_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          story_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          story_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_views_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stories: {
         Row: {
           created_at: string
