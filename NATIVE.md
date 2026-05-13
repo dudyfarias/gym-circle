@@ -1,6 +1,6 @@
 # Gym Circle — Submissão App Store / Play Store
 
-Wrapper Capacitor que carrega o deploy do Vercel num WebView nativo iOS + Android.
+Wrapper Capacitor que carrega o deploy de produção do Vercel num WebView nativo iOS + Android.
 Toda atualização do site continua sendo OTA: você só precisa publicar nova
 versão na loja quando mudar plugin nativo, ícone, splash ou permissão.
 
@@ -11,12 +11,19 @@ versão na loja quando mudar plugin nativo, ícone, splash ou permissão.
 - Android Studio (Hedgehog ou superior)
 - Conta Apple Developer ($99/ano) — pessoa física, login com seu Apple ID
 - Conta Google Play Developer ($25 once) — usar mesmo Google da conta Vercel
-- Node.js 24 LTS (`node -v` deve mostrar v24.x)
+- Node.js LTS compatível com Next/Capacitor
 
 ## Bundle ID
 
-`com.dudyfarias.gymcircle` — definido em [`capacitor.config.ts`](capacitor.config.ts).
+`com.gymcircle.app` — definido em [`capacitor.config.ts`](capacitor.config.ts).
 **Não troque** depois de publicar; perderia continuidade pros usuários.
+
+## Estratégia de URL
+
+O app iOS usa `server.url = https://gym-circle-rust.vercel.app`. Esse é o
+caminho certo para a alpha porque o Gym Circle ainda depende de Next.js/Vercel
+para rotas dinâmicas e APIs como lugares/localização. O `webDir`
+`native-fallback` existe apenas como fallback técnico/offline para o Capacitor.
 
 ## Adicionar plataformas (rodar 1x na vida)
 
@@ -39,6 +46,13 @@ permissões/ícones, rode:
 npm run cap:sync
 ```
 
+Para iOS, prefira:
+
+```bash
+npm run cap:build:ios # npm run build + cap sync ios + patch Info.plist
+npm run cap:open:ios
+```
+
 Mudanças puras de UI Next.js **não** precisam de `cap sync` — o app puxa
 direto do Vercel.
 
@@ -58,7 +72,7 @@ npm run cap:open:ios
 
 No Xcode:
 - **Signing & Capabilities** → Team = sua conta Apple Developer
-- **Bundle Identifier** → confirma `com.dudyfarias.gymcircle`
+- **Bundle Identifier** → confirma `com.gymcircle.app`
 - **Display Name** → `Gym Circle`
 - **Version** → `1.0.0`, **Build** → `1` (incrementa em cada upload)
 - **Capabilities** → adiciona `Push Notifications` (se for usar)
@@ -82,7 +96,7 @@ Permissões cobertas:
 - `NSPhotoLibraryAddUsageDescription` — salvar mídia na galeria
 - `NSMicrophoneUsageDescription` — áudio nos vídeos
 - `NSLocationWhenInUseUsageDescription` — localização do treino
-- `NSUserNotificationsUsageDescription` — push notifications
+- `NSUserNotificationsUsageDescription` — texto interno/documental para push notifications
 
 **Importante**: a Apple lê o texto literal das strings durante o review.
 Texto genérico tipo "to use camera" é rejection garantida. As strings em
@@ -94,6 +108,8 @@ Info.plist diretamente, porque o próximo `cap:sync` sobrescreve.
 - Ícone: `apps/web/public/icons/icon-1024.png` → Xcode Assets.xcassets → AppIcon
 - Splash: usar `apps/web/public/splash/splash-1170x2532.png` como base, gerar
   resoluções via [appicon.co](https://appicon.co)
+- Status bar: dark style sobre fundo preto, configurado em `capacitor.config.ts`
+- Safe areas: já consideradas no CSS web e no fallback nativo
 
 ### 5. TestFlight (interno)
 - Xcode → Product → Archive
@@ -109,6 +125,47 @@ Info.plist diretamente, porque o próximo `cap:sync` sobrescreve.
 - Screenshots obrigatórios estão na §13 do STORE_METADATA.md
 - Submit for Review
 - Wait: tipicamente 24-48h
+
+### 7. Checklist de teste em iPhone real
+
+- [ ] Login com email + senha
+- [ ] Login com username + senha
+- [ ] Feed carrega posts apenas permitidos
+- [ ] Postar foto no feed
+- [ ] Postar vídeo no feed
+- [ ] Postar story foto/vídeo
+- [ ] Story visto mantém anel apagado após fechar/reabrir
+- [ ] Curtir/descurtir post e story
+- [ ] Responder story no chat
+- [ ] Chat envia texto, foto e vídeo
+- [ ] Streak acende ao postar feed/story
+- [ ] Localização atual pede permissão e salva local aproximado
+- [ ] Perfil próprio edita avatar/bio/campos opcionais
+- [ ] Perfil público abre ao tocar usuário
+- [ ] Notificações pedem permissão e aparecem quando permitido
+- [ ] Bloquear usuário
+- [ ] Denunciar usuário/post/story
+- [ ] Excluir conta
+- [ ] Pull to refresh nas abas principais
+- [ ] Bottom nav não sobe indevidamente com teclado
+
+### 8. Checklist TestFlight fechado
+
+- [ ] App Store Connect criado
+- [ ] Bundle ID `com.gymcircle.app` criado em Certificates, Identifiers & Profiles
+- [ ] Signing automático ligado no Xcode
+- [ ] Provisioning profile gerado
+- [ ] Push Notifications capability ativada no identifier e no target
+- [ ] Version `1.0.0`, Build `1`
+- [ ] Archive validado
+- [ ] Build enviado para App Store Connect
+- [ ] Demo account criada e populada
+- [ ] Testers internos adicionados
+- [ ] Grupo fechado de 20-50 testers criado
+- [ ] Privacy Policy: `https://gym-circle-rust.vercel.app/privacy`
+- [ ] Terms: `https://gym-circle-rust.vercel.app/terms`
+- [ ] Support URL definido
+- [ ] Notas de teste explicando fluxo feed → postar → streak → chat
 
 ### Common rejections para wrapper webview
 - "Apps that are designed for the iOS environment" → tem que funcionar offline
@@ -132,7 +189,7 @@ npm run cap:open:android
 ```
 
 No Android Studio:
-- **app/build.gradle.kts**: confirma `applicationId = "com.dudyfarias.gymcircle"`
+- **app/build.gradle.kts**: confirma `applicationId = "com.gymcircle.app"`
 - **versionCode** → `1` (inteiro, incrementa toda release)
 - **versionName** → `"1.0.0"`
 
@@ -176,7 +233,8 @@ Em `android/app/src/main/AndroidManifest.xml`:
 - [ ] `npm run test` 18/18 passando
 - [ ] `npm run build` verde
 - [ ] Vercel deploy READY no commit que vai virar release
-- [ ] `capacitor.config.ts` aponta pro Vercel certo
+- [ ] `capacitor.config.ts` aponta para `https://gym-circle-rust.vercel.app`
+- [ ] Bundle ID confirmado como `com.gymcircle.app`
 - [ ] Bundle ID confirmado em ambos os projetos nativos
 - [ ] versionCode/versionName e Build/Version incrementados
 - [ ] Permissions strings em PT-BR (nada genérico)

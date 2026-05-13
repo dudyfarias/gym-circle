@@ -16,7 +16,7 @@ oficial fica em git e vc pode reabastecer entre releases.
 
 | Campo | Valor | Limites |
 |---|---|---|
-| Bundle ID | `com.dudyfarias.gymcircle` | imutável |
+| Bundle ID | `com.gymcircle.app` | imutável |
 | App Name (iOS) | `Gym Circle` | 30 chars (10 ✓) |
 | Title (Android) | `Gym Circle` | 30 chars (10 ✓) |
 | Subtitle (iOS) | `Consistência em comunidade` | 30 chars (26 ✓) |

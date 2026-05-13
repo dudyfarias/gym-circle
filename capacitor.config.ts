@@ -3,28 +3,26 @@ import type { CapacitorConfig } from "@capacitor/cli";
 /**
  * Configuração do wrapper nativo iOS/Android do Gym Circle.
  *
- * Estratégia: webview aponta direto para o deploy do Vercel
- * (https://gym-circle-rust.vercel.app). Atualizar o app web atualiza
- * automaticamente os clientes iOS/Android — não precisa nova release
- * de loja para mudanças visuais ou de feature, apenas para mudanças
- * que dependam de plugins nativos (camera, push, geo, etc.) ou de
- * permissions novas no Info.plist / AndroidManifest.xml.
+ * Estratégia de produção: WebView aponta para o deploy estável da Vercel.
+ * Isso mantém o app nativo leve e permite atualizar UI/fluxos sociais sem uma
+ * nova revisão da App Store. Mudanças de plugins, permissões, ícones, splash
+ * ou bundle id ainda exigem novo build nativo.
  *
- * Bundle ID = appId é IMUTÁVEL após publicação. com.dudyfarias.gymcircle
- * usa o GitHub username como autoridade reverse-DNS (não exige domínio).
+ * Bundle ID = appId é IMUTÁVEL após publicação. A FASE 2 oficial usa
+ * com.gymcircle.app para App Store Connect / TestFlight.
  */
 const config: CapacitorConfig = {
-  appId: "com.dudyfarias.gymcircle",
+  appId: "com.gymcircle.app",
   appName: "Gym Circle",
-  // webDir é o fallback offline. Como usamos server.url, ele só importa se
-  // o usuário ficar sem internet — então apontamos para um build estático
-  // mínimo dentro de apps/web/public que já tem os ícones e manifest.
-  webDir: "apps/web/public",
+  // Fallback local simples: em produção o app carrega server.url, mas o
+  // Capacitor exige um webDir válido para copy/sync e para erro offline.
+  webDir: "native-fallback",
   server: {
     url: "https://gym-circle-rust.vercel.app",
     cleartext: false,
-    // Apenas hosts confiáveis: Vercel próprio + Supabase (storage de mídia).
+    // Apenas hosts confiáveis: produção/preview Vercel + Supabase storage/auth.
     allowNavigation: [
+      "gym-circle-rust.vercel.app",
       "*.vercel.app",
       "*.supabase.co",
       "qajjpjmybmqqwflytcpr.supabase.co",
@@ -33,7 +31,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: "always",
     backgroundColor: "#000000",
-    // Permite upload de fotos/vídeos da câmera ou galeria.
+    // Mantemos false porque o app usa Vercel + Supabase + links externos de auth.
     limitsNavigationsToAppBoundDomains: false,
   },
   android: {

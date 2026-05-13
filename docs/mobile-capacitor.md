@@ -11,15 +11,23 @@ Estrutura preparada para migrar o PWA para Capacitor quando o beta web estiver v
 
 ## Capacitor
 
-Config inicial: `capacitor.config.json`.
+Config oficial: `capacitor.config.ts`.
+
+- `appId`: `com.gymcircle.app`
+- `appName`: `Gym Circle`
+- `webDir`: `native-fallback`
+- `server.url`: `https://gym-circle-rust.vercel.app`
+
+O app nativo usa o deploy Vercel em produção porque o Gym Circle depende de
+rotas dinâmicas do Next.js. O `native-fallback` existe para o Capacitor ter um
+asset local simples quando não houver conexão.
 
 Quando instalar Capacitor:
 
 ```bash
-npm install @capacitor/core @capacitor/cli
-npx cap init Gym Circle app.gymcircle.mobile --web-dir apps/web/out
-npx cap add ios
-npx cap add android
+npm run cap:add:ios
+npm run cap:build:ios
+npm run cap:open:ios
 ```
 
 ## Permissões nativas previstas
@@ -34,4 +42,4 @@ npx cap add android
 
 - O PWA atual já usa `capture="environment"` no fluxo de post e chat.
 - Push web salva subscriptions em `public.push_subscriptions`; o envio server-side deve usar VAPID privado em uma função futura.
-- Para App Store/Play Store, adicionar textos de permissão em `Info.plist` e `AndroidManifest.xml` depois de gerar os projetos nativos.
+- Para iOS, os textos de permissão são aplicados automaticamente por `scripts/patch-ios-permissions.mjs` após `cap:add:ios` e `cap:sync:ios`.
