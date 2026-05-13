@@ -34,7 +34,7 @@ Resultado:
 - iOS project: criado em `ios/`.
 - Xcode workspace: abriu.
 - Bundle ID no projeto Xcode: `com.gymcircle.app`.
-- Deployment target: iOS 15.0.
+- Deployment target do target App: iOS 15.6.
 - Version: 1.0.
 - Build: 1.
 - Supported devices: iPhone.

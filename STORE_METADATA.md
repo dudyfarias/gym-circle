@@ -321,7 +321,7 @@ quando descobrirmos onde a galera real tá usando.
 ## 15. Build Settings (Xcode + Android Studio)
 
 ### iOS
-- **Deployment Target**: iOS 15.0 (cobre 99% dos iPhones ativos em 2026)
+- **Deployment Target**: iOS 15.6 (compatível com os iPhones reais da alpha)
 - **Supported Devices**: iPhone (iPad opcional pra próxima)
 - **Build Settings → Architecture**: arm64 (default Xcode 16)
 - **Capabilities ativas**: Push Notifications
