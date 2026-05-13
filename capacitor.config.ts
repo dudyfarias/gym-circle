@@ -42,7 +42,10 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchAutoHide: false,
+      // Fallback nativo: se o bundle web/auth/hydration travar no iOS,
+      // o splash ainda some sozinho. O app chama SplashScreen.hide() antes disso.
+      launchShowDuration: 4200,
+      launchAutoHide: true,
       backgroundColor: "#000000",
       androidSplashResourceName: "splash",
       androidScaleType: "CENTER_CROP",

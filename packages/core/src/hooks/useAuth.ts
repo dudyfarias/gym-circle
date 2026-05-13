@@ -19,21 +19,39 @@ export function useAuth() {
 
   useEffect(() => {
     mountedRef.current = true;
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (!mountedRef.current || settled) return;
+      console.warn("[GymCircleBoot] auth restore timeout; continuing without blocking boot");
+      setState((current) =>
+        current.loading
+          ? { session: null, user: null, loading: false }
+          : current,
+      );
+    }, 3800);
+
     services.auth.getSession().then((session) => {
+      settled = true;
+      window.clearTimeout(timeout);
       if (!mountedRef.current) return;
       setState({ session, user: session?.user ?? null, loading: false });
     }).catch(() => {
+      settled = true;
+      window.clearTimeout(timeout);
       if (!mountedRef.current) return;
       setState({ session: null, user: null, loading: false });
     });
 
     const { data: sub } = services.auth.onAuthStateChange(async (_event, session) => {
+      settled = true;
+      window.clearTimeout(timeout);
       if (!mountedRef.current) return;
       setState({ session, user: session?.user ?? null, loading: false });
     });
 
     return () => {
       mountedRef.current = false;
+      window.clearTimeout(timeout);
       sub.subscription.unsubscribe();
     };
   }, [services]);

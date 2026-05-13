@@ -1,18 +1,28 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { useAuth, useGymCircleServices } from "@gym-circle/core/hooks";
 import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
+import { NativeBootController } from "./NativeBootController";
 import { PwaController } from "./PwaController";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
 export function LiveHomeWrapper() {
   const { user, loading } = useAuth();
 
+  useEffect(() => {
+    if (!loading) {
+      console.info("[GymCircleBoot] auth restored", {
+        hasUser: Boolean(user),
+      });
+    }
+  }, [loading, user]);
+
   if (loading) {
     return (
       <>
+        <NativeBootController />
         <main className="grid min-h-screen place-items-center bg-black text-white">
           <p className="text-[14px] font-bold text-white/60">Carregando sessão...</p>
         </main>
@@ -24,13 +34,19 @@ export function LiveHomeWrapper() {
   if (!user) {
     return (
       <>
+        <NativeBootController />
         <LiveAuthGate />
         <PwaController />
       </>
     );
   }
 
-  return <AuthenticatedShell userId={user.id} />;
+  return (
+    <>
+      <NativeBootController />
+      <AuthenticatedShell userId={user.id} />
+    </>
+  );
 }
 
 function AuthenticatedShell({ userId }: { userId: string }) {

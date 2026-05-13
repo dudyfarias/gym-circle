@@ -86,6 +86,10 @@ export function GymCirclePreview({
   );
 
   useEffect(() => {
+    console.info("[GymCircleBoot] feed mounted");
+  }, []);
+
+  useEffect(() => {
     scrollRef.current?.scrollTo({ left: 0, top: 0 });
   }, [activeScreen]);
 
