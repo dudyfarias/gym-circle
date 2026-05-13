@@ -15,7 +15,7 @@ function createDirectKey(userA: string, userB: string): string {
   return [userA, userB].sort().join(":");
 }
 
-function isMissingNewDirectRpcSignature(error: unknown) {
+function isMissingRpc(error: unknown, functionName: string) {
   const postgrestError = error as {
     code?: string;
     message?: string;
@@ -34,8 +34,16 @@ function isMissingNewDirectRpcSignature(error: unknown) {
 
   return (
     postgrestError.code === "PGRST202" ||
-    (haystack.includes("send_direct_message") && haystack.includes("schema cache"))
+    (haystack.includes(functionName) && haystack.includes("schema cache"))
   );
+}
+
+function isMissingNewDirectRpcSignature(error: unknown) {
+  return isMissingRpc(error, "send_direct_message");
+}
+
+function isMissingDeleteConversationRpc(error: unknown) {
+  return isMissingRpc(error, "delete_direct_conversation_for_me");
 }
 
 function withStoryDefaults(row: unknown): DirectMessageRow {
@@ -121,6 +129,28 @@ export function messageService(client: GymCircleClient) {
         .eq("sender_id", otherUserId)
         .eq("receiver_id", currentUserId)
         .is("read_at", null);
+      if (error) throw error;
+    },
+
+    async deleteConversationForMe(
+      currentUserId: string,
+      otherUserId: string,
+    ): Promise<void> {
+      const rpc = await client.rpc("delete_direct_conversation_for_me", {
+        p_other_user_id: otherUserId,
+      });
+
+      if (!rpc.error) return;
+      if (!isMissingDeleteConversationRpc(rpc.error)) throw rpc.error;
+
+      const conversationId = await findDirectConversationId(currentUserId, otherUserId);
+      if (!conversationId) return;
+
+      const now = new Date().toISOString();
+      const { error } = await client
+        .from("conversation_participants")
+        .update({ deleted_at: now, last_read_at: now })
+        .match({ conversation_id: conversationId, user_id: currentUserId });
       if (error) throw error;
     },
   };

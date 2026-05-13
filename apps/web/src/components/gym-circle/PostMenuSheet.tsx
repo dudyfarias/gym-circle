@@ -41,7 +41,7 @@ export function PostMenuSheet({
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-[55] flex flex-col justify-end bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+1rem)] pt-[calc(var(--gc-safe-top)+5rem)] backdrop-blur-md">
+    <div className="absolute inset-0 z-[80] flex flex-col justify-end bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+1rem)] pt-[calc(var(--gc-safe-top)+5rem)] backdrop-blur-md">
       <button
         aria-label="Fechar"
         className="absolute inset-0 cursor-default"

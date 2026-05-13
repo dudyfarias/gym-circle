@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
-import { EmptyState, StreakBadge } from "../design-system";
+import { EmptyState, StreakBadge, SwipeRevealDelete } from "../design-system";
 import type {
   ChatMessage,
   EnrichedUser,
@@ -31,6 +31,7 @@ type ChatScreenProps = {
   onSelectedUserIdChange?: (userId: string | null) => void;
   onSelectUser?: (userId: string) => void;
   onSendMessage?: (input: SendChatMessageInput) => Promise<void> | void;
+  onDeleteConversation?: (userId: string) => Promise<void> | void;
   onThreadOpen?: (userId: string) => Promise<void> | void;
   onThreadViewChange?: (open: boolean) => void;
   onUploadImage?: (file: File) => Promise<string>;
@@ -77,6 +78,7 @@ export function ChatScreen({
   onSelectedUserIdChange,
   onSelectUser,
   onSendMessage,
+  onDeleteConversation,
   onThreadOpen,
   onThreadViewChange,
   onUploadImage,
@@ -87,6 +89,7 @@ export function ChatScreen({
   const [chatQuery, setChatQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const cameraRef = useRef<HTMLInputElement | null>(null);
@@ -205,6 +208,20 @@ export function ChatScreen({
     else setInternalSelectedUserId(null);
   }
 
+  async function deleteConversation(userId: string) {
+    if (!onDeleteConversation || deletingUserId) return;
+    setDeletingUserId(userId);
+    setError(null);
+    try {
+      await onDeleteConversation(userId);
+      if (selectedUserId === userId) closeThread();
+    } catch (err) {
+      setError((err as Error).message ?? "Falha ao apagar conversa");
+    } finally {
+      setDeletingUserId(null);
+    }
+  }
+
   async function send(input: Omit<SendChatMessageInput, "receiverId">) {
     if (!selectedUser || !onSendMessage || sending) return;
     setSending(true);
@@ -297,6 +314,9 @@ export function ChatScreen({
           <PenLine size={18} />
         </IconButton>
       </div>
+      {error ? (
+        <p className="mt-3 px-2 text-[12px] font-bold text-[var(--gc-pink)]">{error}</p>
+      ) : null}
 
       {friends.length > 0 ? (
         <section className="mt-5">
@@ -381,6 +401,8 @@ export function ChatScreen({
                   conversation={conversation}
                   currentUserId={currentUser.id}
                   key={conversation.user.id}
+                  deleting={deletingUserId === conversation.user.id}
+                  onDelete={onDeleteConversation ? deleteConversation : undefined}
                   onOpen={openThread}
                 />
               ))}
@@ -409,20 +431,23 @@ export function ChatScreen({
 type ConversationRowProps = {
   conversation: ConversationItem;
   currentUserId: string;
+  deleting?: boolean;
+  onDelete?: (userId: string) => void;
   onOpen: (userId: string) => void;
 };
 
 function ConversationRow({
   conversation,
   currentUserId,
+  deleting = false,
+  onDelete,
   onOpen,
 }: ConversationRowProps) {
   const { user, last, unread } = conversation;
   const mine = last?.senderId === currentUserId;
-
-  return (
+  const content = (
     <button
-      className="gc-pressable flex w-full items-center gap-3 rounded-[26px] px-2 py-3 text-left transition-colors hover:bg-white/[0.045]"
+      className="gc-pressable flex w-full min-w-0 items-center gap-3 px-2 py-3 text-left"
       onClick={() => onOpen(user.id)}
       type="button"
     >
@@ -454,11 +479,28 @@ function ConversationRow({
         <span
           className={[
             "size-2 rounded-full",
-            unread > 0 ? "bg-[var(--gc-brand)] shadow-[0_0_14px_rgba(92,232,255,0.48)]" : "bg-transparent",
+            unread > 0
+              ? "bg-[var(--gc-brand)] shadow-[0_0_14px_rgba(92,232,255,0.48)]"
+              : "bg-transparent",
           ].join(" ")}
         />
       </div>
     </button>
+  );
+
+  if (!onDelete) return content;
+
+  return (
+    <SwipeRevealDelete
+      className="rounded-[26px]"
+      contentClassName="rounded-[26px] bg-black transition-colors hover:bg-white/[0.045]"
+      deleteLabel={`Apagar conversa com ${user.name}`}
+      disabled={deleting}
+      onDelete={() => onDelete(user.id)}
+      revealWidth={74}
+    >
+      {content}
+    </SwipeRevealDelete>
   );
 }
 
@@ -595,7 +637,7 @@ function ConversationView({
       </div>
 
       <form
-        className="sticky bottom-2 z-30 flex items-center gap-2 rounded-[28px] border border-white/[0.08] bg-[#111214]/92 p-2 shadow-[0_18px_54px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+        className="sticky bottom-[calc(var(--gc-safe-bottom)+0.5rem)] z-30 flex items-center gap-2 rounded-[28px] border border-white/[0.08] bg-[#111214]/92 p-2 shadow-[0_18px_54px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
         onSubmit={onSubmit}
       >
         <IconButton

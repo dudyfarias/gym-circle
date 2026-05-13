@@ -214,6 +214,7 @@ export type EditPostInput = {
 export type SocialActions = {
   likePost: (postId: string) => void | Promise<void>;
   commentPost: (postId: string, body: string) => void | Promise<void>;
+  deleteComment?: (postId: string, commentId: string) => void | Promise<void>;
   toggleFollow: (userId: string) => void | Promise<void>;
   openStory: (storyId: string) => void;
   closeStory: () => void;
@@ -225,6 +226,7 @@ export type SocialActions = {
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   markChatThreadRead?: (userId: string) => Promise<void>;
+  deleteChatConversation?: (userId: string) => Promise<void>;
   acceptFollowRequest?: (requesterId: string) => Promise<void>;
   rejectFollowRequest?: (requesterId: string) => Promise<void>;
   blockUser?: (userId: string) => Promise<void>;
@@ -262,6 +264,7 @@ export type SocialBundle = {
   users?: Record<string, GymUser>;
   gyms?: GymLocationOption[];
   feedPosts: EnrichedPost[];
+  profilePosts?: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   selectedStory: EnrichedStory | null;
   suggestedUsers: EnrichedUser[];

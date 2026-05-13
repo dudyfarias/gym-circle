@@ -29,6 +29,7 @@ type FeedScreenProps = {
   onCreatePost: () => void;
   onLikePost: (postId: string) => void;
   onCommentPost: (postId: string, body: string) => void;
+  onDeleteComment?: (postId: string, commentId: string) => void;
   onToggleFollow: (userId: string) => void;
   onOpenStory: (storyId: string) => void;
   onEditProfile?: () => void;
@@ -55,6 +56,7 @@ export function FeedScreen({
   onCreatePost,
   onLikePost,
   onCommentPost,
+  onDeleteComment,
   onToggleFollow,
   onOpenStory,
   onEditProfile,
@@ -98,6 +100,7 @@ export function FeedScreen({
                 currentUserId={currentUser.id}
                 formatTime={formatTime}
                 onComment={onCommentPost}
+                onDeleteComment={onDeleteComment}
                 onLike={onLikePost}
                 onOpenPostMenu={onOpenPostMenu}
                 onSelectUser={onSelectUser}

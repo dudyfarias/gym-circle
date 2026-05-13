@@ -107,18 +107,21 @@ export type Database = {
         Row: {
           conversation_id: string
           created_at: string
+          deleted_at: string | null
           last_read_at: string | null
           user_id: string
         }
         Insert: {
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
           last_read_at?: string | null
           user_id: string
         }
         Update: {
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
           last_read_at?: string | null
           user_id?: string
         }
@@ -1003,6 +1006,10 @@ export type Database = {
       accept_alpha_legal: {
         Args: { p_privacy_version?: string; p_terms_version?: string }
         Returns: undefined
+      }
+      delete_direct_conversation_for_me: {
+        Args: { p_other_user_id: string }
+        Returns: string | null
       }
       mark_onboarding_complete: { Args: never; Returns: undefined }
       refresh_my_stats: { Args: never; Returns: undefined }

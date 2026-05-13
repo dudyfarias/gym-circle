@@ -8,6 +8,7 @@ import {
   Flag,
   Lock,
   MessageCircle,
+  Play,
   UserCheck,
   UserPlus,
   X,
@@ -16,7 +17,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import {
   LatestPostPreview,
   ProfileHeader,
-  StatsWidget,
+  VideoThumbnail,
 } from "./design-system";
 import type { EnrichedPost, EnrichedUser } from "./social/types";
 
@@ -30,6 +31,7 @@ type ProfileSheetProps = {
   onMessageUser?: (userId: string) => void;
   onBlockUser?: (userId: string) => void | Promise<void>;
   onReportUser?: (userId: string) => void | Promise<void>;
+  onOpenPost?: (postId: string) => void;
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
@@ -65,6 +67,7 @@ export function ProfileSheet({
   onMessageUser,
   onBlockUser,
   onReportUser,
+  onOpenPost,
   hasStory,
   storyViewed,
   onOpenStory,
@@ -89,7 +92,7 @@ export function ProfileSheet({
   return (
     <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
-        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
+        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 pb-4 pt-[calc(var(--gc-safe-top)+12px)]">
           <div className="flex min-w-0 items-center gap-3">
             {hasStory && onOpenStory ? (
               <button
@@ -186,18 +189,6 @@ export function ProfileSheet({
             </div>
           ) : null}
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <StatsWidget label="Streak" tone="brand" value={`${user.currentStreak}d`} detail="atual" />
-            <StatsWidget label="Maior" tone="blue" value={`${user.longestStreak}d`} detail="recorde" />
-            <StatsWidget label="Treinos" tone="brand" value={String(user.workoutsThisMonth)} detail="mês" />
-            <StatsWidget
-              label="Check-ins"
-              tone="blue"
-              value={String(user.checkInsCount)}
-              detail="locais"
-            />
-          </div>
-
           <div className="mt-5">
             {!canSeePosts ? (
               <PrivateLockedNotice latestPost={latestPost} userIsPrivate={user.isPrivate} />
@@ -214,16 +205,16 @@ export function ProfileSheet({
                 ) : (
                   <div className="grid grid-cols-3 gap-1.5">
                     {posts.map((post) => (
-                      <div
-                        className="relative aspect-square overflow-hidden rounded-[14px] bg-zinc-950"
+                      <button
+                        aria-label={`Abrir post ${post.mediaType === "video" ? "em vídeo" : "com foto"}`}
+                        className="gc-pressable relative aspect-square w-full overflow-hidden rounded-[14px] bg-zinc-950 text-left"
                         key={post.id}
+                        onClick={() => onOpenPost?.(post.id)}
+                        type="button"
                       >
                         {post.mediaType === "video" ? (
-                          <video
+                          <VideoThumbnail
                             className="h-full w-full object-cover"
-                            muted
-                            playsInline
-                            preload="metadata"
                             src={post.imageUrl}
                           />
                         ) : (
@@ -235,13 +226,18 @@ export function ProfileSheet({
                             src={post.imageUrl}
                           />
                         )}
+                        {post.mediaType === "video" ? (
+                          <span className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/58 text-white backdrop-blur-md">
+                            <Play size={12} fill="currentColor" strokeWidth={2.4} />
+                          </span>
+                        ) : null}
                         <div className="absolute bottom-1 left-1 right-1 flex items-center gap-1 rounded-full bg-black/52 px-2 py-0.5 backdrop-blur-md">
                           <CheckCircle2 className="text-[var(--gc-brand)]" size={10} />
                           <span className="truncate text-[10px] font-black text-white/82">
                             {post.workoutType ?? "Treino"}
                           </span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -283,11 +279,8 @@ function PrivateLockedNotice({
       {latestPost ? (
         <div className="relative mx-auto mt-4 aspect-square w-full max-w-[220px] overflow-hidden rounded-[20px] border border-white/[0.08]">
           {latestPost.mediaType === "video" ? (
-            <video
+            <VideoThumbnail
               className="h-full w-full object-cover"
-              muted
-              playsInline
-              preload="metadata"
               src={latestPost.imageUrl}
             />
           ) : (
@@ -299,6 +292,11 @@ function PrivateLockedNotice({
               src={latestPost.imageUrl}
             />
           )}
+          {latestPost.mediaType === "video" ? (
+            <span className="absolute right-2 top-2 grid size-7 place-items-center rounded-full bg-black/58 text-white backdrop-blur-md">
+              <Play size={13} fill="currentColor" strokeWidth={2.4} />
+            </span>
+          ) : null}
           <div className="absolute bottom-2 left-2 rounded-full bg-black/64 px-2 py-1 text-[10px] font-black text-white/82 backdrop-blur-md">
             Último treino
           </div>

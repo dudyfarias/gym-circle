@@ -20,6 +20,40 @@ function createClientMockWithRpcSequence(
   };
 }
 
+function createDeleteConversationClientMock(conversationId: string | null) {
+  const conversationsQuery = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: conversationId ? { id: conversationId } : null,
+      error: null,
+    }),
+  };
+  const participantsQuery = {
+    update: vi.fn().mockReturnThis(),
+    match: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+  const from = vi.fn((table: string) =>
+    table === "conversations" ? conversationsQuery : participantsQuery,
+  );
+  return {
+    client: {
+      from,
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: {
+          code: "PGRST202",
+          message:
+            "Could not find the function public.delete_direct_conversation_for_me in the schema cache",
+        },
+      }),
+    } as unknown as GymCircleClient,
+    conversationsQuery,
+    participantsQuery,
+    from,
+  };
+}
+
 const messageRow = {
   id: "message-1",
   conversation_id: "conversation-1",
@@ -164,5 +198,54 @@ describe("messageService.sendDirect", () => {
       service.sendDirect("user-a", { receiverId: "user-a", body: "oi" }),
     ).rejects.toThrow("não dá para mandar mensagem para si mesmo");
     expect(client.rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("messageService.deleteConversationForMe", () => {
+  it("deletes the current participant conversation through the RPC", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({ data: "conversation-1", error: null }),
+      from: vi.fn(),
+    } as unknown as GymCircleClient & {
+      rpc: ReturnType<typeof vi.fn>;
+      from: ReturnType<typeof vi.fn>;
+    };
+    const service = messageService(client);
+
+    await service.deleteConversationForMe("user-a", "user-b");
+
+    expect(client.rpc).toHaveBeenCalledWith("delete_direct_conversation_for_me", {
+      p_other_user_id: "user-b",
+    });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
+  it("falls back to marking only the current participant while migrations catch up", async () => {
+    const { client, conversationsQuery, participantsQuery } =
+      createDeleteConversationClientMock("conversation-1");
+    const service = messageService(client);
+
+    await service.deleteConversationForMe("user-a", "user-b");
+
+    expect(conversationsQuery.eq).toHaveBeenCalledWith("direct_key", "user-a:user-b");
+    expect(participantsQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deleted_at: expect.any(String),
+        last_read_at: expect.any(String),
+      }),
+    );
+    expect(participantsQuery.match).toHaveBeenCalledWith({
+      conversation_id: "conversation-1",
+      user_id: "user-a",
+    });
+  });
+
+  it("does nothing when the direct conversation does not exist", async () => {
+    const { client, participantsQuery } = createDeleteConversationClientMock(null);
+    const service = messageService(client);
+
+    await service.deleteConversationForMe("user-a", "user-b");
+
+    expect(participantsQuery.update).not.toHaveBeenCalled();
   });
 });

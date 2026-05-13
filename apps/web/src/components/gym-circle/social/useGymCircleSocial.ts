@@ -36,6 +36,7 @@ import type {
 type SocialAction =
   | { type: "like-post"; postId: string }
   | { type: "comment-post"; postId: string; body: string }
+  | { type: "delete-comment"; postId: string; commentId: string }
   | { type: "toggle-follow"; userId: string }
   | { type: "view-story"; storyId: string }
   | { type: "like-story"; storyId: string }
@@ -49,7 +50,8 @@ type SocialAction =
   | { type: "reject-follow-request"; requesterId: string }
   | { type: "update-profile"; input: ProfileEditInput }
   | { type: "send-chat-message"; input: SendChatMessageInput }
-  | { type: "mark-chat-thread-read"; userId: string };
+  | { type: "mark-chat-thread-read"; userId: string }
+  | { type: "delete-chat-conversation"; userId: string };
 
 function formatPostClock(createdAt: string) {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -194,6 +196,25 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
               }
             : post,
         ),
+      };
+    }
+
+    case "delete-comment": {
+      return {
+        ...state,
+        posts: state.posts.map((post) => {
+          if (post.id !== action.postId) return post;
+          return {
+            ...post,
+            comments: post.comments.filter(
+              (comment) =>
+                !(
+                  comment.id === action.commentId &&
+                  comment.userId === state.currentUserId
+                ),
+            ),
+          };
+        }),
       };
     }
 
@@ -518,6 +539,21 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       };
     }
 
+    case "delete-chat-conversation": {
+      return {
+        ...state,
+        chatMessages: state.chatMessages.filter(
+          (message) =>
+            !(
+              (message.senderId === state.currentUserId &&
+                message.receiverId === action.userId) ||
+              (message.senderId === action.userId &&
+                message.receiverId === state.currentUserId)
+            ),
+        ),
+      };
+    }
+
     default:
       return state;
   }
@@ -542,20 +578,28 @@ export function useGymCircleSocial() {
     }, 2200);
   }, []);
 
-  const feedPosts = useMemo<EnrichedPost[]>(() => {
+  const profilePosts = useMemo<EnrichedPost[]>(() => {
     return state.posts
-      .filter((post) => {
-        if (post.userId === state.currentUserId) return true;
-        return state.users[post.userId]?.followStatus === "accepted";
-      })
       .map((post) => {
         const author = withStreakPresence(state.users[post.userId], state);
         const smartScore = getSmartScore(post, author, currentUser);
 
+        const latestCommentPreviews = post.comments.slice(-2);
+        const ownOlderPreview = [...post.comments]
+          .reverse()
+          .find(
+            (comment) =>
+              comment.userId === state.currentUserId &&
+              !latestCommentPreviews.some((preview) => preview.id === comment.id),
+          );
+
         return {
           ...post,
           author,
-          commentPreviews: post.comments.slice(-2).map((comment) => ({
+          commentPreviews: (ownOlderPreview
+            ? [ownOlderPreview, ...latestCommentPreviews]
+            : latestCommentPreviews
+          ).map((comment) => ({
             ...comment,
             author: withStreakPresence(state.users[comment.userId], state),
           })),
@@ -566,6 +610,15 @@ export function useGymCircleSocial() {
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [currentUser, state]);
+
+  const feedPosts = useMemo<EnrichedPost[]>(
+    () =>
+      profilePosts.filter((post) => {
+        if (post.userId === state.currentUserId) return true;
+        return state.users[post.userId]?.followStatus === "accepted";
+      }),
+    [profilePosts, state.currentUserId, state.users],
+  );
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     return sortStoriesNewestFirst(
@@ -654,6 +707,10 @@ export function useGymCircleSocial() {
       commentPost(postId: string, body: string) {
         dispatch({ type: "comment-post", postId, body });
         showFeedback("comment", "Comentário publicado");
+      },
+      deleteComment(postId: string, commentId: string) {
+        dispatch({ type: "delete-comment", postId, commentId });
+        showFeedback("success", "Comentário apagado");
       },
       toggleFollow(userId: string) {
         const user = state.users[userId];
@@ -752,6 +809,10 @@ export function useGymCircleSocial() {
       async markChatThreadRead(userId: string) {
         dispatch({ type: "mark-chat-thread-read", userId });
       },
+      async deleteChatConversation(userId: string) {
+        dispatch({ type: "delete-chat-conversation", userId });
+        showFeedback("success", "Conversa apagada", state.users[userId]?.name);
+      },
       async acceptFollowRequest(requesterId: string) {
         const requester = state.users[requesterId];
         dispatch({ type: "accept-follow-request", requesterId });
@@ -777,6 +838,7 @@ export function useGymCircleSocial() {
     users: state.users,
     gyms,
     feedPosts,
+    profilePosts,
     storyBubbles,
     selectedStory,
     suggestedUsers,

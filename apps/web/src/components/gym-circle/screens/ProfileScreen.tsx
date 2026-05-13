@@ -7,10 +7,12 @@ import {
   LogOut,
   MapPin,
   Pencil,
+  Play,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { VideoThumbnail } from "../design-system";
 import type { MonthlyRecap } from "../social/monthlyRecap";
 import { calculateProfileCompletion } from "../social/profile";
 import { getStreakLevel } from "../social/streak";
@@ -41,6 +43,7 @@ type ProfileScreenProps = {
   onOpenStory?: () => void;
   monthlyRecap: MonthlyRecap;
   onOpenMonthlyRecap?: () => void;
+  onOpenPost?: (postId: string) => void;
 };
 
 /**
@@ -61,6 +64,7 @@ export function ProfileScreen({
   onOpenStory,
   monthlyRecap,
   onOpenMonthlyRecap,
+  onOpenPost,
 }: ProfileScreenProps) {
   const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
@@ -220,7 +224,7 @@ export function ProfileScreen({
       </button>
 
       {/* Posts grid — protagonista */}
-      <PostsGrid posts={posts} />
+      <PostsGrid onOpenPost={onOpenPost} posts={posts} />
 
       {/* Excluir conta — pequeno, no fim */}
       {onRequestAccountDeletion ? (
@@ -250,7 +254,13 @@ function ProfileStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function PostsGrid({ posts }: { posts: EnrichedPost[] }) {
+function PostsGrid({
+  posts,
+  onOpenPost,
+}: {
+  posts: EnrichedPost[];
+  onOpenPost?: (postId: string) => void;
+}) {
   if (posts.length === 0) {
     return (
       <div className="mt-6 grid place-items-center rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] py-14 text-center">
@@ -266,22 +276,30 @@ function PostsGrid({ posts }: { posts: EnrichedPost[] }) {
     <div className="-mx-5 mt-6">
       <div className="grid grid-cols-3 gap-[2px]">
         {posts.map((post) => (
-          <PostThumb key={post.id} post={post} />
+          <PostThumb key={post.id} onOpenPost={onOpenPost} post={post} />
         ))}
       </div>
     </div>
   );
 }
 
-function PostThumb({ post }: { post: EnrichedPost }) {
+function PostThumb({
+  post,
+  onOpenPost,
+}: {
+  post: EnrichedPost;
+  onOpenPost?: (postId: string) => void;
+}) {
   return (
-    <div className="relative aspect-square overflow-hidden bg-zinc-950">
+    <button
+      aria-label={`Abrir post ${post.mediaType === "video" ? "em vídeo" : "com foto"}`}
+      className="gc-pressable relative aspect-square w-full overflow-hidden bg-zinc-950 text-left"
+      onClick={() => onOpenPost?.(post.id)}
+      type="button"
+    >
       {post.mediaType === "video" ? (
-        <video
+        <VideoThumbnail
           className="h-full w-full object-cover"
-          muted
-          playsInline
-          preload="metadata"
           src={post.imageUrl}
         />
       ) : (
@@ -293,6 +311,11 @@ function PostThumb({ post }: { post: EnrichedPost }) {
           src={post.imageUrl}
         />
       )}
-    </div>
+      {post.mediaType === "video" ? (
+        <span className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/58 text-white backdrop-blur-md">
+          <Play size={12} fill="currentColor" strokeWidth={2.4} />
+        </span>
+      ) : null}
+    </button>
   );
 }

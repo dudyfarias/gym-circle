@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   CheckinRow,
+  ConversationParticipantRow,
   DirectMessageRow,
   FeedPostRow,
   FollowRow,
@@ -137,6 +138,7 @@ type AggregateState = {
   checkinsToday: CheckinRow[];
   myActivityDays: UserActivityDayRow[];
   myNotifications: NotificationRow[];
+  conversationParticipants: ConversationParticipantRow[];
   chatMessages: DirectMessageRow[];
   /** IDs que EU bloqueei. Filtramos feed/stories/profiles/comments/messages. */
   blockedUserIds: string[];
@@ -160,6 +162,7 @@ const EMPTY: AggregateState = {
   checkinsToday: [],
   myActivityDays: [],
   myNotifications: [],
+  conversationParticipants: [],
   chatMessages: [],
   blockedUserIds: [],
   mutedPostUserIds: [],
@@ -206,6 +209,8 @@ function optionalStorySocialRows<T>(
 }
 
 const VIEWED_STORIES_STORAGE_PREFIX = "gym-circle:viewed-stories:";
+const HIDDEN_DIRECT_CONVERSATIONS_STORAGE_PREFIX =
+  "gym-circle:hidden-direct-conversations:";
 const MAX_STORED_VIEWED_STORIES = 500;
 
 function getViewedStoriesStorageKey(userId: string) {
@@ -238,6 +243,47 @@ function persistStoredViewedStoryIds(userId: string, ids: Set<string>) {
     );
   } catch {
     // ignorar — fail-soft
+  }
+}
+
+function getHiddenDirectConversationsStorageKey(userId: string) {
+  return `${HIDDEN_DIRECT_CONVERSATIONS_STORAGE_PREFIX}${userId}`;
+}
+
+function loadStoredHiddenDirectConversations(userId: string) {
+  if (typeof window === "undefined") return {} as Record<string, string>;
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(getHiddenDirectConversationsStorageKey(userId)) ??
+        "{}",
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {} as Record<string, string>;
+    }
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        ([otherUserId, deletedAt]) =>
+          typeof otherUserId === "string" && typeof deletedAt === "string",
+      ),
+    ) as Record<string, string>;
+  } catch {
+    return {} as Record<string, string>;
+  }
+}
+
+function persistStoredHiddenDirectConversations(
+  userId: string,
+  value: Record<string, string>,
+) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      getHiddenDirectConversationsStorageKey(userId),
+      JSON.stringify(value),
+    );
+  } catch {
+    // Fail-soft: se localStorage estiver bloqueado, o servidor ainda cuida
+    // do delete-for-me quando a migration já está aplicada.
   }
 }
 
@@ -292,6 +338,7 @@ export type SupabaseSocialResult = {
   users: Record<string, GymUser>;
   gyms: GymLocationOption[];
   feedPosts: EnrichedPost[];
+  profilePosts: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   selectedStory: EnrichedStory | null;
   suggestedUsers: EnrichedUser[];
@@ -321,9 +368,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() =>
     loadStoredViewedStoryIds(currentUserId),
   );
+  const [hiddenDirectConversations, setHiddenDirectConversations] = useState<
+    Record<string, string>
+  >(() => loadStoredHiddenDirectConversations(currentUserId));
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const mountedRef = useRef(true);
   const analyticsBootRef = useRef(false);
+  const refreshTimerRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -338,6 +389,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
+        conversationParticipantsRes,
         chatMessagesRes,
         blocksRes,
         postMutesRes,
@@ -347,7 +399,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         services.client.from("gyms").select("*"),
         services.client.from("user_gyms").select("*"),
         services.client.from("follows").select("*"),
-        services.client.from("feed_posts").select("*").order("created_at", { ascending: false }).limit(40),
+        services.client
+          .from("feed_posts")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(200),
         services.client
           .from("stories")
           .select("*")
@@ -368,6 +424,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .eq("user_id", currentUserId)
           .order("created_at", { ascending: false })
           .limit(50),
+        services.client
+          .from("conversation_participants")
+          .select("*")
+          .eq("user_id", currentUserId),
         services.client
           .from("direct_messages")
           .select("*")
@@ -401,6 +461,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         myActivityRes,
         checkinsTodayRes,
         myNotificationsRes,
+        conversationParticipantsRes,
         chatMessagesRes,
         blocksRes,
         postMutesRes,
@@ -482,6 +543,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
         myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
         myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
+        conversationParticipants: (conversationParticipantsRes.data ??
+          []) as ConversationParticipantRow[],
         chatMessages: (chatMessagesRes.data ?? []) as DirectMessageRow[],
         blockedUserIds,
         mutedPostUserIds,
@@ -494,6 +557,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }
   }, [services, currentUserId]);
 
+  const scheduleRefresh = useCallback(() => {
+    if (refreshTimerRef.current !== null) {
+      window.clearTimeout(refreshTimerRef.current);
+    }
+    refreshTimerRef.current = window.setTimeout(() => {
+      refreshTimerRef.current = null;
+      void refresh();
+    }, 220);
+  }, [refresh]);
+
   useEffect(() => {
     mountedRef.current = true;
     const refreshId = window.setTimeout(() => {
@@ -501,19 +574,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }, 0);
     const channel = services.client
       .channel("supabase-social")
-      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "story_likes" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "story_mutes" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_mutes" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants" }, () => refresh())
+      .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "story_likes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "story_mutes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_mutes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants" }, scheduleRefresh)
       .on(
         "postgres_changes",
         {
@@ -522,15 +595,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           table: "notifications",
           filter: `user_id=eq.${currentUserId}`,
         },
-        () => refresh(),
+        scheduleRefresh,
       )
       .subscribe();
     return () => {
       window.clearTimeout(refreshId);
+      if (refreshTimerRef.current !== null) {
+        window.clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
       mountedRef.current = false;
       services.client.removeChannel(channel);
     };
-  }, [services, refresh, currentUserId]);
+  }, [services, refresh, scheduleRefresh, currentUserId]);
 
   const showFeedback = useCallback(
     (tone: FeedbackTone, title: string, detail?: string) => {
@@ -717,7 +794,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [agg.gyms],
   );
 
-  const feedPosts = useMemo<EnrichedPost[]>(() => {
+  const profilePosts = useMemo<EnrichedPost[]>(() => {
     if (!agg.feedPosts.length) return [];
     const myLikedSet = new Set(
       agg.postLikes.filter((l) => l.user_id === currentUserId).map((l) => l.post_id),
@@ -736,22 +813,29 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }
 
     return agg.feedPosts
-      // Esconde posts cujo autor está bloqueado ou silenciado pra feed.
-      // Próprio usuário sempre passa (preciso ver meu próprio post).
-      // Block: Apple Guideline 1.2 — esconder TODO conteúdo do bloqueado.
-      // Mute: alternativa menos drástica, só esconde no feed.
+      // Histórico de perfil usa tudo que a RLS/view deixa o usuário ver.
+      // O home feed continua filtrado abaixo para seguir-only.
       .filter((row) => {
         if (row.user_id === currentUserId) return true;
         if (blockedSet.has(row.user_id)) return false;
-        if (mutedPostAuthorsSet.has(row.user_id)) return false;
-        const author = enrichedAll.get(row.user_id);
-        return author?.followStatus === "accepted";
+        return Boolean(enrichedAll.get(row.user_id));
       })
       .map((row) => {
         const author = enrichedAll.get(row.user_id) ?? currentUser;
         const likesCount = row.likes_count ?? 0;
         const postComments = commentsByPost.get(row.id) ?? [];
-        const commentPreviews = postComments.slice(-2).map((c) => ({
+        const latestCommentPreviews = postComments.slice(-2);
+        const ownOlderPreview = [...postComments]
+          .reverse()
+          .find(
+            (comment) =>
+              comment.user_id === currentUserId &&
+              !latestCommentPreviews.some((preview) => preview.id === comment.id),
+          );
+        const commentPreviews = (ownOlderPreview
+          ? [ownOlderPreview, ...latestCommentPreviews]
+          : latestCommentPreviews
+        ).map((c) => ({
           id: c.id,
           postId: c.post_id,
           userId: c.user_id,
@@ -805,7 +889,17 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         };
       })
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [agg, enrichedAll, currentUser, currentUserId, blockedSet, mutedPostAuthorsSet]);
+  }, [agg, enrichedAll, currentUser, currentUserId, blockedSet]);
+
+  const feedPosts = useMemo<EnrichedPost[]>(
+    () =>
+      profilePosts.filter((post) => {
+        if (post.userId === currentUserId) return true;
+        if (mutedPostAuthorsSet.has(post.userId)) return false;
+        return post.author.followStatus === "accepted";
+      }),
+    [currentUserId, mutedPostAuthorsSet, profilePosts],
+  );
 
   const storyBubbles = useMemo<EnrichedStory[]>(() => {
     const out: EnrichedStory[] = [];
@@ -896,18 +990,36 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [agg.feedPosts, agg.stories, agg.checkinsToday, currentUser.workoutDays],
   );
 
-  const chatMessages = useMemo<ChatMessage[]>(
-    () =>
-      agg.chatMessages
-        // Mensagens de/para usuários bloqueados não aparecem no chat.
-        // Eu também não consigo enviar — RPC do server bloqueia (já tratado
-        // em outros lugares por RLS de safety/messages). Aqui só hide UI.
-        .filter(
-          (message) =>
-            !blockedSet.has(message.sender_id) &&
-            !blockedSet.has(message.receiver_id),
-        )
-        .map((message) => ({
+  const chatMessages = useMemo<ChatMessage[]>(() => {
+    const deletedByConversation = new Map(
+      agg.conversationParticipants
+        .filter((participant) => Boolean(participant.deleted_at))
+        .map((participant) => [
+          participant.conversation_id,
+          new Date(participant.deleted_at as string).getTime(),
+        ]),
+    );
+
+    return agg.chatMessages
+      // Mensagens de/para usuários bloqueados não aparecem no chat.
+      // Eu também não consigo enviar — RPC do server bloqueia (já tratado
+      // em outros lugares por RLS de safety/messages). Aqui só hide UI.
+      .filter((message) => {
+        if (blockedSet.has(message.sender_id) || blockedSet.has(message.receiver_id)) {
+          return false;
+        }
+        const deletedAt = message.conversation_id
+          ? deletedByConversation.get(message.conversation_id)
+          : null;
+        const otherUserId =
+          message.sender_id === currentUserId ? message.receiver_id : message.sender_id;
+        const locallyDeletedAt = hiddenDirectConversations[otherUserId]
+          ? new Date(hiddenDirectConversations[otherUserId]).getTime()
+          : null;
+        const effectiveDeletedAt = Math.max(deletedAt ?? 0, locallyDeletedAt ?? 0);
+        return !effectiveDeletedAt || new Date(message.created_at).getTime() > effectiveDeletedAt;
+      })
+      .map((message) => ({
           id: message.id,
           conversationId: message.conversation_id,
           senderId: message.sender_id,
@@ -920,14 +1032,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           storyPreviewUrl: message.story_preview_url,
           createdAt: message.created_at,
           readAt: message.read_at,
-        })),
-    [agg.chatMessages, blockedSet],
-  );
+        }));
+  }, [
+    agg.chatMessages,
+    agg.conversationParticipants,
+    blockedSet,
+    currentUserId,
+    hiddenDirectConversations,
+  ]);
 
   const actions = useMemo<SupabaseSocialActions>(
     () => ({
       async likePost(postId: string) {
-        const post = feedPosts.find((p) => p.id === postId);
+        const post = profilePosts.find((p) => p.id === postId);
         const liked = post?.likedByCurrentUser ?? false;
         const optimisticLike: PostLikeRow = {
           post_id: postId,
@@ -993,6 +1110,33 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       async commentPost(postId: string, body: string) {
         await services.posts.comment(postId, currentUserId, body);
         showFeedback("comment", "Comentário publicado");
+      },
+      async deleteComment(postId: string, commentId: string) {
+        const wasMine = agg.postComments.some(
+          (comment) => comment.id === commentId && comment.user_id === currentUserId,
+        );
+        if (!wasMine) return;
+
+        setAgg((current) => ({
+          ...current,
+          postComments: current.postComments.filter((comment) => comment.id !== commentId),
+          feedPosts: current.feedPosts.map((row) =>
+            row.id === postId
+              ? {
+                  ...row,
+                  comments_count: Math.max(0, (row.comments_count ?? 0) - 1),
+                }
+              : row,
+          ),
+        }));
+
+        try {
+          await services.posts.deleteComment(commentId, currentUserId);
+          showFeedback("success", "Comentário apagado");
+        } catch (err) {
+          await refresh();
+          throw err;
+        }
       },
       async toggleFollow(userId: string) {
         const target = enrichedAll.get(userId);
@@ -1279,8 +1423,45 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
       },
       async markChatThreadRead(userId: string) {
+        void services.analytics.trackSafe(currentUserId, "conversation_opened", {
+          other_user_id: userId,
+        });
         await services.messages.markDirectRead(currentUserId, userId);
         await refresh();
+      },
+      async deleteChatConversation(userId: string) {
+        const target = enrichedAll.get(userId);
+        const now = new Date().toISOString();
+        const isThreadMessage = (message: DirectMessageRow) =>
+          (message.sender_id === currentUserId && message.receiver_id === userId) ||
+          (message.sender_id === userId && message.receiver_id === currentUserId);
+        const conversationId = agg.chatMessages.find(isThreadMessage)?.conversation_id ?? null;
+
+        setHiddenDirectConversations((current) => {
+          const next = { ...current, [userId]: now };
+          persistStoredHiddenDirectConversations(currentUserId, next);
+          return next;
+        });
+        setAgg((current) => ({
+          ...current,
+          chatMessages: current.chatMessages.filter((message) => !isThreadMessage(message)),
+          conversationParticipants: conversationId
+            ? current.conversationParticipants.map((participant) =>
+                participant.conversation_id === conversationId &&
+                participant.user_id === currentUserId
+                  ? { ...participant, deleted_at: now, last_read_at: now }
+                  : participant,
+              )
+            : current.conversationParticipants,
+        }));
+
+        try {
+          await services.messages.deleteConversationForMe(currentUserId, userId);
+          showFeedback("success", "Conversa apagada", target?.name);
+          await refresh();
+        } catch {
+          showFeedback("success", "Conversa apagada", target?.name);
+        }
       },
       async signOut() {
         await services.auth.signOut();
@@ -1358,13 +1539,24 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("success", "Perfil pronto para alpha");
       },
     }),
-    [services, currentUserId, feedPosts, storyBubbles, enrichedAll, agg.gyms, refresh, showFeedback],
+    [
+      services,
+      currentUserId,
+      profilePosts,
+      storyBubbles,
+      enrichedAll,
+      agg.gyms,
+      agg.postComments,
+      agg.chatMessages,
+      refresh,
+      showFeedback,
+    ],
   );
 
   useEffect(() => {
     if (analyticsBootRef.current || loading || !currentUser.createdAt) return;
     analyticsBootRef.current = true;
-    void services.analytics.track(currentUserId, "app_opened").catch(() => undefined);
+    void services.analytics.trackSafe(currentUserId, "app_opened");
     void services.analytics
       .trackDay1RetentionIfEligible(currentUserId, currentUser.createdAt)
       .catch(() => undefined);
@@ -1376,8 +1568,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const unreadMessages = useMemo(
-    () => agg.chatMessages.filter((m) => m.receiver_id === currentUserId && !m.read_at).length,
-    [agg.chatMessages, currentUserId],
+    () => chatMessages.filter((message) => message.receiverId === currentUserId && !message.readAt).length,
+    [chatMessages, currentUserId],
   );
 
   return {
@@ -1385,6 +1577,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     users: usersRecord,
     gyms: gymOptions,
     feedPosts,
+    profilePosts,
     storyBubbles,
     selectedStory,
     suggestedUsers,

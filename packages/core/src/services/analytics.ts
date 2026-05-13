@@ -6,11 +6,14 @@ export type AnalyticsEventName =
   | "signup_completed"
   | "profile_completed"
   | "first_post_created"
+  | "post_created"
   | "streak_lit"
   | "follow_created"
   | "like_created"
   | "comment_created"
   | "story_created"
+  | "message_sent"
+  | "conversation_opened"
   | "checkin_created"
   | "day_1_retention"
   | "app_opened";
@@ -34,6 +37,18 @@ export function analyticsService(client: GymCircleClient) {
         .single();
       if (error) throw error;
       return data;
+    },
+
+    async trackSafe(
+      userId: string,
+      eventName: AnalyticsEventName,
+      metadata: Json = {},
+    ): Promise<void> {
+      try {
+        await this.track(userId, eventName, metadata);
+      } catch {
+        // Analytics nunca pode quebrar o loop social principal.
+      }
     },
 
     async trackDay1RetentionIfEligible(userId: string, signupCreatedAt: string): Promise<void> {

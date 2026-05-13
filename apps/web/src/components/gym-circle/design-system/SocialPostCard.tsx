@@ -22,6 +22,7 @@ import { MentionText } from "../MentionText";
 import type { EnrichedPost } from "../social/types";
 import { EmptyState } from "./EmptyState";
 import { StreakBadge } from "./StreakBadge";
+import { SwipeRevealDelete } from "./SwipeRevealDelete";
 
 type SocialPostCardProps = {
   post: EnrichedPost;
@@ -29,6 +30,7 @@ type SocialPostCardProps = {
   formatTime: (createdAt: string) => string;
   onLike: (postId: string) => void;
   onComment: (postId: string, body: string) => void;
+  onDeleteComment?: (postId: string, commentId: string) => void;
   onToggleFollow: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
@@ -42,6 +44,7 @@ export function SocialPostCard({
   formatTime,
   onLike,
   onComment,
+  onDeleteComment,
   onToggleFollow,
   onSelectUser,
   resolveUser,
@@ -357,29 +360,50 @@ export function SocialPostCard({
         {commentsOpen ? (
           <div className="space-y-3 rounded-[24px] border border-white/[0.06] bg-white/[0.035] p-3">
             {post.commentPreviews.length > 0 ? (
-              post.commentPreviews.map((comment) => (
-                <div className="text-[13px] font-semibold leading-5 text-white/70" key={comment.id}>
-                  <div className="inline-flex min-w-0 items-center gap-1.5 align-middle">
-                    <button
-                      className="gc-pressable font-black text-white"
-                      onClick={() => onSelectUser?.(comment.author.id)}
-                      type="button"
-                    >
-                      {comment.author.username}
-                    </button>
-                    <StreakBadge
-                      isLit={comment.author.streakLitToday}
-                      size="xs"
-                      streak={comment.author.currentStreak}
-                    />
-                  </div>{" "}
-                  <MentionText
-                    onSelectUser={onSelectUser}
-                    resolveUser={resolveUser}
-                    text={comment.body}
-                  />
-                </div>
-              ))
+              post.commentPreviews.map((comment) => {
+                const commentContent = (
+                  <div className="flex items-start gap-2 rounded-[18px] px-1 py-1">
+                    <div className="min-w-0 flex-1 text-[13px] font-semibold leading-5 text-white/70">
+                      <div className="inline-flex min-w-0 items-center gap-1.5 align-middle">
+                        <button
+                          className="gc-pressable font-black text-white"
+                          onClick={() => onSelectUser?.(comment.author.id)}
+                          type="button"
+                        >
+                          {comment.author.username}
+                        </button>
+                        <StreakBadge
+                          isLit={comment.author.streakLitToday}
+                          size="xs"
+                          streak={comment.author.currentStreak}
+                        />
+                      </div>{" "}
+                      <MentionText
+                        onSelectUser={onSelectUser}
+                        resolveUser={resolveUser}
+                        text={comment.body}
+                      />
+                    </div>
+                  </div>
+                );
+
+                if (comment.userId !== currentUserId || !onDeleteComment) {
+                  return <div key={comment.id}>{commentContent}</div>;
+                }
+
+                return (
+                  <SwipeRevealDelete
+                    className="rounded-[18px]"
+                    contentClassName="rounded-[18px] bg-[#111214]"
+                    deleteLabel="Apagar comentário"
+                    key={comment.id}
+                    onDelete={() => onDeleteComment(post.id, comment.id)}
+                    revealWidth={58}
+                  >
+                    {commentContent}
+                  </SwipeRevealDelete>
+                );
+              })
             ) : (
               <EmptyState
                 detail="Comece a conversa com uma mensagem rápida."

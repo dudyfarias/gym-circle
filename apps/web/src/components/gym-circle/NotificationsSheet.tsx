@@ -5,9 +5,11 @@ import {
   AtSign,
   BellRing,
   Check,
+  Flame,
   Heart,
   Loader2,
   MessageCircle,
+  Sparkles,
   UserCheck,
   UserPlus,
   X,
@@ -36,6 +38,9 @@ const KIND_ICON = {
   follow_request: BellRing,
   story_like: Heart,
   story_reply: MessageCircle,
+  new_message: MessageCircle,
+  new_story: Sparkles,
+  training_today: Flame,
 } as const;
 
 const KIND_LABEL = {
@@ -46,6 +51,9 @@ const KIND_LABEL = {
   follow_request: "quer te seguir",
   story_like: "curtiu seu story",
   story_reply: "respondeu seu story",
+  new_message: "enviou uma mensagem",
+  new_story: "postou um story",
+  training_today: "treinou hoje",
 } as const;
 
 const KIND_TONE = {
@@ -56,6 +64,9 @@ const KIND_TONE = {
   follow_request: "text-[var(--gc-brand)]",
   story_like: "text-[var(--gc-consistency-month)]",
   story_reply: "text-[var(--gc-brand)]",
+  new_message: "text-[var(--gc-brand)]",
+  new_story: "text-[var(--gc-consistency-month)]",
+  training_today: "text-[var(--gc-consistency-daily)]",
 } as const;
 
 type NotificationKind = keyof typeof KIND_ICON;
@@ -164,7 +175,7 @@ export function NotificationsSheet({
   return (
     <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
-        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
+        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 pb-4 pt-[calc(var(--gc-safe-top)+12px)]">
           <p className="text-[17px] font-black">Notificações</p>
           <button
             aria-label="Fechar"

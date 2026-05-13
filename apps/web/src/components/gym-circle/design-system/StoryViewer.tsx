@@ -273,7 +273,7 @@ function StoryViewerContent({
         onTouchEnd={handleTouchEnd}
         onTouchStart={handleTouchStart}
       >
-        <div className="absolute inset-x-4 top-4 z-20 h-1 overflow-hidden rounded-full bg-white/18">
+        <div className="absolute inset-x-4 top-[calc(var(--gc-safe-top)+10px)] z-20 h-1 overflow-hidden rounded-full bg-white/18">
           <div
             className="h-full rounded-full bg-white"
             key={story.id}
@@ -317,7 +317,7 @@ function StoryViewerContent({
           </div>
         ) : null}
 
-        <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-8">
+        <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-[calc(var(--gc-safe-top)+26px)]">
           <button
             className="gc-pressable flex min-w-0 items-center gap-3 text-left"
             onClick={(event) => {
@@ -387,7 +387,7 @@ function StoryViewerContent({
           />
         ) : null}
 
-        <div className="relative z-10 mt-auto space-y-4 p-5">
+        <div className="relative z-10 mt-auto space-y-4 p-5 pb-[calc(var(--gc-safe-bottom)+20px)]">
           <div>
             <p className="text-[13px] font-black uppercase text-white/48">
               {story.kind === "checkin" ? "Check-in" : "Treino"}

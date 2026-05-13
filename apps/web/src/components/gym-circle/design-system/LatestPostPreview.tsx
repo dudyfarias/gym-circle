@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Camera, MapPin, Video } from "lucide-react";
 import type { EnrichedPost } from "../social/types";
 import { AchievementBadge } from "./AchievementBadge";
+import { VideoThumbnail } from "./VideoThumbnail";
 
 type LatestPostPreviewProps = {
   post?: EnrichedPost;
@@ -38,11 +39,8 @@ export function LatestPostPreview({
     <section className="gc-ios-sheet overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.035]">
       <div className="relative aspect-[4/5] bg-zinc-950">
         {post.mediaType === "video" ? (
-          <video
+          <VideoThumbnail
             className="h-full w-full object-cover"
-            muted
-            playsInline
-            preload="metadata"
             src={post.imageUrl}
           />
         ) : (

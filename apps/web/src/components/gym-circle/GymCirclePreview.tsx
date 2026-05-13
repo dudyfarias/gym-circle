@@ -24,6 +24,7 @@ import { MonthlyRecapSheet } from "./MonthlyRecapSheet";
 import { NotificationsSheet } from "./NotificationsSheet";
 import { ConfirmSheet } from "./ConfirmSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
+import { PostDetailSheet } from "./PostDetailSheet";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 import { getAdjacentStoryId, getStoryForUser } from "./social/stories";
@@ -58,6 +59,7 @@ export function GymCirclePreview({
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [postDetailId, setPostDetailId] = useState<string | null>(null);
   const [chatTargetUserId, setChatTargetUserId] = useState<string | null>(null);
   // Sheet de confirmação genérico — substitui window.confirm em ações
   // destrutivas. `intent` decide qual handler dispara no botão "Confirmar".
@@ -151,6 +153,8 @@ export function GymCirclePreview({
   );
   const closePostMenu = useCallback(() => setPostMenuId(null), []);
   const closeEditPost = useCallback(() => setEditPostId(null), []);
+  const openPostDetail = useCallback((postId: string) => setPostDetailId(postId), []);
+  const closePostDetail = useCallback(() => setPostDetailId(null), []);
 
   const handleStartEditPost = useCallback(() => {
     if (!postMenuId) return;
@@ -166,12 +170,12 @@ export function GymCirclePreview({
 
   const editPostTarget: EnrichedPost | null = useMemo(() => {
     if (!editPostId) return null;
-    return social.feedPosts.find((p) => p.id === editPostId) ?? null;
-  }, [editPostId, social.feedPosts]);
+    return (social.profilePosts ?? social.feedPosts).find((p) => p.id === editPostId) ?? null;
+  }, [editPostId, social.feedPosts, social.profilePosts]);
   const postMenuTarget: EnrichedPost | null = useMemo(() => {
     if (!postMenuId) return null;
-    return social.feedPosts.find((p) => p.id === postMenuId) ?? null;
-  }, [postMenuId, social.feedPosts]);
+    return (social.profilePosts ?? social.feedPosts).find((p) => p.id === postMenuId) ?? null;
+  }, [postMenuId, social.feedPosts, social.profilePosts]);
 
   const hasDistancePosts = useMemo(
     () =>
@@ -185,11 +189,11 @@ export function GymCirclePreview({
     [social.currentUser.id, social.feedPosts],
   );
 
-  const feedPosts = useMemo<EnrichedPost[]>(() => {
+  const addViewerDistance = useCallback((posts: EnrichedPost[]) => {
     const viewerCoordinates = viewerLocation.coordinates;
-    if (!viewerCoordinates) return social.feedPosts;
+    if (!viewerCoordinates) return posts;
 
-    return social.feedPosts.map((post) => {
+    return posts.map((post) => {
       if (
         post.userId === social.currentUser.id ||
         post.locationSource !== "current" ||
@@ -211,7 +215,21 @@ export function GymCirclePreview({
         distanceLabel: `${formatDistanceKm(distanceKm)} de você`,
       };
     });
-  }, [social.currentUser.id, social.feedPosts, viewerLocation.coordinates]);
+  }, [social.currentUser.id, viewerLocation.coordinates]);
+
+  const feedPosts = useMemo<EnrichedPost[]>(
+    () => addViewerDistance(social.feedPosts),
+    [addViewerDistance, social.feedPosts],
+  );
+
+  const profilePosts = useMemo<EnrichedPost[]>(
+    () => addViewerDistance(social.profilePosts ?? social.feedPosts),
+    [addViewerDistance, social.feedPosts, social.profilePosts],
+  );
+  const postDetailTarget: EnrichedPost | null = useMemo(() => {
+    if (!postDetailId) return null;
+    return profilePosts.find((p) => p.id === postDetailId) ?? null;
+  }, [postDetailId, profilePosts]);
 
   const sheetContextValue = useMemo(
     () => ({
@@ -261,6 +279,50 @@ export function GymCirclePreview({
     const interval = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    if (social.currentUser.streakLitToday || social.currentUser.currentStreak <= 0) return;
+
+    const localHour = now.getHours();
+    if (localHour < 18) return;
+
+    const dayKey = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Sao_Paulo",
+    }).format(now);
+    const storageKey = `gym-circle:streak-risk-notified:${social.currentUser.id}:${dayKey}`;
+    try {
+      if (window.localStorage.getItem(storageKey)) return;
+      window.localStorage.setItem(storageKey, "1");
+    } catch {
+      // Sem localStorage, evita bloquear a UX; no máximo o aviso aparece de novo.
+    }
+
+    const title = "Seu círculo ainda está apagado";
+    const body = "Poste uma foto ou story do treino para manter sua presença de hoje.";
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready
+        .then((registration) =>
+          registration.showNotification(title, {
+            body,
+            icon: "/icons/icon-192.png",
+            badge: "/icons/icon-192.png",
+            tag: `streak-risk-${dayKey}`,
+          }),
+        )
+        .catch(() => {
+          new Notification(title, { body });
+        });
+      return;
+    }
+    new Notification(title, { body });
+  }, [
+    now,
+    social.currentUser.currentStreak,
+    social.currentUser.id,
+    social.currentUser.streakLitToday,
+  ]);
 
   const refresh = social.refresh;
   const triggerRefresh = useCallback(async () => {
@@ -353,11 +415,11 @@ export function GymCirclePreview({
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
   const profileSheetPosts = useMemo(() => {
     if (!profileOpenId) return [];
-    return feedPosts.filter((p) => p.userId === profileOpenId);
-  }, [feedPosts, profileOpenId]);
+    return profilePosts.filter((p) => p.userId === profileOpenId);
+  }, [profilePosts, profileOpenId]);
   const currentUserPosts = useMemo(
-    () => feedPosts.filter((p) => p.userId === social.currentUser.id),
-    [feedPosts, social.currentUser.id],
+    () => profilePosts.filter((p) => p.userId === social.currentUser.id),
+    [profilePosts, social.currentUser.id],
   );
   const monthlyRecap = useMemo(
     () => buildMonthlyRecap({ now, posts: currentUserPosts, user: social.currentUser }),
@@ -440,6 +502,7 @@ export function GymCirclePreview({
             onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
             posts={currentUserPosts}
+            onOpenPost={openPostDetail}
             monthlyRecap={monthlyRecap}
             onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
             hasStory={Boolean(currentUserStory)}
@@ -456,6 +519,7 @@ export function GymCirclePreview({
           <ChatScreen
             messages={social.chatMessages ?? []}
             currentUser={social.currentUser}
+            onDeleteConversation={social.actions.deleteChatConversation}
             onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
             onSelectedUserIdChange={setChatTargetUserId}
@@ -501,6 +565,7 @@ export function GymCirclePreview({
             hasDistancePosts={hasDistancePosts}
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
+            onDeleteComment={social.actions.deleteComment}
             onLikePost={social.actions.likePost}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
@@ -530,6 +595,7 @@ export function GymCirclePreview({
     openAdmin,
     openSearch,
     openProfile,
+    openPostDetail,
     resolveUser,
     openPostMenu,
     currentUserPosts,
@@ -632,8 +698,26 @@ export function GymCirclePreview({
             }
             onToggleFollow={social.actions.toggleFollow}
             open={profileOpenId !== null}
+            onOpenPost={openPostDetail}
             posts={profileSheetPosts}
             user={profileSheetUser}
+          />
+          <PostDetailSheet
+            currentUserId={social.currentUser.id}
+            formatTime={social.formatPostClock}
+            onClose={closePostDetail}
+            onCommentPost={social.actions.commentPost}
+            onDeleteComment={social.actions.deleteComment}
+            onLikePost={social.actions.likePost}
+            onOpenPostMenu={openPostMenu}
+            onSelectUser={(userId) => {
+              closePostDetail();
+              openProfile(userId);
+            }}
+            onToggleFollow={social.actions.toggleFollow}
+            open={postDetailId !== null}
+            post={postDetailTarget}
+            resolveUser={resolveUser}
           />
           <MonthlyRecapSheet
             onClose={() => setMonthlyRecapOpen(false)}
@@ -713,6 +797,7 @@ export function GymCirclePreview({
               if (!intent) return;
               setConfirmIntent(null);
               if (intent.kind === "delete-post" && deletePost) {
+                if (postDetailId === intent.postId) closePostDetail();
                 await deletePost(intent.postId);
                 return;
               }

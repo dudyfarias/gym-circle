@@ -1,8 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
-import { Camera, Check, Clock, Loader2, MapPin, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Camera,
+  Check,
+  Clock,
+  Loader2,
+  MapPin,
+  Search,
+  X,
+} from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { GymSearchSheet, type PlaceCandidate } from "../GymSearchSheet";
 import type {
@@ -15,17 +23,15 @@ import { TopBar } from "../TopBar";
 
 type CheckInScreenProps = {
   currentUser: EnrichedUser;
-  /** Catálogo de gyms do banco — usado pra mostrar academias do user. */
   gyms: GymLocationOption[];
-  /** Posts do feed pra derivar "quem treinou aqui hoje" + mini grid. */
   posts: EnrichedPost[];
-  /** Lookup de users pra enriquecer cards de pessoas (avatar, name, etc). */
   users: Record<string, GymUser>;
   onCheckIn: (gymName: string) => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
-  /** Cataloga novo lugar via Maps. Sem isso, search fica desabilitada. */
   onCatalogPlace?: (place: PlaceCandidate) => Promise<GymLocationOption>;
 };
+
+type PeopleFilter = "today" | "week";
 
 function formatPostTime(iso: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
@@ -44,10 +50,29 @@ function isTodayInSP(iso: string): boolean {
   return today === that;
 }
 
+function isWithinLastDays(iso: string, days: number): boolean {
+  const ms = Date.now() - new Date(iso).getTime();
+  return ms < days * 24 * 60 * 60 * 1000;
+}
+
+function formatRelativeDay(iso: string): string {
+  if (isTodayInSP(iso)) return formatPostTime(iso);
+  const ms = Date.now() - new Date(iso).getTime();
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  if (days <= 1) return "Ontem";
+  if (days <= 7) return `${days}d atrás`;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(iso));
+}
+
 /**
- * Check-in vira "lugar vivo": após selecionar a academia (via search),
- * o usuário vê quem postou de lá hoje + posts recentes do local + CTA
- * pra confirmar presença. Empty state direciona pra busca.
+ * Check-in vira "lugar vivo" centrado na ÚLTIMA academia do user:
+ * - Tela default: card grande com último gym treinado + lugares perto
+ *   auto-fetched + amigos que treinaram lá.
+ * - Selected state: detalhe da academia com toggle "Hoje | Semana" pra
+ *   ver quem treinou ali em cada janela de tempo.
  */
 export function CheckInScreen({
   currentUser,
@@ -64,8 +89,13 @@ export function CheckInScreen({
   const [cataloging, setCataloging] = useState(false);
   const [checkinPending, setCheckinPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [peopleFilter, setPeopleFilter] = useState<PeopleFilter>("today");
 
-  // Mescla gyms do banco + catalogadas nessa sessão pelo search
+  // Nearby places state — fetched inline na tela default
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState<PlaceCandidate[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+
   const allGyms = useMemo<GymLocationOption[]>(() => {
     const merged = new Map<string, GymLocationOption>();
     for (const gym of gyms) merged.set(gym.id, gym);
@@ -73,46 +103,93 @@ export function CheckInScreen({
     return Array.from(merged.values());
   }, [gyms, localGyms]);
 
+  // ÚLTIMA academia do user — derivada do post mais recente do próprio user
+  // que tem gym_id válido. Mais robusto que confiar em "main_gym_id" do
+  // perfil (que é manual e pode não bater com onde o user treinou ontem).
+  const lastGym = useMemo<GymLocationOption | null>(() => {
+    const myPostsWithGym = posts
+      .filter((post) => post.userId === currentUser.id && post.gymId)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    if (myPostsWithGym.length === 0) return null;
+    const lastGymId = myPostsWithGym[0].gymId;
+    return allGyms.find((gym) => gym.id === lastGymId) ?? null;
+  }, [allGyms, currentUser.id, posts]);
+
   const selectedGym = useMemo(
     () => allGyms.find((gym) => gym.id === selectedGymId) ?? null,
     [allGyms, selectedGymId],
   );
 
-  // Pré-listar academias que o user já tem cadastradas (currentUser.gyms é só nomes)
-  const myGyms = useMemo(() => {
-    const myNames = new Set(currentUser.gyms.map((name) => name.toLowerCase()));
-    return allGyms.filter((gym) => myNames.has(gym.name.toLowerCase()));
-  }, [allGyms, currentUser.gyms]);
+  const isViewingDetail = Boolean(selectedGym);
 
-  // Posts deste gym (todos) + posts deste gym hoje (pra "treinando aqui hoje")
+  // Posts do gym ativo (selecionado ou último)
+  const activeGymId = selectedGym?.id ?? lastGym?.id ?? null;
   const gymPosts = useMemo(() => {
-    if (!selectedGym) return [] as EnrichedPost[];
-    return posts.filter((post) => post.gymId === selectedGym.id);
-  }, [posts, selectedGym]);
+    if (!activeGymId) return [] as EnrichedPost[];
+    return posts.filter((post) => post.gymId === activeGymId);
+  }, [posts, activeGymId]);
 
-  const trainingHereToday = useMemo(() => {
-    if (gymPosts.length === 0) return [] as Array<{ user: GymUser; post: EnrichedPost }>;
-    const seen = new Set<string>();
-    const out: Array<{ user: GymUser; post: EnrichedPost }> = [];
-    // Sort posts by createdAt desc, take 1 per user (most recent today's post)
-    const sortedToday = [...gymPosts]
-      .filter((post) => isTodayInSP(post.createdAt))
+  // Amigos (users que eu sigo) com post no último gym
+  const friendsAtLastGym = useMemo(() => {
+    if (!lastGym) return [] as Array<{ user: GymUser; lastPost: EnrichedPost }>;
+    const lastGymPosts = posts.filter(
+      (post) => post.gymId === lastGym.id && post.userId !== currentUser.id,
+    );
+    const seen = new Map<string, EnrichedPost>();
+    // Pra cada user, pega o post mais recente
+    for (const post of [...lastGymPosts].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )) {
+      if (!seen.has(post.userId)) seen.set(post.userId, post);
+    }
+
+    const out: Array<{ user: GymUser; lastPost: EnrichedPost }> = [];
+    for (const [userId, lastPost] of seen) {
+      const userInfo = users[userId];
+      if (!userInfo) continue;
+      // followStatus "accepted" = amizade efetiva (pública ou privada
+      // aceita). Sigo mas pendente fica de fora — não é amigo ainda.
+      if (userInfo.followStatus !== "accepted") continue;
+      out.push({ user: userInfo, lastPost });
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [currentUser.id, lastGym, posts, users]);
+
+  // Pessoas no gym ativo, filtradas por hoje OU últimos 7 dias
+  const peopleAtGym = useMemo(() => {
+    if (gymPosts.length === 0) {
+      return [] as Array<{ user: GymUser; post: EnrichedPost }>;
+    }
+    const filterFn = (post: EnrichedPost) =>
+      peopleFilter === "today"
+        ? isTodayInSP(post.createdAt)
+        : isWithinLastDays(post.createdAt, 7);
+
+    const sorted = [...gymPosts]
+      .filter(filterFn)
       .sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
-    for (const post of sortedToday) {
+
+    const seen = new Set<string>();
+    const out: Array<{ user: GymUser; post: EnrichedPost }> = [];
+    for (const post of sorted) {
       if (seen.has(post.userId)) continue;
       const userInfo = users[post.userId];
       if (!userInfo) continue;
       seen.add(post.userId);
       out.push({ user: userInfo, post });
-      if (out.length >= 8) break;
+      if (out.length >= 12) break;
     }
     return out;
-  }, [gymPosts, users]);
+  }, [gymPosts, peopleFilter, users]);
 
-  // Mini grid: posts recentes (últimos 9), inclusive os de hoje
   const recentPosts = useMemo(() => {
     return [...gymPosts]
       .sort(
@@ -121,6 +198,51 @@ export function CheckInScreen({
       )
       .slice(0, 9);
   }, [gymPosts]);
+
+  function openGymDetail(gymId: string | null) {
+    setSelectedGymId(gymId);
+    setPeopleFilter("today");
+    setFeedback(null);
+  }
+
+  // Geolocation pra fetch de nearby places na tela default
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCoords({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        // sem GPS — só esconde a seção de nearby
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 9000 },
+    );
+  }, []);
+
+  const fetchNearby = useCallback(async (lat: number, lng: number) => {
+    setNearbyLoading(true);
+    try {
+      const res = await fetch(`/api/places/nearby?lat=${lat}&lng=${lng}&radius=1500`);
+      if (!res.ok) {
+        setNearbyPlaces([]);
+        return;
+      }
+      const data = (await res.json()) as { results: PlaceCandidate[] };
+      setNearbyPlaces(data.results);
+    } catch {
+      setNearbyPlaces([]);
+    } finally {
+      setNearbyLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!coords || isViewingDetail) return;
+    queueMicrotask(() => void fetchNearby(coords.lat, coords.lng));
+  }, [coords, fetchNearby, isViewingDetail]);
 
   async function handleCatalogPlace(place: PlaceCandidate) {
     if (!onCatalogPlace || cataloging) return;
@@ -132,20 +254,26 @@ export function CheckInScreen({
           ? current
           : [...current, cataloged],
       );
-      setSelectedGymId(cataloged.id);
+      openGymDetail(cataloged.id);
       setSearchOpen(false);
     } finally {
       setCataloging(false);
     }
   }
 
-  async function handleCheckIn() {
-    if (!selectedGym || checkinPending) return;
+  async function handleSelectNearby(place: PlaceCandidate) {
+    // Tap num lugar perto = catalogar (se ainda não tá no banco) + virar
+    // o gym selecionado pra detalhe.
+    await handleCatalogPlace(place);
+  }
+
+  async function handleCheckIn(gymName: string) {
+    if (checkinPending) return;
     setCheckinPending(true);
     setFeedback(null);
     try {
-      await onCheckIn(selectedGym.name);
-      setFeedback(`Check-in confirmado em ${selectedGym.name}`);
+      await onCheckIn(gymName);
+      setFeedback(`Check-in confirmado em ${gymName}`);
     } finally {
       setCheckinPending(false);
     }
@@ -155,183 +283,37 @@ export function CheckInScreen({
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar
         eyebrow="Check-in"
-        title={selectedGym ? selectedGym.name : "Check-in"}
+        title={selectedGym?.name ?? lastGym?.name ?? "Check-in"}
       />
 
-      {selectedGym ? (
-        <>
-          {/* Header da academia selecionada */}
-          <div className="mt-5 flex items-start gap-3 rounded-[20px] border border-white/[0.08] bg-white/[0.03] p-4">
-            <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
-              <MapPin size={20} strokeWidth={2.4} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[16px] font-black text-white">
-                {selectedGym.name}
-              </p>
-              {selectedGym.city || selectedGym.address ? (
-                <p className="mt-0.5 truncate text-[12px] font-bold text-white/52">
-                  {[selectedGym.address, selectedGym.city]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              ) : null}
-            </div>
-            <button
-              aria-label="Trocar de lugar"
-              className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72"
-              onClick={() => setSelectedGymId(null)}
-              type="button"
-            >
-              <X size={15} strokeWidth={2.4} />
-            </button>
-          </div>
-
-          {/* CTA primário: confirmar check-in */}
-          <button
-            className="gc-pressable mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black shadow-[0_0_24px_rgba(92,232,255,0.32)] disabled:opacity-50 disabled:shadow-none"
-            disabled={checkinPending}
-            onClick={() => void handleCheckIn()}
-            type="button"
-          >
-            {checkinPending ? (
-              <Loader2 className="animate-spin" size={17} strokeWidth={2.6} />
-            ) : (
-              <Check size={18} strokeWidth={2.8} />
-            )}
-            {checkinPending ? "Confirmando..." : "Estou treinando aqui"}
-          </button>
-          {feedback ? (
-            <p className="mt-2 text-center text-[12px] font-bold text-[var(--gc-brand)]">
-              {feedback}
-            </p>
-          ) : null}
-
-          {/* Treinando aqui hoje */}
-          {trainingHereToday.length > 0 ? (
-            <div className="mt-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[15px] font-black text-white">
-                  Treinando aqui hoje
-                </h3>
-                <span className="text-[11px] font-bold text-white/42">
-                  {trainingHereToday.length}{" "}
-                  {trainingHereToday.length === 1 ? "pessoa" : "pessoas"}
-                </span>
-              </div>
-              <ul className="mt-3 space-y-2">
-                {trainingHereToday.map(({ user, post }) => (
-                  <li key={user.id}>
-                    <button
-                      className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
-                      onClick={() => onSelectUser?.(user.id)}
-                      type="button"
-                    >
-                      <Avatar
-                        accent={user.accent}
-                        name={user.name}
-                        size="sm"
-                        src={user.avatarUrl ?? undefined}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-black text-white">
-                          {user.name}
-                        </p>
-                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-white/52">
-                          <Clock size={10} strokeWidth={2.6} />
-                          {formatPostTime(post.createdAt)}
-                          {post.workoutType ? ` · ${post.workoutType}` : ""}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : (
-            <div className="mt-6 rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4 text-center">
-              <p className="text-[12px] font-bold text-white/52">
-                Nenhum post daqui hoje. Seja o primeiro a publicar.
-              </p>
-            </div>
-          )}
-
-          {/* Mini grid de posts recentes do lugar */}
-          {recentPosts.length > 0 ? (
-            <div className="mt-6">
-              <h3 className="mb-3 text-[15px] font-black text-white">
-                Posts recentes do lugar
-              </h3>
-              <div className="-mx-5 grid grid-cols-3 gap-[2px]">
-                {recentPosts.map((post) => (
-                  <CheckInPostThumb
-                    key={post.id}
-                    onSelectUser={onSelectUser}
-                    post={post}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </>
+      {isViewingDetail && selectedGym ? (
+        <SelectedGymView
+          checkinPending={checkinPending}
+          feedback={feedback}
+          gym={selectedGym}
+          onCheckIn={() => void handleCheckIn(selectedGym.name)}
+          onChangeFilter={setPeopleFilter}
+          onChangeGym={() => openGymDetail(null)}
+          onSelectUser={onSelectUser}
+          peopleAtGym={peopleAtGym}
+          peopleFilter={peopleFilter}
+          recentPosts={recentPosts}
+        />
       ) : (
-        <>
-          {/* Empty state — convida pra buscar */}
-          <div className="mt-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6 text-center">
-            <span className="mx-auto grid size-14 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
-              <MapPin size={24} strokeWidth={2.2} />
-            </span>
-            <h2 className="mt-3 text-[18px] font-black text-white">
-              Onde você tá treinando?
-            </h2>
-            <p className="mx-auto mt-1 max-w-[280px] text-[13px] font-bold text-white/52">
-              Marque o lugar pra ver quem mais tá aqui e fazer check-in.
-            </p>
-            <button
-              className="gc-pressable mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black shadow-[0_0_22px_rgba(92,232,255,0.28)] disabled:opacity-60"
-              disabled={!onCatalogPlace}
-              onClick={() => setSearchOpen(true)}
-              type="button"
-            >
-              <Search size={16} strokeWidth={2.6} />
-              Buscar academia ou lugar
-            </button>
-          </div>
-
-          {/* Suas academias — atalho pra gyms já cadastrados */}
-          {myGyms.length > 0 ? (
-            <div className="mt-6">
-              <h3 className="mb-3 text-[13px] font-black uppercase tracking-wide text-white/42">
-                Suas academias
-              </h3>
-              <ul className="space-y-2">
-                {myGyms.map((gym) => (
-                  <li key={gym.id}>
-                    <button
-                      className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
-                      onClick={() => setSelectedGymId(gym.id)}
-                      type="button"
-                    >
-                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72">
-                        <MapPin size={15} strokeWidth={2.2} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[14px] font-black text-white">
-                          {gym.name}
-                        </p>
-                        {gym.city ? (
-                          <p className="mt-0.5 truncate text-[11px] font-bold text-white/52">
-                            {gym.city}
-                          </p>
-                        ) : null}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </>
+        <DefaultView
+          checkinPending={checkinPending}
+          feedback={feedback}
+          friendsAtLastGym={friendsAtLastGym}
+          lastGym={lastGym}
+          nearbyLoading={nearbyLoading}
+          nearbyPlaces={nearbyPlaces}
+          onCheckInLast={(gymName) => void handleCheckIn(gymName)}
+          onOpenLastDetail={() => lastGym && openGymDetail(lastGym.id)}
+          onOpenSearch={() => setSearchOpen(true)}
+          onSelectNearby={handleSelectNearby}
+          onSelectUser={onSelectUser}
+          searchEnabled={Boolean(onCatalogPlace)}
+        />
       )}
 
       <GymSearchSheet
@@ -340,6 +322,496 @@ export function CheckInScreen({
         open={searchOpen}
       />
     </section>
+  );
+}
+
+// =====================================================================
+// Default view (sem gym selecionado pra detalhe)
+// =====================================================================
+
+type DefaultViewProps = {
+  lastGym: GymLocationOption | null;
+  nearbyPlaces: PlaceCandidate[];
+  nearbyLoading: boolean;
+  friendsAtLastGym: Array<{ user: GymUser; lastPost: EnrichedPost }>;
+  searchEnabled: boolean;
+  checkinPending: boolean;
+  feedback: string | null;
+  onOpenLastDetail: () => void;
+  onCheckInLast: (gymName: string) => void;
+  onOpenSearch: () => void;
+  onSelectNearby: (place: PlaceCandidate) => void | Promise<void>;
+  onSelectUser?: (userId: string) => void;
+};
+
+function DefaultView({
+  lastGym,
+  nearbyPlaces,
+  nearbyLoading,
+  friendsAtLastGym,
+  searchEnabled,
+  checkinPending,
+  feedback,
+  onOpenLastDetail,
+  onCheckInLast,
+  onOpenSearch,
+  onSelectNearby,
+  onSelectUser,
+}: DefaultViewProps) {
+  return (
+    <>
+      {lastGym ? (
+        <LastGymCard
+          checkinPending={checkinPending}
+          feedback={feedback}
+          gym={lastGym}
+          onCheckIn={() => onCheckInLast(lastGym.name)}
+          onOpenDetail={onOpenLastDetail}
+        />
+      ) : (
+        <EmptyHero
+          onOpenSearch={onOpenSearch}
+          searchEnabled={searchEnabled}
+        />
+      )}
+
+      <NearbyPlacesList
+        loading={nearbyLoading}
+        onOpenSearch={onOpenSearch}
+        onSelect={onSelectNearby}
+        places={nearbyPlaces}
+        searchEnabled={searchEnabled}
+      />
+
+      {lastGym && friendsAtLastGym.length > 0 ? (
+        <FriendsAtLastGymList
+          friends={friendsAtLastGym}
+          gymName={lastGym.name}
+          onSelectUser={onSelectUser}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function LastGymCard({
+  gym,
+  onCheckIn,
+  onOpenDetail,
+  checkinPending,
+  feedback,
+}: {
+  gym: GymLocationOption;
+  onCheckIn: () => void;
+  onOpenDetail: () => void;
+  checkinPending: boolean;
+  feedback: string | null;
+}) {
+  return (
+    <div className="mt-5 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(48,213,255,0.08),rgba(255,255,255,0.02)_50%,transparent)] p-5">
+      <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+        Sua última academia
+      </p>
+      <button
+        className="gc-pressable mt-2 flex w-full items-start gap-3 text-left"
+        onClick={onOpenDetail}
+        type="button"
+      >
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+          <MapPin size={20} strokeWidth={2.4} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[20px] font-black leading-tight text-white">
+            {gym.name}
+          </span>
+          {gym.city || gym.address ? (
+            <span className="mt-0.5 block truncate text-[12px] font-bold text-white/52">
+              {[gym.address, gym.city].filter(Boolean).join(" · ")}
+            </span>
+          ) : null}
+        </span>
+      </button>
+      <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+        <button
+          className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black shadow-[0_0_22px_rgba(92,232,255,0.28)] disabled:opacity-50 disabled:shadow-none"
+          disabled={checkinPending}
+          onClick={onCheckIn}
+          type="button"
+        >
+          {checkinPending ? (
+            <Loader2 className="animate-spin" size={15} strokeWidth={2.6} />
+          ) : (
+            <Check size={16} strokeWidth={2.8} />
+          )}
+          {checkinPending ? "Confirmando..." : "Estou aqui"}
+        </button>
+        <button
+          aria-label="Ver detalhes da academia"
+          className="gc-pressable grid size-12 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/72"
+          onClick={onOpenDetail}
+          type="button"
+        >
+          <span className="text-[15px] font-black">→</span>
+        </button>
+      </div>
+      {feedback ? (
+        <p className="mt-2 text-center text-[12px] font-bold text-[var(--gc-brand)]">
+          {feedback}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyHero({
+  searchEnabled,
+  onOpenSearch,
+}: {
+  searchEnabled: boolean;
+  onOpenSearch: () => void;
+}) {
+  return (
+    <div className="mt-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6 text-center">
+      <span className="mx-auto grid size-14 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+        <MapPin size={24} strokeWidth={2.2} />
+      </span>
+      <h2 className="mt-3 text-[18px] font-black text-white">
+        Onde você tá treinando?
+      </h2>
+      <p className="mx-auto mt-1 max-w-[280px] text-[13px] font-bold text-white/52">
+        Marque o lugar pra ver quem mais tá aqui e fazer check-in.
+      </p>
+      <button
+        className="gc-pressable mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black shadow-[0_0_22px_rgba(92,232,255,0.28)] disabled:opacity-60"
+        disabled={!searchEnabled}
+        onClick={onOpenSearch}
+        type="button"
+      >
+        <Search size={16} strokeWidth={2.6} />
+        Buscar academia ou lugar
+      </button>
+    </div>
+  );
+}
+
+function NearbyPlacesList({
+  places,
+  loading,
+  onSelect,
+  onOpenSearch,
+  searchEnabled,
+}: {
+  places: PlaceCandidate[];
+  loading: boolean;
+  onSelect: (place: PlaceCandidate) => void | Promise<void>;
+  onOpenSearch: () => void;
+  searchEnabled: boolean;
+}) {
+  return (
+    <div className="mt-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-[13px] font-black uppercase tracking-wide text-white/42">
+          Lugares perto de você
+        </h3>
+        {searchEnabled ? (
+          <button
+            className="gc-pressable text-[12px] font-black text-[var(--gc-brand)]"
+            onClick={onOpenSearch}
+            type="button"
+          >
+            Buscar →
+          </button>
+        ) : null}
+      </div>
+
+      {loading && places.length === 0 ? (
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.04] py-6 text-[12px] font-bold text-white/52">
+          <Loader2 className="animate-spin" size={14} strokeWidth={2.4} />
+          Buscando lugares no entorno...
+        </div>
+      ) : null}
+
+      {!loading && places.length === 0 ? (
+        <div className="mt-3 rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4 text-center">
+          <p className="text-[12px] font-bold text-white/52">
+            Sem lugares mapeados no seu entorno.
+          </p>
+          {searchEnabled ? (
+            <button
+              className="gc-pressable mt-2 text-[12px] font-black text-[var(--gc-brand)]"
+              onClick={onOpenSearch}
+              type="button"
+            >
+              Cadastrar este lugar →
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {places.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {places.slice(0, 5).map((place) => (
+            <li key={place.providerId}>
+              <button
+                className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
+                onClick={() => void onSelect(place)}
+                type="button"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72">
+                  <MapPin size={15} strokeWidth={2.2} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[14px] font-black text-white">
+                    {place.name}
+                  </span>
+                  <span className="mt-0.5 flex items-center gap-2 text-[11px] font-bold text-white/52">
+                    {place.distanceKm !== null ? (
+                      <span className="text-[var(--gc-brand)]">
+                        {place.distanceKm < 0.1
+                          ? "aqui"
+                          : place.distanceKm < 1
+                            ? `${Math.round(place.distanceKm * 1000)}m`
+                            : `${place.distanceKm.toFixed(1).replace(".", ",")}km`}
+                      </span>
+                    ) : null}
+                    {place.address || place.city ? (
+                      <span className="truncate">
+                        {[place.address, place.city].filter(Boolean).join(" · ")}
+                      </span>
+                    ) : null}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function FriendsAtLastGymList({
+  friends,
+  gymName,
+  onSelectUser,
+}: {
+  friends: Array<{ user: GymUser; lastPost: EnrichedPost }>;
+  gymName: string;
+  onSelectUser?: (userId: string) => void;
+}) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-[13px] font-black uppercase tracking-wide text-white/42">
+        Amigos em {gymName}
+      </h3>
+      <ul className="mt-3 space-y-2">
+        {friends.map(({ user, lastPost }) => (
+          <li key={user.id}>
+            <button
+              className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
+              onClick={() => onSelectUser?.(user.id)}
+              type="button"
+            >
+              <Avatar
+                accent={user.accent}
+                name={user.name}
+                size="sm"
+                src={user.avatarUrl ?? undefined}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-black text-white">
+                  {user.name}
+                </p>
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-white/52">
+                  <Clock size={10} strokeWidth={2.6} />
+                  {formatRelativeDay(lastPost.createdAt)}
+                  {lastPost.workoutType ? ` · ${lastPost.workoutType}` : ""}
+                </p>
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// =====================================================================
+// Selected gym view (detalhe completo, com toggle hoje/semana)
+// =====================================================================
+
+type SelectedGymViewProps = {
+  gym: GymLocationOption;
+  peopleAtGym: Array<{ user: GymUser; post: EnrichedPost }>;
+  peopleFilter: PeopleFilter;
+  recentPosts: EnrichedPost[];
+  checkinPending: boolean;
+  feedback: string | null;
+  onCheckIn: () => void;
+  onChangeFilter: (filter: PeopleFilter) => void;
+  onChangeGym: () => void;
+  onSelectUser?: (userId: string) => void;
+};
+
+function SelectedGymView({
+  gym,
+  peopleAtGym,
+  peopleFilter,
+  recentPosts,
+  checkinPending,
+  feedback,
+  onCheckIn,
+  onChangeFilter,
+  onChangeGym,
+  onSelectUser,
+}: SelectedGymViewProps) {
+  return (
+    <>
+      <div className="mt-5 flex items-start gap-3 rounded-[20px] border border-white/[0.08] bg-white/[0.03] p-4">
+        <span className="grid size-12 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+          <MapPin size={20} strokeWidth={2.4} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[16px] font-black text-white">{gym.name}</p>
+          {gym.city || gym.address ? (
+            <p className="mt-0.5 truncate text-[12px] font-bold text-white/52">
+              {[gym.address, gym.city].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
+        </div>
+        <button
+          aria-label="Trocar de lugar"
+          className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72"
+          onClick={onChangeGym}
+          type="button"
+        >
+          <X size={15} strokeWidth={2.4} />
+        </button>
+      </div>
+
+      <button
+        className="gc-pressable mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black shadow-[0_0_24px_rgba(92,232,255,0.32)] disabled:opacity-50 disabled:shadow-none"
+        disabled={checkinPending}
+        onClick={onCheckIn}
+        type="button"
+      >
+        {checkinPending ? (
+          <Loader2 className="animate-spin" size={17} strokeWidth={2.6} />
+        ) : (
+          <Check size={18} strokeWidth={2.8} />
+        )}
+        {checkinPending ? "Confirmando..." : "Estou treinando aqui"}
+      </button>
+      {feedback ? (
+        <p className="mt-2 text-center text-[12px] font-bold text-[var(--gc-brand)]">
+          {feedback}
+        </p>
+      ) : null}
+
+      <div className="mt-6">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[15px] font-black text-white">Quem treinou aqui</h3>
+          <PeopleFilterToggle filter={peopleFilter} onChange={onChangeFilter} />
+        </div>
+
+        {peopleAtGym.length > 0 ? (
+          <ul className="mt-3 space-y-2">
+            {peopleAtGym.map(({ user, post }) => (
+              <li key={user.id}>
+                <button
+                  className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
+                  onClick={() => onSelectUser?.(user.id)}
+                  type="button"
+                >
+                  <Avatar
+                    accent={user.accent}
+                    name={user.name}
+                    size="sm"
+                    src={user.avatarUrl ?? undefined}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[14px] font-black text-white">
+                      {user.name}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-white/52">
+                      <Clock size={10} strokeWidth={2.6} />
+                      {peopleFilter === "today"
+                        ? formatPostTime(post.createdAt)
+                        : formatRelativeDay(post.createdAt)}
+                      {post.workoutType ? ` · ${post.workoutType}` : ""}
+                    </p>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-3 rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4 text-center">
+            <p className="text-[12px] font-bold text-white/52">
+              {peopleFilter === "today"
+                ? "Nenhum post daqui hoje. Seja o primeiro."
+                : "Nenhum post daqui nos últimos 7 dias."}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {recentPosts.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="mb-3 text-[15px] font-black text-white">
+            Posts recentes do lugar
+          </h3>
+          <div className="-mx-5 grid grid-cols-3 gap-[2px]">
+            {recentPosts.map((post) => (
+              <CheckInPostThumb
+                key={post.id}
+                onSelectUser={onSelectUser}
+                post={post}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function PeopleFilterToggle({
+  filter,
+  onChange,
+}: {
+  filter: PeopleFilter;
+  onChange: (filter: PeopleFilter) => void;
+}) {
+  return (
+    <div className="flex h-8 items-center rounded-full bg-white/[0.05] p-0.5">
+      <button
+        aria-pressed={filter === "today"}
+        className={[
+          "gc-pressable rounded-full px-3 text-[11px] font-black transition-colors",
+          filter === "today"
+            ? "bg-white text-black"
+            : "text-white/52",
+        ].join(" ")}
+        onClick={() => onChange("today")}
+        type="button"
+      >
+        Hoje
+      </button>
+      <button
+        aria-pressed={filter === "week"}
+        className={[
+          "gc-pressable rounded-full px-3 text-[11px] font-black transition-colors",
+          filter === "week"
+            ? "bg-white text-black"
+            : "text-white/52",
+        ].join(" ")}
+        onClick={() => onChange("week")}
+        type="button"
+      >
+        Esta semana
+      </button>
+    </div>
   );
 }
 

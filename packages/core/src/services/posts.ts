@@ -206,6 +206,14 @@ export function postService(client: GymCircleClient) {
       return data;
     },
 
+    async deleteComment(commentId: string, userId: string): Promise<void> {
+      const { error } = await client
+        .from("post_comments")
+        .delete()
+        .match({ id: commentId, user_id: userId });
+      if (error) throw error;
+    },
+
     /**
      * Silenciar posts de outro usuário.
      * Não afeta follow nem stories — só esconde posts no feed.

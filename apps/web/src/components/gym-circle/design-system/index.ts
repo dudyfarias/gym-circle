@@ -13,6 +13,8 @@ export * from "./SocialPostCard";
 export * from "./StatsWidget";
 export * from "./StreakBadge";
 export * from "./StreakCard";
+export * from "./SwipeRevealDelete";
 export * from "./StoryBubbles";
 export * from "./StoryViewer";
 export * from "./ToastFeedback";
+export * from "./VideoThumbnail";
