@@ -4,6 +4,20 @@ import { useEffect } from "react";
 
 const BOOT_LOG_PREFIX = "[GymCircleBoot]";
 
+type CapacitorBridge = {
+  getPlatform?: () => string;
+  isNativePlatform?: () => boolean;
+  Plugins?: {
+    SplashScreen?: {
+      hide?: (options?: { fadeOutDuration?: number }) => Promise<void>;
+    };
+  };
+};
+
+type CapacitorWindow = Window & {
+  Capacitor?: CapacitorBridge;
+};
+
 function unlockDocument() {
   document.documentElement.style.removeProperty("overflow");
   document.documentElement.style.removeProperty("pointer-events");
@@ -15,17 +29,25 @@ function unlockDocument() {
 
 async function hideNativeSplash(reason: string) {
   try {
-    const [{ Capacitor }, { SplashScreen }] = await Promise.all([
-      import("@capacitor/core"),
-      import("@capacitor/splash-screen"),
-    ]);
+    const capacitor = (window as CapacitorWindow).Capacitor;
+    const isNative =
+      capacitor?.isNativePlatform?.() ??
+      (typeof capacitor?.getPlatform === "function" && capacitor.getPlatform() !== "web");
 
-    if (!Capacitor.isNativePlatform()) {
+    if (!isNative) {
       console.info(`${BOOT_LOG_PREFIX} splash hide skipped: browser`, { reason });
       return;
     }
 
-    await SplashScreen.hide({ fadeOutDuration: 220 });
+    const splashScreen = capacitor?.Plugins?.SplashScreen;
+    if (!splashScreen?.hide) {
+      console.info(`${BOOT_LOG_PREFIX} splash hide skipped: plugin unavailable`, {
+        reason,
+      });
+      return;
+    }
+
+    await splashScreen.hide({ fadeOutDuration: 220 });
     console.info(`${BOOT_LOG_PREFIX} splash hidden`, { reason });
   } catch (error) {
     console.warn(`${BOOT_LOG_PREFIX} splash hide failed`, { error, reason });
