@@ -242,7 +242,11 @@ acontece em Supabase + Vercel (que são processadores, não data sharing).
 - Medical/Treatment Info: None
 - Gambling: None
 - Contests: None
-- Unrestricted Web Access: **Yes** — embeddings de Vercel/Supabase são domínios próprios; sem browser embutido
+- Unrestricted Web Access: **No** — `capacitor.config.ts` restringe `allowNavigation` aos próprios domínios (Vercel + Supabase); WebView não funciona como browser e usuário não pode navegar pra site arbitrário. Marcar Yes empurraria a rating pra 17+ sem motivo.
+- User-Generated Content: **Yes** — posts, stories, comments, DMs. Mitigado por report/block/admin + delete account.
+- User-to-User Communication: **Yes** — DMs e comments
+- Location Sharing: **Yes** — check-in + location em posts (opcional, controlado pelo user)
+- Made for Kids: **No** — rede social não pode marcar essa categoria
 
 **Age Rating final esperado**: 12+ (ou 13+ no Google Play) por causa de
 UGC + interação social. Ajusta se Apple/Google override.
