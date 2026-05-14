@@ -282,20 +282,78 @@ export function GymCirclePreview({
 
   const signOut = social.actions.signOut;
   const handleEditProfile = social.actions.updateProfile ? openEditProfile : undefined;
+  const toggleFollowIgnoringResult = useCallback(
+    async (userId: string) => {
+      await social.actions.toggleFollow(userId);
+    },
+    [social.actions],
+  );
 
   useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
-    const viewport = window.visualViewport;
-    const updateKeyboardState = () => {
-      setKeyboardOpen(window.innerHeight - viewport.height > 120);
-    };
-    updateKeyboardState();
-    viewport.addEventListener("resize", updateKeyboardState);
-    viewport.addEventListener("scroll", updateKeyboardState);
-    return () => {
-      viewport.removeEventListener("resize", updateKeyboardState);
-      viewport.removeEventListener("scroll", updateKeyboardState);
-    };
+    if (typeof window === "undefined") return;
+    const cleanups: Array<() => void> = [];
+
+    // Web detection: works in mobile browser/PWA where window.innerHeight stays
+    // constant and visualViewport.height shrinks with the keyboard.
+    if (window.visualViewport) {
+      const viewport = window.visualViewport;
+      const updateKeyboardState = () => {
+        setKeyboardOpen(window.innerHeight - viewport.height > 120);
+      };
+      updateKeyboardState();
+      viewport.addEventListener("resize", updateKeyboardState);
+      viewport.addEventListener("scroll", updateKeyboardState);
+      cleanups.push(() => {
+        viewport.removeEventListener("resize", updateKeyboardState);
+        viewport.removeEventListener("scroll", updateKeyboardState);
+      });
+    }
+
+    // Native detection via Capacitor Keyboard plugin. In iOS Capacitor with
+    // resize:"native" the WebView itself shrinks, so visualViewport.height
+    // equals window.innerHeight and the web heuristic never triggers. Without
+    // this listener BottomNav stays mounted, env(safe-area-inset-bottom)
+    // inflates to the keyboard height, and a ~200px black gap appears below
+    // the nav.
+    const capKeyboard = (
+      window as unknown as {
+        Capacitor?: {
+          Plugins?: {
+            Keyboard?: {
+              addListener: (
+                event: "keyboardWillShow" | "keyboardWillHide",
+                callback: () => void,
+              ) => Promise<{ remove: () => Promise<void> }>;
+            };
+          };
+        };
+      }
+    ).Capacitor?.Plugins?.Keyboard;
+
+    if (capKeyboard?.addListener) {
+      let removeShow: (() => Promise<void>) | undefined;
+      let removeHide: (() => Promise<void>) | undefined;
+      capKeyboard
+        .addListener("keyboardWillShow", () => setKeyboardOpen(true))
+        .then((handle) => {
+          removeShow = handle.remove;
+        })
+        .catch(() => {
+          // Capacitor plugin not registered; safe to ignore.
+        });
+      capKeyboard
+        .addListener("keyboardWillHide", () => setKeyboardOpen(false))
+        .then((handle) => {
+          removeHide = handle.remove;
+        })
+        .catch(() => {});
+      cleanups.push(() => {
+        removeShow?.().catch(() => {});
+        removeHide?.().catch(() => {});
+      });
+    }
+
+    return () => cleanups.forEach((fn) => fn());
   }, []);
 
   useEffect(() => {
@@ -586,7 +644,7 @@ export function GymCirclePreview({
             onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
             onOpenSettings={() => setSettingsOpen(true)}
             onSelectUser={openProfile}
-            onToggleFollow={social.actions.toggleFollow}
+            onToggleFollow={toggleFollowIgnoringResult}
             posts={currentUserPosts}
             onOpenPost={openPostDetail}
             monthlyRecap={monthlyRecap}
@@ -671,7 +729,7 @@ export function GymCirclePreview({
             onFindPeople={openSearch}
             onRequestViewerLocation={viewerLocation.request}
             onSelectUser={openProfile}
-            onToggleFollow={social.actions.toggleFollow}
+            onToggleFollow={toggleFollowIgnoringResult}
             resolveUser={resolveUser}
             stories={storyGroups}
             postShareTargets={followedUsers}
@@ -774,15 +832,19 @@ export function GymCirclePreview({
               openProfile(userId);
             }}
             onShareStoryToChat={social.actions.shareStoryToChat}
-            onUnfollowUser={social.actions.toggleFollow}
+            onUnfollowUser={toggleFollowIgnoringResult}
             shareTargets={social.suggestedUsers.filter((user) => user.id !== social.currentUser.id)}
             story={social.selectedStory}
           />
           <UserSearchSheet
             currentUserId={social.currentUser.id}
             onClose={closeSearch}
+            onSelectUser={(userId) => {
+              closeSearch();
+              openProfile(userId);
+            }}
             onToggleFollow={(userId) => {
-              social.actions.toggleFollow(userId);
+              void social.actions.toggleFollow(userId);
             }}
             open={searchOpen}
             users={allUsers}
@@ -803,7 +865,7 @@ export function GymCirclePreview({
                   }
                 : undefined
             }
-            onToggleFollow={social.actions.toggleFollow}
+            onToggleFollow={toggleFollowIgnoringResult}
             open={profileOpenId !== null}
             onOpenPost={openPostDetail}
             posts={profileSheetPosts}
@@ -824,7 +886,7 @@ export function GymCirclePreview({
               closePostDetail();
               openProfile(userId);
             }}
-            onToggleFollow={social.actions.toggleFollow}
+            onToggleFollow={toggleFollowIgnoringResult}
             mentionUsers={followedUsers}
             open={postDetailId !== null}
             post={postDetailTarget}
@@ -838,7 +900,7 @@ export function GymCirclePreview({
               closeLikes();
               openProfile(userId);
             }}
-            onToggleFollow={social.actions.toggleFollow}
+            onToggleFollow={toggleFollowIgnoringResult}
             open={likesPostId !== null}
             users={
               likesTarget
