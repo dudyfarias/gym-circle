@@ -1,6 +1,6 @@
 "use client";
 
-import { type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type TouchEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   calculateDistanceKm,
   formatDistanceKm,
@@ -77,8 +77,10 @@ export function GymCirclePreview({
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [chatThreadOpen, setChatThreadOpen] = useState(false);
+  const [floatingPostVisible, setFloatingPostVisible] = useState(true);
   const viewerLocation = useViewerLocation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const lastScrollTopRef = useRef(0);
   const touchStartYRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const touchLastYRef = useRef<number | null>(null);
@@ -96,6 +98,7 @@ export function GymCirclePreview({
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ left: 0, top: 0 });
+    lastScrollTopRef.current = 0;
   }, [activeScreen]);
 
   const allUsers = useMemo<EnrichedUser[]>(() => {
@@ -352,7 +355,29 @@ export function GymCirclePreview({
 
   const scrollFeedToTop = useCallback(() => {
     scrollRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
+    setFloatingPostVisible(true);
   }, []);
+
+  const handleAppScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      const nextTop = event.currentTarget.scrollTop;
+      const previousTop = lastScrollTopRef.current;
+      const delta = nextTop - previousTop;
+      lastScrollTopRef.current = nextTop;
+
+      if (activeScreen !== "feed") return;
+      if (nextTop <= 12) {
+        setFloatingPostVisible(true);
+        return;
+      }
+      if (delta > 6) {
+        setFloatingPostVisible(false);
+        return;
+      }
+      if (delta < -8) setFloatingPostVisible(true);
+    },
+    [activeScreen],
+  );
 
   const handleBottomNavChange = useCallback(
     (screen: ScreenKey) => {
@@ -360,6 +385,7 @@ export function GymCirclePreview({
         scrollFeedToTop();
         return;
       }
+      if (screen === "feed") setFloatingPostVisible(true);
       setActiveScreen(screen);
     },
     [activeScreen, scrollFeedToTop],
@@ -424,7 +450,10 @@ export function GymCirclePreview({
     const currentIndex = screenOrder.indexOf(touchStartScreenRef.current);
     const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
     const next = screenOrder[nextIndex];
-    if (next) setActiveScreen(next);
+    if (next) {
+      if (next === "feed") setFloatingPostVisible(true);
+      setActiveScreen(next);
+    }
   }, [pullDistance, screenOrder, triggerRefresh]);
 
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
@@ -600,6 +629,7 @@ export function GymCirclePreview({
             onCatalogPlace={social.actions.catalogPlace}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
+              setFloatingPostVisible(true);
               setActiveScreen("feed");
             }}
             onUploadImage={onUploadImage}
@@ -696,6 +726,7 @@ export function GymCirclePreview({
               onTouchEnd={handleTouchEnd}
               onTouchMove={handleTouchMove}
               onTouchStart={handleTouchStart}
+              onScroll={handleAppScroll}
               ref={scrollRef}
             >
               <div
@@ -717,7 +748,10 @@ export function GymCirclePreview({
             ) : null}
           </div>
           {activeScreen === "feed" && !keyboardOpen ? (
-            <FloatingCreatePostButton onClick={() => setActiveScreen("post")} />
+            <FloatingCreatePostButton
+              hidden={!floatingPostVisible}
+              onClick={() => setActiveScreen("post")}
+            />
           ) : null}
           <StoryViewer
             currentUserId={social.currentUser.id}

@@ -157,7 +157,7 @@ export function PwaController({ userId }: PwaControllerProps) {
         {!showOffline ? (
           <button
             aria-label="Ocultar"
-            className="gc-pressable grid size-9 place-items-center rounded-full bg-white/[0.08] text-white/58"
+            className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.08] text-white/58"
             onClick={() => setDismissed(true)}
             type="button"
           >

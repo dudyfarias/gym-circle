@@ -8,6 +8,18 @@ export function formatDateKey(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+export function formatDayUnit(days: number) {
+  return days === 1 ? "dia" : "dias";
+}
+
+export function formatStreakDays(days: number) {
+  return `${days} ${formatDayUnit(days)}`;
+}
+
+export function formatTrainingStreakText(name: string, days: number) {
+  return `${name} está há ${formatStreakDays(days)} treinando`;
+}
+
 export type StreakLevelId = "iniciante" | "consistente" | "elite" | "lendario";
 
 export type StreakLevel = {

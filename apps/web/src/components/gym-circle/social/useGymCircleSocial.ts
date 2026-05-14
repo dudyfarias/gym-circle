@@ -7,6 +7,7 @@ import {
   buildMonthWorkoutDays,
   calculateWorkoutStats,
   formatDateKey,
+  formatStreakDays,
   getDailyStreakPresence,
 } from "./streak";
 import {
@@ -409,7 +410,7 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
             imageUrl: action.input.imageUrl,
             mediaType: action.input.mediaType,
             title: action.input.workoutType ?? "Treino",
-            caption: `${stats.currentStreak} dias de streak`,
+            caption: `${formatStreakDays(stats.currentStreak)} de streak`,
             createdAt,
             viewed: false,
             likedByCurrentUser: false,

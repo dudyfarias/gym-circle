@@ -20,6 +20,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { MentionText } from "../MentionText";
 import { getPostLikeSummary } from "../social/likes";
+import { formatTrainingStreakText } from "../social/streak";
 import type { EnrichedPost } from "../social/types";
 import { EmptyState } from "./EmptyState";
 import { StreakBadge } from "./StreakBadge";
@@ -203,7 +204,7 @@ export function SocialPostCard({
               <button
                 aria-label={`${title} ${author.name}`}
                 className={[
-                  "gc-pressable grid size-10 place-items-center rounded-full",
+                  "gc-pressable grid size-11 place-items-center rounded-full",
                   cls,
                 ].join(" ")}
                 onClick={() => onToggleFollow(author.id)}
@@ -216,7 +217,7 @@ export function SocialPostCard({
           })() : null}
           {onOpenPostMenu ? (
             <IconButton
-              className="size-10"
+              className="size-11"
               label="Mais opções"
               onClick={() => onOpenPostMenu(post.id)}
             >
@@ -257,7 +258,7 @@ export function SocialPostCard({
               className="text-[var(--gc-consistency-daily)]"
               fill="currentColor"
             />
-            {post.author.name} está há {post.streakAtPost} dias treinando
+            {formatTrainingStreakText(post.author.name, post.streakAtPost)}
           </div>
           {mediaType === "video" ? (
             <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-white/72 backdrop-blur-xl">

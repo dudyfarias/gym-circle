@@ -36,3 +36,6 @@ yarn-error.log*
 # Supabase CLI cache
 supabase/.temp
 supabase/.branches
+
+# Claude Code local artifacts (worktrees, projects, settings)
+.claude

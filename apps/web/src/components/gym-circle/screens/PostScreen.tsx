@@ -581,7 +581,7 @@ export function PostScreen({
             )}
             <button
               aria-label="Trocar mídia"
-              className="gc-pressable absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
+              className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
               onClick={() => fileInputRef.current?.click()}
               type="button"
             >
@@ -838,7 +838,7 @@ export function PostScreen({
                       );
                     })()}
                     <button
-                      className="gc-pressable flex h-10 w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[12px] font-black text-white disabled:opacity-50"
+                      className="gc-pressable flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[12px] font-black text-white disabled:opacity-50"
                       disabled={locationStatus === "requesting"}
                       onClick={requestCurrentLocation}
                       type="button"

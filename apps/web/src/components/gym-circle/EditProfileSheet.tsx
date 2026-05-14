@@ -215,7 +215,7 @@ export function EditProfileSheet({
               {onUploadAvatar ? (
                 <button
                   aria-label="Trocar avatar"
-                  className="gc-pressable absolute -bottom-1 -right-1 grid size-9 place-items-center rounded-full bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.3)] disabled:opacity-50"
+                  className="gc-pressable absolute -bottom-1 -right-1 grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.3)] disabled:opacity-50"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
                   type="button"
@@ -326,7 +326,7 @@ export function EditProfileSheet({
                   <button
                     aria-pressed={active}
                     className={[
-                      "gc-pressable h-10 rounded-full border px-4 text-[12px] font-black transition-colors",
+                      "gc-pressable h-11 rounded-full border px-4 text-[12px] font-black transition-colors",
                       active
                         ? "border-[var(--gc-brand)]/35 bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
                         : "border-white/[0.08] bg-white/[0.04] text-white/56",

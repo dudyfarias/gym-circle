@@ -98,7 +98,7 @@ export function LikesOverlay({
                   {!isMe && onToggleFollow ? (
                     <button
                       className={[
-                        "gc-pressable inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-black",
+                        "gc-pressable inline-flex h-11 items-center gap-1.5 rounded-full px-3 text-[12px] font-black",
                         following
                           ? "bg-white text-black"
                           : "bg-[var(--gc-brand)] text-black",

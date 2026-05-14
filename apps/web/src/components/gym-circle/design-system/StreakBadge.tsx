@@ -1,6 +1,6 @@
 import { Crown, Flame, Shield, Sparkles } from "lucide-react";
 import type { CSSProperties } from "react";
-import { getStreakLevel } from "../social/streak";
+import { formatStreakDays, getStreakLevel } from "../social/streak";
 
 type StreakBadgeProps = {
   streak: number;
@@ -60,12 +60,14 @@ export function StreakBadge({
   const level = getStreakLevel(streak);
   const Icon = levelIcon[level.id];
   const label = showLevel ? `${level.shortLabel} · ${streak}d` : `${streak}d`;
-  const title = `${level.label} · ${streak} dias${best ? ` · melhor ${best}` : ""}`;
+  const streakLabel = formatStreakDays(streak);
+  const bestLabel = typeof best === "number" ? formatStreakDays(best) : null;
+  const title = `${level.label} · ${streakLabel}${bestLabel ? ` · melhor ${bestLabel}` : ""}`;
 
   return (
     <span
-      aria-label={`Streak atual de ${streak} dias${
-        best ? `, melhor ${best} dias` : ""
+      aria-label={`Streak atual de ${streakLabel}${
+        bestLabel ? `, melhor ${bestLabel}` : ""
       }, badge ${isLit ? "aceso hoje" : "apagado hoje"}`}
       className={[
         "inline-flex shrink-0 items-center rounded-full border font-black backdrop-blur-xl",

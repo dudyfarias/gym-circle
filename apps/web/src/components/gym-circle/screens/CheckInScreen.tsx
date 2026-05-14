@@ -702,7 +702,7 @@ function SelectedGymView({
         </div>
         <button
           aria-label="Trocar de lugar"
-          className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72"
+          className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72"
           onClick={onChangeGym}
           type="button"
         >

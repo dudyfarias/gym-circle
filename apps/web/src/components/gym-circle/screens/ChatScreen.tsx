@@ -1003,7 +1003,7 @@ function ConversationView({
         {draft.trim() ? (
           <button
             aria-label="Enviar mensagem"
-            className="gc-pressable grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
+            className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
             disabled={sending}
             type="submit"
           >
@@ -1012,7 +1012,7 @@ function ConversationView({
         ) : (
           <button
             aria-label="Enviar reação"
-            className="gc-pressable grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)] disabled:opacity-50"
+            className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)] disabled:opacity-50"
             disabled={sending}
             onClick={onQuickReaction}
             type="button"

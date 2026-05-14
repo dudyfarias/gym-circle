@@ -70,7 +70,7 @@ export function DiscoveryUserCard({
         </button>
         <button
           aria-label={cta.ariaLabel}
-          className={["gc-pressable grid size-10 place-items-center rounded-full", cta.classes].join(" ")}
+          className={["gc-pressable grid size-11 place-items-center rounded-full", cta.classes].join(" ")}
           onClick={() => onToggleFollow(user.id)}
           title={cta.title}
           type="button"

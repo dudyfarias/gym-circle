@@ -276,7 +276,7 @@ function StoryViewerContent({
         onTouchEnd={handleTouchEnd}
         onTouchStart={handleTouchStart}
       >
-        <div className="absolute inset-x-4 top-[calc(var(--gc-safe-top)+10px)] z-20 h-1 overflow-hidden rounded-full bg-white/18">
+        <div className="absolute inset-x-4 top-3 z-20 h-1 overflow-hidden rounded-full bg-white/18">
           <div
             className="h-full rounded-full bg-white"
             key={story.id}
@@ -320,7 +320,7 @@ function StoryViewerContent({
           </div>
         ) : null}
 
-        <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-[calc(var(--gc-safe-top)+26px)]">
+        <div className="relative z-10 flex items-center justify-between gap-3 p-5 pt-7">
           <button
             className="gc-pressable flex min-w-0 items-center gap-3 text-left"
             onClick={(event) => {
@@ -355,7 +355,7 @@ function StoryViewerContent({
           <div className="flex shrink-0 items-center gap-2" data-gc-story-control>
             <button
               aria-label="Opções do story"
-              className="gc-pressable grid size-10 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
+              className="gc-pressable grid size-11 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
               onClick={(event) => {
                 event.stopPropagation();
                 setMenuOpen((value) => !value);
@@ -367,7 +367,7 @@ function StoryViewerContent({
             </button>
             <button
               aria-label="Fechar story"
-              className="gc-pressable grid size-10 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
+              className="gc-pressable grid size-11 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
               onClick={(event) => {
                 event.stopPropagation();
                 onClose();
@@ -390,7 +390,7 @@ function StoryViewerContent({
           />
         ) : null}
 
-        <div className="relative z-10 mt-auto space-y-4 p-5 pb-[calc(var(--gc-safe-bottom)+20px)]">
+        <div className="relative z-10 mt-auto space-y-4 p-5 pb-5">
           <div>
             <p className="text-[13px] font-black uppercase text-white/48">
               {story.kind === "checkin" ? "Check-in" : "Treino"}
@@ -408,7 +408,7 @@ function StoryViewerContent({
                   Compartilhar
                 </p>
                 <button
-                  className="gc-pressable grid size-8 place-items-center rounded-full bg-white/[0.08] text-white/72"
+                  className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.08] text-white/72"
                   onClick={() => setShareOpen(false)}
                   type="button"
                 >
@@ -472,7 +472,7 @@ function StoryViewerContent({
                 {replyDraft.trim() ? (
                   <button
                     aria-label="Responder story"
-                    className="gc-pressable grid size-9 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
+                    className="gc-pressable grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
                     disabled={sendingReply}
                     type="submit"
                   >
@@ -597,7 +597,7 @@ function StoryActionButton({
 }) {
   return (
     <button
-      className="gc-pressable flex h-10 items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[12px] font-black text-white"
+      className="gc-pressable flex h-11 items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[12px] font-black text-white"
       onClick={onClick}
       type="button"
     >

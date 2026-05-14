@@ -323,7 +323,7 @@ function DistancePermissionCard({
         {onDismiss ? (
           <button
             aria-label="Ocultar localização"
-            className="gc-pressable grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/46"
+            className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/46"
             onClick={onDismiss}
             type="button"
           >

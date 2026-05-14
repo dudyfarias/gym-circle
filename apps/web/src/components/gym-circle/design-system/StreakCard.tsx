@@ -1,6 +1,7 @@
 import { Flame, ShieldCheck } from "lucide-react";
 import {
   buildConsistencyRings,
+  formatStreakDays,
   getConsistencyProgress,
   getStreakLevel,
 } from "../social/streak";
@@ -45,7 +46,7 @@ export function StreakCard({
             tone="brand"
           />
           <h2 className="mt-5 text-[36px] font-black leading-[0.95]">
-            {current} dias
+            {formatStreakDays(current)}
           </h2>
           <p className="mt-2 text-[14px] font-bold text-zinc-400">
             {isLit

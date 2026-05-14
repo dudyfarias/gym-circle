@@ -40,7 +40,7 @@ export function PostDetailSheet({
   return (
     <div className="gc-safe-overlay absolute inset-0 z-[65] bg-black/96 backdrop-blur-2xl">
       <div className="mx-auto flex h-full max-h-[100dvh] w-full max-w-[480px] flex-col overflow-hidden bg-black">
-        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.07] bg-black/84 px-4 pb-3 pt-[calc(var(--gc-safe-top)+12px)] backdrop-blur-2xl">
+        <header className="sticky top-0 z-20 flex items-center justify-between border-b border-white/[0.07] bg-black/84 px-4 py-3 backdrop-blur-2xl">
           <div className="min-w-0">
             <p className="truncate text-[17px] font-black text-white">Publicação</p>
             <p className="truncate text-[12px] font-bold text-white/46">
@@ -56,7 +56,7 @@ export function PostDetailSheet({
             <X size={19} />
           </button>
         </header>
-        <div className="gc-scrollbar flex-1 overflow-y-auto px-3 py-4 pb-[calc(var(--gc-safe-bottom)+24px)]">
+        <div className="gc-scrollbar flex-1 overflow-y-auto px-3 py-4 pb-6">
           <SocialPostCard
             currentUserId={currentUserId}
             formatTime={formatTime}

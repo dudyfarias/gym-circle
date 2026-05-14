@@ -81,7 +81,7 @@ export function MonthlyRecapSheet({
           </p>
         </div>
 
-        <footer className="grid grid-cols-[1fr_auto] gap-2 border-t border-white/[0.06] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <footer className="grid grid-cols-[1fr_auto] gap-2 border-t border-white/[0.06] p-4">
           <button
             className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-black disabled:opacity-60"
             disabled={sharing}

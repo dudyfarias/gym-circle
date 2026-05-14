@@ -152,7 +152,7 @@ export function ProfileScreen({
         <div className="mt-4 flex gap-2">
           {onEditProfile ? (
             <button
-              className="gc-pressable flex h-10 flex-1 items-center justify-center gap-2 rounded-[12px] bg-white/[0.06] text-[13px] font-black text-white"
+              className="gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-[12px] bg-white/[0.06] text-[13px] font-black text-white"
               onClick={onEditProfile}
               type="button"
             >
@@ -163,7 +163,7 @@ export function ProfileScreen({
           {onSignOut ? (
             <button
               aria-label="Sair"
-              className="gc-pressable grid size-10 place-items-center rounded-[12px] bg-white/[0.06] text-white/72"
+              className="gc-pressable grid size-11 place-items-center rounded-[12px] bg-white/[0.06] text-white/72"
               onClick={onSignOut}
               type="button"
             >
@@ -173,7 +173,7 @@ export function ProfileScreen({
           {onOpenAdmin ? (
             <button
               aria-label="Admin"
-              className="gc-pressable grid size-10 place-items-center rounded-[12px] bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
+              className="gc-pressable grid size-11 place-items-center rounded-[12px] bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
               onClick={onOpenAdmin}
               type="button"
             >

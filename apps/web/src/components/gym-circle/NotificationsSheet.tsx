@@ -189,7 +189,7 @@ export function NotificationsSheet({
   return (
     <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
-        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 pb-4 pt-[calc(var(--gc-safe-top)+12px)]">
+        <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
           <p className="text-[17px] font-black">Notificações</p>
           <button
             aria-label="Fechar"
@@ -367,7 +367,7 @@ function Section({
                             : `Seguir ${actor.name} de volta`
                       }
                       className={[
-                        "gc-pressable grid size-9 place-items-center rounded-full border transition disabled:opacity-100",
+                        "gc-pressable grid size-11 place-items-center rounded-full border transition disabled:opacity-100",
                         isFollowingBack
                           ? "border-[var(--gc-blue)]/34 bg-[var(--gc-blue)]/12 text-[var(--gc-blue)]"
                           : isFollowBackPending
