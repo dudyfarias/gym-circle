@@ -49,6 +49,7 @@ import type {
   EnrichedUser,
   FeedbackMessage,
   FeedbackTone,
+  FollowActionResult,
   GymLocationOption,
   GymUser,
   ProfileEditInput,
@@ -317,7 +318,7 @@ export type SupabaseSocialActions = {
   likePost: (postId: string) => Promise<void>;
   commentPost: (postId: string, body: string) => Promise<void>;
   likeComment: (postId: string, commentId: string) => Promise<void>;
-  toggleFollow: (userId: string) => Promise<void>;
+  toggleFollow: (userId: string) => Promise<FollowActionResult>;
   openStory: (storyId: string) => void;
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
@@ -1521,6 +1522,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         }
         showFeedback("follow", title, target?.name);
         await refresh();
+        return result;
       },
       openStory(storyId: string) {
         const group =

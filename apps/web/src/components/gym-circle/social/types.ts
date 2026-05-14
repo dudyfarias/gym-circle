@@ -1,4 +1,5 @@
 export type FollowStatus = "none" | "pending" | "accepted";
+export type FollowActionResult = { followStatus: FollowStatus };
 
 export type GymUser = {
   id: string;
@@ -270,7 +271,7 @@ export type SocialActions = {
   deleteComment?: (postId: string, commentId: string) => void | Promise<void>;
   likeComment?: (postId: string, commentId: string) => void | Promise<void>;
   sharePostToChat?: (postId: string, receiverId: string) => Promise<void>;
-  toggleFollow: (userId: string) => void | Promise<void>;
+  toggleFollow: (userId: string) => void | FollowActionResult | Promise<void | FollowActionResult>;
   openStory: (storyId: string) => void;
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;

@@ -754,6 +754,12 @@ export function useGymCircleSocial() {
         const user = state.users[userId];
         const wasAccepted = user?.followStatus === "accepted";
         const wasPending = user?.followStatus === "pending";
+        const nextStatus =
+          wasAccepted || wasPending
+            ? "none"
+            : user?.isPrivate
+              ? "pending"
+              : "accepted";
         dispatch({ type: "toggle-follow", userId });
         let title: string;
         if (wasAccepted) title = "Você deixou de seguir";
@@ -761,6 +767,7 @@ export function useGymCircleSocial() {
         else if (user?.isPrivate) title = "Solicitação enviada";
         else title = "Agora no seu circle";
         showFeedback("follow", title, user?.name);
+        return { followStatus: nextStatus as "none" | "pending" | "accepted" };
       },
       openStory(storyId: string) {
         dispatch({ type: "view-story", storyId });

@@ -20,7 +20,11 @@ import {
   type SocialBellNotificationKind,
 } from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
-import type { EnrichedUser } from "./social/types";
+import {
+  getFollowCtaState,
+  normalizeFollowActionResult,
+} from "./social/followCta";
+import type { EnrichedUser, FollowActionResult, FollowStatus } from "./social/types";
 
 type NotificationsSheetProps = {
   open: boolean;
@@ -28,7 +32,7 @@ type NotificationsSheetProps = {
   currentUserId: string;
   users: Record<string, EnrichedUser>;
   onSelectUser?: (userId: string) => void;
-  onFollowBack?: (userId: string) => void | Promise<void>;
+  onFollowBack?: (userId: string) => void | FollowActionResult | Promise<void | FollowActionResult>;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
   onAcceptPostTag?: (postId: string) => void | Promise<void>;
@@ -105,13 +109,20 @@ export function NotificationsSheet({
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const [followBackBusyId, setFollowBackBusyId] = useState<string | null>(null);
+  const [followBackOverrides, setFollowBackOverrides] = useState<
+    Record<string, FollowStatus>
+  >({});
 
   const followBack = useCallback(
     async (userId: string) => {
       if (!onFollowBack) return;
       setFollowBackBusyId(userId);
       try {
-        await onFollowBack(userId);
+        const result = await onFollowBack(userId);
+        const next = normalizeFollowActionResult(result);
+        if (next) {
+          setFollowBackOverrides((current) => ({ ...current, [userId]: next }));
+        }
       } finally {
         setFollowBackBusyId(null);
       }
@@ -215,6 +226,7 @@ export function NotificationsSheet({
                   onSelectUser={onSelectUser}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
+                  followBackOverrides={followBackOverrides}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
                   onAcceptPostTag={onAcceptPostTag}
@@ -232,6 +244,7 @@ export function NotificationsSheet({
                   onSelectUser={onSelectUser}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
+                  followBackOverrides={followBackOverrides}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
                   onAcceptPostTag={onAcceptPostTag}
@@ -256,6 +269,7 @@ function Section({
   onSelectUser,
   onFollowBack,
   followBackBusyId,
+  followBackOverrides,
   onAcceptFollowRequest,
   onRejectFollowRequest,
   onAcceptPostTag,
@@ -268,8 +282,9 @@ function Section({
   users: Record<string, EnrichedUser>;
   now: number;
   onSelectUser?: (userId: string) => void;
-  onFollowBack?: (userId: string) => void | Promise<void>;
+  onFollowBack?: (userId: string) => void | FollowActionResult | Promise<void | FollowActionResult>;
   followBackBusyId?: string | null;
+  followBackOverrides?: Record<string, FollowStatus>;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
   onAcceptPostTag?: (postId: string) => void | Promise<void>;
@@ -292,14 +307,19 @@ function Section({
           const isFollowNotification = kind === "follow";
           const isPostTag = kind === "post_tag" && Boolean(n.post_id);
           const isStoryTag = kind === "story_tag" && Boolean(n.story_id);
-          const isFollowingBack = actor?.followStatus === "accepted";
-          const isFollowBackPending = actor?.followStatus === "pending";
+          const followBackState = actor
+            ? getFollowCtaState({
+                isFollowBackContext: true,
+                overrideStatus: followBackOverrides?.[actor.id],
+                user: actor,
+              })
+            : null;
           const canFollowBack = Boolean(
             isFollowNotification &&
               actor &&
               onFollowBack &&
-              !isFollowingBack &&
-              !isFollowBackPending,
+              followBackState &&
+              !followBackState.disabled,
           );
           const followBackBusy = Boolean(actor && followBackBusyId === actor.id);
           // Se o solicitante já foi aprovado em outra aba (followStatus 'accepted')
@@ -350,17 +370,17 @@ function Section({
                   {isFollowNotification && actor ? (
                     <button
                       aria-label={
-                        isFollowingBack
+                        followBackState?.status === "accepted"
                           ? `Você já segue ${actor.name}`
-                          : isFollowBackPending
+                          : followBackState?.status === "pending"
                             ? `Solicitação enviada para ${actor.name}`
-                            : `Seguir ${actor.name} de volta`
+                            : `${followBackState?.label ?? "Seguir"} ${actor.name}`
                       }
                       className={[
-                        "gc-pressable grid size-11 place-items-center rounded-full border transition disabled:opacity-100",
-                        isFollowingBack
+                        "gc-pressable inline-flex h-10 min-w-[92px] items-center justify-center gap-1.5 rounded-full border px-3 text-[12px] font-black transition disabled:opacity-100",
+                        followBackState?.status === "accepted"
                           ? "border-[var(--gc-blue)]/34 bg-[var(--gc-blue)]/12 text-[var(--gc-blue)]"
-                          : isFollowBackPending
+                          : followBackState?.status === "pending"
                             ? "border-white/[0.12] bg-white/[0.06] text-white/54"
                             : "border-[var(--gc-blue)]/42 bg-[var(--gc-blue)] text-black shadow-[0_0_18px_rgba(48,213,255,0.34)]",
                       ].join(" ")}
@@ -370,13 +390,14 @@ function Section({
                     >
                       {followBackBusy ? (
                         <Loader2 className="animate-spin" size={16} />
-                      ) : isFollowingBack ? (
+                      ) : followBackState?.status === "accepted" ? (
                         <UserCheck size={16} strokeWidth={2.7} />
-                      ) : isFollowBackPending ? (
+                      ) : followBackState?.status === "pending" ? (
                         <BellRing size={15} strokeWidth={2.6} />
                       ) : (
                         <UserPlus size={16} strokeWidth={2.7} />
                       )}
+                      <span>{followBackBusy ? "..." : followBackState?.label ?? "Seguir"}</span>
                     </button>
                   ) : (
                     <Icon className={tone} size={18} fill="none" />

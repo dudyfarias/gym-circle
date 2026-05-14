@@ -750,6 +750,7 @@ export function GymCirclePreview({
     onUploadImage,
     onUploadChatImage,
     handleEditProfile,
+    toggleFollowIgnoringResult,
     openAdmin,
     openSearch,
     openProfile,

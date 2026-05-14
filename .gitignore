@@ -21,6 +21,7 @@ output
 # misc
 .DS_Store
 *.pem
+*.p8
 *.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*

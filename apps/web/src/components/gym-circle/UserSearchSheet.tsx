@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, UserCheck, UserPlus, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { StreakBadge } from "./design-system";
+import { getFollowCtaState } from "./social/followCta";
 import type { EnrichedUser } from "./social/types";
 
 type UserSearchSheetProps = {
@@ -12,6 +13,7 @@ type UserSearchSheetProps = {
   users: EnrichedUser[];
   currentUserId: string;
   onToggleFollow: (userId: string) => void | Promise<void>;
+  onSelectUser?: (userId: string) => void;
 };
 
 function normalize(value: string): string {
@@ -27,6 +29,7 @@ export function UserSearchSheet({
   users,
   currentUserId,
   onToggleFollow,
+  onSelectUser,
 }: UserSearchSheetProps) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -137,38 +140,33 @@ export function UserSearchSheet({
                   className="gc-ios-sheet flex items-center gap-3 rounded-[20px] p-3"
                   key={user.id}
                 >
-                  <Avatar
-                    accent={user.accent}
-                    name={user.name}
-                    src={user.avatarUrl ?? undefined}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="truncate text-[15px] font-black">{user.name}</p>
-                      <StreakBadge
-                        isLit={user.streakLitToday}
-                        size="xs"
-                        streak={user.currentStreak}
-                      />
-                    </div>
-                    <p className="truncate text-[12px] font-bold text-white/52">
-                      @{user.username} · {user.goal || user.bio?.slice(0, 40) || "—"}
-                    </p>
-                  </div>
                   <button
-                    aria-label={user.isFollowing ? `Seguindo ${user.name}` : `Seguir ${user.name}`}
-                    className={[
-                      "gc-pressable grid size-11 shrink-0 place-items-center rounded-full",
-                      user.isFollowing
-                        ? "bg-white text-black"
-                        : "bg-[var(--gc-brand)] text-black",
-                    ].join(" ")}
-                    onClick={() => onToggleFollow(user.id)}
-                    title={user.isFollowing ? "Seguindo" : "Seguir"}
+                    className="gc-pressable flex min-w-0 flex-1 items-center gap-3 text-left"
+                    onClick={() => {
+                      onSelectUser?.(user.id);
+                    }}
                     type="button"
                   >
-                    {user.isFollowing ? <UserCheck size={18} /> : <UserPlus size={18} />}
+                    <Avatar
+                      accent={user.accent}
+                      name={user.name}
+                      src={user.avatarUrl ?? undefined}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <p className="truncate text-[15px] font-black">{user.name}</p>
+                        <StreakBadge
+                          isLit={user.streakLitToday}
+                          size="xs"
+                          streak={user.currentStreak}
+                        />
+                      </div>
+                      <p className="truncate text-[12px] font-bold text-white/52">
+                        @{user.username} · {user.goal || user.bio?.slice(0, 40) || "—"}
+                      </p>
+                    </div>
                   </button>
+                  <FollowButton onToggleFollow={onToggleFollow} user={user} />
                 </li>
               ))}
             </ul>
@@ -176,5 +174,40 @@ export function UserSearchSheet({
         </div>
       </div>
     </div>
+  );
+}
+
+function FollowButton({
+  onToggleFollow,
+  user,
+}: {
+  onToggleFollow: (userId: string) => void | Promise<void>;
+  user: EnrichedUser;
+}) {
+  const cta = getFollowCtaState({ user });
+
+  return (
+    <button
+      aria-label={`${cta.label} ${user.name}`}
+      className={[
+        "gc-pressable inline-flex h-10 min-w-[92px] shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-[12px] font-black",
+        cta.status === "accepted"
+          ? "bg-white text-black"
+          : cta.status === "pending"
+            ? "border border-white/[0.12] bg-white/[0.06] text-white/58"
+            : "bg-[var(--gc-brand)] text-black",
+      ].join(" ")}
+      disabled={cta.status === "accepted" || cta.status === "pending"}
+      onClick={() => onToggleFollow(user.id)}
+      title={cta.label}
+      type="button"
+    >
+      {cta.status === "accepted" ? (
+        <UserCheck size={16} />
+      ) : (
+        <UserPlus size={16} />
+      )}
+      <span>{cta.label}</span>
+    </button>
   );
 }
