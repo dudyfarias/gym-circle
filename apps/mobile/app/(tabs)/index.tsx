@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { BrandMark } from "@/components/brand-mark";
 
 const profile = {
   name: "Eduardo",
@@ -39,11 +40,7 @@ function TopBar() {
   return (
     <View className="flex-row items-center justify-between px-5 pb-2 pt-2">
       <View className="flex-row items-center gap-3">
-        <Image
-          source={require("@/assets/images/gym-circle-brand-mark.png")}
-          style={{ width: 40, height: 40, borderRadius: 999 }}
-          contentFit="contain"
-        />
+        <BrandMark size={40} />
         <View>
           <Text className="text-[10px] font-black uppercase tracking-widest text-gc-fg-muted">
             Gym Circle
