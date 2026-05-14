@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Gym Circle POC",
+    "slug": "gym-circle-poc",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/images/gym-circle-icon.png",
+    "scheme": "gymcirclepoc",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.gymcircle.app.poc",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "com.gymcircle.app.poc",
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/images/android-icon-foreground.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/gym-circle-icon.png",
+          "imageWidth": 180,
+          "resizeMode": "contain",
+          "backgroundColor": "#000000",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
