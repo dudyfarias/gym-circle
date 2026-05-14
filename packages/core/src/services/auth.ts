@@ -86,6 +86,17 @@ export function authService(client: GymCircleClient) {
       return data;
     },
 
+    async sendMagicLink(email: string, redirectTo?: string) {
+      const { data, error } = await client.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: redirectTo,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
+
     async updatePassword(password: string) {
       const { data, error } = await client.auth.updateUser({ password });
       if (error) throw error;

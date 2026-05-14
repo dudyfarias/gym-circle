@@ -18,6 +18,9 @@ export type GymUser = {
   alphaTermsAcceptedAt?: string | null;
   privacyPolicyAcceptedAt?: string | null;
   accountStatus?: string;
+  suspendedAt?: string | null;
+  reactivationSentAt?: string | null;
+  reactivationExpiresAt?: string | null;
   location: string;
   gyms: string[];
   preferredTimes: string[];
@@ -320,6 +323,8 @@ export type SocialActions = {
     longitude: number;
   }) => Promise<GymLocationOption>;
   requestAccountDeletion?: (reason?: string) => Promise<void>;
+  suspendAccount?: () => Promise<void>;
+  sendReactivationEmail?: () => Promise<void>;
   completeOnboarding?: () => Promise<void>;
 };
 

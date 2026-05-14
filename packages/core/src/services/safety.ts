@@ -22,6 +22,29 @@ export type CreateReportInput = {
   details?: string | null;
 };
 
+export type AccountReactivationToken = {
+  token: string;
+  expiresAt: string;
+};
+
+type AccountReactivationRpcRow = {
+  reactivation_token: string;
+  reactivation_expires_at: string;
+};
+
+function parseReactivationRpcResult(
+  data: AccountReactivationRpcRow | AccountReactivationRpcRow[] | null,
+): AccountReactivationToken {
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.reactivation_token || !row.reactivation_expires_at) {
+    throw new Error("Não foi possível gerar o link de reativação.");
+  }
+  return {
+    token: row.reactivation_token,
+    expiresAt: row.reactivation_expires_at,
+  };
+}
+
 export function safetyService(client: GymCircleClient) {
   return {
     async blockUser(
@@ -80,6 +103,29 @@ export function safetyService(client: GymCircleClient) {
     async requestAccountDeletion(reason?: string | null): Promise<void> {
       const { error } = await client.rpc("request_account_deletion", {
         p_reason: reason?.trim() || undefined,
+      });
+      if (error) throw error;
+    },
+
+    async suspendAccount(): Promise<AccountReactivationToken> {
+      const { data, error } = await client.rpc("suspend_own_account");
+      if (error) throw error;
+      return parseReactivationRpcResult(
+        data as AccountReactivationRpcRow | AccountReactivationRpcRow[] | null,
+      );
+    },
+
+    async issueReactivationToken(): Promise<AccountReactivationToken> {
+      const { data, error } = await client.rpc("issue_account_reactivation_token");
+      if (error) throw error;
+      return parseReactivationRpcResult(
+        data as AccountReactivationRpcRow | AccountReactivationRpcRow[] | null,
+      );
+    },
+
+    async reactivateAccount(token: string): Promise<void> {
+      const { error } = await client.rpc("reactivate_suspended_account", {
+        p_token: token,
       });
       if (error) throw error;
     },

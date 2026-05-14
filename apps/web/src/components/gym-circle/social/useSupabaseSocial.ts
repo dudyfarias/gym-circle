@@ -306,6 +306,13 @@ function persistStoredHiddenDirectConversations(
   }
 }
 
+function buildReactivationRedirectUrl(token: string) {
+  if (typeof window === "undefined") return undefined;
+  const url = new URL("/reactivate-account", window.location.origin);
+  url.searchParams.set("token", token);
+  return url.toString();
+}
+
 export type SupabaseSocialActions = {
   likePost: (postId: string) => Promise<void>;
   commentPost: (postId: string, body: string) => Promise<void>;
@@ -363,6 +370,8 @@ export type SupabaseSocialActions = {
   acceptStoryTag: (storyId: string) => Promise<void>;
   rejectStoryTag: (storyId: string) => Promise<void>;
   requestAccountDeletion: (reason?: string) => Promise<void>;
+  suspendAccount: () => Promise<void>;
+  sendReactivationEmail: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
 };
 
@@ -767,12 +776,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
     const map = new Map<string, EnrichedUser>();
     for (const profile of agg.profiles) {
+      const accountStatus = profile.account_status ?? "active";
       // Bloqueio mútuo: o app de A não vê B, e o app de B não vê A.
       // Eu mantenho o próprio usuário fora dessa filtragem (preciso me
       // ver pra saber meu badge/streak).
       if (
         profile.user_id !== currentUserId &&
-        blockedSet.has(profile.user_id)
+        (blockedSet.has(profile.user_id) || accountStatus !== "active")
       ) {
         continue;
       }
@@ -806,7 +816,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         onboardingCompletedAt: profile.onboarding_completed_at ?? null,
         alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
         privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
-        accountStatus: profile.account_status ?? "active",
+        accountStatus,
+        suspendedAt: profile.suspended_at ?? null,
+        reactivationSentAt: profile.reactivation_sent_at ?? null,
+        reactivationExpiresAt: profile.reactivation_expires_at ?? null,
         location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
         gyms: gymNames,
         preferredTimes,
@@ -862,6 +875,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         alphaTermsAcceptedAt: null,
         privacyPolicyAcceptedAt: null,
         accountStatus: "active",
+        suspendedAt: null,
+        reactivationSentAt: null,
+        reactivationExpiresAt: null,
         location: "",
         gyms: [],
         preferredTimes: [],
@@ -1986,6 +2002,32 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.safety.requestAccountDeletion(reason);
         showFeedback("brand", "Conta marcada para exclusão");
         await services.auth.signOut();
+      },
+      async suspendAccount() {
+        const { token } = await services.safety.suspendAccount();
+        const user = await services.auth.getUser();
+        const email = user?.email;
+        if (email) {
+          await services.auth.sendMagicLink(
+            email,
+            buildReactivationRedirectUrl(token),
+          );
+        }
+        showFeedback("brand", "Conta suspensa", "Enviamos o link de reativação.");
+        await services.auth.signOut();
+      },
+      async sendReactivationEmail() {
+        const { token } = await services.safety.issueReactivationToken();
+        const user = await services.auth.getUser();
+        const email = user?.email;
+        if (!email) {
+          throw new Error("Não encontramos email para enviar reativação.");
+        }
+        await services.auth.sendMagicLink(
+          email,
+          buildReactivationRedirectUrl(token),
+        );
+        showFeedback("brand", "Email de reativação enviado");
       },
       async useStreakRestore() {
         await services.stats.useStreakRestore();

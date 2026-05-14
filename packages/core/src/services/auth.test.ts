@@ -52,4 +52,31 @@ describe("authService.signInWithOAuth", () => {
       },
     });
   });
+
+  it("sends magic links with emailRedirectTo for account reactivation", async () => {
+    const client = {
+      auth: {
+        signInWithOtp: vi.fn().mockResolvedValue({
+          data: { user: null, session: null },
+          error: null,
+        }),
+      },
+    } as unknown as GymCircleClient & {
+      auth: { signInWithOtp: ReturnType<typeof vi.fn> };
+    };
+    const service = authService(client);
+
+    await service.sendMagicLink(
+      " dudy@gymcircle.app ",
+      "https://gym-circle-rust.vercel.app/reactivate-account?token=abc",
+    );
+
+    expect(client.auth.signInWithOtp).toHaveBeenCalledWith({
+      email: "dudy@gymcircle.app",
+      options: {
+        emailRedirectTo:
+          "https://gym-circle-rust.vercel.app/reactivate-account?token=abc",
+      },
+    });
+  });
 });

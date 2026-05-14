@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Bell, Search } from "lucide-react";
 import { IconButton } from "@/components/ui/IconButton";
 import { BrandMark } from "./design-system";
@@ -8,9 +9,10 @@ import { useSearchSheet } from "./SearchSheetContext";
 type TopBarProps = {
   eyebrow: string;
   title: string;
+  extraAction?: ReactNode;
 };
 
-export function TopBar({ eyebrow, title }: TopBarProps) {
+export function TopBar({ eyebrow, title, extraAction }: TopBarProps) {
   const { openSearch, openNotifications, unreadNotifications } = useSearchSheet();
 
   return (
@@ -25,7 +27,7 @@ export function TopBar({ eyebrow, title }: TopBarProps) {
             </h1>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <IconButton label="Buscar usuários" onClick={openSearch}>
             <Search size={19} strokeWidth={2.4} />
           </IconButton>
@@ -39,6 +41,7 @@ export function TopBar({ eyebrow, title }: TopBarProps) {
               </span>
             ) : null}
           </div>
+          {extraAction}
         </div>
       </div>
     </header>

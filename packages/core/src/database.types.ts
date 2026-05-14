@@ -630,7 +630,11 @@ export type Database = {
           onboarding_completed_at: string | null
           preferred_training_times: string[]
           privacy_policy_accepted_at: string | null
+          reactivation_expires_at: string | null
+          reactivation_sent_at: string | null
+          reactivation_token_hash: string | null
           sports: string[]
+          suspended_at: string | null
           user_id: string
           username: string
         }
@@ -651,7 +655,11 @@ export type Database = {
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]
           privacy_policy_accepted_at?: string | null
+          reactivation_expires_at?: string | null
+          reactivation_sent_at?: string | null
+          reactivation_token_hash?: string | null
           sports?: string[]
+          suspended_at?: string | null
           user_id: string
           username: string
         }
@@ -672,7 +680,11 @@ export type Database = {
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]
           privacy_policy_accepted_at?: string | null
+          reactivation_expires_at?: string | null
+          reactivation_sent_at?: string | null
+          reactivation_token_hash?: string | null
           sports?: string[]
+          suspended_at?: string | null
           user_id?: string
           username?: string
         }
@@ -1275,9 +1287,27 @@ export type Database = {
         Args: { p_reason?: string }
         Returns: undefined
       }
+      issue_account_reactivation_token: {
+        Args: never
+        Returns: {
+          reactivation_expires_at: string
+          reactivation_token: string
+        }[]
+      }
+      reactivate_suspended_account: {
+        Args: { p_token: string }
+        Returns: undefined
+      }
       resolve_email_for_username: {
         Args: { p_username: string }
         Returns: string
+      }
+      suspend_own_account: {
+        Args: never
+        Returns: {
+          reactivation_expires_at: string
+          reactivation_token: string
+        }[]
       }
       send_direct_message: {
         Args: {

@@ -6,14 +6,14 @@ import {
   Clock,
   Flame,
   LifeBuoy,
-  LogOut,
   MapPin,
+  MoreHorizontal,
   Pencil,
   Play,
   ShieldCheck,
-  Trash2,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/IconButton";
 import { VideoThumbnail } from "../design-system";
 import type { MonthlyRecap } from "../social/monthlyRecap";
 import { calculateProfileCompletion } from "../social/profile";
@@ -36,10 +36,9 @@ type ProfileScreenProps = {
   nearbyUsers: EnrichedUser[];
   onToggleFollow: (userId: string) => void | Promise<void>;
   onEditProfile?: () => void;
-  onSignOut?: () => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
   onOpenAdmin?: () => void;
-  onRequestAccountDeletion?: () => void | Promise<void>;
+  onOpenSettings?: () => void;
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
@@ -59,9 +58,8 @@ export function ProfileScreen({
   currentUser,
   posts,
   onEditProfile,
-  onSignOut,
   onOpenAdmin,
-  onRequestAccountDeletion,
+  onOpenSettings,
   hasStory,
   storyViewed,
   onOpenStory,
@@ -83,7 +81,17 @@ export function ProfileScreen({
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Gym Circle" title="Perfil" />
+      <TopBar
+        eyebrow="Gym Circle"
+        extraAction={
+          onOpenSettings ? (
+            <IconButton label="Configurações" onClick={onOpenSettings}>
+              <MoreHorizontal size={20} strokeWidth={2.7} />
+            </IconButton>
+          ) : undefined
+        }
+        title="Perfil"
+      />
 
       {/* Identidade — avatar + 3 métricas inline (padrão IG/Threads) */}
       <div className="mt-5 flex items-center gap-5">
@@ -147,8 +155,8 @@ export function ProfileScreen({
         ) : null}
       </div>
 
-      {/* Ações: Editar / Sair / Admin — todos no mesmo nível */}
-      {onEditProfile || onSignOut || onOpenAdmin ? (
+      {/* Ações: Editar / Admin — conta e privacidade ficam no menu do topo */}
+      {onEditProfile || onOpenAdmin ? (
         <div className="mt-4 flex gap-2">
           {onEditProfile ? (
             <button
@@ -158,16 +166,6 @@ export function ProfileScreen({
             >
               <Pencil size={14} strokeWidth={2.6} />
               Editar perfil
-            </button>
-          ) : null}
-          {onSignOut ? (
-            <button
-              aria-label="Sair"
-              className="gc-pressable grid size-11 place-items-center rounded-[12px] bg-white/[0.06] text-white/72"
-              onClick={onSignOut}
-              type="button"
-            >
-              <LogOut size={15} strokeWidth={2.6} />
             </button>
           ) : null}
           {onOpenAdmin ? (
@@ -271,20 +269,6 @@ export function ProfileScreen({
 
       {/* Posts grid — protagonista */}
       <PostsGrid onOpenPost={onOpenPost} posts={posts} />
-
-      {/* Excluir conta — pequeno, no fim */}
-      {onRequestAccountDeletion ? (
-        <div className="mt-8 flex justify-center">
-          <button
-            className="gc-pressable inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[12px] font-bold text-[var(--gc-pink)]/72"
-            onClick={onRequestAccountDeletion}
-            type="button"
-          >
-            <Trash2 size={13} strokeWidth={2.4} />
-            Excluir conta
-          </button>
-        </div>
-      ) : null}
     </section>
   );
 }

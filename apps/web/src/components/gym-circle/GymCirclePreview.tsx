@@ -26,6 +26,7 @@ import { ConfirmSheet } from "./ConfirmSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
 import { PostDetailSheet } from "./PostDetailSheet";
 import { LikesOverlay } from "./LikesOverlay";
+import { AccountSettingsSheet } from "./AccountSettingsSheet";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
 import { getLikesOverlayUsers } from "./social/likes";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -57,6 +58,7 @@ export function GymCirclePreview({
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [monthlyRecapOpen, setMonthlyRecapOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
@@ -69,6 +71,8 @@ export function GymCirclePreview({
   const [confirmIntent, setConfirmIntent] = useState<
     | { kind: "delete-post"; postId: string }
     | { kind: "delete-account" }
+    | { kind: "sign-out" }
+    | { kind: "suspend-account" }
     | { kind: "restore-streak" }
     | null
   >(null);
@@ -277,15 +281,6 @@ export function GymCirclePreview({
   );
 
   const signOut = social.actions.signOut;
-  const handleSignOut = useMemo(() => {
-    if (!signOut) return undefined;
-    return async () => {
-      if (signOut) {
-        await signOut();
-      }
-    };
-  }, [signOut]);
-
   const handleEditProfile = social.actions.updateProfile ? openEditProfile : undefined;
 
   useEffect(() => {
@@ -589,13 +584,8 @@ export function GymCirclePreview({
             nearbyUsers={social.nearbyUsers}
             onEditProfile={handleEditProfile}
             onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
-            onRequestAccountDeletion={
-              social.actions.requestAccountDeletion
-                ? () => setConfirmIntent({ kind: "delete-account" })
-                : undefined
-            }
+            onOpenSettings={() => setSettingsOpen(true)}
             onSelectUser={openProfile}
-            onSignOut={handleSignOut}
             onToggleFollow={social.actions.toggleFollow}
             posts={currentUserPosts}
             onOpenPost={openPostDetail}
@@ -702,7 +692,6 @@ export function GymCirclePreview({
     onUploadImage,
     onUploadChatImage,
     handleEditProfile,
-    handleSignOut,
     openAdmin,
     openSearch,
     openProfile,
@@ -897,6 +886,34 @@ export function GymCirclePreview({
             users={usersById}
           />
           <AdminPanelSheet onClose={closeAdmin} open={adminOpen} />
+          <AccountSettingsSheet
+            onClose={() => setSettingsOpen(false)}
+            onDeleteAccount={
+              social.actions.requestAccountDeletion
+                ? () => {
+                    setSettingsOpen(false);
+                    setConfirmIntent({ kind: "delete-account" });
+                  }
+                : undefined
+            }
+            onSignOut={
+              signOut
+                ? () => {
+                    setSettingsOpen(false);
+                    setConfirmIntent({ kind: "sign-out" });
+                  }
+                : undefined
+            }
+            onSuspendAccount={
+              social.actions.suspendAccount
+                ? () => {
+                    setSettingsOpen(false);
+                    setConfirmIntent({ kind: "suspend-account" });
+                  }
+                : undefined
+            }
+            open={settingsOpen}
+          />
           <PostMenuSheet
             isOwner={Boolean(canManageOwnPost && postMenuTarget?.userId === social.currentUser.id)}
             onBlock={() => {
@@ -932,16 +949,24 @@ export function GymCirclePreview({
             confirmLabel={
               activeConfirmKind === "delete-account"
                 ? "Excluir minha conta"
-                : activeConfirmKind === "restore-streak"
-                  ? "Restaurar"
-                  : "Apagar post"
+                : activeConfirmKind === "suspend-account"
+                  ? "Suspender conta"
+                  : activeConfirmKind === "sign-out"
+                    ? "Sair"
+                    : activeConfirmKind === "restore-streak"
+                      ? "Restaurar"
+                      : "Apagar post"
             }
             description={
               activeConfirmKind === "delete-account"
                 ? "Seu perfil será desativado e o pedido fica pendente pra processamento interno. Você pode pedir restauração contatando suporte antes do prazo final."
-                : activeConfirmKind === "restore-streak"
-                  ? `Use 1 restaurador para proteger o dia que passou. ${restoreCountdown ?? "A janela está quase acabando."}`
-                  : "Não dá pra desfazer. O post some do feed e do seu perfil."
+                : activeConfirmKind === "suspend-account"
+                  ? "Sua conta ficará oculta do feed, busca, stories e sugestões. Você será desconectado e receberá um link por email para reativar."
+                  : activeConfirmKind === "sign-out"
+                    ? "Você volta para a tela inicial. Sua conta continua ativa e seus dados permanecem salvos."
+                    : activeConfirmKind === "restore-streak"
+                      ? `Use 1 restaurador para proteger o dia que passou. ${restoreCountdown ?? "A janela está quase acabando."}`
+                      : "Não dá pra desfazer. O post some do feed e do seu perfil."
             }
             onClose={() => {
               if (restorePromptOpen && restorePromptKey) {
@@ -970,6 +995,14 @@ export function GymCirclePreview({
                 );
                 return;
               }
+              if (intent.kind === "suspend-account") {
+                await social.actions.suspendAccount?.();
+                return;
+              }
+              if (intent.kind === "sign-out") {
+                await social.actions.signOut?.();
+                return;
+              }
               if (intent.kind === "restore-streak") {
                 await social.actions.useStreakRestore?.();
               }
@@ -978,11 +1011,19 @@ export function GymCirclePreview({
             title={
               activeConfirmKind === "delete-account"
                 ? "Excluir sua conta?"
-                : activeConfirmKind === "restore-streak"
-                  ? "Restaurar streak?"
-                  : "Apagar esse post?"
+                : activeConfirmKind === "suspend-account"
+                  ? "Suspender sua conta?"
+                  : activeConfirmKind === "sign-out"
+                    ? "Sair da conta?"
+                    : activeConfirmKind === "restore-streak"
+                      ? "Restaurar streak?"
+                      : "Apagar esse post?"
             }
-            tone={activeConfirmKind === "restore-streak" ? "default" : "destructive"}
+            tone={
+              activeConfirmKind === "restore-streak" || activeConfirmKind === "sign-out"
+                ? "default"
+                : "destructive"
+            }
           />
           <ToastFeedback feedback={social.feedback} />
         </div>
