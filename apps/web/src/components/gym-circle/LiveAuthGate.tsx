@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@gym-circle/core/hooks";
 import { Apple } from "lucide-react";
+import { getAuthErrorMessage, getAuthRedirectTo } from "./authRedirect";
 import { BrandMark } from "./design-system";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
@@ -37,11 +38,7 @@ export function LiveAuthGate() {
       if (mode === "sign-in") {
         await signIn(email, password);
       } else if (mode === "forgot-password") {
-        const redirectTo =
-          typeof window === "undefined"
-            ? undefined
-            : `${window.location.origin}/reset-password`;
-        await resetPassword(email, redirectTo);
+        await resetPassword(email, getAuthRedirectTo("/reset-password"));
         setSuccess("Enviamos um email para alterar sua senha. Abra o link para confirmar.");
       } else {
         const cleanedUsername = cleanUsername(username);
@@ -56,7 +53,7 @@ export function LiveAuthGate() {
         );
       }
     } catch (err) {
-      setError((err as Error).message);
+      setError(getAuthErrorMessage(err, "Não foi possível concluir. Tente novamente."));
     } finally {
       setSubmitting(false);
     }
@@ -67,11 +64,14 @@ export function LiveAuthGate() {
     setError(null);
     setSuccess(null);
     try {
-      const redirectTo =
-        typeof window === "undefined" ? undefined : window.location.origin;
-      await signInWithProvider(provider, redirectTo);
+      await signInWithProvider(provider, getAuthRedirectTo());
     } catch (err) {
-      setError((err as Error).message);
+      setError(
+        getAuthErrorMessage(
+          err,
+          "Não conseguimos abrir o login social. Tente novamente.",
+        ),
+      );
       setSubmitting(false);
     }
   }

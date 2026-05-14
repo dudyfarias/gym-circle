@@ -26,6 +26,8 @@ const config: CapacitorConfig = {
       "*.vercel.app",
       "*.supabase.co",
       "qajjpjmybmqqwflytcpr.supabase.co",
+      "accounts.google.com",
+      "appleid.apple.com",
     ],
   },
   ios: {
