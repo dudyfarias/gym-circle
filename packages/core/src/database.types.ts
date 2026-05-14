@@ -906,6 +906,65 @@ export type Database = {
           },
         ]
       }
+      streak_restore_events: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          reason: string | null
+          related_week: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          related_week?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          reason?: string | null
+          related_week?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      streak_restored_days: {
+        Row: {
+          created_at: string
+          restore_event_id: string
+          restored_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          restore_event_id: string
+          restored_date: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          restore_event_id?: string
+          restored_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streak_restored_days_restore_event_id_fkey"
+            columns: ["restore_event_id"]
+            isOneToOne: false
+            referencedRelation: "streak_restore_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_activity_days: {
         Row: {
           activity_date: string
@@ -1002,6 +1061,12 @@ export type Database = {
           best_streak: number
           current_streak: number
           last_active_date: string | null
+          last_streak_restore_earned_at: string | null
+          last_streak_restore_used_at: string | null
+          streak_restore_deadline_at: string | null
+          streak_restore_missed_date: string | null
+          streak_restore_status: string | null
+          streak_restores_available: number
           updated_at: string
           user_id: string
           workouts_this_month: number
@@ -1012,6 +1077,12 @@ export type Database = {
           best_streak?: number
           current_streak?: number
           last_active_date?: string | null
+          last_streak_restore_earned_at?: string | null
+          last_streak_restore_used_at?: string | null
+          streak_restore_deadline_at?: string | null
+          streak_restore_missed_date?: string | null
+          streak_restore_status?: string | null
+          streak_restores_available?: number
           updated_at?: string
           user_id: string
           workouts_this_month?: number
@@ -1022,6 +1093,12 @@ export type Database = {
           best_streak?: number
           current_streak?: number
           last_active_date?: string | null
+          last_streak_restore_earned_at?: string | null
+          last_streak_restore_used_at?: string | null
+          streak_restore_deadline_at?: string | null
+          streak_restore_missed_date?: string | null
+          streak_restore_status?: string | null
+          streak_restores_available?: number
           updated_at?: string
           user_id?: string
           workouts_this_month?: number
@@ -1118,6 +1195,12 @@ export type Database = {
           best_streak: number | null
           current_streak: number | null
           last_active_date: string | null
+          last_streak_restore_earned_at: string | null
+          last_streak_restore_used_at: string | null
+          streak_restore_deadline_at: string | null
+          streak_restore_missed_date: string | null
+          streak_restore_status: string | null
+          streak_restores_available: number | null
           updated_at: string | null
           user_id: string | null
           workouts_this_month: number | null
@@ -1156,6 +1239,8 @@ export type Database = {
       }
       mark_onboarding_complete: { Args: never; Returns: undefined }
       refresh_my_stats: { Args: never; Returns: undefined }
+      sync_my_streak_restores: { Args: never; Returns: undefined }
+      use_streak_restore: { Args: never; Returns: undefined }
       remove_group_conversation_member: {
         Args: { p_conversation_id: string; p_user_id: string }
         Returns: undefined

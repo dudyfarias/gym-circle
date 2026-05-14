@@ -69,8 +69,10 @@ export function GymCirclePreview({
   const [confirmIntent, setConfirmIntent] = useState<
     | { kind: "delete-post"; postId: string }
     | { kind: "delete-account" }
+    | { kind: "restore-streak" }
     | null
   >(null);
+  const [restorePromptDismissedKey, setRestorePromptDismissedKey] = useState<string | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -449,6 +451,26 @@ export function GymCirclePreview({
     () => buildMonthlyRecap({ now, posts: currentUserPosts, user: social.currentUser }),
     [currentUserPosts, now, social.currentUser],
   );
+  const restoreCountdown = useMemo(
+    () => formatRestoreCountdown(social.currentUser.streakRestoreDeadlineAt, now),
+    [now, social.currentUser.streakRestoreDeadlineAt],
+  );
+  const canUseStreakRestore = Boolean(
+    social.actions.useStreakRestore &&
+      social.currentUser.streakRestoreStatus === "available" &&
+      social.currentUser.streakRestoresAvailable > 0 &&
+      restoreCountdown,
+  );
+  const restorePromptKey = canUseStreakRestore
+    ? `${social.currentUser.streakRestoreMissedDate ?? "missed"}:${social.currentUser.streakRestoreDeadlineAt}`
+    : null;
+  const restorePromptOpen = Boolean(
+    canUseStreakRestore &&
+      restorePromptKey &&
+      restorePromptDismissedKey !== restorePromptKey &&
+      !confirmIntent,
+  );
+  const activeConfirmKind = restorePromptOpen ? "restore-streak" : confirmIntent?.kind ?? null;
   const storyGroups = useMemo(() => social.storyGroups ?? [], [social.storyGroups]);
   const selectedStoryId = social.selectedStory?.id ?? null;
   const selectedStorySequence = useMemo(
@@ -463,6 +485,7 @@ export function GymCirclePreview({
     () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, -1),
     [selectedStoryId, selectedStorySequence],
   );
+
   const currentUserStoryGroup = useMemo(
     () => storyGroups.find((group) => group.id === social.currentUser.id) ?? null,
     [social.currentUser.id, storyGroups],
@@ -539,6 +562,7 @@ export function GymCirclePreview({
             onOpenPost={openPostDetail}
             monthlyRecap={monthlyRecap}
             onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
+            onUseStreakRestore={social.actions.useStreakRestore}
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
@@ -853,17 +877,32 @@ export function GymCirclePreview({
           <ConfirmSheet
             cancelLabel="Cancelar"
             confirmLabel={
-              confirmIntent?.kind === "delete-account"
+              activeConfirmKind === "delete-account"
                 ? "Excluir minha conta"
-                : "Apagar post"
+                : activeConfirmKind === "restore-streak"
+                  ? "Restaurar"
+                  : "Apagar post"
             }
             description={
-              confirmIntent?.kind === "delete-account"
+              activeConfirmKind === "delete-account"
                 ? "Seu perfil será desativado e o pedido fica pendente pra processamento interno. Você pode pedir restauração contatando suporte antes do prazo final."
-                : "Não dá pra desfazer. O post some do feed e do seu perfil."
+                : activeConfirmKind === "restore-streak"
+                  ? `Use 1 restaurador para proteger o dia que passou. ${restoreCountdown ?? "A janela está quase acabando."}`
+                  : "Não dá pra desfazer. O post some do feed e do seu perfil."
             }
-            onClose={() => setConfirmIntent(null)}
+            onClose={() => {
+              if (restorePromptOpen && restorePromptKey) {
+                setRestorePromptDismissedKey(restorePromptKey);
+                return;
+              }
+              setConfirmIntent(null);
+            }}
             onConfirm={async () => {
+              if (restorePromptOpen) {
+                if (restorePromptKey) setRestorePromptDismissedKey(restorePromptKey);
+                await social.actions.useStreakRestore?.();
+                return;
+              }
               const intent = confirmIntent;
               if (!intent) return;
               setConfirmIntent(null);
@@ -876,19 +915,35 @@ export function GymCirclePreview({
                 await social.actions.requestAccountDeletion?.(
                   "Solicitado pelo usuário no app",
                 );
+                return;
+              }
+              if (intent.kind === "restore-streak") {
+                await social.actions.useStreakRestore?.();
               }
             }}
-            open={confirmIntent !== null}
+            open={Boolean(activeConfirmKind)}
             title={
-              confirmIntent?.kind === "delete-account"
+              activeConfirmKind === "delete-account"
                 ? "Excluir sua conta?"
-                : "Apagar esse post?"
+                : activeConfirmKind === "restore-streak"
+                  ? "Restaurar streak?"
+                  : "Apagar esse post?"
             }
-            tone="destructive"
+            tone={activeConfirmKind === "restore-streak" ? "default" : "destructive"}
           />
           <ToastFeedback feedback={social.feedback} />
         </div>
       </main>
     </SearchSheetProvider>
   );
+}
+
+function formatRestoreCountdown(deadlineAt: string | null | undefined, now: Date) {
+  if (!deadlineAt) return null;
+  const diff = new Date(deadlineAt).getTime() - now.getTime();
+  if (diff <= 0) return null;
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.max(1, Math.ceil((diff % 3600000) / 60000));
+  if (hours <= 0) return `Restam ${minutes}min`;
+  return `Restam ${hours}h`;
 }

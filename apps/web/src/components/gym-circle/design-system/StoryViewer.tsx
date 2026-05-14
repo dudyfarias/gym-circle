@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedStory, EnrichedUser } from "../social/types";
+import { formatStoryLikesCount } from "../social/likes";
 import { formatStoryAge } from "../social/storyInteractions";
 import { StreakBadge } from "./StreakBadge";
 
@@ -452,7 +453,7 @@ function StoryViewerContent({
           >
             {isOwner ? (
               <div className="flex h-12 items-center rounded-full border border-white/[0.1] bg-black/38 px-4 text-[13px] font-black text-white/64 backdrop-blur-2xl">
-                Seu story · {story.likesCount} curtidas
+                Seu story · {formatStoryLikesCount(story.likesCount)}
               </div>
             ) : (
               <form

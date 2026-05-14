@@ -37,6 +37,9 @@ export function addDays(dateKey: string, offset: number): string {
 }
 
 export type ActivityDay = { date: string; hasPhoto: boolean };
+export const INITIAL_STREAK_RESTORES = 3;
+export const MAX_STREAK_RESTORES = 3;
+export const WEEKLY_RESTORE_ACTIVE_DAYS = 6;
 
 export type StreakSnapshot = {
   currentStreak: number;
@@ -47,6 +50,11 @@ export type StreakSnapshot = {
   badgeIsActiveToday: boolean;
 };
 
+export type StreakSnapshotOptions = {
+  restoredDates?: string[];
+  badgeLitByRestoreToday?: boolean;
+};
+
 /**
  * Espelha a função SQL `private.calc_user_stats`. Útil para previews otimistas
  * no cliente e para os testes que validam a regra de "uma vez por dia".
@@ -54,28 +62,35 @@ export type StreakSnapshot = {
 export function calcStreakSnapshot(
   rawDays: ActivityDay[],
   todayKey = formatDateKey(new Date()),
+  options: StreakSnapshotOptions = {},
 ): StreakSnapshot {
   const photoDaysSet = new Set<string>();
   for (const day of rawDays) {
     if (day.hasPhoto) photoDaysSet.add(day.date);
   }
+  const streakDaysSet = new Set(photoDaysSet);
+  for (const date of options.restoredDates ?? []) {
+    streakDaysSet.add(date);
+  }
   const photoDays = Array.from(photoDaysSet).sort();
+  const streakDays = Array.from(streakDaysSet).sort();
 
   let bestStreak = 0;
   let run = 0;
   let prev: string | null = null;
-  for (const date of photoDays) {
+  for (const date of streakDays) {
     run = prev && addDays(prev, 1) === date ? run + 1 : 1;
     if (run > bestStreak) bestStreak = run;
     prev = date;
   }
 
-  const badgeIsActiveToday = photoDaysSet.has(todayKey);
-  const anchor = badgeIsActiveToday ? todayKey : addDays(todayKey, -1);
+  const hasRealActivityToday = photoDaysSet.has(todayKey);
+  const badgeIsActiveToday = hasRealActivityToday || Boolean(options.badgeLitByRestoreToday);
+  const anchor = hasRealActivityToday ? todayKey : addDays(todayKey, -1);
 
   let currentStreak = 0;
   let cursor = anchor;
-  while (photoDaysSet.has(cursor)) {
+  while (streakDaysSet.has(cursor)) {
     currentStreak += 1;
     cursor = addDays(cursor, -1);
   }
@@ -93,6 +108,139 @@ export function calcStreakSnapshot(
     activeDaysThisYear,
     lastActiveDate,
     badgeIsActiveToday,
+  };
+}
+
+export function getInitialStreakRestores(): number {
+  return INITIAL_STREAK_RESTORES;
+}
+
+export function clampStreakRestores(value: number): number {
+  return Math.max(0, Math.min(MAX_STREAK_RESTORES, value));
+}
+
+export function applyRestoreEarned(current: number): number {
+  return clampStreakRestores(current + 1);
+}
+
+export function consumeStreakRestore(current: number): number {
+  return clampStreakRestores(current - 1);
+}
+
+function uniqueDateKeys(dates: string[]): string[] {
+  return Array.from(new Set(dates)).sort();
+}
+
+function countStreakEndingAt(dateSet: Set<string>, anchor: string): number {
+  let count = 0;
+  let cursor = anchor;
+  while (dateSet.has(cursor)) {
+    count += 1;
+    cursor = addDays(cursor, -1);
+  }
+  return count;
+}
+
+function weekStartForDateKey(dateKey: string): string {
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  const mondayOffset = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - mondayOffset);
+  return formatDateKey(date);
+}
+
+function defaultRestoreDeadline(missedDate: string): Date {
+  return new Date(`${addDays(missedDate, 2)}T00:00:00.000Z`);
+}
+
+export type StreakRestoreOpportunityInput = {
+  activityDates: string[];
+  restoredDates?: string[];
+  restoresAvailable: number;
+  todayKey: string;
+  now?: Date;
+  deadlineAt?: Date | string | null;
+};
+
+export type StreakRestoreOpportunity = {
+  canRestore: boolean;
+  missedDate: string | null;
+  deadlineAt: Date | null;
+  previousStreak: number;
+  reason:
+    | "available"
+    | "no_balance"
+    | "already_active"
+    | "already_restored"
+    | "chained_restore"
+    | "expired"
+    | "no_previous_streak";
+};
+
+export function getStreakRestoreOpportunity(
+  input: StreakRestoreOpportunityInput,
+): StreakRestoreOpportunity {
+  const now = input.now ?? new Date();
+  const missedDate = addDays(input.todayKey, -1);
+  const realActivityDates = new Set(uniqueDateKeys(input.activityDates));
+  const restoredDates = new Set(uniqueDateKeys(input.restoredDates ?? []));
+  const streakDates = new Set([...realActivityDates, ...restoredDates]);
+  const deadlineAt = input.deadlineAt
+    ? new Date(input.deadlineAt)
+    : defaultRestoreDeadline(missedDate);
+
+  if (input.restoresAvailable <= 0) {
+    return { canRestore: false, missedDate, deadlineAt, previousStreak: 0, reason: "no_balance" };
+  }
+
+  if (realActivityDates.has(missedDate)) {
+    return { canRestore: false, missedDate, deadlineAt, previousStreak: 0, reason: "already_active" };
+  }
+
+  if (restoredDates.has(missedDate)) {
+    return { canRestore: false, missedDate, deadlineAt, previousStreak: 0, reason: "already_restored" };
+  }
+
+  if (restoredDates.has(addDays(missedDate, -1))) {
+    return { canRestore: false, missedDate, deadlineAt, previousStreak: 0, reason: "chained_restore" };
+  }
+
+  const previousStreak = countStreakEndingAt(streakDates, addDays(missedDate, -1));
+  if (previousStreak <= 0) {
+    return { canRestore: false, missedDate, deadlineAt, previousStreak, reason: "no_previous_streak" };
+  }
+
+  if (now.getTime() >= deadlineAt.getTime()) {
+    return { canRestore: false, missedDate, deadlineAt, previousStreak, reason: "expired" };
+  }
+
+  return { canRestore: true, missedDate, deadlineAt, previousStreak, reason: "available" };
+}
+
+export type WeeklyRestoreInput = {
+  activityDates: string[];
+  todayKey: string;
+  restoresAvailable: number;
+  lastEarnedWeek?: string | null;
+};
+
+export function getWeeklyRestoreWeekKey(todayKey: string): string {
+  return weekStartForDateKey(todayKey);
+}
+
+export function shouldEarnWeeklyRestore(input: WeeklyRestoreInput) {
+  const weekStart = weekStartForDateKey(input.todayKey);
+  const weekEnd = addDays(weekStart, 7);
+  const activeDays = uniqueDateKeys(input.activityDates).filter(
+    (date) => date >= weekStart && date < weekEnd,
+  ).length;
+
+  return {
+    shouldEarn:
+      activeDays >= WEEKLY_RESTORE_ACTIVE_DAYS &&
+      input.restoresAvailable < MAX_STREAK_RESTORES &&
+      input.lastEarnedWeek !== weekStart,
+    activeDays,
+    weekStart,
   };
 }
 

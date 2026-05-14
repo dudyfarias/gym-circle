@@ -3,7 +3,9 @@
 import Image from "next/image";
 import {
   Camera,
+  Clock,
   Flame,
+  LifeBuoy,
   LogOut,
   MapPin,
   Pencil,
@@ -44,6 +46,7 @@ type ProfileScreenProps = {
   monthlyRecap: MonthlyRecap;
   onOpenMonthlyRecap?: () => void;
   onOpenPost?: (postId: string) => void;
+  onUseStreakRestore?: () => void | Promise<void>;
 };
 
 /**
@@ -65,10 +68,18 @@ export function ProfileScreen({
   monthlyRecap,
   onOpenMonthlyRecap,
   onOpenPost,
+  onUseStreakRestore,
 }: ProfileScreenProps) {
   const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
   const mainGym = currentUser.gyms[0];
+  const restoreCountdown = formatRestoreCountdown(currentUser.streakRestoreDeadlineAt);
+  const canRestoreStreak = Boolean(
+    onUseStreakRestore &&
+      currentUser.streakRestoreStatus === "available" &&
+      currentUser.streakRestoresAvailable > 0 &&
+      restoreCountdown,
+  );
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -216,12 +227,47 @@ export function ProfileScreen({
             {currentLevel.label}
           </span>
         </div>
-        {onOpenMonthlyRecap ? (
-          <span className="text-[12px] font-bold text-white/42">
-            {monthlyRecap.shortMonthLabel} →
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/62">
+            <LifeBuoy size={12} strokeWidth={2.5} />
+            {currentUser.streakRestoresAvailable}
           </span>
-        ) : null}
+          {onOpenMonthlyRecap ? (
+            <span className="text-[12px] font-bold text-white/42">
+              {monthlyRecap.shortMonthLabel} →
+            </span>
+          ) : null}
+        </div>
       </button>
+
+      {canRestoreStreak ? (
+        <div className="mt-3 rounded-[18px] border border-[var(--gc-brand)]/20 bg-[var(--gc-brand)]/[0.07] p-4 shadow-[0_18px_55px_rgba(48,213,255,0.08)]">
+          <div className="flex items-start gap-3">
+            <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+              <LifeBuoy size={18} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-black text-white">
+                Restaurar streak?
+              </p>
+              <p className="mt-1 text-[12px] font-bold leading-4 text-white/58">
+                Use 1 restaurador para proteger o dia que passou.
+              </p>
+              <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-black/24 px-2.5 py-1 text-[11px] font-black text-[var(--gc-brand)]">
+                <Clock size={12} strokeWidth={2.4} />
+                {restoreCountdown}
+              </div>
+            </div>
+            <button
+              className="gc-pressable h-9 shrink-0 rounded-full bg-[var(--gc-brand)] px-4 text-[12px] font-black text-black"
+              onClick={onUseStreakRestore}
+              type="button"
+            >
+              Restaurar
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* Posts grid — protagonista */}
       <PostsGrid onOpenPost={onOpenPost} posts={posts} />
@@ -241,6 +287,16 @@ export function ProfileScreen({
       ) : null}
     </section>
   );
+}
+
+function formatRestoreCountdown(deadlineAt?: string | null) {
+  if (!deadlineAt) return null;
+  const diff = new Date(deadlineAt).getTime() - Date.now();
+  if (diff <= 0) return null;
+  const hours = Math.floor(diff / 3600000);
+  const minutes = Math.max(1, Math.ceil((diff % 3600000) / 60000));
+  if (hours <= 0) return `Restam ${minutes}min`;
+  return `Restam ${hours}h`;
 }
 
 function ProfileStat({ label, value }: { label: string; value: number }) {

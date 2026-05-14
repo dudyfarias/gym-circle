@@ -18,6 +18,16 @@ export function statsService(client: GymCircleClient) {
       if (error) throw error;
     },
 
+    async syncStreakRestores(): Promise<void> {
+      const { error } = await client.rpc("sync_my_streak_restores");
+      if (error) throw error;
+    },
+
+    async useStreakRestore(): Promise<void> {
+      const { error } = await client.rpc("use_streak_restore");
+      if (error) throw error;
+    },
+
     async activityDaysForUser(userId: string, sinceDays = 365): Promise<UserActivityDayRow[]> {
       const since = new Date();
       since.setUTCDate(since.getUTCDate() - sinceDays);

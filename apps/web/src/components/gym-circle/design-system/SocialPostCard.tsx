@@ -19,6 +19,7 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { MentionText } from "../MentionText";
+import { getPostLikeSummary } from "../social/likes";
 import type { EnrichedPost } from "../social/types";
 import { EmptyState } from "./EmptyState";
 import { StreakBadge } from "./StreakBadge";
@@ -65,7 +66,13 @@ export function SocialPostCard({
     post.locationName,
     post.gymName,
   );
-  const remainingLikes = Math.max(0, post.likesCount - 1);
+  const likeSummary = getPostLikeSummary({
+    currentUserId,
+    likedByCurrentUser: post.likedByCurrentUser,
+    likedByPreview: post.likedByPreview,
+    likedByUsers: post.likedByUsers,
+    likesCount: post.likesCount,
+  });
   const canOpenLocationMap =
     Boolean(post.locationGoogleMapsUrl) && (!isCurrentLocation || isPostOwner);
 
@@ -300,7 +307,7 @@ export function SocialPostCard({
 
         {!isPostOwner || post.likesCount > 0 || post.likedByCurrentUser ? (
           <div className="flex items-center gap-2">
-            {isPostOwner ? (
+            {isPostOwner && likeSummary ? (
               <>
                 <div className="flex -space-x-2">
                   {post.likedByPreview.map((user) => (
@@ -323,15 +330,7 @@ export function SocialPostCard({
                   onClick={() => onOpenLikes?.(post.id)}
                   type="button"
                 >
-                  Curtido por{" "}
-                  <span className="text-white">
-                    {post.likedByPreview[0]?.username ?? "seu circle"}
-                  </span>
-                  {remainingLikes > 0
-                    ? ` e mais ${remainingLikes.toLocaleString("pt-BR")} ${
-                        remainingLikes === 1 ? "pessoa" : "pessoas"
-                      }`
-                    : ""}
+                  {likeSummary}
                 </button>
                 {post.likedByPreview[0] ? (
                   <StreakBadge
@@ -341,7 +340,7 @@ export function SocialPostCard({
                   />
                 ) : null}
               </>
-            ) : (
+            ) : !isPostOwner ? (
               <div className="flex flex-1 items-center gap-2 rounded-full bg-white/[0.045] px-3 py-2">
                 <Heart
                   className={post.likedByCurrentUser ? "text-[var(--gc-blue)]" : "text-white/42"}
@@ -356,6 +355,16 @@ export function SocialPostCard({
                   ].join(" ")}
                 >
                   {post.likesCount.toLocaleString("pt-BR")} curtidas
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 rounded-full bg-white/[0.045] px-3 py-2">
+                <span className="text-[12px] font-bold text-white/44">
+                  {post.likesCount > 0
+                    ? `${post.likesCount.toLocaleString("pt-BR")} ${
+                        post.likesCount === 1 ? "curtida" : "curtidas"
+                      }`
+                    : "Seja o primeiro a curtir"}
                 </span>
               </div>
             )}

@@ -405,6 +405,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   const refresh = useCallback(async () => {
     try {
+      await services.stats.syncStreakRestores().catch(() => undefined);
       const [
         profilesRes,
         statsRes,
@@ -788,6 +789,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         lastWorkoutDate: stats?.last_active_date ?? "",
         workoutsThisMonth: stats?.workouts_this_month ?? 0,
         activeDaysCount: stats?.active_days_this_year ?? 0,
+        streakRestoresAvailable:
+          profile.user_id === currentUserId ? stats?.streak_restores_available ?? 3 : 0,
+        lastStreakRestoreUsedAt:
+          profile.user_id === currentUserId ? stats?.last_streak_restore_used_at ?? null : null,
+        lastStreakRestoreEarnedAt:
+          profile.user_id === currentUserId ? stats?.last_streak_restore_earned_at ?? null : null,
+        streakRestoreDeadlineAt:
+          profile.user_id === currentUserId ? stats?.streak_restore_deadline_at ?? null : null,
+        streakRestoreMissedDate:
+          profile.user_id === currentUserId ? stats?.streak_restore_missed_date ?? null : null,
+        streakRestoreStatus:
+          profile.user_id === currentUserId ? stats?.streak_restore_status ?? null : null,
         checkInsCount: profile.user_id === currentUserId ? agg.myActivityDays.length : 0,
         achievements: deriveAchievements(stats),
         followersCount: followersCountByUser.get(profile.user_id) ?? 0,
@@ -831,6 +844,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         lastWorkoutDate: "",
         workoutsThisMonth: 0,
         activeDaysCount: 0,
+        streakRestoresAvailable: 3,
+        lastStreakRestoreUsedAt: null,
+        lastStreakRestoreEarnedAt: null,
+        streakRestoreDeadlineAt: null,
+        streakRestoreMissedDate: null,
+        streakRestoreStatus: null,
         checkInsCount: 0,
         achievements: [],
         followersCount: 0,
@@ -1878,6 +1897,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.safety.requestAccountDeletion(reason);
         showFeedback("brand", "Conta marcada para exclusão");
         await services.auth.signOut();
+      },
+      async useStreakRestore() {
+        await services.stats.useStreakRestore();
+        await refresh();
+        showFeedback("success", "Streak restaurado", "Seu círculo continua aceso.");
       },
       async completeOnboarding() {
         await services.onboarding.markComplete();

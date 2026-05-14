@@ -19,6 +19,10 @@ export type PostCommentRow = Database["public"]["Tables"]["post_comments"]["Row"
 export type CheckinRow = Database["public"]["Tables"]["checkins"]["Row"];
 export type UserActivityDayRow =
   Database["public"]["Tables"]["user_activity_days"]["Row"];
+export type StreakRestoreEventRow =
+  Database["public"]["Tables"]["streak_restore_events"]["Row"];
+export type StreakRestoredDayRow =
+  Database["public"]["Tables"]["streak_restored_days"]["Row"];
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 export type PushSubscriptionRow =
   Database["public"]["Tables"]["push_subscriptions"]["Row"];

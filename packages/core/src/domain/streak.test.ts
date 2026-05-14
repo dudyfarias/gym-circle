@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   addDays,
+  applyRestoreEarned,
   buildMonthCalendar,
   calcStreakSnapshot,
+  consumeStreakRestore,
   formatDateKey,
+  getInitialStreakRestores,
+  getStreakRestoreOpportunity,
   getStreakLevel,
+  shouldEarnWeeklyRestore,
 } from "./streak";
 
 const TODAY = "2026-05-06";
@@ -109,6 +114,34 @@ describe("calcStreakSnapshot — regras", () => {
     expect(s.bestStreak).toBe(2);
   });
 
+  it("usa dia restaurado para recalcular o streak sem contar treino extra no mês", () => {
+    const s = calcStreakSnapshot(
+      [
+        { date: TODAY, hasPhoto: true },
+        { date: addDays(TODAY, -2), hasPhoto: true },
+      ],
+      TODAY,
+      { restoredDates: [addDays(TODAY, -1)] },
+    );
+    expect(s.currentStreak).toBe(3);
+    expect(s.bestStreak).toBe(3);
+    expect(s.workoutsThisMonth).toBe(2);
+  });
+
+  it("restaurador pode acender o badge no dia de uso sem criar treino real", () => {
+    const s = calcStreakSnapshot(
+      [{ date: addDays(TODAY, -2), hasPhoto: true }],
+      TODAY,
+      {
+        badgeLitByRestoreToday: true,
+        restoredDates: [addDays(TODAY, -1)],
+      },
+    );
+    expect(s.badgeIsActiveToday).toBe(true);
+    expect(s.currentStreak).toBe(2);
+    expect(s.workoutsThisMonth).toBe(1);
+  });
+
   it("best_streak é a maior sequência histórica (mesmo se atual é menor)", () => {
     const days: { date: string; hasPhoto: boolean }[] = [];
     // bloco antigo de 7 dias consecutivos
@@ -168,6 +201,148 @@ describe("calcStreakSnapshot — regras", () => {
       TODAY,
     );
     expect(s.lastActiveDate).toBe(addDays(TODAY, -1));
+  });
+});
+
+describe("streak restore — saldo e janela", () => {
+  it("novo usuário recebe 3 restauradores", () => {
+    expect(getInitialStreakRestores()).toBe(3);
+  });
+
+  it("não ultrapassa 3 restauradores acumulados", () => {
+    expect(applyRestoreEarned(2)).toBe(3);
+    expect(applyRestoreEarned(3)).toBe(3);
+  });
+
+  it("consome 1 restaurador corretamente", () => {
+    expect(consumeStreakRestore(3)).toBe(2);
+    expect(consumeStreakRestore(0)).toBe(0);
+  });
+
+  it("6 treinos únicos na semana ganham 1 restaurador", () => {
+    const result = shouldEarnWeeklyRestore({
+      activityDates: [
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+      ],
+      restoresAvailable: 1,
+      todayKey: "2026-05-10",
+    });
+    expect(result.shouldEarn).toBe(true);
+    expect(result.activeDays).toBe(6);
+    expect(result.weekStart).toBe("2026-05-04");
+  });
+
+  it("múltiplos posts no mesmo dia contam 1 para ganhar restaurador", () => {
+    const result = shouldEarnWeeklyRestore({
+      activityDates: [
+        "2026-05-04",
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+      ],
+      restoresAvailable: 1,
+      todayKey: "2026-05-10",
+    });
+    expect(result.shouldEarn).toBe(false);
+    expect(result.activeDays).toBe(5);
+  });
+
+  it("não ganha restaurador se já estiver no máximo", () => {
+    const result = shouldEarnWeeklyRestore({
+      activityDates: [
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+      ],
+      restoresAvailable: 3,
+      todayKey: "2026-05-10",
+    });
+    expect(result.shouldEarn).toBe(false);
+  });
+
+  it("não ganha mais de 1 restaurador por semana", () => {
+    const result = shouldEarnWeeklyRestore({
+      activityDates: [
+        "2026-05-04",
+        "2026-05-05",
+        "2026-05-06",
+        "2026-05-07",
+        "2026-05-08",
+        "2026-05-09",
+      ],
+      lastEarnedWeek: "2026-05-04",
+      restoresAvailable: 1,
+      todayKey: "2026-05-10",
+    });
+    expect(result.shouldEarn).toBe(false);
+  });
+
+  it("permite restaurar apenas o dia imediatamente anterior dentro de 24h", () => {
+    const result = getStreakRestoreOpportunity({
+      activityDates: ["2026-05-04", "2026-05-05"],
+      restoresAvailable: 2,
+      todayKey: "2026-05-07",
+      now: new Date("2026-05-07T12:00:00.000Z"),
+    });
+    expect(result.canRestore).toBe(true);
+    expect(result.missedDate).toBe("2026-05-06");
+    expect(result.previousStreak).toBe(2);
+  });
+
+  it("após 24h não permite restaurar", () => {
+    const result = getStreakRestoreOpportunity({
+      activityDates: ["2026-05-04", "2026-05-05"],
+      restoresAvailable: 2,
+      todayKey: "2026-05-07",
+      now: new Date("2026-05-08T00:00:01.000Z"),
+    });
+    expect(result.canRestore).toBe(false);
+    expect(result.reason).toBe("expired");
+  });
+
+  it("2+ dias perdidos não restaura", () => {
+    const result = getStreakRestoreOpportunity({
+      activityDates: ["2026-05-03", "2026-05-04"],
+      restoresAvailable: 2,
+      todayKey: "2026-05-07",
+      now: new Date("2026-05-07T12:00:00.000Z"),
+    });
+    expect(result.canRestore).toBe(false);
+    expect(result.reason).toBe("no_previous_streak");
+  });
+
+  it("bloqueia restaurador em sequência sem treino real entre eles", () => {
+    const result = getStreakRestoreOpportunity({
+      activityDates: ["2026-05-04"],
+      restoredDates: ["2026-05-05"],
+      restoresAvailable: 2,
+      todayKey: "2026-05-07",
+      now: new Date("2026-05-07T12:00:00.000Z"),
+    });
+    expect(result.canRestore).toBe(false);
+    expect(result.reason).toBe("chained_restore");
+  });
+
+  it("treino compartilhado aceito conta como dia válido para restaurador", () => {
+    const result = getStreakRestoreOpportunity({
+      // No app, marcação aceita entra em user_activity_days; aqui ela é
+      // representada como mais um dia válido com mídia.
+      activityDates: ["2026-05-04", "2026-05-05"],
+      restoresAvailable: 1,
+      todayKey: "2026-05-07",
+      now: new Date("2026-05-07T10:00:00.000Z"),
+    });
+    expect(result.canRestore).toBe(true);
   });
 });
 

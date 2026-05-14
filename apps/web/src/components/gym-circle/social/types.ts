@@ -26,6 +26,12 @@ export type GymUser = {
   lastWorkoutDate: string;
   workoutsThisMonth: number;
   activeDaysCount: number;
+  streakRestoresAvailable: number;
+  lastStreakRestoreUsedAt?: string | null;
+  lastStreakRestoreEarnedAt?: string | null;
+  streakRestoreDeadlineAt?: string | null;
+  streakRestoreMissedDate?: string | null;
+  streakRestoreStatus?: string | null;
   checkInsCount: number;
   achievements: string[];
   followersCount: number;
@@ -293,6 +299,7 @@ export type SocialActions = {
   rejectPostTag?: (postId: string) => Promise<void>;
   acceptStoryTag?: (storyId: string) => Promise<void>;
   rejectStoryTag?: (storyId: string) => Promise<void>;
+  useStreakRestore?: () => Promise<void>;
   /**
    * Cataloga um lugar (academia/parque/etc) vindo da busca via Maps no
    * banco — dedup por coords + nome. Vincula ao perfil do user. Retorna

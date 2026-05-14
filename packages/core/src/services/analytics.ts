@@ -16,7 +16,12 @@ export type AnalyticsEventName =
   | "conversation_opened"
   | "checkin_created"
   | "day_1_retention"
-  | "app_opened";
+  | "app_opened"
+  | "streak_restore_used"
+  | "streak_restore_earned"
+  | "streak_restore_expired"
+  | "streak_lost"
+  | "streak_saved";
 
 export function analyticsService(client: GymCircleClient) {
   return {
