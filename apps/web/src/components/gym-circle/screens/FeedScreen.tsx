@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   Sparkles,
   UserPlus,
+  X,
 } from "lucide-react";
 import {
   DiscoveryUserCard,
@@ -16,14 +17,17 @@ import {
   StoryBubbles,
 } from "../design-system";
 import { calculateProfileCompletion, type ProfileCompletion } from "../social/profile";
-import type { EnrichedPost, EnrichedStory, EnrichedUser } from "../social/types";
-import type { ViewerLocationStatus } from "../social/useViewerLocation";
+import type { EnrichedPost, EnrichedUser, StoryGroup } from "../social/types";
+import {
+  shouldShowViewerLocationPrompt,
+  type ViewerLocationStatus,
+} from "../social/useViewerLocation";
 import { TopBar } from "../TopBar";
 
 type FeedScreenProps = {
   currentUser: EnrichedUser;
   feedPosts: EnrichedPost[];
-  stories: EnrichedStory[];
+  stories: StoryGroup[];
   suggestedUsers: EnrichedUser[];
   formatTime: (createdAt: string) => string;
   onCreatePost: () => void;
@@ -31,10 +35,11 @@ type FeedScreenProps = {
   onCommentPost: (postId: string, body: string) => void;
   onDeleteComment?: (postId: string, commentId: string) => void;
   onToggleFollow: (userId: string) => void;
-  onOpenStory: (storyId: string) => void;
+  onOpenStory: (storyGroupId: string) => void;
   onEditProfile?: () => void;
   onFindPeople?: () => void;
   onRequestViewerLocation?: () => void;
+  onDismissViewerLocationPrompt?: () => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
@@ -62,6 +67,7 @@ export function FeedScreen({
   onEditProfile,
   onFindPeople,
   onRequestViewerLocation,
+  onDismissViewerLocationPrompt,
   onSelectUser,
   resolveUser,
   onOpenPostMenu,
@@ -88,6 +94,7 @@ export function FeedScreen({
       <DistancePermissionCard
         error={viewerLocationError}
         hasDistancePosts={hasDistancePosts}
+        onDismiss={onDismissViewerLocationPrompt}
         onRequest={onRequestViewerLocation}
         status={viewerLocationStatus}
       />
@@ -269,16 +276,20 @@ type DistancePermissionCardProps = {
   error?: string | null;
   hasDistancePosts: boolean;
   onRequest?: () => void;
+  onDismiss?: () => void;
   status: ViewerLocationStatus;
 };
 
 function DistancePermissionCard({
   error,
   hasDistancePosts,
+  onDismiss,
   onRequest,
   status,
 }: DistancePermissionCardProps) {
-  if (!hasDistancePosts || !onRequest || status === "granted") return null;
+  if (!onRequest || !shouldShowViewerLocationPrompt(status, hasDistancePosts)) {
+    return null;
+  }
 
   const isRequesting = status === "requesting";
   const isProblem =
@@ -306,6 +317,16 @@ function DistancePermissionCard({
             </p>
           ) : null}
         </div>
+        {onDismiss ? (
+          <button
+            aria-label="Ocultar localização"
+            className="gc-pressable grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/46"
+            onClick={onDismiss}
+            type="button"
+          >
+            <X size={14} strokeWidth={2.6} />
+          </button>
+        ) : null}
       </div>
       <button
         className="gc-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-black shadow-[0_0_24px_rgba(92,232,255,0.18)] disabled:opacity-60"

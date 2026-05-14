@@ -17,6 +17,8 @@ import {
   RefreshCw,
   Search,
   Upload,
+  UserPlus,
+  X,
 } from "lucide-react";
 import type {
   CreateWorkoutPostInput,
@@ -26,19 +28,24 @@ import type {
   PostMediaType,
 } from "../social/types";
 import { TopBar } from "../TopBar";
-import { GymSearchSheet, type PlaceCandidate } from "../GymSearchSheet";
+import {
+  GymSearchSheet,
+  type LocatedPlaceCandidate,
+  type PlaceCandidate,
+} from "../GymSearchSheet";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
   gyms?: GymLocationOption[];
   onPublish: (input: CreateWorkoutPostInput) => void | Promise<void>;
   onUploadImage?: (file: File) => Promise<string>;
+  taggableUsers?: EnrichedUser[];
   /**
    * Cataloga um lugar buscado via Maps no banco (dedup + insert) e
    * vincula ao perfil do user. Se ausente, o botão "Buscar academia"
    * não aparece. O parent resolve via `gymService.findOrCreateFromPlace`.
    */
-  onCatalogPlace?: (place: PlaceCandidate) => Promise<GymLocationOption>;
+  onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
 };
 
 const workoutTypes = [
@@ -165,6 +172,7 @@ export function PostScreen({
   onPublish,
   onUploadImage,
   onCatalogPlace,
+  taggableUsers = [],
 }: PostScreenProps) {
   const [caption, setCaption] = useState("");
   // Academias catalogadas durante essa sessão de post (via search sheet) —
@@ -192,6 +200,8 @@ export function PostScreen({
   // permanente. Ambos saem da mesma upload — escolher é caso de power user.
   const [postToFeed, setPostToFeed] = useState(true);
   const [postToStory, setPostToStory] = useState(true);
+  const [friendQuery, setFriendQuery] = useState("");
+  const [taggedUserIds, setTaggedUserIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -224,10 +234,39 @@ export function PostScreen({
     }));
   }, [currentUser.gyms, currentUser.location, gyms, localGyms]);
 
+  const searchableGyms = useMemo<GymLocationOption[]>(() => {
+    const merged = new Map<string, GymLocationOption>();
+    for (const gym of gyms) merged.set(gym.id, gym);
+    for (const gym of localGyms) merged.set(gym.id, gym);
+    return Array.from(merged.values());
+  }, [gyms, localGyms]);
+
   const selectedGym = useMemo(
     () => registeredGyms.find((gym) => gym.id === selectedGymId) ?? null,
     [registeredGyms, selectedGymId],
   );
+
+  const selectedTaggedUsers = useMemo(
+    () =>
+      taggedUserIds
+        .map((id) => taggableUsers.find((user) => user.id === id))
+        .filter((user): user is EnrichedUser => Boolean(user)),
+    [taggableUsers, taggedUserIds],
+  );
+
+  const friendSuggestions = useMemo(() => {
+    const query = friendQuery.trim().toLowerCase();
+    if (query.length < 2) return [];
+    return taggableUsers
+      .filter((user) => user.id !== currentUser.id)
+      .filter((user) => !taggedUserIds.includes(user.id))
+      .filter(
+        (user) =>
+          user.username.toLowerCase().includes(query) ||
+          user.name.toLowerCase().includes(query),
+      )
+      .slice(0, 6);
+  }, [currentUser.id, friendQuery, taggableUsers, taggedUserIds]);
 
   const resolvedLocation = useMemo(() => {
     if (locationMode === "none") {
@@ -324,7 +363,23 @@ export function PostScreen({
     setCataloging(true);
     setSearchError(null);
     try {
-      const cataloged = await onCatalogPlace(place);
+      if (place.provider === "registered" && place.gymId) {
+        setLocationMode("gym");
+        setSelectedGymId(place.gymId);
+        setSearchOpen(false);
+        return;
+      }
+
+      if (typeof place.latitude !== "number" || typeof place.longitude !== "number") {
+        setSearchError("Para cadastrar academia, a localização dela é obrigatória.");
+        return;
+      }
+
+      const cataloged = await onCatalogPlace({
+        ...place,
+        latitude: place.latitude,
+        longitude: place.longitude,
+      });
       setLocalGyms((current) =>
         current.some((gym) => gym.id === cataloged.id)
           ? current
@@ -447,6 +502,7 @@ export function PostScreen({
         locationLatitude: resolvedLocation.latitude,
         locationLongitude: resolvedLocation.longitude,
         locationGoogleMapsUrl: resolvedLocation.googleMapsUrl,
+        taggedUserIds,
         destinations: { feed: postToFeed, story: postToStory },
       });
     } catch (err) {
@@ -613,6 +669,71 @@ export function PostScreen({
                     placeholder="Nome do treino"
                     value={customWorkoutType}
                   />
+                ) : null}
+              </div>
+
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                  Marcar amigos
+                </p>
+                {selectedTaggedUsers.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedTaggedUsers.map((user) => (
+                      <button
+                        className="gc-pressable inline-flex h-9 items-center gap-2 rounded-full bg-[var(--gc-brand)]/12 px-3 text-[12px] font-black text-[var(--gc-brand)]"
+                        key={user.id}
+                        onClick={() =>
+                          setTaggedUserIds((current) =>
+                            current.filter((id) => id !== user.id),
+                          )
+                        }
+                        type="button"
+                      >
+                        @{user.username}
+                        <X size={13} strokeWidth={2.8} />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="relative mt-2">
+                  <UserPlus
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/42"
+                    size={15}
+                    strokeWidth={2.5}
+                  />
+                  <input
+                    className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
+                    onChange={(event) => setFriendQuery(event.target.value)}
+                    placeholder="Buscar por @username"
+                    value={friendQuery}
+                  />
+                </div>
+                {friendSuggestions.length > 0 ? (
+                  <div className="mt-2 overflow-hidden rounded-[18px] border border-white/[0.07] bg-black/40">
+                    {friendSuggestions.map((user) => (
+                      <button
+                        className="gc-pressable flex h-11 w-full items-center justify-between px-3 text-left text-[13px] font-bold text-white hover:bg-white/[0.05]"
+                        key={user.id}
+                        onClick={() => {
+                          setTaggedUserIds((current) => [...current, user.id]);
+                          setFriendQuery("");
+                        }}
+                        type="button"
+                      >
+                        <span className="truncate">{user.name}</span>
+                        <span className="shrink-0 text-white/42">@{user.username}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : friendQuery.trim().length >= 2 ? (
+                  <p className="mt-2 px-1 text-[11px] font-bold text-white/36">
+                    Nenhum usuário encontrado.
+                  </p>
+                ) : null}
+                {selectedTaggedUsers.length > 0 ? (
+                  <p className="mt-2 px-1 text-[11px] font-bold leading-4 text-white/38">
+                    A marcação só conta streak depois que a pessoa aceitar.
+                  </p>
                 ) : null}
               </div>
 
@@ -786,8 +907,10 @@ export function PostScreen({
 
       <GymSearchSheet
         onClose={() => setSearchOpen(false)}
+        registeredGyms={searchableGyms}
         onSelect={handleCatalogPlace}
         open={searchOpen}
+        title="Escolher academia"
       />
     </section>
   );
@@ -829,4 +952,3 @@ function DestinationToggle({ active, label, onToggle }: DestinationToggleProps) 
     </button>
   );
 }
-

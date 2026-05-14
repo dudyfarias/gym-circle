@@ -27,7 +27,7 @@ import { PostMenuSheet } from "./PostMenuSheet";
 import { PostDetailSheet } from "./PostDetailSheet";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
-import { getAdjacentStoryId, getStoryForUser } from "./social/stories";
+import { getAdjacentStoryId } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
 
 const NO_SCREEN_SWIPE_SELECTOR =
@@ -419,32 +419,48 @@ export function GymCirclePreview({
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
   const profileSheetPosts = useMemo(() => {
     if (!profileOpenId) return [];
-    return profilePosts.filter((p) => p.userId === profileOpenId);
+    return profilePosts.filter(
+      (p) =>
+        p.userId === profileOpenId ||
+        p.acceptedParticipants?.some((participant) => participant.id === profileOpenId),
+    );
   }, [profilePosts, profileOpenId]);
   const currentUserPosts = useMemo(
-    () => profilePosts.filter((p) => p.userId === social.currentUser.id),
+    () =>
+      profilePosts.filter(
+        (p) =>
+          p.userId === social.currentUser.id ||
+          p.acceptedParticipants?.some(
+            (participant) => participant.id === social.currentUser.id,
+          ),
+      ),
     [profilePosts, social.currentUser.id],
   );
   const monthlyRecap = useMemo(
     () => buildMonthlyRecap({ now, posts: currentUserPosts, user: social.currentUser }),
     [currentUserPosts, now, social.currentUser],
   );
+  const storyGroups = useMemo(() => social.storyGroups ?? [], [social.storyGroups]);
   const selectedStoryId = social.selectedStory?.id ?? null;
+  const selectedStorySequence = useMemo(
+    () => social.selectedStoryGroup?.stories ?? [],
+    [social.selectedStoryGroup?.stories],
+  );
   const nextStoryId = useMemo(
-    () => getAdjacentStoryId(social.storyBubbles, selectedStoryId, 1),
-    [selectedStoryId, social.storyBubbles],
+    () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, 1),
+    [selectedStoryId, selectedStorySequence],
   );
   const previousStoryId = useMemo(
-    () => getAdjacentStoryId(social.storyBubbles, selectedStoryId, -1),
-    [selectedStoryId, social.storyBubbles],
+    () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, -1),
+    [selectedStoryId, selectedStorySequence],
   );
-  const currentUserStory = useMemo(
-    () => getStoryForUser(social.storyBubbles, social.currentUser.id),
-    [social.currentUser.id, social.storyBubbles],
+  const currentUserStoryGroup = useMemo(
+    () => storyGroups.find((group) => group.id === social.currentUser.id) ?? null,
+    [social.currentUser.id, storyGroups],
   );
-  const profileSheetStory = useMemo(
-    () => (profileOpenId ? getStoryForUser(social.storyBubbles, profileOpenId) : null),
-    [profileOpenId, social.storyBubbles],
+  const profileSheetStoryGroup = useMemo(
+    () => (profileOpenId ? storyGroups.find((group) => group.id === profileOpenId) ?? null : null),
+    [profileOpenId, storyGroups],
   );
   const openStoryById = useCallback(
     (storyId: string | null) => {
@@ -474,6 +490,11 @@ export function GymCirclePreview({
         .filter((story) => story.mediaType !== "video")
         .slice(0, 4)
         .map((story) => story.imageUrl),
+      ...storyGroups
+        .flatMap((group) => group.stories)
+        .filter((story) => story.mediaType !== "video")
+        .slice(0, 4)
+        .map((story) => story.imageUrl),
       ...allUsers
         .map((user) => user.avatarUrl)
         .filter((url): url is string => Boolean(url))
@@ -485,7 +506,7 @@ export function GymCirclePreview({
       image.decoding = "async";
       image.src = url;
     }
-  }, [allUsers, social.feedPosts, social.storyBubbles]);
+  }, [allUsers, social.feedPosts, social.storyBubbles, storyGroups]);
 
   const screen = useMemo(() => {
     switch (activeScreen) {
@@ -509,11 +530,11 @@ export function GymCirclePreview({
             onOpenPost={openPostDetail}
             monthlyRecap={monthlyRecap}
             onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
-            hasStory={Boolean(currentUserStory)}
-            storyViewed={currentUserStory?.viewed ?? false}
+            hasStory={Boolean(currentUserStoryGroup)}
+            storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
-              currentUserStory
-                ? () => openStoryById(currentUserStory.id)
+              currentUserStoryGroup
+                ? () => openStoryById(currentUserStoryGroup.id)
                 : undefined
             }
           />
@@ -545,6 +566,7 @@ export function GymCirclePreview({
               setActiveScreen("feed");
             }}
             onUploadImage={onUploadImage}
+            taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
           />
         );
       case "checkin":
@@ -574,12 +596,13 @@ export function GymCirclePreview({
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
             onEditProfile={handleEditProfile}
+            onDismissViewerLocationPrompt={viewerLocation.dismiss}
             onFindPeople={openSearch}
             onRequestViewerLocation={viewerLocation.request}
             onSelectUser={openProfile}
             onToggleFollow={social.actions.toggleFollow}
             resolveUser={resolveUser}
-            stories={social.storyBubbles}
+            stories={storyGroups}
             suggestedUsers={social.suggestedUsers}
             viewerLocationError={viewerLocation.error}
             viewerLocationStatus={viewerLocation.status}
@@ -589,6 +612,7 @@ export function GymCirclePreview({
   }, [
     activeScreen,
     chatTargetUserId,
+    allUsers,
     feedPosts,
     hasDistancePosts,
     social,
@@ -604,8 +628,10 @@ export function GymCirclePreview({
     openPostMenu,
     currentUserPosts,
     monthlyRecap,
-    currentUserStory,
+    currentUserStoryGroup,
+    storyGroups,
     openStoryById,
+    viewerLocation.dismiss,
     viewerLocation.error,
     viewerLocation.request,
     viewerLocation.status,
@@ -690,13 +716,13 @@ export function GymCirclePreview({
             onClose={closeProfile}
             onMessageUser={openChatWithUser}
             onReportUser={social.actions.reportUser}
-            hasStory={Boolean(profileSheetStory)}
-            storyViewed={profileSheetStory?.viewed ?? false}
+            hasStory={Boolean(profileSheetStoryGroup)}
+            storyViewed={profileSheetStoryGroup?.viewed ?? false}
             onOpenStory={
-              profileSheetStory
+              profileSheetStoryGroup
                 ? () => {
                     closeProfile();
-                    openStoryById(profileSheetStory.id);
+                    openStoryById(profileSheetStoryGroup.id);
                   }
                 : undefined
             }
@@ -734,6 +760,7 @@ export function GymCirclePreview({
               currentUser={social.currentUser}
               onClose={closeEditProfile}
               gyms={social.gyms ?? []}
+              onCatalogPlace={social.actions.catalogPlace}
               onSave={social.actions.updateProfile}
               onUploadAvatar={onUploadAvatar}
               open={editOpen}
@@ -742,9 +769,13 @@ export function GymCirclePreview({
           <NotificationsSheet
             currentUserId={social.currentUser.id}
             onAcceptFollowRequest={social.actions.acceptFollowRequest}
+            onAcceptPostTag={social.actions.acceptPostTag}
+            onAcceptStoryTag={social.actions.acceptStoryTag}
             onClose={closeNotifications}
             onFollowBack={social.actions.toggleFollow}
             onRejectFollowRequest={social.actions.rejectFollowRequest}
+            onRejectPostTag={social.actions.rejectPostTag}
+            onRejectStoryTag={social.actions.rejectStoryTag}
             onSelectUser={(userId) => {
               setNotificationsOpen(false);
               openProfile(userId);

@@ -28,6 +28,10 @@ type NotificationsSheetProps = {
   onFollowBack?: (userId: string) => void | Promise<void>;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
+  onAcceptPostTag?: (postId: string) => void | Promise<void>;
+  onRejectPostTag?: (postId: string) => void | Promise<void>;
+  onAcceptStoryTag?: (storyId: string) => void | Promise<void>;
+  onRejectStoryTag?: (storyId: string) => void | Promise<void>;
 };
 
 const KIND_ICON = {
@@ -41,6 +45,8 @@ const KIND_ICON = {
   new_message: MessageCircle,
   new_story: Sparkles,
   training_today: Flame,
+  post_tag: AtSign,
+  story_tag: AtSign,
 } as const;
 
 const KIND_LABEL = {
@@ -54,6 +60,8 @@ const KIND_LABEL = {
   new_message: "enviou uma mensagem",
   new_story: "postou um story",
   training_today: "treinou hoje",
+  post_tag: "marcou você em um treino",
+  story_tag: "marcou você em um story",
 } as const;
 
 const KIND_TONE = {
@@ -67,6 +75,8 @@ const KIND_TONE = {
   new_message: "text-[var(--gc-brand)]",
   new_story: "text-[var(--gc-consistency-month)]",
   training_today: "text-[var(--gc-consistency-daily)]",
+  post_tag: "text-[var(--gc-brand)]",
+  story_tag: "text-[var(--gc-brand)]",
 } as const;
 
 type NotificationKind = keyof typeof KIND_ICON;
@@ -96,6 +106,10 @@ export function NotificationsSheet({
   onFollowBack,
   onAcceptFollowRequest,
   onRejectFollowRequest,
+  onAcceptPostTag,
+  onRejectPostTag,
+  onAcceptStoryTag,
+  onRejectStoryTag,
 }: NotificationsSheetProps) {
   const services = useGymCircleServices();
   const [items, setItems] = useState<NotificationRow[]>([]);
@@ -214,6 +228,10 @@ export function NotificationsSheet({
                   followBackBusyId={followBackBusyId}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
+                  onAcceptPostTag={onAcceptPostTag}
+                  onRejectPostTag={onRejectPostTag}
+                  onAcceptStoryTag={onAcceptStoryTag}
+                  onRejectStoryTag={onRejectStoryTag}
                 />
               ) : null}
               {grouped.earlier.length > 0 ? (
@@ -227,6 +245,10 @@ export function NotificationsSheet({
                   followBackBusyId={followBackBusyId}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
+                  onAcceptPostTag={onAcceptPostTag}
+                  onRejectPostTag={onRejectPostTag}
+                  onAcceptStoryTag={onAcceptStoryTag}
+                  onRejectStoryTag={onRejectStoryTag}
                 />
               ) : null}
             </>
@@ -247,6 +269,10 @@ function Section({
   followBackBusyId,
   onAcceptFollowRequest,
   onRejectFollowRequest,
+  onAcceptPostTag,
+  onRejectPostTag,
+  onAcceptStoryTag,
+  onRejectStoryTag,
 }: {
   title: string;
   items: NotificationRow[];
@@ -257,6 +283,10 @@ function Section({
   followBackBusyId?: string | null;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
+  onAcceptPostTag?: (postId: string) => void | Promise<void>;
+  onRejectPostTag?: (postId: string) => void | Promise<void>;
+  onAcceptStoryTag?: (storyId: string) => void | Promise<void>;
+  onRejectStoryTag?: (storyId: string) => void | Promise<void>;
 }) {
   return (
     <div className="mb-4">
@@ -270,6 +300,8 @@ function Section({
           const unread = !n.read_at;
           const isFollowRequest = kind === "follow_request";
           const isFollowNotification = kind === "follow";
+          const isPostTag = kind === "post_tag" && Boolean(n.post_id);
+          const isStoryTag = kind === "story_tag" && Boolean(n.story_id);
           const isFollowingBack = actor?.followStatus === "accepted";
           const isFollowBackPending = actor?.followStatus === "pending";
           const canFollowBack = Boolean(
@@ -387,6 +419,46 @@ function Section({
 
               {isFollowRequest && actor?.followStatus === "accepted" ? (
                 <p className="text-[11px] font-bold text-white/40">Solicitação aceita.</p>
+              ) : null}
+
+              {isPostTag && onAcceptPostTag && onRejectPostTag ? (
+                <div className="flex gap-2">
+                  <button
+                    className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-black"
+                    onClick={() => n.post_id && onAcceptPostTag(n.post_id)}
+                    type="button"
+                  >
+                    <Check size={14} strokeWidth={2.8} />
+                    Aceitar treino
+                  </button>
+                  <button
+                    className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
+                    onClick={() => n.post_id && onRejectPostTag(n.post_id)}
+                    type="button"
+                  >
+                    Recusar
+                  </button>
+                </div>
+              ) : null}
+
+              {isStoryTag && onAcceptStoryTag && onRejectStoryTag ? (
+                <div className="flex gap-2">
+                  <button
+                    className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-black"
+                    onClick={() => n.story_id && onAcceptStoryTag(n.story_id)}
+                    type="button"
+                  >
+                    <Check size={14} strokeWidth={2.8} />
+                    Aceitar story
+                  </button>
+                  <button
+                    className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
+                    onClick={() => n.story_id && onRejectStoryTag(n.story_id)}
+                    type="button"
+                  >
+                    Recusar
+                  </button>
+                </div>
               ) : null}
             </li>
           );

@@ -55,6 +55,8 @@ export function SocialPostCard({
   const canFollow = post.author.id !== currentUserId;
   const mediaType = post.mediaType ?? "image";
   const isPostOwner = post.userId === currentUserId;
+  const acceptedParticipants = post.acceptedParticipants ?? [];
+  const pendingParticipants = post.pendingParticipants ?? [];
   const isCurrentLocation = post.locationSource === "current";
   const locationLabel = sanitizeLocationLabel(
     post.locationSource,
@@ -138,6 +140,34 @@ export function SocialPostCard({
               {locationLabel ? <span className="shrink-0">·</span> : null}
               <span className="shrink-0">{formatTime(post.createdAt)}</span>
             </p>
+            {acceptedParticipants.length > 0 || (isPostOwner && pendingParticipants.length > 0) ? (
+              <p className="mt-0.5 truncate text-[12px] font-bold text-white/42">
+                {acceptedParticipants.length > 0 ? (
+                  <>
+                    com{" "}
+                    {acceptedParticipants.slice(0, 3).map((user, index) => (
+                      <span key={user.id}>
+                        {index > 0 ? ", " : ""}
+                        <button
+                          className="gc-pressable text-white/72"
+                          onClick={() => onSelectUser?.(user.id)}
+                          type="button"
+                        >
+                          @{user.username}
+                        </button>
+                      </span>
+                    ))}
+                  </>
+                ) : null}
+                {isPostOwner && pendingParticipants.length > 0 ? (
+                  <span className={acceptedParticipants.length > 0 ? "ml-1" : ""}>
+                    {acceptedParticipants.length > 0 ? "· " : ""}
+                    {pendingParticipants.length} pendente
+                    {pendingParticipants.length > 1 ? "s" : ""}
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-2">

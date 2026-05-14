@@ -7,8 +7,12 @@ export type ConversationRow = Database["public"]["Tables"]["conversations"]["Row
 export type ConversationParticipantRow =
   Database["public"]["Tables"]["conversation_participants"]["Row"];
 export type PostLikeRow = Database["public"]["Tables"]["post_likes"]["Row"];
+export type PostParticipantRow =
+  Database["public"]["Tables"]["post_participants"]["Row"];
 export type StoryLikeRow = Database["public"]["Tables"]["story_likes"]["Row"];
 export type StoryMuteRow = Database["public"]["Tables"]["story_mutes"]["Row"];
+export type StoryParticipantRow =
+  Database["public"]["Tables"]["story_participants"]["Row"];
 export type StoryViewRow = Database["public"]["Tables"]["story_views"]["Row"];
 export type PostMuteRow = Database["public"]["Tables"]["post_mutes"]["Row"];
 export type PostCommentRow = Database["public"]["Tables"]["post_comments"]["Row"];

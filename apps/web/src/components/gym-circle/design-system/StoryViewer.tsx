@@ -193,10 +193,12 @@ function StoryViewerContent({
   );
 
   const handleLike = useCallback(async () => {
-    if (!story || isOwner || story.likedByCurrentUser || liking) return;
+    if (!story || isOwner || liking) return;
     setLiking(true);
-    setHeartBurst(true);
-    window.setTimeout(() => setHeartBurst(false), 480);
+    if (!story.likedByCurrentUser) {
+      setHeartBurst(true);
+      window.setTimeout(() => setHeartBurst(false), 480);
+    }
     try {
       await onLikeStory?.(story.id);
     } finally {

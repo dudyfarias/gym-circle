@@ -5,6 +5,11 @@ import Image from "next/image";
 import { Camera, Check, Lock, Unlock, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import {
+  GymSearchSheet,
+  type LocatedPlaceCandidate,
+  type PlaceCandidate,
+} from "./GymSearchSheet";
+import {
   calculateAgeFromBirthDate,
   formatSportsInput,
   normalizeInstagramUsername,
@@ -18,6 +23,7 @@ type EditProfileSheetProps = {
   onClose: () => void;
   onSave: (input: ProfileEditInput) => Promise<void>;
   onUploadAvatar?: (file: File) => Promise<string>;
+  onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
   gyms?: GymLocationOption[];
 };
 
@@ -33,6 +39,7 @@ export function EditProfileSheet({
   onClose,
   onSave,
   onUploadAvatar,
+  onCatalogPlace,
   gyms = [],
 }: EditProfileSheetProps) {
   const [displayName, setDisplayName] = useState(currentUser.name);
@@ -43,6 +50,9 @@ export function EditProfileSheet({
   const [birthDate, setBirthDate] = useState(currentUser.birthDate ?? "");
   const [sportsInput, setSportsInput] = useState(formatSportsInput(currentUser.sports));
   const [mainGymId, setMainGymId] = useState(() => findMainGymId(currentUser, gyms));
+  const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
+  const [gymSearchOpen, setGymSearchOpen] = useState(false);
+  const [gymSearchError, setGymSearchError] = useState<string | null>(null);
   const [preferredTimes, setPreferredTimes] = useState<string[]>(currentUser.preferredTimes);
   const [isPrivate, setIsPrivate] = useState(currentUser.isPrivate ?? false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(currentUser.avatarUrl);
@@ -62,6 +72,9 @@ export function EditProfileSheet({
       setBirthDate(currentUser.birthDate ?? "");
       setSportsInput(formatSportsInput(currentUser.sports));
       setMainGymId(findMainGymId(currentUser, gyms));
+      setLocalGyms([]);
+      setGymSearchOpen(false);
+      setGymSearchError(null);
       setPreferredTimes(currentUser.preferredTimes);
       setIsPrivate(currentUser.isPrivate ?? false);
       setAvatarUrl(currentUser.avatarUrl);
@@ -116,6 +129,43 @@ export function EditProfileSheet({
     }
   }
 
+  async function handleSelectGym(candidate: PlaceCandidate) {
+    setGymSearchError(null);
+
+    if (candidate.provider === "registered" && candidate.gymId) {
+      setMainGymId(candidate.gymId);
+      setGymSearchOpen(false);
+      return;
+    }
+
+    if (!onCatalogPlace) {
+      setGymSearchError("Não foi possível cadastrar academia agora.");
+      return;
+    }
+
+    if (typeof candidate.latitude !== "number" || typeof candidate.longitude !== "number") {
+      setGymSearchError("Para cadastrar academia, a localização dela é obrigatória.");
+      return;
+    }
+
+    try {
+      const gym = await onCatalogPlace({
+        ...candidate,
+        latitude: candidate.latitude,
+        longitude: candidate.longitude,
+      });
+      setLocalGyms((current) =>
+        current.some((item) => item.id === gym.id) ? current : [...current, gym],
+      );
+      setMainGymId(gym.id);
+      setGymSearchOpen(false);
+    } catch (err) {
+      setGymSearchError(
+        err instanceof Error ? err.message : "Não foi possível cadastrar academia.",
+      );
+    }
+  }
+
   function togglePreferredTime(time: string) {
     setPreferredTimes((current) =>
       current.includes(time)
@@ -127,6 +177,10 @@ export function EditProfileSheet({
   if (!open) return null;
 
   const calculatedAge = calculateAgeFromBirthDate(birthDate);
+  const selectableGyms = [...gyms, ...localGyms].filter(
+    (gym, index, list) => list.findIndex((item) => item.id === gym.id) === index,
+  );
+  const selectedGym = selectableGyms.find((gym) => gym.id === mainGymId) ?? null;
 
   return (
     <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
@@ -223,24 +277,46 @@ export function EditProfileSheet({
             />
           </FormField>
 
-          {gyms.length > 0 ? (
-            <FormField label="Academia" hint="opcional">
-              <select
-                className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
-                onChange={(e) => setMainGymId(e.target.value)}
-                value={mainGymId}
+          <FormField label="Academia" hint="opcional">
+            <button
+              className="gc-pressable flex min-h-12 w-full items-center justify-between gap-3 rounded-[16px] border border-white/[0.08] bg-black/40 px-4 py-3 text-left"
+              onClick={() => {
+                setGymSearchError(null);
+                setGymSearchOpen(true);
+              }}
+              type="button"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-black text-white">
+                  {selectedGym?.name ?? "Escolher academia"}
+                </span>
+                <span className="mt-0.5 block truncate text-[12px] font-bold text-white/42">
+                  {selectedGym
+                    ? [selectedGym.address, selectedGym.city, selectedGym.state]
+                        .filter(Boolean)
+                        .join(" · ") || "Academia cadastrada"
+                    : "Buscar por nome ou usar localização atual"}
+                </span>
+              </span>
+              <span className="rounded-full bg-[var(--gc-brand)]/14 px-3 py-1 text-[11px] font-black text-[var(--gc-brand)]">
+                Buscar
+              </span>
+            </button>
+            {mainGymId ? (
+              <button
+                className="mt-2 text-[12px] font-bold text-white/42"
+                onClick={() => setMainGymId("")}
+                type="button"
               >
-                <option className="bg-black" value="">
-                  Sem academia definida
-                </option>
-                {gyms.map((gym) => (
-                  <option className="bg-black" key={gym.id} value={gym.id}>
-                    {gym.name}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          ) : null}
+                Remover academia principal
+              </button>
+            ) : null}
+            {gymSearchError ? (
+              <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
+                {gymSearchError}
+              </p>
+            ) : null}
+          </FormField>
 
           <FormField label="Horários de treino" hint="opcional">
             <div className="flex flex-wrap gap-2">
@@ -362,6 +438,13 @@ export function EditProfileSheet({
           </button>
         </div>
       </div>
+      <GymSearchSheet
+        onClose={() => setGymSearchOpen(false)}
+        onSelect={handleSelectGym}
+        open={gymSearchOpen}
+        registeredGyms={selectableGyms}
+        title="Escolher academia"
+      />
     </div>
   );
 }

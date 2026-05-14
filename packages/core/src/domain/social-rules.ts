@@ -33,3 +33,27 @@ export function acceptFollowRequest(
   }
   return { ...request, status: "accepted" };
 }
+
+export type ParticipantRequest = {
+  status: "pending" | "accepted" | "rejected";
+  hasMedia: boolean;
+  sourceType: "post" | "story";
+  expiresAt?: string | null;
+  acceptedAt?: string | null;
+};
+
+export function participantCountsForStreak(
+  participant: ParticipantRequest,
+  nowIso: string,
+): boolean {
+  if (participant.status !== "accepted") return false;
+  if (!participant.hasMedia) return false;
+
+  if (participant.sourceType === "story") {
+    if (!participant.expiresAt) return false;
+    const acceptedAt = participant.acceptedAt ?? nowIso;
+    return new Date(acceptedAt).getTime() <= new Date(participant.expiresAt).getTime();
+  }
+
+  return true;
+}

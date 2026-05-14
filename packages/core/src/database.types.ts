@@ -461,6 +461,54 @@ export type Database = {
         }
         Relationships: []
       }
+      post_participants: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          post_id: string
+          rejected_at: string | null
+          status: string
+          tagged_by_user_id: string
+          tagged_user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          post_id: string
+          rejected_at?: string | null
+          status?: string
+          tagged_by_user_id: string
+          tagged_user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string
+          rejected_at?: string | null
+          status?: string
+          tagged_by_user_id?: string
+          tagged_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_participants_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "feed_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_participants_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           caption: string | null
@@ -734,6 +782,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      story_participants: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          rejected_at: string | null
+          status: string
+          story_id: string
+          tagged_by_user_id: string
+          tagged_user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          rejected_at?: string | null
+          status?: string
+          story_id: string
+          tagged_by_user_id: string
+          tagged_user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          rejected_at?: string | null
+          status?: string
+          story_id?: string
+          tagged_by_user_id?: string
+          tagged_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_participants_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       story_views: {
         Row: {

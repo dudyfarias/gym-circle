@@ -1,3 +1,5 @@
+import type { EnrichedStory, EnrichedUser, StoryGroup } from "./types";
+
 type StoryOrderItem = {
   id: string;
   createdAt: string;
@@ -32,4 +34,59 @@ export function getStoryForUser<T extends StoryOrderItem & { userId: string }>(
   userId: string,
 ): T | null {
   return stories.find((story) => story.userId === userId) ?? null;
+}
+
+function canUseParticipantGroup(user: EnrichedUser, currentUserId: string) {
+  return user.id === currentUserId || user.followStatus === "accepted";
+}
+
+export function groupStoriesByProfile(
+  stories: EnrichedStory[],
+  currentUserId: string,
+): StoryGroup[] {
+  const groups = new Map<string, StoryGroup>();
+
+  const upsertGroup = (groupUser: EnrichedUser, story: EnrichedStory) => {
+    const current = groups.get(groupUser.id);
+    if (!current) {
+      groups.set(groupUser.id, {
+        id: groupUser.id,
+        author: groupUser,
+        stories: [story],
+        viewed: story.viewed,
+        latestCreatedAt: story.createdAt,
+      });
+      return;
+    }
+
+    if (!current.stories.some((item) => item.id === story.id)) {
+      current.stories.push(story);
+    }
+    current.viewed = current.stories.every((item) => item.viewed);
+    if (new Date(story.createdAt).getTime() > new Date(current.latestCreatedAt).getTime()) {
+      current.latestCreatedAt = story.createdAt;
+    }
+  };
+
+  for (const story of stories) {
+    upsertGroup(story.author, story);
+    for (const participant of story.acceptedParticipants ?? []) {
+      if (participant.id === story.author.id) continue;
+      if (!canUseParticipantGroup(participant, currentUserId)) continue;
+      upsertGroup(participant, story);
+    }
+  }
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      stories: [...group.stories].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      ),
+      viewed: group.stories.every((story) => story.viewed),
+    }))
+    .sort((a, b) => {
+      if (a.viewed !== b.viewed) return a.viewed ? 1 : -1;
+      return new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime();
+    });
 }

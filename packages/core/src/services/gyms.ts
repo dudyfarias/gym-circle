@@ -31,6 +31,22 @@ function normalizeName(value: string): string {
     .toLowerCase();
 }
 
+function ensurePlaceHasCoordinates(place: PlaceCandidate) {
+  if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)) {
+    throw new Error("Para cadastrar academia, a localização é obrigatória.");
+  }
+}
+
+function normalizeCityForInsert(place: PlaceCandidate): string {
+  const city = place.city?.trim();
+  if (city && city.length >= 2) return city;
+  const neighborhood = place.neighborhood?.trim();
+  if (neighborhood && neighborhood.length >= 2) return neighborhood;
+  const state = place.state?.trim();
+  if (state && state.length >= 2) return state;
+  return "Brasil";
+}
+
 export function gymService(client: GymCircleClient) {
   return {
     async list(limit = 50): Promise<GymRow[]> {
@@ -57,15 +73,19 @@ export function gymService(client: GymCircleClient) {
       latitude?: number | null;
       longitude?: number | null;
     }): Promise<GymRow> {
+      if (!Number.isFinite(input.latitude) || !Number.isFinite(input.longitude)) {
+        throw new Error("Para cadastrar academia, a localização é obrigatória.");
+      }
+
       const { data, error } = await client
         .from("gyms")
         .insert({
           name: input.name.trim(),
           address: input.address?.trim() || null,
-          city: input.city?.trim() || null,
+          city: input.city?.trim() || "Brasil",
           state: input.state?.trim() || null,
-          latitude: input.latitude ?? null,
-          longitude: input.longitude ?? null,
+          latitude: input.latitude,
+          longitude: input.longitude,
         })
         .select("*")
         .single();
@@ -86,6 +106,7 @@ export function gymService(client: GymCircleClient) {
      * vincular ao perfil do próprio usuário.
      */
     async findOrCreateFromPlace(place: PlaceCandidate): Promise<GymRow> {
+      ensurePlaceHasCoordinates(place);
       // 1. Match por proximidade — bbox de ±100m no lat/lng
       const { data: nearby, error: nearbyErr } = await client
         .from("gyms")
@@ -107,7 +128,7 @@ export function gymService(client: GymCircleClient) {
       const insertPayload = {
         name: place.name.trim(),
         address: place.address?.trim() || null,
-        city: place.city.trim(),
+        city: normalizeCityForInsert(place),
         state: place.state?.trim() || null,
         latitude: place.latitude,
         longitude: place.longitude,

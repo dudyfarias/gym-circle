@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getAdjacentStoryId, getStoryForUser, sortStoriesNewestFirst } from "./stories";
+import {
+  getAdjacentStoryId,
+  getStoryForUser,
+  groupStoriesByProfile,
+  sortStoriesNewestFirst,
+} from "./stories";
+import type { EnrichedStory, EnrichedUser } from "./types";
 
 const stories = [
   { id: "old", userId: "ana", createdAt: "2026-05-07T12:00:00.000Z" },
@@ -29,5 +35,119 @@ describe("story ordering and navigation", () => {
 
     expect(getStoryForUser(ordered, "bia")?.id).toBe("new");
     expect(getStoryForUser(ordered, "dudy")).toBeNull();
+  });
+});
+
+function user(id: string, followStatus: EnrichedUser["followStatus"] = "accepted") {
+  return {
+    id,
+    name: id,
+    username: id,
+    accent: "cyan",
+    avatarUrl: null,
+    bio: "",
+    goal: "",
+    location: "",
+    gyms: [],
+    preferredTimes: [],
+    currentStreak: 1,
+    longestStreak: 1,
+    lastWorkoutDate: "2026-05-07",
+    workoutsThisMonth: 1,
+    activeDaysCount: 1,
+    checkInsCount: 0,
+    achievements: [],
+    followersCount: 0,
+    followingCount: 0,
+    isFollowing: followStatus === "accepted",
+    followStatus,
+    isPrivate: false,
+    workoutDays: [],
+    streakLitToday: true,
+    streakPresenceSource: "feed-photo",
+  } as EnrichedUser;
+}
+
+function story(
+  id: string,
+  author: EnrichedUser,
+  createdAt: string,
+  viewed = false,
+  acceptedParticipants: EnrichedUser[] = [],
+) {
+  return {
+    id,
+    userId: author.id,
+    imageUrl: `/story-${id}.jpg`,
+    mediaType: "image",
+    title: "Treino",
+    caption: "",
+    createdAt,
+    viewed,
+    likedByCurrentUser: false,
+    likesCount: 0,
+    kind: "workout",
+    author,
+    acceptedParticipants,
+  } as EnrichedStory;
+}
+
+describe("groupStoriesByProfile", () => {
+  it("agrupa múltiplos stories do mesmo usuário em uma bolinha", () => {
+    const ana = user("ana");
+    const groups = groupStoriesByProfile(
+      [
+        story("ana-2", ana, "2026-05-07T18:00:00.000Z"),
+        story("ana-1", ana, "2026-05-07T12:00:00.000Z"),
+      ],
+      "viewer",
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].id).toBe("ana");
+    expect(groups[0].stories.map((item) => item.id)).toEqual(["ana-1", "ana-2"]);
+  });
+
+  it("deixa bolinha ativa quando existe story não visto", () => {
+    const ana = user("ana");
+    const groups = groupStoriesByProfile(
+      [
+        story("seen", ana, "2026-05-07T12:00:00.000Z", true),
+        story("new", ana, "2026-05-07T18:00:00.000Z", false),
+      ],
+      "viewer",
+    );
+
+    expect(groups[0].viewed).toBe(false);
+  });
+
+  it("ordena grupos não vistos antes dos vistos e depois por mais recente", () => {
+    const ana = user("ana");
+    const bia = user("bia");
+    const caio = user("caio");
+
+    const groups = groupStoriesByProfile(
+      [
+        story("ana", ana, "2026-05-07T20:00:00.000Z", true),
+        story("bia", bia, "2026-05-07T10:00:00.000Z", false),
+        story("caio", caio, "2026-05-07T18:00:00.000Z", false),
+      ],
+      "viewer",
+    );
+
+    expect(groups.map((group) => group.id)).toEqual(["caio", "bia", "ana"]);
+  });
+
+  it("cria grupo para participante aceito", () => {
+    const author = user("dudy");
+    const tagged = user("edu");
+
+    const groups = groupStoriesByProfile(
+      [story("collab", author, "2026-05-07T18:00:00.000Z", false, [tagged])],
+      "edu",
+    );
+
+    expect(groups.map((group) => group.id)).toContain("edu");
+    expect(groups.find((group) => group.id === "edu")?.stories[0].id).toBe("collab");
   });
 });

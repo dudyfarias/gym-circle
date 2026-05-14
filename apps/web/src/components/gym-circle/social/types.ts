@@ -68,6 +68,19 @@ export type GymComment = {
   createdAt: string;
 };
 
+export type ParticipantStatus = "pending" | "accepted" | "rejected";
+
+export type GymParticipant = {
+  id: string;
+  targetId: string;
+  taggedUserId: string;
+  taggedByUserId: string;
+  status: ParticipantStatus;
+  acceptedAt: string | null;
+  rejectedAt: string | null;
+  createdAt: string;
+};
+
 export type GymPost = {
   id: string;
   userId: string;
@@ -89,6 +102,7 @@ export type GymPost = {
   likesCount: number;
   likedByCurrentUser: boolean;
   comments: GymComment[];
+  participants?: GymParticipant[];
 };
 
 export type GymStory = {
@@ -103,6 +117,7 @@ export type GymStory = {
   likedByCurrentUser: boolean;
   likesCount: number;
   kind: "workout" | "checkin" | "milestone";
+  participants?: GymParticipant[];
 };
 
 export type SocialState = {
@@ -122,6 +137,8 @@ export type EnrichedPost = GymPost & {
   author: EnrichedUser;
   commentPreviews: EnrichedComment[];
   likedByPreview: EnrichedUser[];
+  acceptedParticipants?: EnrichedUser[];
+  pendingParticipants?: EnrichedUser[];
   smartScore: number;
   smartReason: string;
   distanceKm?: number | null;
@@ -130,6 +147,16 @@ export type EnrichedPost = GymPost & {
 
 export type EnrichedStory = GymStory & {
   author: EnrichedUser;
+  acceptedParticipants?: EnrichedUser[];
+  pendingParticipants?: EnrichedUser[];
+};
+
+export type StoryGroup = {
+  id: string;
+  author: EnrichedUser;
+  stories: EnrichedStory[];
+  viewed: boolean;
+  latestCreatedAt: string;
 };
 
 export type ChatMessage = {
@@ -174,6 +201,7 @@ export type CreateWorkoutPostInput = {
   locationLatitude?: number | null;
   locationLongitude?: number | null;
   locationGoogleMapsUrl?: string | null;
+  taggedUserIds?: string[];
   /**
    * Onde a postagem deve aparecer.
    * - feed=true: cria post no feed
@@ -240,6 +268,10 @@ export type SocialActions = {
   /** Silencia posts desse autor no feed. Stories e perfil continuam acessíveis. */
   mutePostAuthor?: (authorId: string) => Promise<void>;
   shareStoryToChat?: (storyId: string, receiverId: string) => Promise<void>;
+  acceptPostTag?: (postId: string) => Promise<void>;
+  rejectPostTag?: (postId: string) => Promise<void>;
+  acceptStoryTag?: (storyId: string) => Promise<void>;
+  rejectStoryTag?: (storyId: string) => Promise<void>;
   /**
    * Cataloga um lugar (academia/parque/etc) vindo da busca via Maps no
    * banco — dedup por coords + nome. Vincula ao perfil do user. Retorna
@@ -266,6 +298,8 @@ export type SocialBundle = {
   feedPosts: EnrichedPost[];
   profilePosts?: EnrichedPost[];
   storyBubbles: EnrichedStory[];
+  storyGroups?: StoryGroup[];
+  selectedStoryGroup?: StoryGroup | null;
   selectedStory: EnrichedStory | null;
   suggestedUsers: EnrichedUser[];
   nearbyUsers: EnrichedUser[];

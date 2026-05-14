@@ -12,7 +12,11 @@ import {
   X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
-import { GymSearchSheet, type PlaceCandidate } from "../GymSearchSheet";
+import {
+  GymSearchSheet,
+  type LocatedPlaceCandidate,
+  type PlaceCandidate,
+} from "../GymSearchSheet";
 import type {
   EnrichedPost,
   EnrichedUser,
@@ -28,7 +32,7 @@ type CheckInScreenProps = {
   users: Record<string, GymUser>;
   onCheckIn: (gymName: string) => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
-  onCatalogPlace?: (place: PlaceCandidate) => Promise<GymLocationOption>;
+  onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
 };
 
 type PeopleFilter = "today" | "week";
@@ -248,7 +252,22 @@ export function CheckInScreen({
     if (!onCatalogPlace || cataloging) return;
     setCataloging(true);
     try {
-      const cataloged = await onCatalogPlace(place);
+      if (place.provider === "registered" && place.gymId) {
+        openGymDetail(place.gymId);
+        setSearchOpen(false);
+        return;
+      }
+
+      if (typeof place.latitude !== "number" || typeof place.longitude !== "number") {
+        setFeedback("Para cadastrar academia, a localização dela é obrigatória.");
+        return;
+      }
+
+      const cataloged = await onCatalogPlace({
+        ...place,
+        latitude: place.latitude,
+        longitude: place.longitude,
+      });
       setLocalGyms((current) =>
         current.some((gym) => gym.id === cataloged.id)
           ? current
@@ -318,8 +337,10 @@ export function CheckInScreen({
 
       <GymSearchSheet
         onClose={() => setSearchOpen(false)}
+        registeredGyms={allGyms}
         onSelect={handleCatalogPlace}
         open={searchOpen}
+        title="Escolher academia"
       />
     </section>
   );
