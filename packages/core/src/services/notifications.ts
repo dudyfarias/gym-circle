@@ -1,6 +1,23 @@
 import type { NotificationRow } from "../domain/types";
 import type { GymCircleClient } from "./supabase";
 
+export const SOCIAL_BELL_NOTIFICATION_KINDS = [
+  "like",
+  "comment",
+  "follow",
+  "mention",
+  "follow_request",
+  "story_like",
+  "post_tag",
+  "story_tag",
+] as const;
+
+export type SocialBellNotificationKind = (typeof SOCIAL_BELL_NOTIFICATION_KINDS)[number];
+
+export function isSocialBellNotificationKind(kind: string): kind is SocialBellNotificationKind {
+  return SOCIAL_BELL_NOTIFICATION_KINDS.includes(kind as SocialBellNotificationKind);
+}
+
 export function notificationService(client: GymCircleClient) {
   return {
     async listForUser(userId: string, limit = 50): Promise<NotificationRow[]> {
@@ -8,6 +25,7 @@ export function notificationService(client: GymCircleClient) {
         .from("notifications")
         .select("*")
         .eq("user_id", userId)
+        .in("kind", SOCIAL_BELL_NOTIFICATION_KINDS)
         .order("created_at", { ascending: false })
         .limit(limit);
       if (error) throw error;
@@ -19,6 +37,7 @@ export function notificationService(client: GymCircleClient) {
         .from("notifications")
         .update({ read_at: new Date().toISOString() })
         .eq("user_id", userId)
+        .in("kind", SOCIAL_BELL_NOTIFICATION_KINDS)
         .is("read_at", null);
       if (error) throw error;
     },

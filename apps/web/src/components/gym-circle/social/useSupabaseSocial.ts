@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { SOCIAL_BELL_NOTIFICATION_KINDS } from "@gym-circle/core";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   CheckinRow,
@@ -449,6 +450,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .from("notifications")
           .select("*")
           .eq("user_id", currentUserId)
+          .in("kind", SOCIAL_BELL_NOTIFICATION_KINDS)
           .order("created_at", { ascending: false })
           .limit(50),
         services.client

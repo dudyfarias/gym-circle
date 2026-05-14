@@ -5,17 +5,20 @@ import {
   AtSign,
   BellRing,
   Check,
-  Flame,
   Heart,
   Loader2,
   MessageCircle,
-  Sparkles,
   UserCheck,
   UserPlus,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
-import type { NotificationRow } from "@gym-circle/core";
+import {
+  isSocialBellNotificationKind,
+  type NotificationRow,
+  type SocialBellNotificationKind,
+} from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedUser } from "./social/types";
 
@@ -41,13 +44,9 @@ const KIND_ICON = {
   mention: AtSign,
   follow_request: BellRing,
   story_like: Heart,
-  story_reply: MessageCircle,
-  new_message: MessageCircle,
-  new_story: Sparkles,
-  training_today: Flame,
   post_tag: AtSign,
   story_tag: AtSign,
-} as const;
+} satisfies Record<SocialBellNotificationKind, LucideIcon>;
 
 const KIND_LABEL = {
   like: "curtiu seu treino",
@@ -56,13 +55,9 @@ const KIND_LABEL = {
   mention: "mencionou você",
   follow_request: "quer te seguir",
   story_like: "curtiu seu story",
-  story_reply: "respondeu seu story",
-  new_message: "enviou uma mensagem",
-  new_story: "postou um story",
-  training_today: "treinou hoje",
   post_tag: "marcou você em um treino",
   story_tag: "marcou você em um story",
-} as const;
+} satisfies Record<SocialBellNotificationKind, string>;
 
 const KIND_TONE = {
   like: "text-[var(--gc-consistency-month)]",
@@ -71,18 +66,12 @@ const KIND_TONE = {
   mention: "text-[var(--gc-consistency-daily)]",
   follow_request: "text-[var(--gc-brand)]",
   story_like: "text-[var(--gc-consistency-month)]",
-  story_reply: "text-[var(--gc-brand)]",
-  new_message: "text-[var(--gc-brand)]",
-  new_story: "text-[var(--gc-consistency-month)]",
-  training_today: "text-[var(--gc-consistency-daily)]",
   post_tag: "text-[var(--gc-brand)]",
   story_tag: "text-[var(--gc-brand)]",
-} as const;
+} satisfies Record<SocialBellNotificationKind, string>;
 
-type NotificationKind = keyof typeof KIND_ICON;
-
-function normalizeNotificationKind(kind: string): NotificationKind {
-  return kind in KIND_ICON ? (kind as NotificationKind) : "mention";
+function normalizeNotificationKind(kind: string): SocialBellNotificationKind | null {
+  return isSocialBellNotificationKind(kind) ? kind : null;
 }
 
 function formatRelative(iso: string, now: number): string {
@@ -177,7 +166,7 @@ export function NotificationsSheet({
   const grouped = useMemo(() => {
     const today: NotificationRow[] = [];
     const earlier: NotificationRow[] = [];
-    for (const n of items) {
+    for (const n of items.filter((item) => isSocialBellNotificationKind(item.kind))) {
       if (now - new Date(n.created_at).getTime() < 24 * 60 * 60 * 1000) today.push(n);
       else earlier.push(n);
     }
@@ -294,6 +283,7 @@ function Section({
       <ul className="space-y-2">
         {items.map((n) => {
           const kind = normalizeNotificationKind(n.kind);
+          if (!kind) return null;
           const Icon = KIND_ICON[kind];
           const tone = KIND_TONE[kind];
           const actor = users[n.actor_id];
