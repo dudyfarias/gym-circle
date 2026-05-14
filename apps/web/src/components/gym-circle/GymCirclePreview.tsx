@@ -25,7 +25,9 @@ import { NotificationsSheet } from "./NotificationsSheet";
 import { ConfirmSheet } from "./ConfirmSheet";
 import { PostMenuSheet } from "./PostMenuSheet";
 import { PostDetailSheet } from "./PostDetailSheet";
+import { LikesOverlay } from "./LikesOverlay";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
+import { getLikesOverlayUsers } from "./social/likes";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 import { getAdjacentStoryId } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
@@ -60,6 +62,7 @@ export function GymCirclePreview({
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [postDetailId, setPostDetailId] = useState<string | null>(null);
+  const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [chatTargetUserId, setChatTargetUserId] = useState<string | null>(null);
   // Sheet de confirmação genérico — substitui window.confirm em ações
   // destrutivas. `intent` decide qual handler dispara no botão "Confirmar".
@@ -159,6 +162,8 @@ export function GymCirclePreview({
   const closeEditPost = useCallback(() => setEditPostId(null), []);
   const openPostDetail = useCallback((postId: string) => setPostDetailId(postId), []);
   const closePostDetail = useCallback(() => setPostDetailId(null), []);
+  const openLikes = useCallback((postId: string) => setLikesPostId(postId), []);
+  const closeLikes = useCallback(() => setLikesPostId(null), []);
 
   const handleStartEditPost = useCallback(() => {
     if (!postMenuId) return;
@@ -186,7 +191,7 @@ export function GymCirclePreview({
       social.feedPosts.some(
         (post) =>
           post.userId !== social.currentUser.id &&
-          post.locationSource === "current" &&
+          (post.locationSource === "current" || post.locationSource === "gym") &&
           typeof post.locationLatitude === "number" &&
           typeof post.locationLongitude === "number",
       ),
@@ -200,7 +205,7 @@ export function GymCirclePreview({
     return posts.map((post) => {
       if (
         post.userId === social.currentUser.id ||
-        post.locationSource !== "current" ||
+        (post.locationSource !== "current" && post.locationSource !== "gym") ||
         typeof post.locationLatitude !== "number" ||
         typeof post.locationLongitude !== "number"
       ) {
@@ -234,6 +239,10 @@ export function GymCirclePreview({
     if (!postDetailId) return null;
     return profilePosts.find((p) => p.id === postDetailId) ?? null;
   }, [postDetailId, profilePosts]);
+  const likesTarget: EnrichedPost | null = useMemo(() => {
+    if (!likesPostId) return null;
+    return profilePosts.find((post) => post.id === likesPostId) ?? null;
+  }, [likesPostId, profilePosts]);
 
   const sheetContextValue = useMemo(
     () => ({
@@ -542,9 +551,13 @@ export function GymCirclePreview({
       case "chat":
         return (
           <ChatScreen
+            conversations={social.chatConversations ?? []}
             messages={social.chatMessages ?? []}
             currentUser={social.currentUser}
+            onConversationOpen={social.actions.markChatConversationRead}
+            onCreateGroupConversation={social.actions.createGroupConversation}
             onDeleteConversation={social.actions.deleteChatConversation}
+            onDeleteConversationById={social.actions.deleteChatConversationById}
             onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
             onSelectedUserIdChange={setChatTargetUserId}
@@ -593,6 +606,7 @@ export function GymCirclePreview({
             onCreatePost={() => setActiveScreen("post")}
             onDeleteComment={social.actions.deleteComment}
             onLikePost={social.actions.likePost}
+            onOpenLikes={openLikes}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
             onEditProfile={handleEditProfile}
@@ -624,6 +638,7 @@ export function GymCirclePreview({
     openSearch,
     openProfile,
     openPostDetail,
+    openLikes,
     resolveUser,
     openPostMenu,
     currentUserPosts,
@@ -739,6 +754,7 @@ export function GymCirclePreview({
             onCommentPost={social.actions.commentPost}
             onDeleteComment={social.actions.deleteComment}
             onLikePost={social.actions.likePost}
+            onOpenLikes={openLikes}
             onOpenPostMenu={openPostMenu}
             onSelectUser={(userId) => {
               closePostDetail();
@@ -748,6 +764,26 @@ export function GymCirclePreview({
             open={postDetailId !== null}
             post={postDetailTarget}
             resolveUser={resolveUser}
+          />
+          <LikesOverlay
+            currentUserId={social.currentUser.id}
+            onClose={closeLikes}
+            onSelectUser={(userId) => {
+              closeLikes();
+              openProfile(userId);
+            }}
+            onToggleFollow={social.actions.toggleFollow}
+            open={likesPostId !== null}
+            users={
+              likesTarget
+                ? getLikesOverlayUsers({
+                    currentUserId: social.currentUser.id,
+                    likedByPreview: likesTarget.likedByPreview,
+                    likedByUsers: likesTarget.likedByUsers,
+                    postOwnerId: likesTarget.userId,
+                  })
+                : []
+            }
           />
           <MonthlyRecapSheet
             onClose={() => setMonthlyRecapOpen(false)}

@@ -249,3 +249,56 @@ describe("messageService.deleteConversationForMe", () => {
     expect(participantsQuery.update).not.toHaveBeenCalled();
   });
 });
+
+describe("messageService group conversations", () => {
+  it("creates a group conversation with distinct members", async () => {
+    const client = createClientMock("conversation-group-1");
+    const service = messageService(client);
+
+    const result = await service.createGroup({
+      name: "Perna de sexta",
+      memberIds: ["user-b", "user-c", "user-b"],
+    });
+
+    expect(result).toBe("conversation-group-1");
+    expect(client.rpc).toHaveBeenCalledWith("create_group_conversation", {
+      p_name: "Perna de sexta",
+      p_member_ids: ["user-b", "user-c"],
+      p_image_url: null,
+    });
+  });
+
+  it("sends group messages through the group RPC", async () => {
+    const client = createClientMock({
+      ...messageRow,
+      receiver_id: null,
+      conversation_id: "conversation-group-1",
+      body: "Treino 19h?",
+    });
+    const service = messageService(client);
+
+    const result = await service.sendGroup({
+      conversationId: "conversation-group-1",
+      body: "  Treino 19h? ",
+    });
+
+    expect(client.rpc).toHaveBeenCalledWith("send_group_message", {
+      p_conversation_id: "conversation-group-1",
+      p_body: "Treino 19h?",
+      p_media_url: null,
+      p_media_type: null,
+    });
+    expect(result.receiver_id).toBeNull();
+  });
+
+  it("marks a whole conversation as read", async () => {
+    const client = createClientMock(null);
+    const service = messageService(client);
+
+    await service.markConversationRead("conversation-group-1");
+
+    expect(client.rpc).toHaveBeenCalledWith("mark_conversation_read", {
+      p_conversation_id: "conversation-group-1",
+    });
+  });
+});

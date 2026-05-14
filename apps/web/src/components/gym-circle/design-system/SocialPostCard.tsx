@@ -36,6 +36,7 @@ type SocialPostCardProps = {
   resolveUser?: (username: string) => { id: string } | undefined;
   /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
   onOpenPostMenu?: (postId: string) => void;
+  onOpenLikes?: (postId: string) => void;
 };
 
 export function SocialPostCard({
@@ -49,6 +50,7 @@ export function SocialPostCard({
   onSelectUser,
   resolveUser,
   onOpenPostMenu,
+  onOpenLikes,
 }: SocialPostCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
@@ -63,6 +65,7 @@ export function SocialPostCard({
     post.locationName,
     post.gymName,
   );
+  const remainingLikes = Math.max(0, post.likesCount - 1);
   const canOpenLocationMap =
     Boolean(post.locationGoogleMapsUrl) && (!isCurrentLocation || isPostOwner);
 
@@ -315,20 +318,21 @@ export function SocialPostCard({
                     </div>
                   ))}
                 </div>
-                <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-white/58">
+                <button
+                  className="gc-pressable min-w-0 flex-1 truncate text-left text-[12px] font-bold text-white/58"
+                  onClick={() => onOpenLikes?.(post.id)}
+                  type="button"
+                >
                   Curtido por{" "}
-                  <button
-                    className="gc-pressable text-white"
-                    onClick={() => {
-                      const firstLike = post.likedByPreview[0];
-                      if (firstLike) onSelectUser?.(firstLike.id);
-                    }}
-                    type="button"
-                  >
+                  <span className="text-white">
                     {post.likedByPreview[0]?.username ?? "seu circle"}
-                  </button>{" "}
-                  e {post.likesCount.toLocaleString("pt-BR")} pessoas
-                </p>
+                  </span>
+                  {remainingLikes > 0
+                    ? ` e mais ${remainingLikes.toLocaleString("pt-BR")} ${
+                        remainingLikes === 1 ? "pessoa" : "pessoas"
+                      }`
+                    : ""}
+                </button>
                 {post.likedByPreview[0] ? (
                   <StreakBadge
                     isLit={post.likedByPreview[0].streakLitToday}

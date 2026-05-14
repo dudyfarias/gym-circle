@@ -6,6 +6,8 @@ export type SignUpInput = {
   username: string;
 };
 
+export type SocialAuthProvider = "google" | "apple";
+
 export function authService(client: GymCircleClient) {
   function cleanUsername(value: string): string {
     return value.trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9_.]/g, "");
@@ -38,6 +40,17 @@ export function authService(client: GymCircleClient) {
     },
 
     resolveEmailForUsername,
+
+    async signInWithOAuth(provider: SocialAuthProvider, redirectTo?: string) {
+      const { data, error } = await client.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo,
+        },
+      });
+      if (error) throw error;
+      return data;
+    },
 
     async signUp({ email, password, username }: SignUpInput) {
       const cleanedUsername = cleanUsername(username);

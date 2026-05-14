@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@gym-circle/core/hooks";
+import { Apple } from "lucide-react";
 import { BrandMark } from "./design-system";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
@@ -11,7 +12,7 @@ function cleanUsername(value: string): string {
 }
 
 export function LiveAuthGate() {
-  const { resetPassword, signIn, signUp } = useAuth();
+  const { resetPassword, signIn, signInWithProvider, signUp } = useAuth();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,6 +62,20 @@ export function LiveAuthGate() {
     }
   }
 
+  async function handleSocialSignIn(provider: "google" | "apple") {
+    setSubmitting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const redirectTo =
+        typeof window === "undefined" ? undefined : window.location.origin;
+      await signInWithProvider(provider, redirectTo);
+    } catch (err) {
+      setError((err as Error).message);
+      setSubmitting(false);
+    }
+  }
+
   return (
     <main className="grid min-h-[100dvh] place-items-center bg-black px-6 pb-6 pt-[calc(var(--gc-safe-top)+24px)] text-white">
       <div className="w-full max-w-[400px]">
@@ -83,7 +98,39 @@ export function LiveAuthGate() {
                 : "Cadastro rápido: email, senha e username. O resto fica para depois."}
           </p>
 
-          <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
+          {mode !== "forgot-password" ? (
+            <div className="mt-5 grid gap-2">
+              <button
+                className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-white text-[13px] font-black text-black disabled:opacity-50"
+                disabled={submitting}
+                onClick={() => handleSocialSignIn("apple")}
+                type="button"
+              >
+                <Apple size={17} fill="currentColor" />
+                Continuar com Apple
+              </button>
+              <button
+                className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.055] text-[13px] font-black text-white disabled:opacity-50"
+                disabled={submitting}
+                onClick={() => handleSocialSignIn("google")}
+                type="button"
+              >
+                <span className="grid size-5 place-items-center rounded-full bg-white text-[12px] font-black text-black">
+                  G
+                </span>
+                Continuar com Google
+              </button>
+              <div className="flex items-center gap-3 py-1">
+                <span className="h-px flex-1 bg-white/[0.08]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.16em] text-white/30">
+                  ou
+                </span>
+                <span className="h-px flex-1 bg-white/[0.08]" />
+              </div>
+            </div>
+          ) : null}
+
+          <form className={mode === "forgot-password" ? "mt-5 space-y-3" : "space-y-3"} onSubmit={handleSubmit}>
             <input
               autoComplete={mode === "sign-in" ? "username" : "email"}
               className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"

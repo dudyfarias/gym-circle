@@ -11,6 +11,19 @@ export type SendDirectMessageInput = {
   storyPreviewUrl?: string | null;
 };
 
+export type CreateGroupConversationInput = {
+  name: string;
+  memberIds: string[];
+  imageUrl?: string | null;
+};
+
+export type SendGroupMessageInput = {
+  conversationId: string;
+  body?: string | null;
+  mediaUrl?: string | null;
+  mediaType?: "image" | "video" | null;
+};
+
 function createDirectKey(userA: string, userB: string): string {
   return [userA, userB].sort().join(":");
 }
@@ -129,6 +142,62 @@ export function messageService(client: GymCircleClient) {
         .eq("sender_id", otherUserId)
         .eq("receiver_id", currentUserId)
         .is("read_at", null);
+      if (error) throw error;
+    },
+
+    async createGroup(input: CreateGroupConversationInput): Promise<string> {
+      const memberIds = Array.from(new Set(input.memberIds.filter(Boolean)));
+      const { data, error } = await client.rpc("create_group_conversation", {
+        p_name: input.name.trim() || "Grupo Gym Circle",
+        p_member_ids: memberIds,
+        p_image_url: input.imageUrl?.trim() || null,
+      });
+      if (error) throw error;
+      return data;
+    },
+
+    async addGroupMembers(conversationId: string, memberIds: string[]): Promise<void> {
+      const { error } = await client.rpc("add_group_conversation_members", {
+        p_conversation_id: conversationId,
+        p_member_ids: Array.from(new Set(memberIds.filter(Boolean))),
+      });
+      if (error) throw error;
+    },
+
+    async removeGroupMember(conversationId: string, userId: string): Promise<void> {
+      const { error } = await client.rpc("remove_group_conversation_member", {
+        p_conversation_id: conversationId,
+        p_user_id: userId,
+      });
+      if (error) throw error;
+    },
+
+    async sendGroup(input: SendGroupMessageInput): Promise<DirectMessageRow> {
+      const body = input.body?.trim() || null;
+      const mediaUrl = input.mediaUrl?.trim() || null;
+      if (!body && !mediaUrl) throw new Error("mensagem vazia");
+
+      const { data, error } = await client.rpc("send_group_message", {
+        p_conversation_id: input.conversationId,
+        p_body: body,
+        p_media_url: mediaUrl,
+        p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+      });
+      if (error) throw error;
+      return withStoryDefaults(data);
+    },
+
+    async markConversationRead(conversationId: string): Promise<void> {
+      const { error } = await client.rpc("mark_conversation_read", {
+        p_conversation_id: conversationId,
+      });
+      if (error) throw error;
+    },
+
+    async deleteConversationByIdForMe(conversationId: string): Promise<void> {
+      const { error } = await client.rpc("delete_conversation_for_me", {
+        p_conversation_id: conversationId,
+      });
       if (error) throw error;
     },
 

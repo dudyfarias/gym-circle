@@ -503,6 +503,7 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
     }
 
     case "send-chat-message": {
+      if (!action.input.receiverId) return state;
       const body = action.input.body?.trim() || null;
       const mediaUrl = action.input.mediaUrl?.trim() || null;
       if (!body && !mediaUrl) return state;

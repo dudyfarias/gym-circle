@@ -11,6 +11,7 @@ type PostDetailSheetProps = {
   onCommentPost: (postId: string, body: string) => void | Promise<void>;
   onDeleteComment?: (postId: string, commentId: string) => void | Promise<void>;
   onLikePost: (postId: string) => void | Promise<void>;
+  onOpenLikes?: (postId: string) => void;
   onOpenPostMenu?: (postId: string) => void;
   onSelectUser?: (userId: string) => void;
   onToggleFollow: (userId: string) => void | Promise<void>;
@@ -26,6 +27,7 @@ export function PostDetailSheet({
   onCommentPost,
   onDeleteComment,
   onLikePost,
+  onOpenLikes,
   onOpenPostMenu,
   onSelectUser,
   onToggleFollow,
@@ -71,6 +73,7 @@ export function PostDetailSheet({
             onLike={(postId) => {
               void onLikePost(postId);
             }}
+            onOpenLikes={onOpenLikes}
             onOpenPostMenu={onOpenPostMenu}
             onSelectUser={onSelectUser}
             onToggleFollow={(userId) => {

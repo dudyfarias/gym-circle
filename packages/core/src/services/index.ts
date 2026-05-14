@@ -5,6 +5,7 @@ import { authService } from "./auth";
 import { checkinService } from "./checkins";
 import { followService } from "./follows";
 import { gymService } from "./gyms";
+import { healthService } from "./health";
 import { notificationService } from "./notifications";
 import { onboardingService } from "./onboarding";
 import { messageService } from "./messages";
@@ -23,6 +24,7 @@ export * from "./auth";
 export * from "./checkins";
 export * from "./follows";
 export * from "./gyms";
+export * from "./health";
 export * from "./notifications";
 export * from "./onboarding";
 export * from "./messages";
@@ -50,6 +52,7 @@ export function createGymCircleServices(client: GymCircleClient) {
     stories: storyService(client),
     follows: followService(client),
     gyms: gymService(client),
+    health: healthService(),
     checkins: checkinService(client),
     stats: statsService(client),
     notifications: notificationService(client),

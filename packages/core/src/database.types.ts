@@ -108,21 +108,27 @@ export type Database = {
           conversation_id: string
           created_at: string
           deleted_at: string | null
+          joined_at: string
           last_read_at: string | null
+          role: string
           user_id: string
         }
         Insert: {
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
+          joined_at?: string
           last_read_at?: string | null
+          role?: string
           user_id: string
         }
         Update: {
           conversation_id?: string
           created_at?: string
           deleted_at?: string | null
+          joined_at?: string
           last_read_at?: string | null
+          role?: string
           user_id?: string
         }
         Relationships: [
@@ -141,7 +147,10 @@ export type Database = {
           created_by: string | null
           direct_key: string | null
           id: string
+          image_url: string | null
           last_message_at: string | null
+          name: string | null
+          type: string
           updated_at: string
         }
         Insert: {
@@ -149,7 +158,10 @@ export type Database = {
           created_by?: string | null
           direct_key?: string | null
           id?: string
+          image_url?: string | null
           last_message_at?: string | null
+          name?: string | null
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -157,7 +169,10 @@ export type Database = {
           created_by?: string | null
           direct_key?: string | null
           id?: string
+          image_url?: string | null
           last_message_at?: string | null
+          name?: string | null
+          type?: string
           updated_at?: string
         }
         Relationships: []
@@ -171,7 +186,7 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           read_at: string | null
-          receiver_id: string
+          receiver_id: string | null
           reply_to_story: boolean
           sender_id: string
           story_id: string | null
@@ -185,7 +200,7 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           read_at?: string | null
-          receiver_id: string
+          receiver_id?: string | null
           reply_to_story?: boolean
           sender_id: string
           story_id?: string | null
@@ -199,7 +214,7 @@ export type Database = {
           media_type?: string | null
           media_url?: string | null
           read_at?: string | null
-          receiver_id?: string
+          receiver_id?: string | null
           reply_to_story?: boolean
           sender_id?: string
           story_id?: string | null
@@ -1042,6 +1057,25 @@ export type Database = {
         }
         Relationships: []
       }
+      conversation_members: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          joined_at: string | null
+          last_read_at: string | null
+          role: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feed_posts: {
         Row: {
           author_badge_active: boolean | null
@@ -1096,12 +1130,36 @@ export type Database = {
         Args: { p_privacy_version?: string; p_terms_version?: string }
         Returns: undefined
       }
+      add_group_conversation_members: {
+        Args: { p_conversation_id: string; p_member_ids: string[] }
+        Returns: undefined
+      }
+      create_group_conversation: {
+        Args: {
+          p_image_url?: string | null
+          p_member_ids: string[]
+          p_name: string
+        }
+        Returns: string
+      }
+      delete_conversation_for_me: {
+        Args: { p_conversation_id: string }
+        Returns: string | null
+      }
       delete_direct_conversation_for_me: {
         Args: { p_other_user_id: string }
         Returns: string | null
       }
+      mark_conversation_read: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       mark_onboarding_complete: { Args: never; Returns: undefined }
       refresh_my_stats: { Args: never; Returns: undefined }
+      remove_group_conversation_member: {
+        Args: { p_conversation_id: string; p_user_id: string }
+        Returns: undefined
+      }
       request_account_deletion: {
         Args: { p_reason?: string }
         Returns: undefined
@@ -1128,7 +1186,29 @@ export type Database = {
           media_type: string | null
           media_url: string | null
           read_at: string | null
-          receiver_id: string
+          receiver_id: string | null
+          reply_to_story: boolean
+          sender_id: string
+          story_id: string | null
+          story_preview_url: string | null
+        }
+      }
+      send_group_message: {
+        Args: {
+          p_body?: string | null
+          p_conversation_id: string
+          p_media_type?: string | null
+          p_media_url?: string | null
+        }
+        Returns: {
+          body: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          media_type: string | null
+          media_url: string | null
+          read_at: string | null
+          receiver_id: string | null
           reply_to_story: boolean
           sender_id: string
           story_id: string | null

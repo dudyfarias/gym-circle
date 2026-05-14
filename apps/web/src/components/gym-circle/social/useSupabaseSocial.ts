@@ -5,6 +5,7 @@ import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   CheckinRow,
   ConversationParticipantRow,
+  ConversationRow,
   DirectMessageRow,
   FeedPostRow,
   FollowRow,
@@ -38,6 +39,7 @@ import {
 import { buildMonthWorkoutDays } from "./streak";
 import type {
   ChatMessage,
+  ChatConversation,
   CreateWorkoutPostInput,
   EditPostInput,
   EnrichedPost,
@@ -144,6 +146,7 @@ type AggregateState = {
   myActivityDays: UserActivityDayRow[];
   myNotifications: NotificationRow[];
   conversationParticipants: ConversationParticipantRow[];
+  conversations: ConversationRow[];
   chatMessages: DirectMessageRow[];
   /** IDs que EU bloqueei. Filtramos feed/stories/profiles/comments/messages. */
   blockedUserIds: string[];
@@ -170,6 +173,7 @@ const EMPTY: AggregateState = {
   myActivityDays: [],
   myNotifications: [],
   conversationParticipants: [],
+  conversations: [],
   chatMessages: [],
   blockedUserIds: [],
   mutedPostUserIds: [],
@@ -321,8 +325,16 @@ export type SupabaseSocialActions = {
   deletePost: (postId: string) => Promise<void>;
   sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
   markChatThreadRead: (userId: string) => Promise<void>;
+  markChatConversationRead: (conversationId: string) => Promise<void>;
   acceptFollowRequest: (requesterId: string) => Promise<void>;
   rejectFollowRequest: (requesterId: string) => Promise<void>;
+  deleteChatConversation: (userId: string) => Promise<void>;
+  deleteChatConversationById: (conversationId: string) => Promise<void>;
+  createGroupConversation: (input: {
+    name: string;
+    memberIds: string[];
+    imageUrl?: string | null;
+  }) => Promise<string>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileEditInput) => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
@@ -357,6 +369,7 @@ export type SupabaseSocialResult = {
   suggestedUsers: EnrichedUser[];
   nearbyUsers: EnrichedUser[];
   chatMessages: ChatMessage[];
+  chatConversations: ChatConversation[];
   socialStats: {
     trainedToday: number;
     checkInsToday: number;
@@ -404,7 +417,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsTodayRes,
         myNotificationsRes,
         conversationParticipantsRes,
-        chatMessagesRes,
         blocksRes,
         postMutesRes,
       ] = await Promise.all([
@@ -442,12 +454,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .from("conversation_participants")
           .select("*")
           .eq("user_id", currentUserId),
-        services.client
-          .from("direct_messages")
-          .select("*")
-          .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
-          .order("created_at", { ascending: true })
-          .limit(200),
         // Apple Guideline 1.2: app de UGC precisa filtrar conteúdo de
         // blocked users de TODOS os surfaces (feed, stories, profiles,
         // comments, search, mensagens). Carrego a lista no refresh
@@ -476,7 +482,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsTodayRes,
         myNotificationsRes,
         conversationParticipantsRes,
-        chatMessagesRes,
         blocksRes,
         postMutesRes,
       ]) {
@@ -484,6 +489,45 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       }
 
       const feedPosts = (feedRes.data ?? []) as FeedPostRow[];
+      const ownConversationParticipants = (conversationParticipantsRes.data ??
+        []) as ConversationParticipantRow[];
+      const conversationIds = ownConversationParticipants.map(
+        (participant) => participant.conversation_id,
+      );
+      const [conversationsRes, allConversationParticipantsRes, chatMessagesRes] =
+        await Promise.all([
+          conversationIds.length > 0
+            ? services.client
+                .from("conversations")
+                .select("*")
+                .in("id", conversationIds)
+            : Promise.resolve({ data: [] as ConversationRow[], error: null }),
+          conversationIds.length > 0
+            ? services.client
+                .from("conversation_participants")
+                .select("*")
+                .in("conversation_id", conversationIds)
+            : Promise.resolve({
+                data: [] as ConversationParticipantRow[],
+                error: null,
+              }),
+          conversationIds.length > 0
+            ? services.client
+                .from("direct_messages")
+                .select("*")
+                .in("conversation_id", conversationIds)
+                .order("created_at", { ascending: true })
+                .limit(300)
+            : services.client
+                .from("direct_messages")
+                .select("*")
+                .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
+                .order("created_at", { ascending: true })
+                .limit(200),
+        ]);
+      if (conversationsRes.error) throw conversationsRes.error;
+      if (allConversationParticipantsRes.error) throw allConversationParticipantsRes.error;
+      if (chatMessagesRes.error) throw chatMessagesRes.error;
       const postIds = feedPosts.map((p) => p.id);
       const stories = (storiesRes.data ?? []) as StoryRow[];
       const storyIds = stories.map((story) => story.id);
@@ -569,8 +613,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
         myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
         myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
-        conversationParticipants: (conversationParticipantsRes.data ??
-          []) as ConversationParticipantRow[],
+        conversationParticipants: (allConversationParticipantsRes.data ??
+          ownConversationParticipants) as ConversationParticipantRow[],
+        conversations: (conversationsRes.data ?? []) as ConversationRow[],
         chatMessages: (chatMessagesRes.data ?? []) as DirectMessageRow[],
         blockedUserIds,
         mutedPostUserIds,
@@ -895,6 +940,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .map((l) => enrichedAll.get(l.user_id))
           .filter((u): u is EnrichedUser => Boolean(u))
           .slice(0, row.user_id === currentUserId ? 3 : 0);
+        const likedByUsers =
+          row.user_id === currentUserId
+            ? (likesByPost.get(row.id) ?? [])
+                .map((l) => enrichedAll.get(l.user_id))
+                .filter((u): u is EnrichedUser => Boolean(u))
+            : [];
         const participantRows = postParticipantsByPost.get(row.id) ?? [];
         const participants = participantRows.map((participant) => ({
           id: participant.id,
@@ -954,6 +1005,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           author,
           commentPreviews,
           likedByPreview,
+          likedByUsers,
           participants,
           acceptedParticipants,
           pendingParticipants,
@@ -1144,7 +1196,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const chatMessages = useMemo<ChatMessage[]>(() => {
     const deletedByConversation = new Map(
       agg.conversationParticipants
-        .filter((participant) => Boolean(participant.deleted_at))
+        .filter(
+          (participant) =>
+            participant.user_id === currentUserId && Boolean(participant.deleted_at),
+        )
         .map((participant) => [
           participant.conversation_id,
           new Date(participant.deleted_at as string).getTime(),
@@ -1156,7 +1211,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       // Eu também não consigo enviar — RPC do server bloqueia (já tratado
       // em outros lugares por RLS de safety/messages). Aqui só hide UI.
       .filter((message) => {
-        if (blockedSet.has(message.sender_id) || blockedSet.has(message.receiver_id)) {
+        if (
+          blockedSet.has(message.sender_id) ||
+          (message.receiver_id ? blockedSet.has(message.receiver_id) : false)
+        ) {
           return false;
         }
         const deletedAt = message.conversation_id
@@ -1164,9 +1222,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           : null;
         const otherUserId =
           message.sender_id === currentUserId ? message.receiver_id : message.sender_id;
-        const locallyDeletedAt = hiddenDirectConversations[otherUserId]
-          ? new Date(hiddenDirectConversations[otherUserId]).getTime()
-          : null;
+        const locallyDeletedAt =
+          otherUserId && hiddenDirectConversations[otherUserId]
+            ? new Date(hiddenDirectConversations[otherUserId]).getTime()
+            : null;
         const effectiveDeletedAt = Math.max(deletedAt ?? 0, locallyDeletedAt ?? 0);
         return !effectiveDeletedAt || new Date(message.created_at).getTime() > effectiveDeletedAt;
       })
@@ -1191,6 +1250,51 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     currentUserId,
     hiddenDirectConversations,
   ]);
+
+  const chatConversations = useMemo<ChatConversation[]>(() => {
+    const participantsByConversation = new Map<string, ConversationParticipantRow[]>();
+    for (const participant of agg.conversationParticipants) {
+      const list = participantsByConversation.get(participant.conversation_id) ?? [];
+      list.push(participant);
+      participantsByConversation.set(participant.conversation_id, list);
+    }
+    const messagesByConversation = new Map<string, ChatMessage[]>();
+    for (const message of chatMessages) {
+      if (!message.conversationId) continue;
+      const list = messagesByConversation.get(message.conversationId) ?? [];
+      list.push(message);
+      messagesByConversation.set(message.conversationId, list);
+    }
+
+    return agg.conversations
+      .map<ChatConversation | null>((conversation) => {
+        const participants = participantsByConversation.get(conversation.id) ?? [];
+        const currentParticipant = participants.find((p) => p.user_id === currentUserId);
+        if (!currentParticipant) return null;
+        if (currentParticipant.deleted_at) {
+          const lastVisibleMessage = messagesByConversation.get(conversation.id)?.at(-1);
+          if (
+            !lastVisibleMessage ||
+            new Date(lastVisibleMessage.createdAt).getTime() <=
+              new Date(currentParticipant.deleted_at).getTime()
+          ) {
+            return null;
+          }
+        }
+        return {
+          id: conversation.id,
+          type: conversation.type === "group" ? "group" : "direct",
+          name: conversation.name,
+          imageUrl: conversation.image_url,
+          memberIds: participants.map((participant) => participant.user_id),
+          role: currentParticipant.role,
+          lastReadAt: currentParticipant.last_read_at,
+          deletedAt: currentParticipant.deleted_at,
+          lastMessageAt: conversation.last_message_at,
+        } satisfies ChatConversation;
+      })
+      .filter((conversation): conversation is ChatConversation => Boolean(conversation));
+  }, [agg.conversations, agg.conversationParticipants, chatMessages, currentUserId]);
 
   const actions = useMemo<SupabaseSocialActions>(
     () => ({
@@ -1606,15 +1710,26 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("success", "Post apagado");
       },
       async sendChatMessage(input: SendChatMessageInput) {
-        await services.messages.sendDirect(currentUserId, {
-          receiverId: input.receiverId,
-          body: input.body,
-          mediaUrl: input.mediaUrl,
-          mediaType: input.mediaType,
-          storyId: input.storyId,
-          replyToStory: input.replyToStory,
-          storyPreviewUrl: input.storyPreviewUrl,
-        });
+        if (input.conversationId) {
+          await services.messages.sendGroup({
+            conversationId: input.conversationId,
+            body: input.body,
+            mediaUrl: input.mediaUrl,
+            mediaType: input.mediaType,
+          });
+        } else if (input.receiverId) {
+          await services.messages.sendDirect(currentUserId, {
+            receiverId: input.receiverId,
+            body: input.body,
+            mediaUrl: input.mediaUrl,
+            mediaType: input.mediaType,
+            storyId: input.storyId,
+            replyToStory: input.replyToStory,
+            storyPreviewUrl: input.storyPreviewUrl,
+          });
+        } else {
+          throw new Error("Escolha uma conversa.");
+        }
         await refresh();
         showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
       },
@@ -1623,6 +1738,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           other_user_id: userId,
         });
         await services.messages.markDirectRead(currentUserId, userId);
+        await refresh();
+      },
+      async markChatConversationRead(conversationId: string) {
+        void services.analytics.trackSafe(currentUserId, "conversation_opened", {
+          conversation_id: conversationId,
+        });
+        await services.messages.markConversationRead(conversationId);
         await refresh();
       },
       async deleteChatConversation(userId: string) {
@@ -1658,6 +1780,34 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         } catch {
           showFeedback("success", "Conversa apagada", target?.name);
         }
+      },
+      async deleteChatConversationById(conversationId: string) {
+        const now = new Date().toISOString();
+        setAgg((current) => ({
+          ...current,
+          chatMessages: current.chatMessages.filter(
+            (message) => message.conversation_id !== conversationId,
+          ),
+          conversationParticipants: current.conversationParticipants.map((participant) =>
+            participant.conversation_id === conversationId &&
+            participant.user_id === currentUserId
+              ? { ...participant, deleted_at: now, last_read_at: now }
+              : participant,
+          ),
+        }));
+        await services.messages.deleteConversationByIdForMe(conversationId);
+        showFeedback("success", "Conversa apagada");
+        await refresh();
+      },
+      async createGroupConversation(input) {
+        const conversationId = await services.messages.createGroup({
+          name: input.name,
+          memberIds: input.memberIds,
+          imageUrl: input.imageUrl,
+        });
+        await refresh();
+        showFeedback("success", "Grupo criado", input.name);
+        return conversationId;
       },
       async signOut() {
         await services.auth.signOut();
@@ -1765,8 +1915,26 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const unreadMessages = useMemo(
-    () => chatMessages.filter((message) => message.receiverId === currentUserId && !message.readAt).length,
-    [chatMessages, currentUserId],
+    () => {
+      const directUnread = chatMessages.filter(
+        (message) => message.receiverId === currentUserId && !message.readAt,
+      ).length;
+      const groupUnread = chatConversations.reduce((total, conversation) => {
+        if (conversation.type !== "group") return total;
+        const lastRead = conversation.lastReadAt
+          ? new Date(conversation.lastReadAt).getTime()
+          : 0;
+        const unread = chatMessages.filter(
+          (message) =>
+            message.conversationId === conversation.id &&
+            message.senderId !== currentUserId &&
+            new Date(message.createdAt).getTime() > lastRead,
+        ).length;
+        return total + unread;
+      }, 0);
+      return directUnread + groupUnread;
+    },
+    [chatConversations, chatMessages, currentUserId],
   );
 
   return {
@@ -1782,6 +1950,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     suggestedUsers,
     nearbyUsers,
     chatMessages,
+    chatConversations,
     socialStats,
     feedback,
     formatPostClock,

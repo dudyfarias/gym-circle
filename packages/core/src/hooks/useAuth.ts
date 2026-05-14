@@ -67,6 +67,12 @@ export function useAuth() {
     [services],
   );
 
+  const signInWithProvider = useCallback(
+    (provider: Parameters<typeof services.auth.signInWithOAuth>[0], redirectTo?: string) =>
+      services.auth.signInWithOAuth(provider, redirectTo),
+    [services],
+  );
+
   const resetPassword = useCallback(
     (email: string, redirectTo?: string) =>
       services.auth.resetPasswordForEmail(email, redirectTo),
@@ -80,5 +86,13 @@ export function useAuth() {
 
   const signOut = useCallback(() => services.auth.signOut(), [services]);
 
-  return { ...state, resetPassword, signIn, signOut, signUp, updatePassword };
+  return {
+    ...state,
+    resetPassword,
+    signIn,
+    signInWithProvider,
+    signOut,
+    signUp,
+    updatePassword,
+  };
 }

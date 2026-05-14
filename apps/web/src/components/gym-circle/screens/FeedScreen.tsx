@@ -43,6 +43,7 @@ type FeedScreenProps = {
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
+  onOpenLikes?: (postId: string) => void;
   viewerLocationError?: string | null;
   viewerLocationStatus?: ViewerLocationStatus;
   hasDistancePosts?: boolean;
@@ -71,6 +72,7 @@ export function FeedScreen({
   onSelectUser,
   resolveUser,
   onOpenPostMenu,
+  onOpenLikes,
   viewerLocationError,
   viewerLocationStatus = "idle",
   hasDistancePosts = false,
@@ -109,6 +111,7 @@ export function FeedScreen({
                 onComment={onCommentPost}
                 onDeleteComment={onDeleteComment}
                 onLike={onLikePost}
+                onOpenLikes={onOpenLikes}
                 onOpenPostMenu={onOpenPostMenu}
                 onSelectUser={onSelectUser}
                 onToggleFollow={onToggleFollow}

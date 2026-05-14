@@ -137,6 +137,7 @@ export type EnrichedPost = GymPost & {
   author: EnrichedUser;
   commentPreviews: EnrichedComment[];
   likedByPreview: EnrichedUser[];
+  likedByUsers?: EnrichedUser[];
   acceptedParticipants?: EnrichedUser[];
   pendingParticipants?: EnrichedUser[];
   smartScore: number;
@@ -163,7 +164,7 @@ export type ChatMessage = {
   id: string;
   conversationId?: string | null;
   senderId: string;
-  receiverId: string;
+  receiverId: string | null;
   body: string | null;
   mediaUrl: string | null;
   mediaType: "image" | "video" | null;
@@ -174,8 +175,21 @@ export type ChatMessage = {
   readAt: string | null;
 };
 
+export type ChatConversation = {
+  id: string;
+  type: "direct" | "group";
+  name: string | null;
+  imageUrl: string | null;
+  memberIds: string[];
+  role?: string | null;
+  lastReadAt: string | null;
+  deletedAt?: string | null;
+  lastMessageAt: string | null;
+};
+
 export type SendChatMessageInput = {
-  receiverId: string;
+  receiverId?: string;
+  conversationId?: string;
   body?: string | null;
   mediaUrl?: string | null;
   mediaType?: "image" | "video" | null;
@@ -254,7 +268,14 @@ export type SocialActions = {
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   markChatThreadRead?: (userId: string) => Promise<void>;
+  markChatConversationRead?: (conversationId: string) => Promise<void>;
   deleteChatConversation?: (userId: string) => Promise<void>;
+  deleteChatConversationById?: (conversationId: string) => Promise<void>;
+  createGroupConversation?: (input: {
+    name: string;
+    memberIds: string[];
+    imageUrl?: string | null;
+  }) => Promise<string>;
   acceptFollowRequest?: (requesterId: string) => Promise<void>;
   rejectFollowRequest?: (requesterId: string) => Promise<void>;
   blockUser?: (userId: string) => Promise<void>;
@@ -304,6 +325,7 @@ export type SocialBundle = {
   suggestedUsers: EnrichedUser[];
   nearbyUsers: EnrichedUser[];
   chatMessages?: ChatMessage[];
+  chatConversations?: ChatConversation[];
   socialStats: {
     trainedToday: number;
     checkInsToday: number;
