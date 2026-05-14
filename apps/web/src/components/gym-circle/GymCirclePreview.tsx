@@ -118,6 +118,16 @@ export function GymCirclePreview({
     return out;
   }, [social.users, social.currentUser, social.suggestedUsers]);
 
+  const followedUsers = useMemo(
+    () =>
+      allUsers.filter(
+        (user) =>
+          user.id !== social.currentUser.id &&
+          (user.followStatus === "accepted" || user.isFollowing),
+      ),
+    [allUsers, social.currentUser.id],
+  );
+
   const usersById = useMemo<Record<string, EnrichedUser>>(() => {
     const record: Record<string, EnrichedUser> = {};
     for (const u of allUsers) record[u.id] = u;
@@ -656,13 +666,16 @@ export function GymCirclePreview({
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             hasDistancePosts={hasDistancePosts}
+            commentMentionUsers={followedUsers}
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
             onDeleteComment={social.actions.deleteComment}
+            onLikeComment={social.actions.likeComment}
             onLikePost={social.actions.likePost}
             onOpenLikes={openLikes}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
+            onSharePostToChat={social.actions.sharePostToChat}
             onEditProfile={handleEditProfile}
             onDismissViewerLocationPrompt={viewerLocation.dismiss}
             onFindPeople={openSearch}
@@ -671,6 +684,7 @@ export function GymCirclePreview({
             onToggleFollow={social.actions.toggleFollow}
             resolveUser={resolveUser}
             stories={storyGroups}
+            postShareTargets={followedUsers}
             suggestedUsers={social.suggestedUsers}
             viewerLocationError={viewerLocation.error}
             viewerLocationStatus={viewerLocation.status}
@@ -681,6 +695,7 @@ export function GymCirclePreview({
     activeScreen,
     chatTargetUserId,
     allUsers,
+    followedUsers,
     feedPosts,
     hasDistancePosts,
     social,
@@ -811,17 +826,21 @@ export function GymCirclePreview({
             onClose={closePostDetail}
             onCommentPost={social.actions.commentPost}
             onDeleteComment={social.actions.deleteComment}
+            onLikeComment={social.actions.likeComment}
             onLikePost={social.actions.likePost}
             onOpenLikes={openLikes}
             onOpenPostMenu={openPostMenu}
+            onSharePostToChat={social.actions.sharePostToChat}
             onSelectUser={(userId) => {
               closePostDetail();
               openProfile(userId);
             }}
             onToggleFollow={social.actions.toggleFollow}
+            mentionUsers={followedUsers}
             open={postDetailId !== null}
             post={postDetailTarget}
             resolveUser={resolveUser}
+            shareTargets={followedUsers}
           />
           <LikesOverlay
             currentUserId={social.currentUser.id}

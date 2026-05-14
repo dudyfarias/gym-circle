@@ -2,7 +2,7 @@
 
 import { X } from "lucide-react";
 import { SocialPostCard } from "./design-system";
-import type { EnrichedPost } from "./social/types";
+import type { EnrichedPost, EnrichedUser } from "./social/types";
 
 type PostDetailSheetProps = {
   currentUserId: string;
@@ -10,6 +10,8 @@ type PostDetailSheetProps = {
   onClose: () => void;
   onCommentPost: (postId: string, body: string) => void | Promise<void>;
   onDeleteComment?: (postId: string, commentId: string) => void | Promise<void>;
+  onLikeComment?: (postId: string, commentId: string) => void | Promise<void>;
+  onSharePostToChat?: (postId: string, receiverId: string) => Promise<void> | void;
   onLikePost: (postId: string) => void | Promise<void>;
   onOpenLikes?: (postId: string) => void;
   onOpenPostMenu?: (postId: string) => void;
@@ -18,6 +20,8 @@ type PostDetailSheetProps = {
   open: boolean;
   post: EnrichedPost | null;
   resolveUser?: (username: string) => { id: string } | undefined;
+  mentionUsers?: EnrichedUser[];
+  shareTargets?: EnrichedUser[];
 };
 
 export function PostDetailSheet({
@@ -26,6 +30,8 @@ export function PostDetailSheet({
   onClose,
   onCommentPost,
   onDeleteComment,
+  onLikeComment,
+  onSharePostToChat,
   onLikePost,
   onOpenLikes,
   onOpenPostMenu,
@@ -34,6 +40,8 @@ export function PostDetailSheet({
   open,
   post,
   resolveUser,
+  mentionUsers = [],
+  shareTargets = [],
 }: PostDetailSheetProps) {
   if (!open || !post) return null;
 
@@ -70,17 +78,27 @@ export function PostDetailSheet({
                   }
                 : undefined
             }
+            onLikeComment={
+              onLikeComment
+                ? (postId, commentId) => {
+                    void onLikeComment(postId, commentId);
+                  }
+                : undefined
+            }
             onLike={(postId) => {
               void onLikePost(postId);
             }}
             onOpenLikes={onOpenLikes}
             onOpenPostMenu={onOpenPostMenu}
             onSelectUser={onSelectUser}
+            onShareToChat={onSharePostToChat}
             onToggleFollow={(userId) => {
               void onToggleFollow(userId);
             }}
+            mentionUsers={mentionUsers}
             post={post}
             resolveUser={resolveUser}
+            shareTargets={shareTargets}
           />
         </div>
       </div>

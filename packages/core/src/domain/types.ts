@@ -7,6 +7,8 @@ export type ConversationRow = Database["public"]["Tables"]["conversations"]["Row
 export type ConversationParticipantRow =
   Database["public"]["Tables"]["conversation_participants"]["Row"];
 export type PostLikeRow = Database["public"]["Tables"]["post_likes"]["Row"];
+export type PostCommentLikeRow =
+  Database["public"]["Tables"]["post_comment_likes"]["Row"];
 export type PostParticipantRow =
   Database["public"]["Tables"]["post_participants"]["Row"];
 export type StoryLikeRow = Database["public"]["Tables"]["story_likes"]["Row"];

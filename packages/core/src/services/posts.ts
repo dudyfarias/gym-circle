@@ -2,6 +2,7 @@ import type {
   CreatePostInput,
   EnrichedPost,
   FeedPostRow,
+  PostCommentLikeRow,
   PostCommentRow,
   PostMuteRow,
   PostRow,
@@ -211,6 +212,33 @@ export function postService(client: GymCircleClient) {
         .from("post_comments")
         .delete()
         .match({ id: commentId, user_id: userId });
+      if (error) throw error;
+    },
+
+    async likeComment(
+      commentId: string,
+      userId: string,
+    ): Promise<PostCommentLikeRow> {
+      const { data, error } = await client
+        .from("post_comment_likes")
+        .insert({ comment_id: commentId, user_id: userId })
+        .select("*")
+        .single();
+      if (error && error.code !== "23505") throw error;
+      return (
+        data ?? {
+          comment_id: commentId,
+          user_id: userId,
+          created_at: new Date().toISOString(),
+        }
+      ) as PostCommentLikeRow;
+    },
+
+    async unlikeComment(commentId: string, userId: string): Promise<void> {
+      const { error } = await client
+        .from("post_comment_likes")
+        .delete()
+        .match({ comment_id: commentId, user_id: userId });
       if (error) throw error;
     },
 

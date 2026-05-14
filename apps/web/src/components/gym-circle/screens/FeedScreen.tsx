@@ -34,6 +34,8 @@ type FeedScreenProps = {
   onLikePost: (postId: string) => void;
   onCommentPost: (postId: string, body: string) => void;
   onDeleteComment?: (postId: string, commentId: string) => void;
+  onLikeComment?: (postId: string, commentId: string) => void;
+  onSharePostToChat?: (postId: string, receiverId: string) => Promise<void> | void;
   onToggleFollow: (userId: string) => void;
   onOpenStory: (storyGroupId: string) => void;
   onEditProfile?: () => void;
@@ -44,6 +46,8 @@ type FeedScreenProps = {
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
   onOpenLikes?: (postId: string) => void;
+  commentMentionUsers?: EnrichedUser[];
+  postShareTargets?: EnrichedUser[];
   viewerLocationError?: string | null;
   viewerLocationStatus?: ViewerLocationStatus;
   hasDistancePosts?: boolean;
@@ -63,6 +67,8 @@ export function FeedScreen({
   onLikePost,
   onCommentPost,
   onDeleteComment,
+  onLikeComment,
+  onSharePostToChat,
   onToggleFollow,
   onOpenStory,
   onEditProfile,
@@ -73,6 +79,8 @@ export function FeedScreen({
   resolveUser,
   onOpenPostMenu,
   onOpenLikes,
+  commentMentionUsers = [],
+  postShareTargets = [],
   viewerLocationError,
   viewerLocationStatus = "idle",
   hasDistancePosts = false,
@@ -111,12 +119,16 @@ export function FeedScreen({
                 onComment={onCommentPost}
                 onDeleteComment={onDeleteComment}
                 onLike={onLikePost}
+                onLikeComment={onLikeComment}
                 onOpenLikes={onOpenLikes}
                 onOpenPostMenu={onOpenPostMenu}
                 onSelectUser={onSelectUser}
+                onShareToChat={onSharePostToChat}
                 onToggleFollow={onToggleFollow}
+                mentionUsers={commentMentionUsers}
                 post={post}
                 resolveUser={resolveUser}
+                shareTargets={postShareTargets}
               />
               {post === feedPosts[1] && suggestedUsers.length > 0 ? (
                 <section className="mt-5">

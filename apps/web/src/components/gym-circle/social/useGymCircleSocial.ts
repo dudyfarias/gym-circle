@@ -38,6 +38,7 @@ type SocialAction =
   | { type: "like-post"; postId: string }
   | { type: "comment-post"; postId: string; body: string }
   | { type: "delete-comment"; postId: string; commentId: string }
+  | { type: "like-comment"; postId: string; commentId: string }
   | { type: "toggle-follow"; userId: string }
   | { type: "view-story"; storyId: string }
   | { type: "like-story"; storyId: string }
@@ -123,6 +124,8 @@ function createComment(postId: string, userId: string, body: string): GymComment
     userId,
     body,
     createdAt: new Date().toISOString(),
+    likesCount: 0,
+    likedByCurrentUser: false,
   };
 }
 
@@ -214,6 +217,35 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
                   comment.userId === state.currentUserId
                 ),
             ),
+          };
+        }),
+      };
+    }
+
+    case "like-comment": {
+      return {
+        ...state,
+        posts: state.posts.map((post) => {
+          if (post.id !== action.postId) return post;
+          return {
+            ...post,
+            comments: post.comments.map((comment) => {
+              if (
+                comment.id !== action.commentId ||
+                comment.userId === state.currentUserId
+              ) {
+                return comment;
+              }
+              const nextLiked = !comment.likedByCurrentUser;
+              return {
+                ...comment,
+                likedByCurrentUser: nextLiked,
+                likesCount: Math.max(
+                  0,
+                  (comment.likesCount ?? 0) + (nextLiked ? 1 : -1),
+                ),
+              };
+            }),
           };
         }),
       };
@@ -714,6 +746,10 @@ export function useGymCircleSocial() {
         dispatch({ type: "delete-comment", postId, commentId });
         showFeedback("success", "Comentário apagado");
       },
+      likeComment(postId: string, commentId: string) {
+        dispatch({ type: "like-comment", postId, commentId });
+        showFeedback("like", "Comentário curtido");
+      },
       toggleFollow(userId: string) {
         const user = state.users[userId];
         const wasAccepted = user?.followStatus === "accepted";
@@ -788,6 +824,23 @@ export function useGymCircleSocial() {
         });
         showFeedback("comment", "Story enviado");
       },
+      async sharePostToChat(postId: string, receiverId: string) {
+        const post = state.posts.find((item) => item.id === postId);
+        if (!post) return;
+        dispatch({
+          type: "send-chat-message",
+          input: {
+            receiverId,
+            body:
+              post.userId === state.currentUserId
+                ? "Compartilhei meu treino no Gym Circle."
+                : `Compartilhei o treino de @${state.users[post.userId]?.username ?? "gymcircle"} no Gym Circle.`,
+            mediaUrl: post.imageUrl,
+            mediaType: post.mediaType,
+          },
+        });
+        showFeedback("comment", "Publicação enviada");
+      },
       publishWorkout(input: CreateWorkoutPostInput) {
         dispatch({ type: "publish-workout", input });
         showFeedback("success", "Treino publicado", "Streak atualizado");
@@ -832,7 +885,7 @@ export function useGymCircleSocial() {
         showFeedback("brand", "Atualizado");
       },
     }),
-    [showFeedback, state.currentUserId, state.stories, state.users],
+    [showFeedback, state.currentUserId, state.posts, state.stories, state.users],
   );
 
   return {

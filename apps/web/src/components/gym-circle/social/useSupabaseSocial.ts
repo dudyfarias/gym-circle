@@ -12,6 +12,7 @@ import type {
   FollowRow,
   GymRow,
   NotificationRow,
+  PostCommentLikeRow,
   PostCommentRow,
   PostLikeRow,
   PostParticipantRow,
@@ -142,6 +143,7 @@ type AggregateState = {
   postParticipants: PostParticipantRow[];
   storyParticipants: StoryParticipantRow[];
   postLikes: PostLikeRow[];
+  postCommentLikes: PostCommentLikeRow[];
   postComments: PostCommentRow[];
   checkinsToday: CheckinRow[];
   myActivityDays: UserActivityDayRow[];
@@ -169,6 +171,7 @@ const EMPTY: AggregateState = {
   postParticipants: [],
   storyParticipants: [],
   postLikes: [],
+  postCommentLikes: [],
   postComments: [],
   checkinsToday: [],
   myActivityDays: [],
@@ -180,7 +183,11 @@ const EMPTY: AggregateState = {
   mutedPostUserIds: [],
 };
 
-type OptionalStorySocialTable = "story_likes" | "story_mutes" | "story_views";
+type OptionalStorySocialTable =
+  | "story_likes"
+  | "story_mutes"
+  | "story_views"
+  | "post_comment_likes";
 
 function isMissingOptionalStorySocialTable(
   error: unknown,
@@ -302,6 +309,7 @@ function persistStoredHiddenDirectConversations(
 export type SupabaseSocialActions = {
   likePost: (postId: string) => Promise<void>;
   commentPost: (postId: string, body: string) => Promise<void>;
+  likeComment: (postId: string, commentId: string) => Promise<void>;
   toggleFollow: (userId: string) => Promise<void>;
   openStory: (storyId: string) => void;
   closeStory: () => void;
@@ -348,6 +356,7 @@ export type SupabaseSocialActions = {
   muteStoryAuthor: (authorId: string) => Promise<void>;
   /** Silencia posts desse autor no feed. Stories continuam aparecendo. */
   mutePostAuthor: (authorId: string) => Promise<void>;
+  sharePostToChat: (postId: string, receiverId: string) => Promise<void>;
   shareStoryToChat: (storyId: string, receiverId: string) => Promise<void>;
   acceptPostTag: (postId: string) => Promise<void>;
   rejectPostTag: (postId: string) => Promise<void>;
@@ -575,6 +584,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       ]);
       if (likesRes.error) throw likesRes.error;
       if (commentsRes.error) throw commentsRes.error;
+      const postComments = (commentsRes.data ?? []) as PostCommentRow[];
+      const commentIds = postComments.map((comment) => comment.id);
+      const postCommentLikesRes =
+        commentIds.length > 0
+          ? await services.client
+              .from("post_comment_likes")
+              .select("*")
+              .in("comment_id", commentIds)
+          : { data: [] as PostCommentLikeRow[], error: null };
       const storyLikes = optionalStorySocialRows(
         storyLikesRes as { data: StoryLikeRow[] | null; error: unknown },
         "story_likes",
@@ -586,6 +604,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const storyViews = optionalStorySocialRows(
         storyViewsRes as { data: StoryViewRow[] | null; error: unknown },
         "story_views",
+      );
+      const postCommentLikes = optionalStorySocialRows(
+        postCommentLikesRes as { data: PostCommentLikeRow[] | null; error: unknown },
+        "post_comment_likes",
       );
 
       if (!mountedRef.current) return;
@@ -612,7 +634,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         postParticipants,
         storyParticipants,
         postLikes: (likesRes.data ?? []) as PostLikeRow[],
-        postComments: (commentsRes.data ?? []) as PostCommentRow[],
+        postCommentLikes,
+        postComments,
         checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
         myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
         myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
@@ -656,6 +679,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "story_participants" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_mutes" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comment_likes" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, scheduleRefresh)
@@ -919,6 +943,25 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       list.push(c);
       commentsByPost.set(c.post_id, list);
     }
+    const commentLikesByComment = new Map<string, PostCommentLikeRow[]>();
+    for (const like of agg.postCommentLikes) {
+      const list = commentLikesByComment.get(like.comment_id) ?? [];
+      list.push(like);
+      commentLikesByComment.set(like.comment_id, list);
+    }
+    const enrichComment = (c: PostCommentRow, fallbackAuthor: EnrichedUser) => {
+      const commentLikes = commentLikesByComment.get(c.id) ?? [];
+      return {
+        id: c.id,
+        postId: c.post_id,
+        userId: c.user_id,
+        body: c.body,
+        createdAt: c.created_at,
+        likesCount: commentLikes.length,
+        likedByCurrentUser: commentLikes.some((like) => like.user_id === currentUserId),
+        author: enrichedAll.get(c.user_id) ?? fallbackAuthor,
+      };
+    };
     const likesByPost = new Map<string, PostLikeRow[]>();
     for (const l of agg.postLikes) {
       const list = likesByPost.get(l.post_id) ?? [];
@@ -949,14 +992,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         const commentPreviews = (ownOlderPreview
           ? [ownOlderPreview, ...latestCommentPreviews]
           : latestCommentPreviews
-        ).map((c) => ({
-          id: c.id,
-          postId: c.post_id,
-          userId: c.user_id,
-          body: c.body,
-          createdAt: c.created_at,
-          author: enrichedAll.get(c.user_id) ?? author,
-        }));
+        ).map((c) => enrichComment(c, author));
         const likedByPreview = (likesByPost.get(row.id) ?? [])
           .map((l) => enrichedAll.get(l.user_id))
           .filter((u): u is EnrichedUser => Boolean(u))
@@ -1017,11 +1053,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           likesCount,
           likedByCurrentUser: myLikedSet.has(row.id),
           comments: postComments.map((c) => ({
-            id: c.id,
-            postId: c.post_id,
-            userId: c.user_id,
-            body: c.body,
-            createdAt: c.created_at,
+            ...enrichComment(c, author),
           })),
           author,
           commentPreviews,
@@ -1414,6 +1446,45 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           throw err;
         }
       },
+      async likeComment(postId: string, commentId: string) {
+        const comment = agg.postComments.find((item) => item.id === commentId);
+        if (!comment || comment.user_id === currentUserId) return;
+        const liked = agg.postCommentLikes.some(
+          (like) => like.comment_id === commentId && like.user_id === currentUserId,
+        );
+        const optimisticLike: PostCommentLikeRow = {
+          comment_id: commentId,
+          user_id: currentUserId,
+          created_at: new Date().toISOString(),
+        };
+
+        setAgg((current) => ({
+          ...current,
+          postCommentLikes: liked
+            ? current.postCommentLikes.filter(
+                (like) =>
+                  !(like.comment_id === commentId && like.user_id === currentUserId),
+              )
+            : current.postCommentLikes.some(
+                  (like) =>
+                    like.comment_id === commentId && like.user_id === currentUserId,
+                )
+              ? current.postCommentLikes
+              : [...current.postCommentLikes, optimisticLike],
+        }));
+
+        try {
+          if (liked) {
+            await services.posts.unlikeComment(commentId, currentUserId);
+          } else {
+            await services.posts.likeComment(commentId, currentUserId);
+            showFeedback("like", "Comentário curtido");
+          }
+        } catch (err) {
+          await refresh();
+          throw err;
+        }
+      },
       async toggleFollow(userId: string) {
         const target = enrichedAll.get(userId);
         const result = await services.follows.toggle(currentUserId, userId);
@@ -1596,6 +1667,22 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.posts.mute(currentUserId, authorId);
         await refresh();
         showFeedback("brand", "Posts silenciados", target.name);
+      },
+      async sharePostToChat(postId: string, receiverId: string) {
+        const post = profilePosts.find((item) => item.id === postId);
+        const receiver = enrichedAll.get(receiverId);
+        if (!post || !receiver || receiverId === currentUserId) return;
+        await services.messages.sendDirect(currentUserId, {
+          receiverId,
+          body:
+            post.userId === currentUserId
+              ? "Compartilhei meu treino no Gym Circle."
+              : `Compartilhei o treino de @${post.author.username} no Gym Circle.`,
+          mediaUrl: post.imageUrl,
+          mediaType: post.mediaType,
+        });
+        await refresh();
+        showFeedback("comment", "Publicação enviada", receiver.name);
       },
       async shareStoryToChat(storyId: string, receiverId: string) {
         const story = storyItems.find((item) => item.id === storyId);
@@ -1920,6 +2007,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       enrichedAll,
       agg.gyms,
       agg.postComments,
+      agg.postCommentLikes,
       agg.chatMessages,
       refresh,
       showFeedback,

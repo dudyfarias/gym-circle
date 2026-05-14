@@ -72,6 +72,8 @@ export type GymComment = {
   userId: string;
   body: string;
   createdAt: string;
+  likesCount?: number;
+  likedByCurrentUser?: boolean;
 };
 
 export type ParticipantStatus = "pending" | "accepted" | "rejected";
@@ -263,6 +265,8 @@ export type SocialActions = {
   likePost: (postId: string) => void | Promise<void>;
   commentPost: (postId: string, body: string) => void | Promise<void>;
   deleteComment?: (postId: string, commentId: string) => void | Promise<void>;
+  likeComment?: (postId: string, commentId: string) => void | Promise<void>;
+  sharePostToChat?: (postId: string, receiverId: string) => Promise<void>;
   toggleFollow: (userId: string) => void | Promise<void>;
   openStory: (storyId: string) => void;
   closeStory: () => void;
