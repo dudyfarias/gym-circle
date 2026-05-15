@@ -33,6 +33,10 @@ import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 import { getAdjacentStoryId } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
+import {
+  attachCapacitorKeyboardListeners,
+  type KeyboardPluginLike,
+} from "./keyboardDetection";
 
 const NO_SCREEN_SWIPE_SELECTOR =
   "button,a,input,textarea,select,video,[contenteditable='true'],[data-gc-no-screen-swipe]";
@@ -311,47 +315,22 @@ export function GymCirclePreview({
     }
 
     // Native detection via Capacitor Keyboard plugin. In iOS Capacitor with
-    // resize:"native" the WebView itself shrinks, so visualViewport.height
-    // equals window.innerHeight and the web heuristic never triggers. Without
-    // this listener BottomNav stays mounted, env(safe-area-inset-bottom)
-    // inflates to the keyboard height, and a ~200px black gap appears below
-    // the nav.
+    // resize:"native" the WebView itself shrinks, so the visualViewport
+    // heuristic above never triggers. attachCapacitorKeyboardListeners is
+    // fully defensive — it tolerates addListener returning a handle either
+    // synchronously or as a Promise, and never throws (see keyboardDetection
+    // unit tests). A previous version assumed a Promise and crashed the app
+    // on login inside the native iOS shell.
     const capKeyboard = (
       window as unknown as {
-        Capacitor?: {
-          Plugins?: {
-            Keyboard?: {
-              addListener: (
-                event: "keyboardWillShow" | "keyboardWillHide",
-                callback: () => void,
-              ) => Promise<{ remove: () => Promise<void> }>;
-            };
-          };
-        };
+        Capacitor?: { Plugins?: { Keyboard?: KeyboardPluginLike } };
       }
     ).Capacitor?.Plugins?.Keyboard;
 
-    if (capKeyboard?.addListener) {
-      let removeShow: (() => Promise<void>) | undefined;
-      let removeHide: (() => Promise<void>) | undefined;
-      capKeyboard
-        .addListener("keyboardWillShow", () => setKeyboardOpen(true))
-        .then((handle) => {
-          removeShow = handle.remove;
-        })
-        .catch(() => {
-          // Capacitor plugin not registered; safe to ignore.
-        });
-      capKeyboard
-        .addListener("keyboardWillHide", () => setKeyboardOpen(false))
-        .then((handle) => {
-          removeHide = handle.remove;
-        })
-        .catch(() => {});
-      cleanups.push(() => {
-        removeShow?.().catch(() => {});
-        removeHide?.().catch(() => {});
-      });
+    if (capKeyboard) {
+      cleanups.push(
+        attachCapacitorKeyboardListeners(capKeyboard, setKeyboardOpen),
+      );
     }
 
     return () => cleanups.forEach((fn) => fn());
