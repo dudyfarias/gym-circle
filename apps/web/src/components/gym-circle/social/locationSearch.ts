@@ -4,6 +4,8 @@ export type PlaceCandidate = {
   provider: "registered" | "nominatim" | "overpass" | "manual" | "current";
   providerId: string;
   gymId?: string;
+  locationId?: string | null;
+  placeId?: string | null;
   name: string;
   address: string;
   neighborhood: string | null;
@@ -31,7 +33,11 @@ export type LocationUsage = Pick<
   | "locationName"
   | "locationSource"
   | "userId"
->;
+> & {
+  locationAddress?: string | null;
+  locationId?: string | null;
+  placeId?: string | null;
+};
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -80,6 +86,23 @@ export function normalizeText(value: string): string {
     .toLowerCase();
 }
 
+function getPrimaryLocationId(candidate: PlaceCandidate): string | null {
+  return candidate.gymId || candidate.locationId || null;
+}
+
+function getPlaceId(candidate: PlaceCandidate): string | null {
+  if (candidate.placeId) return candidate.placeId;
+  if (
+    candidate.provider !== "manual" &&
+    candidate.provider !== "current" &&
+    candidate.providerId &&
+    !candidate.providerId.startsWith("registered/")
+  ) {
+    return candidate.providerId;
+  }
+  return null;
+}
+
 export function getSearchText(candidate: PlaceCandidate): string {
   return normalizeText(
     [candidate.name, candidate.address, candidate.neighborhood, candidate.city, candidate.state]
@@ -97,6 +120,14 @@ export function getSourceLabel(candidate: PlaceCandidate): string {
 }
 
 export function isSameApproxPlace(a: PlaceCandidate, b: PlaceCandidate): boolean {
+  const aPrimaryId = getPrimaryLocationId(a);
+  const bPrimaryId = getPrimaryLocationId(b);
+  if (aPrimaryId && bPrimaryId) return aPrimaryId === bPrimaryId;
+
+  const aPlaceId = getPlaceId(a);
+  const bPlaceId = getPlaceId(b);
+  if (aPlaceId && bPlaceId) return aPlaceId === bPlaceId;
+
   const aName = normalizeText(a.name);
   const bName = normalizeText(b.name);
   if (!aName || !bName) return false;
@@ -106,6 +137,14 @@ export function isSameApproxPlace(a: PlaceCandidate, b: PlaceCandidate): boolean
     (aName.length > 6 && bName.includes(aName)) ||
     (bName.length > 6 && aName.includes(bName));
   if (!nameLooksSame) return false;
+
+  const aAddress = normalizeText(a.address);
+  const bAddress = normalizeText(b.address);
+  const sameAddress =
+    Boolean(aAddress && bAddress && aAddress === bAddress) ||
+    Boolean(aAddress && bAddress && aAddress.includes(bAddress)) ||
+    Boolean(aAddress && bAddress && bAddress.includes(aAddress));
+  if (sameAddress) return true;
 
   if (
     typeof a.latitude === "number" &&
@@ -121,17 +160,7 @@ export function isSameApproxPlace(a: PlaceCandidate, b: PlaceCandidate): boolean
     );
   }
 
-  const aCity = normalizeText(a.city);
-  const bCity = normalizeText(b.city);
-  const sameCity = Boolean(aCity && bCity && aCity === bCity);
-  const aAddress = normalizeText(a.address);
-  const bAddress = normalizeText(b.address);
-  const sameAddress =
-    Boolean(aAddress && bAddress && aAddress === bAddress) ||
-    Boolean(aAddress && bAddress && aAddress.includes(bAddress)) ||
-    Boolean(aAddress && bAddress && bAddress.includes(aAddress));
-
-  return sameCity || sameAddress;
+  return false;
 }
 
 export function dedupeCandidates(candidates: PlaceCandidate[]): PlaceCandidate[] {
@@ -164,6 +193,16 @@ export function withoutDuplicateCandidates(
   );
 }
 
+function dedupeRecentCandidates(candidates: PlaceCandidate[]): PlaceCandidate[] {
+  const deduped: PlaceCandidate[] = [];
+  for (const candidate of candidates) {
+    if (!deduped.some((item) => isSameApproxPlace(item, candidate))) {
+      deduped.push(candidate);
+    }
+  }
+  return deduped;
+}
+
 export function gymToCandidate(
   gym: GymLocationOption,
   coords: { lat: number; lng: number } | null,
@@ -174,6 +213,8 @@ export function gymToCandidate(
     provider: "registered",
     providerId: `registered/${gym.id}`,
     gymId: gym.id,
+    locationId: gym.id,
+    placeId: null,
     name: gym.name,
     address: gym.address ?? "",
     neighborhood: null,
@@ -214,8 +255,10 @@ function usageToCandidate(
     provider,
     providerId: `${provider}/${usage.id}`,
     gymId: usage.gymId || undefined,
+    locationId: usage.locationId ?? usage.gymId ?? null,
+    placeId: usage.placeId ?? null,
     name,
-    address: "",
+    address: usage.locationAddress ?? "",
     neighborhood: null,
     city: "",
     state: null,
@@ -246,7 +289,7 @@ export function getRecentPostLocations(
     .map((usage) => usageToCandidate(usage, gymsById))
     .filter((candidate): candidate is PlaceCandidate => Boolean(candidate));
 
-  return dedupeCandidates(candidates).slice(0, max);
+  return dedupeRecentCandidates(candidates).slice(0, max);
 }
 
 export function getRegisteredSearchCandidates({

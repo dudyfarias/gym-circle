@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   buildLocationResultSections,
+  dedupeCandidates,
   getRecentPostLocations,
   type LocationUsage,
   type PlaceCandidate,
@@ -29,6 +30,9 @@ function usage(input: Partial<LocationUsage> & { id: string }): LocationUsage {
     locationLongitude: input.locationLongitude ?? null,
     locationName: input.locationName ?? null,
     locationSource: input.locationSource ?? "none",
+    locationAddress: input.locationAddress ?? null,
+    locationId: input.locationId ?? null,
+    placeId: input.placeId ?? null,
     userId: input.userId ?? "user-1",
   };
 }
@@ -37,6 +41,9 @@ function apiCandidate(input: Partial<PlaceCandidate> = {}): PlaceCandidate {
   return {
     provider: input.provider ?? "overpass",
     providerId: input.providerId ?? "api-1",
+    gymId: input.gymId,
+    locationId: input.locationId,
+    placeId: input.placeId,
     name: input.name ?? "Parque Ibirapuera",
     address: input.address ?? "Av. Pedro Álvares Cabral",
     neighborhood: input.neighborhood ?? null,
@@ -50,6 +57,121 @@ function apiCandidate(input: Partial<PlaceCandidate> = {}): PlaceCandidate {
 }
 
 describe("post location search", () => {
+  it("3 posts com o mesmo gym_id retornam 1 local recente", () => {
+    const recent = getRecentPostLocations("user-1", [
+      usage({
+        id: "p3",
+        createdAt: "2026-05-14T12:00:00.000Z",
+        gymId: "gym-x",
+        gymName: "Academia X",
+        locationName: "Academia X",
+        locationSource: "gym",
+      }),
+      usage({
+        id: "p2",
+        createdAt: "2026-05-13T12:00:00.000Z",
+        gymId: "gym-x",
+        gymName: "Academia X",
+        locationName: "Academia X",
+        locationSource: "gym",
+      }),
+      usage({
+        id: "p1",
+        createdAt: "2026-05-12T12:00:00.000Z",
+        gymId: "gym-x",
+        gymName: "Academia X",
+        locationName: "Academia X",
+        locationSource: "gym",
+      }),
+    ]);
+
+    expect(recent).toHaveLength(1);
+    expect(recent[0]?.name).toBe("Academia X");
+  });
+
+  it("3 posts com o mesmo nome e endereço retornam 1 local", () => {
+    const recent = getRecentPostLocations("user-1", [
+      usage({
+        id: "studio-3",
+        createdAt: "2026-05-14T12:00:00.000Z",
+        locationAddress: "Rua das Flores, 10",
+        locationLatitude: -23.55,
+        locationLongitude: -46.64,
+        locationName: "Studio Flow",
+        locationSource: "current",
+      }),
+      usage({
+        id: "studio-2",
+        createdAt: "2026-05-13T12:00:00.000Z",
+        locationAddress: " Rua das Flores, 10 ",
+        locationLatitude: -23.5501,
+        locationLongitude: -46.6401,
+        locationName: "stúdio flow",
+        locationSource: "current",
+      }),
+      usage({
+        id: "studio-1",
+        createdAt: "2026-05-12T12:00:00.000Z",
+        locationAddress: "Rua das Flores 10",
+        locationLatitude: -23.5502,
+        locationLongitude: -46.6402,
+        locationName: "Studio  Flow",
+        locationSource: "current",
+      }),
+    ]);
+
+    expect(recent).toHaveLength(1);
+    expect(recent[0]?.name).toBe("Studio Flow");
+  });
+
+  it("locais diferentes retornam até 3 recentes únicos", () => {
+    const recent = getRecentPostLocations("user-1", [
+      usage({ id: "a", locationName: "Academia A", locationSource: "current", locationLatitude: -23.1, locationLongitude: -46.1 }),
+      usage({ id: "b", locationName: "Academia B", locationSource: "current", locationLatitude: -23.2, locationLongitude: -46.2 }),
+      usage({ id: "c", locationName: "Academia C", locationSource: "current", locationLatitude: -23.3, locationLongitude: -46.3 }),
+      usage({ id: "d", locationName: "Academia D", locationSource: "current", locationLatitude: -23.4, locationLongitude: -46.4 }),
+    ]);
+
+    expect(recent).toHaveLength(3);
+    expect(recent.map((item) => item.name)).toEqual([
+      "Academia A",
+      "Academia B",
+      "Academia C",
+    ]);
+  });
+
+  it("local repetido preserva a data mais recente para ordenação", () => {
+    const recent = getRecentPostLocations("user-1", [
+      usage({
+        id: "new-duplicate",
+        createdAt: "2026-05-14T12:00:00.000Z",
+        locationName: "Academia X",
+        locationSource: "current",
+        locationLatitude: -23.1,
+        locationLongitude: -46.1,
+      }),
+      usage({
+        id: "middle",
+        createdAt: "2026-05-13T12:00:00.000Z",
+        locationName: "Academia Y",
+        locationSource: "current",
+        locationLatitude: -23.2,
+        locationLongitude: -46.2,
+      }),
+      usage({
+        id: "old-duplicate",
+        createdAt: "2026-05-12T12:00:00.000Z",
+        locationName: "Academia X",
+        locationSource: "current",
+        locationLatitude: -23.1001,
+        locationLongitude: -46.1001,
+      }),
+    ]);
+
+    expect(recent.map((item) => item.name)).toEqual(["Academia X", "Academia Y"]);
+    expect(recent[0]?.providerId).toBe("current/new-duplicate");
+  });
+
   it("mostra no máximo 3 recentes, ordenados e sem duplicar lugar", () => {
     const recent = getRecentPostLocations(
       "user-1",
@@ -105,6 +227,15 @@ describe("post location search", () => {
 
     expect(sections.search).toHaveLength(1);
     expect(sections.search[0]?.provider).toBe("registered");
+  });
+
+  it("deduplica por place_id antes de comparar nome/endereço", () => {
+    const candidates = dedupeCandidates([
+      apiCandidate({ name: "Nome antigo", placeId: "place-123", providerId: "google-old" }),
+      apiCandidate({ name: "Nome novo", placeId: "place-123", providerId: "google-new" }),
+    ]);
+
+    expect(candidates).toHaveLength(1);
   });
 
   it("não exibe mais dropdown técnico de Nenhuma na tela de post", () => {
