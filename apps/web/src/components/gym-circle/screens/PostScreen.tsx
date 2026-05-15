@@ -6,14 +6,12 @@ import { useMemo, useRef, useState } from "react";
 import {
   buildGoogleMapsSearchUrl,
   buildGoogleMapsUrlFromCoordinates,
-  resolveApproximateLocationName,
   type Coordinates,
 } from "@gym-circle/core";
 import {
   Camera,
   Check,
   ChevronDown,
-  LocateFixed,
   RefreshCw,
   Search,
   Upload,
@@ -46,6 +44,7 @@ type PostScreenProps = {
    * não aparece. O parent resolve via `gymService.findOrCreateFromPlace`.
    */
   onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
+  recentLocations?: PlaceCandidate[];
 };
 
 const workoutTypes = [
@@ -60,19 +59,6 @@ const workoutTypes = [
 ];
 
 type SelectableLocationSource = Exclude<PostLocationSource, "custom">;
-type CurrentLocationStatus =
-  | "idle"
-  | "requesting"
-  | "found"
-  | "denied"
-  | "error"
-  | "unsupported";
-
-const locationOptions: Array<{ label: string; value: SelectableLocationSource }> = [
-  { label: "Nenhuma", value: "none" },
-  { label: "Academia cadastrada", value: "gym" },
-  { label: "Localização atual", value: "current" },
-];
 
 function getMediaType(file: File): PostMediaType {
   return file.type.startsWith("video/") ? "video" : "image";
@@ -80,32 +66,6 @@ function getMediaType(file: File): PostMediaType {
 
 function getErrorMessage(err: unknown) {
   return err instanceof Error ? err.message : "Algo saiu errado. Tente de novo.";
-}
-
-function getLocationError(err: unknown): { status: CurrentLocationStatus; message: string } {
-  const code =
-    typeof err === "object" && err !== null && "code" in err
-      ? Number((err as { code?: unknown }).code)
-      : 0;
-
-  if (code === 1) {
-    return {
-      status: "denied",
-      message: "Permissão negada. Você pode remover a localização e postar normalmente.",
-    };
-  }
-
-  if (code === 3) {
-    return {
-      status: "error",
-      message: "Tempo esgotado. Tente novamente ou remova a localização.",
-    };
-  }
-
-  return {
-    status: "error",
-    message: "Não conseguimos encontrar sua localização agora.",
-  };
 }
 
 function getGymMeta(gym: GymLocationOption): string {
@@ -125,53 +85,13 @@ function getGymMapsUrl(gym: GymLocationOption): string {
   );
 }
 
-function getLocationStatusCopy(
-  status: CurrentLocationStatus,
-  accuracy: number | null,
-): { title: string; detail: string } {
-  switch (status) {
-    case "requesting":
-      return {
-        title: "Pedindo permissão",
-        detail: "O navegador vai solicitar acesso ao GPS.",
-      };
-    case "found":
-      return {
-        title: "Localização encontrada",
-        detail: accuracy
-          ? `Precisão aproximada de ${Math.round(accuracy)} m.`
-          : "Seu post vai mostrar apenas localização aproximada.",
-      };
-    case "denied":
-      return {
-        title: "Permissão negada",
-        detail: "Remova a localização ou libere o acesso no navegador.",
-      };
-    case "unsupported":
-      return {
-        title: "GPS indisponível",
-        detail: "Este navegador não suporta localização atual.",
-      };
-    case "error":
-      return {
-        title: "Erro ao localizar",
-        detail: "Tente novamente em alguns segundos.",
-      };
-    case "idle":
-    default:
-      return {
-        title: "Localização atual",
-        detail: "Use GPS para salvar o ponto do treino sem expor coordenadas no feed.",
-      };
-  }
-}
-
 export function PostScreen({
   currentUser,
   gyms = [],
   onPublish,
   onUploadImage,
   onCatalogPlace,
+  recentLocations = [],
   taggableUsers = [],
 }: PostScreenProps) {
   const [caption, setCaption] = useState("");
@@ -187,15 +107,12 @@ export function PostScreen({
   const [selectedGymId, setSelectedGymId] = useState("");
   const [locationName, setLocationName] = useState("");
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
-  const [locationStatus, setLocationStatus] = useState<CurrentLocationStatus>("idle");
-  const [locationAccuracy, setLocationAccuracy] = useState<number | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [mediaType, setMediaType] = useState<PostMediaType>("image");
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
   // Default = feed + story. Story acende o badge do streak; feed dá conteúdo
   // permanente. Ambos saem da mesma upload — escolher é caso de power user.
   const [postToFeed, setPostToFeed] = useState(true);
@@ -317,6 +234,22 @@ export function PostScreen({
     (locationMode === "gym" && Boolean(selectedGym)) ||
     (locationMode === "current" && Boolean(coordinates));
 
+  const selectedLocationLabel = useMemo(() => {
+    if (locationMode === "gym" && selectedGym) return selectedGym.name;
+    if (locationMode === "current" && locationName) return locationName;
+    return "";
+  }, [locationMode, locationName, selectedGym]);
+
+  const selectedLocationMeta = useMemo(() => {
+    if (locationMode === "gym" && selectedGym) {
+      return getGymMeta(selectedGym) || "Vai mostrar só o nome no post.";
+    }
+    if (locationMode === "current" && coordinates) {
+      return "Seu post mostra apenas uma localização aproximada.";
+    }
+    return "";
+  }, [coordinates, locationMode, selectedGym]);
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -348,9 +281,6 @@ export function PostScreen({
     setSelectedGymId("");
     setLocationName("");
     setCoordinates(null);
-    setLocationAccuracy(null);
-    setLocationStatus("idle");
-    setLocationError(null);
   }
 
   /**
@@ -359,14 +289,37 @@ export function PostScreen({
    * erro inline na seção Local.
    */
   async function handleCatalogPlace(place: PlaceCandidate) {
-    if (!onCatalogPlace || cataloging) return;
+    if (cataloging) return;
     setCataloging(true);
     setSearchError(null);
     try {
+      if (
+        place.provider === "current" &&
+        typeof place.latitude === "number" &&
+        typeof place.longitude === "number"
+      ) {
+        setLocationMode("current");
+        setSelectedGymId("");
+        setCoordinates({
+          latitude: place.latitude,
+          longitude: place.longitude,
+        });
+        setLocationName(place.name || "Localização atual");
+        setSearchOpen(false);
+        return;
+      }
+
       if (place.provider === "registered" && place.gymId) {
         setLocationMode("gym");
         setSelectedGymId(place.gymId);
+        setCoordinates(null);
+        setLocationName("");
         setSearchOpen(false);
+        return;
+      }
+
+      if (!onCatalogPlace) {
+        setSearchError("Não foi possível cadastrar local agora.");
         return;
       }
 
@@ -394,73 +347,6 @@ export function PostScreen({
       setSearchError(message);
     } finally {
       setCataloging(false);
-    }
-  }
-
-  function handleLocationModeChange(next: SelectableLocationSource) {
-    setLocationMode(next);
-    setLocationError(null);
-    setPublishError(null);
-
-    if (next === "none") {
-      removeLocation();
-      return;
-    }
-
-    if (next === "gym") {
-      setCoordinates(null);
-      setLocationName("");
-      setLocationAccuracy(null);
-      setLocationStatus("idle");
-      setSelectedGymId((current) => current || registeredGyms[0]?.id || "");
-      return;
-    }
-
-    if (next !== "current") {
-      setCoordinates(null);
-      return;
-    }
-
-    void requestCurrentLocation();
-  }
-
-  async function requestCurrentLocation() {
-    setLocationMode("current");
-    setSelectedGymId("");
-    setLocationError(null);
-    setPublishError(null);
-
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setLocationStatus("unsupported");
-      setLocationError("Seu navegador não liberou localização.");
-      return;
-    }
-
-    setLocationStatus("requesting");
-    try {
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          maximumAge: 30000,
-          timeout: 9000,
-        });
-      });
-      const nextCoordinates = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        accuracy: position.coords.accuracy,
-      };
-      const approximateLocation = await resolveApproximateLocationName(nextCoordinates);
-      setCoordinates(nextCoordinates);
-      setLocationAccuracy(position.coords.accuracy ?? null);
-      setLocationName(approximateLocation?.label ?? "Localização atual");
-      setLocationStatus("found");
-    } catch (err) {
-      const next = getLocationError(err);
-      setCoordinates(null);
-      setLocationAccuracy(null);
-      setLocationStatus(next.status);
-      setLocationError(next.message);
     }
   }
 
@@ -741,30 +627,39 @@ export function PostScreen({
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
                   Local
                 </p>
-                {/* Search via Maps — caminho principal pra encontrar academia/parque/etc.
-                    Quando o user seleciona, automaticamente vira locationMode="gym"
-                    com a gym recém-catalogada selecionada. */}
-                {onCatalogPlace ? (
-                  <button
-                    className="gc-pressable mt-2 flex h-11 w-full items-center gap-3 rounded-[14px] border border-white/[0.1] bg-white/[0.03] px-3 text-left text-[14px] font-bold text-white"
-                    disabled={cataloging}
-                    onClick={() => {
-                      setSearchError(null);
-                      setSearchOpen(true);
-                    }}
-                    type="button"
-                  >
-                    <Search className="text-white/52" size={15} strokeWidth={2.4} />
-                    <span className="flex-1 truncate">
-                      {selectedGym
-                        ? selectedGym.name
-                        : "Buscar academia, parque, lugar..."}
+                <button
+                  className="gc-pressable mt-2 flex min-h-11 w-full items-center gap-3 rounded-[14px] border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-left text-[14px] font-bold text-white"
+                  disabled={cataloging}
+                  onClick={() => {
+                    setSearchError(null);
+                    setSearchOpen(true);
+                  }}
+                  type="button"
+                >
+                  <Search className="shrink-0 text-white/52" size={15} strokeWidth={2.4} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">
+                      {selectedLocationLabel || "Buscar academia, parque, lugar..."}
                     </span>
-                    {selectedGym ? (
-                      <span className="rounded-full bg-[var(--gc-brand)]/14 px-2 py-0.5 text-[10px] font-black text-[var(--gc-brand)]">
-                        Selecionado
+                    {selectedLocationMeta ? (
+                      <span className="mt-0.5 block truncate text-[11px] font-bold text-white/42">
+                        {selectedLocationMeta}
                       </span>
                     ) : null}
+                  </span>
+                  {selectedLocationLabel ? (
+                    <span className="shrink-0 rounded-full bg-[var(--gc-brand)]/14 px-2 py-0.5 text-[10px] font-black text-[var(--gc-brand)]">
+                      Selecionado
+                    </span>
+                  ) : null}
+                </button>
+                {selectedLocationLabel ? (
+                  <button
+                    className="gc-pressable mt-2 h-9 rounded-full bg-white/[0.05] px-3 text-[12px] font-black text-white/68"
+                    onClick={removeLocation}
+                    type="button"
+                  >
+                    Remover localização
                   </button>
                 ) : null}
                 {searchError ? (
@@ -773,94 +668,6 @@ export function PostScreen({
                   </p>
                 ) : null}
 
-                <select
-                  className="mt-2 h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
-                  onChange={(event) =>
-                    handleLocationModeChange(event.target.value as SelectableLocationSource)
-                  }
-                  value={locationMode}
-                >
-                  {locationOptions.map((option) => (
-                    <option className="bg-black" key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-
-                {locationMode === "gym" && registeredGyms.length > 0 ? (
-                  <div className="mt-2 space-y-2">
-                    <select
-                      className="h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
-                      onChange={(event) => setSelectedGymId(event.target.value)}
-                      value={selectedGymId}
-                    >
-                      {registeredGyms.map((gym) => (
-                        <option className="bg-black" key={gym.id} value={gym.id}>
-                          {gym.name}
-                        </option>
-                      ))}
-                    </select>
-                    {selectedGym ? (
-                      <p className="px-1 text-[12px] font-bold text-white/44">
-                        {getGymMeta(selectedGym) || "Vai mostrar só nome no post."}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {locationMode === "gym" && registeredGyms.length === 0 ? (
-                  <p className="mt-2 px-1 text-[12px] font-bold text-white/44">
-                    Você não cadastrou nenhuma academia ainda.
-                  </p>
-                ) : null}
-
-                {locationMode === "current" ? (
-                  <div className="mt-2 space-y-2">
-                    {(() => {
-                      const copy = getLocationStatusCopy(locationStatus, locationAccuracy);
-                      return (
-                        <div className="flex items-start gap-2 px-1">
-                          <LocateFixed
-                            className={
-                              locationStatus === "found"
-                                ? "shrink-0 text-[var(--gc-brand)]"
-                                : "shrink-0 text-white/52"
-                            }
-                            size={14}
-                          />
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-black text-white">{copy.title}</p>
-                            <p className="text-[11px] font-bold leading-4 text-white/46">
-                              {copy.detail}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                    <button
-                      className="gc-pressable flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[12px] font-black text-white disabled:opacity-50"
-                      disabled={locationStatus === "requesting"}
-                      onClick={requestCurrentLocation}
-                      type="button"
-                    >
-                      <RefreshCw
-                        className={locationStatus === "requesting" ? "animate-spin" : undefined}
-                        size={13}
-                      />
-                      {locationStatus === "requesting"
-                        ? "Localizando..."
-                        : coordinates
-                          ? "Atualizar localização"
-                          : "Tentar localizar"}
-                    </button>
-                  </div>
-                ) : null}
-
-                {locationError ? (
-                  <p className="mt-2 px-1 text-[11px] font-bold text-[var(--gc-pink)]">
-                    {locationError}
-                  </p>
-                ) : null}
               </div>
 
               <div>
@@ -907,10 +714,11 @@ export function PostScreen({
 
       <GymSearchSheet
         onClose={() => setSearchOpen(false)}
+        recentCandidates={recentLocations}
         registeredGyms={searchableGyms}
         onSelect={handleCatalogPlace}
         open={searchOpen}
-        title="Escolher academia"
+        title="Escolher local"
       />
     </section>
   );

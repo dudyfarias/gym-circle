@@ -13,34 +13,21 @@ import {
   X,
 } from "lucide-react";
 import type { GymLocationOption } from "./social/types";
+import {
+  buildLocationResultSections,
+  formatDistance,
+  getKindLabel,
+  getSourceLabel,
+  isSameApproxPlace,
+  type PlaceCandidate,
+} from "./social/locationSearch";
 
-/**
- * Shape consolidado dos lugares vindos da busca, dos próximos auto-fetched,
- * E do cadastro manual. Provider distingue origem (analytics + future use).
- */
-export type PlaceCandidate = {
-  provider: "registered" | "nominatim" | "overpass" | "manual";
-  providerId: string;
-  gymId?: string;
-  name: string;
-  address: string;
-  neighborhood: string | null;
-  city: string;
-  state: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  distanceKm: number | null;
-  kind: string;
-};
-
-export type LocatedPlaceCandidate = PlaceCandidate & {
-  latitude: number;
-  longitude: number;
-};
+export type { LocatedPlaceCandidate, PlaceCandidate } from "./social/locationSearch";
 
 type GymSearchSheetProps = {
   open: boolean;
   registeredGyms?: GymLocationOption[];
+  recentCandidates?: PlaceCandidate[];
   onClose: () => void;
   onSelect: (candidate: PlaceCandidate) => void | Promise<void>;
   title?: string;
@@ -56,155 +43,6 @@ type ReverseAddress = {
   displayName: string;
 };
 
-const EARTH_RADIUS_KM = 6371;
-
-function toRadians(value: number): number {
-  return (value * Math.PI) / 180;
-}
-
-function calculateDistanceKm(
-  from: { lat: number; lng: number },
-  to: { lat: number; lng: number },
-): number {
-  const dLat = toRadians(to.lat - from.lat);
-  const dLng = toRadians(to.lng - from.lng);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRadians(from.lat)) *
-      Math.cos(toRadians(to.lat)) *
-      Math.sin(dLng / 2) ** 2;
-  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function formatDistance(km: number | null): string {
-  if (km === null) return "";
-  if (km < 0.1) return "aqui";
-  if (km < 1) return `${Math.round(km * 1000)}m`;
-  if (km < 10) return `${km.toFixed(1).replace(".", ",")}km`;
-  return `${Math.round(km)}km`;
-}
-
-function getKindLabel(kind: string): string {
-  const lc = kind.toLowerCase();
-  if (lc.includes("gym") || lc.includes("fitness")) return "Academia";
-  if (lc.includes("sport")) return "Esporte";
-  if (lc.includes("stadium") || lc.includes("pitch")) return "Estádio";
-  if (lc.includes("park") || lc.includes("track")) return "Parque";
-  return "Lugar";
-}
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/[^a-z0-9]+/gi, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function getSearchText(candidate: PlaceCandidate): string {
-  return normalizeText(
-    [candidate.name, candidate.address, candidate.neighborhood, candidate.city, candidate.state]
-      .filter(Boolean)
-      .join(" "),
-  );
-}
-
-function getSourceLabel(candidate: PlaceCandidate): string {
-  if (candidate.provider === "registered") return "Cadastrada";
-  if (candidate.provider === "overpass") return "Próxima";
-  if (candidate.provider === "nominatim") return "Google/Localização";
-  return "Manual";
-}
-
-function isSameApproxPlace(a: PlaceCandidate, b: PlaceCandidate): boolean {
-  const aName = normalizeText(a.name);
-  const bName = normalizeText(b.name);
-  if (!aName || !bName) return false;
-
-  const nameLooksSame =
-    aName === bName ||
-    (aName.length > 6 && bName.includes(aName)) ||
-    (bName.length > 6 && aName.includes(bName));
-  if (!nameLooksSame) return false;
-
-  if (
-    typeof a.latitude === "number" &&
-    typeof a.longitude === "number" &&
-    typeof b.latitude === "number" &&
-    typeof b.longitude === "number"
-  ) {
-    return (
-      calculateDistanceKm(
-        { lat: a.latitude, lng: a.longitude },
-        { lat: b.latitude, lng: b.longitude },
-      ) <= 0.25
-    );
-  }
-
-  const aCity = normalizeText(a.city);
-  const bCity = normalizeText(b.city);
-  const sameCity = Boolean(aCity && bCity && aCity === bCity);
-  const aAddress = normalizeText(a.address);
-  const bAddress = normalizeText(b.address);
-  const sameAddress =
-    Boolean(aAddress && bAddress && aAddress === bAddress) ||
-    Boolean(aAddress && bAddress && aAddress.includes(bAddress)) ||
-    Boolean(aAddress && bAddress && bAddress.includes(aAddress));
-
-  return sameCity || sameAddress;
-}
-
-function dedupeCandidates(candidates: PlaceCandidate[]): PlaceCandidate[] {
-  const deduped: PlaceCandidate[] = [];
-
-  for (const candidate of candidates) {
-    const duplicateIndex = deduped.findIndex((item) => isSameApproxPlace(item, candidate));
-    if (duplicateIndex === -1) {
-      deduped.push(candidate);
-      continue;
-    }
-
-    // A academia já cadastrada no banco sempre ganha de resultados externos.
-    if (
-      candidate.provider === "registered" &&
-      deduped[duplicateIndex]?.provider !== "registered"
-    ) {
-      deduped[duplicateIndex] = candidate;
-    }
-  }
-
-  return deduped;
-}
-
-function gymToCandidate(
-  gym: GymLocationOption,
-  coords: { lat: number; lng: number } | null,
-): PlaceCandidate {
-  const hasCoordinates =
-    typeof gym.latitude === "number" && typeof gym.longitude === "number";
-  return {
-    provider: "registered",
-    providerId: `registered/${gym.id}`,
-    gymId: gym.id,
-    name: gym.name,
-    address: gym.address ?? "",
-    neighborhood: null,
-    city: gym.city ?? "",
-    state: gym.state ?? null,
-    latitude: gym.latitude ?? null,
-    longitude: gym.longitude ?? null,
-    distanceKm:
-      coords && hasCoordinates
-        ? calculateDistanceKm(coords, {
-            lat: gym.latitude as number,
-            lng: gym.longitude as number,
-          })
-        : null,
-    kind: "gym",
-  };
-}
-
 /**
  * Sheet full-screen pra buscar academia/lugar. Fluxo:
  *
@@ -218,6 +56,7 @@ function gymToCandidate(
 export function GymSearchSheet({
   open,
   registeredGyms = [],
+  recentCandidates = [],
   onClose,
   onSelect,
   title = "Onde você treinou?",
@@ -236,6 +75,8 @@ export function GymSearchSheet({
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerName, setRegisterName] = useState("");
   const [registerKind, setRegisterKind] = useState("gym");
+  const [registerManualAddress, setRegisterManualAddress] = useState("");
+  const [registerManualCity, setRegisterManualCity] = useState("");
   const [registerAddress, setRegisterAddress] = useState<ReverseAddress | null>(null);
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
@@ -377,14 +218,17 @@ export function GymSearchSheet({
       }
     }
 
+    const manualCity = registerManualCity.trim();
+    const manualAddress = registerManualAddress.trim();
+
     const candidate: PlaceCandidate = {
       provider: "manual",
       providerId: `manual/${coords.lat.toFixed(5)}/${coords.lng.toFixed(5)}/${Date.now()}`,
       name,
-      address: resolvedAddress?.address ?? "",
-      neighborhood: resolvedAddress?.neighborhood ?? null,
+      address: manualAddress || resolvedAddress?.address || "",
+      neighborhood: manualCity || resolvedAddress?.neighborhood || null,
       // RLS exige city >= 2 chars — fallback amplo se reverse falhar
-      city: resolvedAddress?.city || "Brasil",
+      city: manualCity || resolvedAddress?.city || resolvedAddress?.neighborhood || "Brasil",
       state: resolvedAddress?.state ?? null,
       latitude: coords.lat,
       longitude: coords.lng,
@@ -407,6 +251,8 @@ export function GymSearchSheet({
     onSelect,
     registerAddress,
     registerKind,
+    registerManualAddress,
+    registerManualCity,
     registerName,
   ]);
 
@@ -419,15 +265,29 @@ export function GymSearchSheet({
       setSearchError(null);
       setRegisterOpen(false);
       setRegisterName("");
+      setRegisterManualAddress("");
+      setRegisterManualCity("");
       setRegisterError(null);
       setRegisterAddress(null);
-      setCoords(null);
       setNearby([]);
-      setStatus("idle");
     });
     const id = window.setTimeout(() => inputRef.current?.focus(), 80);
     return () => window.clearTimeout(id);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (coords) return;
+    if (typeof navigator === "undefined" || !navigator.permissions) return;
+
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((permission) => {
+        if (permission.state === "granted") requestLocation();
+        if (permission.state === "denied") setStatus("denied");
+      })
+      .catch(() => undefined);
+  }, [coords, open, requestLocation]);
 
   // Auto-fetch lugares próximos quando coords ficam prontas.
   // queueMicrotask defere a chamada (que faz setState síncrono internamente)
@@ -476,42 +336,77 @@ export function GymSearchSheet({
     return "Busque pelo nome ou use sua localização";
   }, [status]);
 
-  const registeredCandidates = useMemo(() => {
-    const trimmed = query.trim();
-    const normalizedQuery = normalizeText(trimmed);
-    const origin = coords ? { lat: coords.lat, lng: coords.lng } : null;
-    const candidates = registeredGyms.map((gym) => gymToCandidate(gym, origin));
+  const currentLocationCandidate = useMemo<PlaceCandidate | null>(() => {
+    if (!coords) return null;
+    return {
+      provider: "current",
+      providerId: `current/${coords.lat.toFixed(5)}/${coords.lng.toFixed(5)}`,
+      name: "Localização atual",
+      address: "",
+      neighborhood: null,
+      city: "",
+      state: null,
+      latitude: coords.lat,
+      longitude: coords.lng,
+      distanceKm: 0,
+      kind: "current",
+    };
+  }, [coords]);
 
-    const filtered = candidates.filter((candidate) => {
-      if (normalizedQuery.length >= 2) {
-        return getSearchText(candidate).includes(normalizedQuery);
-      }
-      if (origin && candidate.distanceKm !== null) {
-        return candidate.distanceKm <= 8;
-      }
-      return true;
-    });
-
-    return filtered
-      .sort((a, b) => {
-        if (a.distanceKm !== null && b.distanceKm !== null) {
-          return a.distanceKm - b.distanceKm;
-        }
-        if (a.distanceKm !== null) return -1;
-        if (b.distanceKm !== null) return 1;
-        return a.name.localeCompare(b.name, "pt-BR");
-      })
-      .slice(0, origin ? 30 : 40);
-  }, [coords, query, registeredGyms]);
-
-  // O que mostrar na lista: banco sempre entra primeiro; API complementa.
-  const isSearching = query.trim().length >= 2;
-  const apiResults = isSearching ? results : nearby;
-  const visibleResults = useMemo(
-    () => dedupeCandidates([...registeredCandidates, ...apiResults]),
-    [apiResults, registeredCandidates],
+  const sections = useMemo(
+    () =>
+      buildLocationResultSections({
+        apiResults: query.trim().length >= 2 ? results : nearby,
+        coords,
+        currentLocationCandidate,
+        query,
+        recentCandidates,
+        registeredGyms,
+      }),
+    [coords, currentLocationCandidate, nearby, query, recentCandidates, registeredGyms, results],
   );
+
+  const visibleResults = sections.isSearching
+    ? sections.search
+    : [...sections.recent, ...sections.nearby];
+  const similarRegistered = useMemo(() => {
+    const name = registerName.trim() || query.trim();
+    if (name.length < 3) return null;
+    const candidate: PlaceCandidate = {
+      provider: "manual",
+      providerId: "manual/draft",
+      name,
+      address: registerManualAddress,
+      neighborhood: registerManualCity || null,
+      city: registerManualCity,
+      state: null,
+      latitude: coords?.lat ?? null,
+      longitude: coords?.lng ?? null,
+      distanceKm: null,
+      kind: registerKind,
+    };
+    return (
+      [...sections.recent, ...sections.nearby, ...sections.search].find((item) =>
+        isSameApproxPlace(item, candidate),
+      ) ?? null
+    );
+  }, [
+    coords,
+    query,
+    registerKind,
+    registerManualAddress,
+    registerManualCity,
+    registerName,
+    sections.nearby,
+    sections.recent,
+    sections.search,
+  ]);
+  const isSearching = sections.isSearching;
   const showRegisterCTA = !registerOpen;
+  const openRegister = useCallback(() => {
+    setRegisterName((current) => current || query.trim());
+    setRegisterOpen(true);
+  }, [query]);
 
   if (!open) return null;
 
@@ -558,25 +453,27 @@ export function GymSearchSheet({
             <LocateFixed size={11} strokeWidth={2.4} />
             {statusLabel}
           </p>
-          <button
-            className="gc-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] text-[13px] font-black text-white disabled:opacity-50"
-            disabled={status === "locating"}
-            onClick={requestLocation}
-            type="button"
-          >
-            {status === "locating" ? (
-              <Loader2 className="animate-spin" size={15} strokeWidth={2.4} />
-            ) : coords ? (
-              <RefreshCw size={15} strokeWidth={2.4} />
-            ) : (
-              <LocateFixed size={15} strokeWidth={2.4} />
-            )}
-            {status === "locating"
-              ? "Localizando..."
-              : coords
-                ? "Atualizar localização"
-                : "Usar minha localização"}
-          </button>
+          {status !== "denied" ? (
+            <button
+              className="gc-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] text-[13px] font-black text-white disabled:opacity-50"
+              disabled={status === "locating"}
+              onClick={requestLocation}
+              type="button"
+            >
+              {status === "locating" ? (
+                <Loader2 className="animate-spin" size={15} strokeWidth={2.4} />
+              ) : coords ? (
+                <RefreshCw size={15} strokeWidth={2.4} />
+              ) : (
+                <LocateFixed size={15} strokeWidth={2.4} />
+              )}
+              {status === "locating"
+                ? "Localizando..."
+                : coords
+                  ? "Atualizar localização"
+                  : "Usar minha localização para encontrar academias próximas"}
+            </button>
+          ) : null}
           <p className="mt-2 px-1 text-[11px] font-bold leading-4 text-white/34">
             Usamos sua localização apenas para encontrar academias próximas. Você pode
             escolher sem liberar GPS.
@@ -592,67 +489,31 @@ export function GymSearchSheet({
             </div>
           ) : null}
 
-          {/* Header de seção: "Lugares perto" vs "Resultados pra X" */}
-          {!registerOpen && visibleResults.length > 0 ? (
-            <p className="px-5 pt-4 text-[11px] font-black uppercase tracking-wide text-white/42">
-              {isSearching
-                ? `Resultados para "${query.trim()}"`
-                : coords
-                  ? "Perto de você"
-                  : "Academias cadastradas"}
-            </p>
+          {!registerOpen && isSearching ? (
+            <CandidateSection
+              candidates={sections.search}
+              onSelect={handleSelect}
+              selecting={selecting}
+              title={`Resultados para "${query.trim()}"`}
+            />
           ) : null}
 
-          {/* Lista de resultados (search ou nearby) */}
-          {!registerOpen && visibleResults.length > 0 ? (
-            <ul className="mt-2 divide-y divide-white/[0.05]">
-              {visibleResults.map((candidate) => (
-                <li key={candidate.providerId}>
-                  <button
-                    className="gc-pressable flex w-full items-start gap-3 px-5 py-4 text-left disabled:opacity-50"
-                    disabled={selecting}
-                    onClick={() => void handleSelect(candidate)}
-                    type="button"
-                  >
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72">
-                      <MapPin size={16} strokeWidth={2.2} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-black text-white">
-                        {candidate.name}
-                      </span>
-                      <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] font-bold text-white/52">
-                        <span
-                          className={[
-                            "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                            candidate.provider === "registered"
-                              ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
-                              : "bg-white/[0.05] text-white/52",
-                          ].join(" ")}
-                        >
-                          {getSourceLabel(candidate)}
-                        </span>
-                        <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white/52">
-                          {getKindLabel(candidate.kind)}
-                        </span>
-                        {candidate.distanceKm !== null ? (
-                          <span className="text-[var(--gc-brand)]">
-                            {formatDistance(candidate.distanceKm)}
-                          </span>
-                        ) : null}
-                        {candidate.address || candidate.city ? (
-                          <span className="truncate">
-                            {[candidate.address, candidate.city]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </span>
-                        ) : null}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          {!registerOpen && !isSearching && sections.recent.length > 0 ? (
+            <CandidateSection
+              candidates={sections.recent}
+              onSelect={handleSelect}
+              selecting={selecting}
+              title="Recentes"
+            />
+          ) : null}
+
+          {!registerOpen && !isSearching && sections.nearby.length > 0 ? (
+            <CandidateSection
+              candidates={sections.nearby}
+              onSelect={handleSelect}
+              selecting={selecting}
+              title="Perto de você"
+            />
           ) : null}
 
           {/* Loading nearby (1ª vez ainda buscando) */}
@@ -728,7 +589,7 @@ export function GymSearchSheet({
             <div className="border-t border-white/[0.04] px-5 py-4">
               <button
                 className="gc-pressable flex w-full items-center gap-3 rounded-[16px] border border-dashed border-white/[0.14] bg-white/[0.02] px-4 py-3.5 text-left"
-                onClick={() => setRegisterOpen(true)}
+                onClick={openRegister}
                 type="button"
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
@@ -736,10 +597,12 @@ export function GymSearchSheet({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-black text-white">
-                    Não achei meu lugar
+                    {query.trim()
+                      ? `Cadastrar "${query.trim()}"`
+                      : "Cadastrar nova academia"}
                   </span>
                   <span className="mt-0.5 block text-[12px] font-bold text-white/52">
-                    Cadastrar manualmente — fica fixo pra outros encontrarem
+                    Nome, tipo e localização. Fica fixo pra outros encontrarem.
                   </span>
                 </span>
               </button>
@@ -773,13 +636,53 @@ export function GymSearchSheet({
                   value={registerKind}
                 >
                   <option className="bg-black" value="gym">Academia</option>
-                  <option className="bg-black" value="sports_centre">Centro esportivo</option>
-                  <option className="bg-black" value="stadium">Estádio</option>
-                  <option className="bg-black" value="track">Pista de corrida</option>
                   <option className="bg-black" value="park">Parque</option>
+                  <option className="bg-black" value="studio">Estúdio</option>
                   <option className="bg-black" value="place">Outro</option>
                 </select>
               </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                    Endereço
+                  </p>
+                  <input
+                    autoCapitalize="words"
+                    className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
+                    maxLength={90}
+                    onChange={(event) => setRegisterManualAddress(event.target.value)}
+                    placeholder="Opcional"
+                    value={registerManualAddress}
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                    Cidade/bairro
+                  </p>
+                  <input
+                    autoCapitalize="words"
+                    className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
+                    maxLength={60}
+                    onChange={(event) => setRegisterManualCity(event.target.value)}
+                    placeholder="Opcional"
+                    value={registerManualCity}
+                  />
+                </div>
+              </div>
+
+              {similarRegistered ? (
+                <div className="rounded-[14px] border border-[var(--gc-brand)]/18 bg-[var(--gc-brand)]/8 px-3 py-2 text-[12px] font-bold leading-5 text-white/68">
+                  Já existe algo parecido:{" "}
+                  <button
+                    className="gc-pressable font-black text-[var(--gc-brand)]"
+                    onClick={() => void handleSelect(similarRegistered)}
+                    type="button"
+                  >
+                    {similarRegistered.name}
+                  </button>
+                </div>
+              ) : null}
 
               <div className="flex items-start gap-2 rounded-[14px] bg-white/[0.04] px-3 py-3">
                 <MapPin
@@ -861,5 +764,73 @@ export function GymSearchSheet({
         </div>
       </div>
     </div>
+  );
+}
+
+function CandidateSection({
+  candidates,
+  onSelect,
+  selecting,
+  title,
+}: {
+  candidates: PlaceCandidate[];
+  onSelect: (candidate: PlaceCandidate) => void | Promise<void>;
+  selecting: boolean;
+  title: string;
+}) {
+  if (candidates.length === 0) return null;
+
+  return (
+    <section>
+      <p className="px-5 pt-4 text-[11px] font-black uppercase tracking-wide text-white/42">
+        {title}
+      </p>
+      <ul className="mt-2 divide-y divide-white/[0.05]">
+        {candidates.map((candidate) => (
+          <li key={candidate.providerId}>
+            <button
+              className="gc-pressable flex w-full items-start gap-3 px-5 py-4 text-left disabled:opacity-50"
+              disabled={selecting}
+              onClick={() => void onSelect(candidate)}
+              type="button"
+            >
+              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72">
+                <MapPin size={16} strokeWidth={2.2} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[15px] font-black text-white">
+                  {candidate.name}
+                </span>
+                <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] font-bold text-white/52">
+                  <span
+                    className={[
+                      "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
+                      candidate.provider === "registered" || candidate.provider === "current"
+                        ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
+                        : "bg-white/[0.05] text-white/52",
+                    ].join(" ")}
+                  >
+                    {getSourceLabel(candidate)}
+                  </span>
+                  <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white/52">
+                    {getKindLabel(candidate.kind)}
+                  </span>
+                  {candidate.distanceKm !== null ? (
+                    <span className="text-[var(--gc-brand)]">
+                      {formatDistance(candidate.distanceKm)}
+                    </span>
+                  ) : null}
+                  {candidate.address || candidate.city ? (
+                    <span className="truncate">
+                      {[candidate.address, candidate.city].filter(Boolean).join(" · ")}
+                    </span>
+                  ) : null}
+                </span>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

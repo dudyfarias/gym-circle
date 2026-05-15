@@ -29,6 +29,7 @@ import { LikesOverlay } from "./LikesOverlay";
 import { AccountSettingsSheet } from "./AccountSettingsSheet";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
 import { getLikesOverlayUsers } from "./social/likes";
+import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
 import { getAdjacentStoryId } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
@@ -543,6 +544,15 @@ export function GymCirclePreview({
     () => buildMonthlyRecap({ now, posts: currentUserPosts, user: social.currentUser }),
     [currentUserPosts, now, social.currentUser],
   );
+  const recentPostLocations = useMemo(
+    () =>
+      getRecentPostLocations(
+        social.currentUser.id,
+        currentUserPosts,
+        social.gyms ?? [],
+      ),
+    [currentUserPosts, social.currentUser.id, social.gyms],
+  );
   const restoreCountdown = useMemo(
     () => formatRestoreCountdown(social.currentUser.streakRestoreDeadlineAt, now),
     [now, social.currentUser.streakRestoreDeadlineAt],
@@ -691,6 +701,7 @@ export function GymCirclePreview({
               setActiveScreen("feed");
             }}
             onUploadImage={onUploadImage}
+            recentLocations={recentPostLocations}
             taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
           />
         );
@@ -760,6 +771,7 @@ export function GymCirclePreview({
     openPostMenu,
     currentUserPosts,
     monthlyRecap,
+    recentPostLocations,
     currentUserStoryGroup,
     storyGroups,
     openStoryById,
