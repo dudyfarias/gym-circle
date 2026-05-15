@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@gym-circle/core/hooks";
+import { useAuth, useGymCircleServices } from "@gym-circle/core/hooks";
 import { Apple } from "lucide-react";
 import { getAuthErrorMessage, getAuthRedirectTo } from "./authRedirect";
+import { startSocialSignIn } from "./socialAuth";
 import { BrandMark } from "./design-system";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
@@ -13,7 +14,8 @@ function cleanUsername(value: string): string {
 }
 
 export function LiveAuthGate() {
-  const { resetPassword, signIn, signInWithProvider, signUp } = useAuth();
+  const { resetPassword, signIn, signUp } = useAuth();
+  const services = useGymCircleServices();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -64,7 +66,10 @@ export function LiveAuthGate() {
     setError(null);
     setSuccess(null);
     try {
-      await signInWithProvider(provider, getAuthRedirectTo());
+      await startSocialSignIn(services.client, provider);
+      // Native: the system browser is now open; SocialAuthDeepLinkController
+      // finishes sign-in on the callback. Web: the page is redirecting.
+      // Either way keep `submitting` true — success leaves this screen.
     } catch (err) {
       setError(
         getAuthErrorMessage(

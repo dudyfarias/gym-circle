@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm --workspace apps/web run dev",
+    "generate:apple-secret": "node generate-apple-secret.js",
     "build": "npm --workspace apps/web run build",
     "lint": "npm --workspace apps/web run lint",
     "test": "vitest run",
@@ -28,12 +29,15 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
+    "@capacitor/app": "^8.0.1",
+    "@capacitor/browser": "^8.0.1",
     "@capacitor/core": "^8.3.4",
     "@capacitor/ios": "^8.3.4",
     "@capacitor/keyboard": "^8.0.3",
     "@capacitor/push-notifications": "^8.0.4",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "jsonwebtoken": "^9.0.3",
     "next": "16.2.6"
   }
 }

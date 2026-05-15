@@ -102,6 +102,41 @@ function upsertBoolKey(plist, key, value) {
   );
 }
 
+/**
+ * Registra um custom URL scheme em CFBundleURLTypes do Info.plist.
+ * Necessário pro deep link do OAuth social (com.gymcircle.app://auth-callback)
+ * rotear de volta pro app depois do login no navegador do sistema.
+ *
+ * Capacitor não gera CFBundleURLTypes por padrão, então no caso normal
+ * inserimos o bloco inteiro. Se já existir, é no-op (idempotente).
+ */
+function ensureUrlScheme(plist, scheme) {
+  if (plist.includes("<key>CFBundleURLTypes</key>")) {
+    if (plist.includes(`<string>${scheme}</string>`)) {
+      return plist;
+    }
+    console.warn(
+      `[patch-ios-permissions] CFBundleURLTypes já existe sem '${scheme}' — adicione manualmente no Xcode.`,
+    );
+    return plist;
+  }
+  const block = [
+    "\t<key>CFBundleURLTypes</key>",
+    "\t<array>",
+    "\t\t<dict>",
+    "\t\t\t<key>CFBundleURLSchemes</key>",
+    "\t\t\t<array>",
+    `\t\t\t\t<string>${scheme}</string>`,
+    "\t\t\t</array>",
+    "\t\t</dict>",
+    "\t</array>",
+  ].join("\n");
+  return plist.replace(
+    /(\s*)<\/dict>(\s*<\/plist>)/,
+    `$1${block}\n</dict>$2`,
+  );
+}
+
 async function fileExists(path) {
   try {
     await access(path);
@@ -129,9 +164,13 @@ async function main() {
   // Sem isso, App Store Connect pede formulário a cada release.
   plist = upsertBoolKey(plist, "ITSAppUsesNonExemptEncryption", false);
 
+  // URL scheme pro deep link do OAuth social (Apple/Google) voltar pro
+  // app depois do login no navegador do sistema.
+  plist = ensureUrlScheme(plist, "com.gymcircle.app");
+
   await writeFile(INFO_PLIST, plist, "utf8");
   console.log(
-    `[patch-ios-permissions] ${Object.keys(PERMISSIONS).length} chaves de permissão + ITSAppUsesNonExemptEncryption atualizadas em ${INFO_PLIST}`,
+    `[patch-ios-permissions] ${Object.keys(PERMISSIONS).length} permissões + ITSAppUsesNonExemptEncryption + URL scheme em ${INFO_PLIST}`,
   );
 }
 
