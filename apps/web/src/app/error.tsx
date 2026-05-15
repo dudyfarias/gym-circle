@@ -39,6 +39,21 @@ export default function ErrorBoundary({
             ref: {error.digest}
           </p>
         ) : null}
+        {/* DIAGNÓSTICO TEMPORÁRIO — remover após capturar a rejeição Apple 2.1.
+            Expõe o erro real pra reproduzir o crash WebKit-específico. */}
+        <div className="mt-4 rounded-[16px] border border-[var(--gc-pink)]/30 bg-[var(--gc-pink)]/[0.08] p-3">
+          <p className="text-[10px] font-black uppercase tracking-wider text-[var(--gc-pink)]">
+            Debug
+          </p>
+          <p className="mt-1 break-words font-mono text-[12px] font-bold text-white">
+            {error.name}: {error.message || "(sem mensagem)"}
+          </p>
+          {error.stack ? (
+            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[10px] leading-snug text-white/52">
+              {error.stack.slice(0, 1400)}
+            </pre>
+          ) : null}
+        </div>
         <button
           className="gc-pressable mt-6 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--gc-brand)] px-6 text-[14px] font-black text-black"
           onClick={reset}
