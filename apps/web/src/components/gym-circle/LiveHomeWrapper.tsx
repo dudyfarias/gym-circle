@@ -7,7 +7,6 @@ import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
 import { NativeBootController } from "./NativeBootController";
 import { PwaController } from "./PwaController";
-import { SocialAuthDeepLinkController } from "./SocialAuthDeepLinkController";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
 export function LiveHomeWrapper() {
@@ -25,7 +24,6 @@ export function LiveHomeWrapper() {
     return (
       <>
         <NativeBootController />
-        <SocialAuthDeepLinkController />
         <main className="grid min-h-screen place-items-center bg-black text-white">
           <p className="text-[14px] font-bold text-white/60">Carregando sessão...</p>
         </main>
@@ -38,7 +36,6 @@ export function LiveHomeWrapper() {
     return (
       <>
         <NativeBootController />
-        <SocialAuthDeepLinkController />
         <LiveAuthGate />
         <PwaController />
       </>
