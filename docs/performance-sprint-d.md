@@ -40,25 +40,66 @@ Sprint D focou em mídia pesada, story tray mais leve e paginação incremental 
 
 ## Aplicação remota
 
-Antes de qualquer deploy que dependa dos novos campos/RPCs, aplicar:
+Sprint D foi aplicada no Supabase remoto do projeto `qajjpjmybmqqwflytcpr` via MCP/Supabase integration em 2026-05-20.
+
+Arquivo local:
 
 - `supabase/migrations/20260520190107_performance_sprint_d_media_story_viewer.sql`
 
-Ou manualmente:
+Fallback manual:
 
 - `supabase/admin/apply_sprint_d_media_story_viewer.sql`
 
-Validações remotas esperadas:
+Histórico remoto:
 
-- Colunas opcionais existem em `posts`, `stories`, `direct_messages`.
-- RPCs existem:
+- `20260520193024 performance_sprint_d_media_story_viewer`
+
+Essa diferença de timestamp existe porque a aplicação remota foi feita pelo MCP. O SQL aplicado é equivalente ao arquivo local da Sprint D.
+
+Validações remotas feitas:
+
+- `posts`: 6/6 colunas opcionais confirmadas.
+- `stories`: 6/6 colunas opcionais confirmadas.
+- `direct_messages`: 6/6 colunas opcionais confirmadas.
+- RPCs confirmadas:
   - `get_story_tray_lightweight`
   - `get_story_viewer_items`
-- RPCs atualizadas seguem respondendo:
   - `get_home_feed`
   - `get_profile_posts`
   - `get_conversation_summaries`
   - `get_conversation_messages`
+- Smoke SQL executado sem erro para:
+  - `get_story_tray_lightweight(10)`
+  - `get_story_viewer_items(author_id)`
+  - `get_home_feed(null, 5)`
+  - `get_profile_posts(user_id, null, 5)`
+  - `get_conversation_summaries()`
+  - `get_conversation_messages(conversation_id, null, 5)`
+
+## Correção Relacionada: FullProfile
+
+Depois da Sprint D, foi corrigido um bug de perfil completo em `a5c256d fix: preserve full profile data`.
+
+Causa:
+
+- Linhas parciais de `ProfilePreview` vindas de feed/stories/busca/sugestões podiam sobrescrever o `FullProfile` no estado local.
+- A edição de perfil tentava deduzir a academia principal pelo nome em vez de preservar `main_gym_id`.
+
+Correção:
+
+- `ProfilePreview` e `FullProfile` agora são mesclados por `mergeProfileRows`, preservando campos editáveis completos.
+- O próprio perfil continua sendo carregado por query completa em `profiles`.
+- `profileService.update` remove `undefined` antes do update e preserva campos não alterados.
+- Salvar perfil atualiza o estado local imediatamente com a row completa retornada pelo Supabase.
+- `mainGymId` foi adicionado ao usuário enriquecido para evitar salvar academia principal como `null` por falta de dados secundários.
+
+Validações locais da correção:
+
+- `npm run lint`
+- `npm run build`
+- `npm test -- --run`
+- `npx cap sync ios`
+- `git diff --check`
 
 ## Pendências Seguras Para Sprint E
 
