@@ -6,7 +6,11 @@ Data: 2026-05-20
 
 Sprint C foi iniciada com foco em estabilidade de release. A Sprint B foi aplicada manualmente no Supabase remoto em 2026-05-20 via SQL Editor e as RPCs principais foram confirmadas sem erro.
 
-O Supabase CLI ainda fica preso em `Initialising login role...` no projeto linkado `qajjpjmybmqqwflytcpr`, então a migration nova da Sprint C também tem fallback manual preparado.
+A parte segura da Sprint C também foi aplicada no Supabase remoto em 2026-05-20 via MCP/Supabase integration. A migration remota registrada foi:
+
+- `20260520184302 performance_sprint_c_discovery_search`
+
+O Supabase CLI ainda fica preso em `Initialising login role...` no projeto linkado `qajjpjmybmqqwflytcpr`, então mantemos SQL manual preparado em `supabase/admin/` como fallback operacional.
 
 Arquivos SQL manuais:
 
@@ -50,7 +54,7 @@ Prioridade: P0
 Impacto: alto  
 Esforço: médio/alto  
 Prioridade: P1  
-Status: implementado localmente, pendente aplicação remota manual/CLI
+Status: implementado localmente e aplicado no Supabase remoto
 
 Criado na migration `20260520181726_performance_sprint_c_discovery_search.sql`:
 
@@ -161,10 +165,14 @@ Validação local em 2026-05-20:
 - `npx cap sync ios`: passou
 - `git diff --check`: passou
 
-Checklist remoto obrigatório antes de produção com Sprint C ativa:
+Validação remota em 2026-05-20:
 
-- aplicar `supabase/admin/apply_sprint_c_discovery_search.sql` no Supabase;
-- confirmar `search_profiles` e `get_user_suggestions`;
+- `search_profiles` existe no schema `public`.
+- `get_user_suggestions` existe no schema `public`.
+- Smoke SQL das RPCs executou sem erro.
+
+Checklist de produção:
+
 - abrir app logado;
 - confirmar feed;
 - abrir story tray;
@@ -175,7 +183,7 @@ Checklist remoto obrigatório antes de produção com Sprint C ativa:
 
 ## Riscos Restantes
 
-- Sprint C só fica ativa no remoto depois da aplicação de `apply_sprint_c_discovery_search.sql`; até lá o app usa fallbacks e continua estável.
+- O Supabase CLI ainda não deve ser usado para `db push --include-all` sem revisão, porque há migrations antigas locais com timestamps diferentes das migrations já registradas remotamente.
 - Story tray ainda pode carregar mais dados do que o ideal enquanto o viewer depender do formato antigo.
 - Thumbnails/posters seguem pendentes, então mídia pesada ainda é um gargalo em redes móveis.
 - Paginação real de load-more no UI ainda fica para a próxima etapa segura.

@@ -78,7 +78,7 @@ Métricas adicionadas/continuadas:
   - `get_conversation_messages`
   - `get_profile_posts`
 - O Supabase CLI ainda fica preso em `Initialising login role...`; por isso novas migrations continuam tendo fallback manual em `supabase/admin/`.
-- `refreshHomeSecondary()` deixou de carregar profiles/follows amplos para busca/sugestões na Sprint C segura.
+- `refreshHomeSecondary()` deixou de carregar profiles/follows amplos para busca/sugestões na Sprint C segura, aplicada no remoto como `20260520184302 performance_sprint_c_discovery_search`.
 - `get_story_tray()` ainda retorna `media_url` para manter o viewer atual simples. Sprint C pode dividir em tray sem mídia e viewer sob demanda por story.
 - Realtime ainda usa alguns listeners amplos para preservar comportamento social. Sprint C pode assinar apenas posts visíveis e conversa aberta.
 - A validação local de migrations via Supabase CLI não rodou porque o Postgres local não estava ativo em `127.0.0.1:54322`.

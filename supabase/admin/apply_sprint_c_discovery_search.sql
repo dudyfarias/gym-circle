@@ -72,7 +72,12 @@ as $$
   where p.user_id <> v.user_id
     and p.account_status = 'active'
     and p.deleted_at is null
-    and not private.has_block_between(v.user_id, p.user_id)
+    and not exists (
+      select 1
+        from public.user_blocks blocked
+       where (blocked.blocker_id = v.user_id and blocked.blocked_id = p.user_id)
+          or (blocked.blocker_id = p.user_id and blocked.blocked_id = v.user_id)
+    )
     and (
       (
         q.query <> ''
@@ -133,7 +138,12 @@ as $$
      where p.user_id <> v.user_id
        and p.account_status = 'active'
        and p.deleted_at is null
-       and not private.has_block_between(v.user_id, p.user_id)
+       and not exists (
+         select 1
+           from public.user_blocks blocked
+          where (blocked.blocker_id = v.user_id and blocked.blocked_id = p.user_id)
+             or (blocked.blocker_id = p.user_id and blocked.blocked_id = v.user_id)
+       )
        and private.can_view_profile_posts(p.user_id)
        and not exists (
          select 1
