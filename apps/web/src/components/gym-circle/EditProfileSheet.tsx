@@ -30,7 +30,7 @@ type EditProfileSheetProps = {
 const preferredTimeOptions = ["Manhã", "Almoço", "Tarde", "Noite", "Madrugada"];
 
 function findMainGymId(user: EnrichedUser, gyms: GymLocationOption[]) {
-  return gyms.find((gym) => user.gyms.includes(gym.name))?.id ?? "";
+  return user.mainGymId ?? gyms.find((gym) => user.gyms.includes(gym.name))?.id ?? "";
 }
 
 export function EditProfileSheet({

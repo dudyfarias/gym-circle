@@ -22,6 +22,7 @@ export type GymUser = {
   suspendedAt?: string | null;
   reactivationSentAt?: string | null;
   reactivationExpiresAt?: string | null;
+  mainGymId?: string | null;
   location: string;
   gyms: string[];
   preferredTimes: string[];

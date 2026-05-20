@@ -32,6 +32,11 @@ import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
 } from "./profile";
+import {
+  mergeProfileRows,
+  profileRowFromPartial,
+  profileRowFromSurface,
+} from "./profileRows";
 import { groupStoriesByProfile, sortStoriesNewestFirst } from "./stories";
 import {
   buildStoryShareBody,
@@ -395,51 +400,6 @@ function parseJsonValue<T>(value: unknown, fallback: T): T {
   }
 }
 
-function profileRowFromPartial(input: Partial<ProfileRow> & { user_id: string }): ProfileRow {
-  return {
-    id: input.id ?? `profile-${input.user_id}`,
-    user_id: input.user_id,
-    username: input.username ?? "usuario",
-    display_name: input.display_name ?? input.username ?? "Gym Circle",
-    avatar_url: input.avatar_url ?? null,
-    bio: input.bio ?? null,
-    fitness_goal: input.fitness_goal ?? null,
-    main_gym_id: input.main_gym_id ?? null,
-    preferred_training_times: input.preferred_training_times ?? [],
-    is_private: input.is_private ?? false,
-    created_at: input.created_at ?? new Date(0).toISOString(),
-    instagram_username: input.instagram_username ?? null,
-    birth_date: input.birth_date ?? null,
-    sports: input.sports ?? [],
-    onboarding_completed_at: input.onboarding_completed_at ?? null,
-    alpha_terms_accepted_at: input.alpha_terms_accepted_at ?? null,
-    privacy_policy_accepted_at: input.privacy_policy_accepted_at ?? null,
-    account_status: input.account_status ?? "active",
-    suspended_at: input.suspended_at ?? null,
-    reactivation_sent_at: input.reactivation_sent_at ?? null,
-    reactivation_expires_at: input.reactivation_expires_at ?? null,
-    reactivation_token_hash: null,
-    deleted_at: input.deleted_at ?? null,
-  };
-}
-
-function profileRowFromSurface(input: {
-  user_id?: string | null;
-  author_id?: string | null;
-  username?: string | null;
-  display_name?: string | null;
-  avatar_url?: string | null;
-}): ProfileRow | null {
-  const userId = input.user_id ?? input.author_id;
-  if (!userId) return null;
-  return profileRowFromPartial({
-    user_id: userId,
-    username: input.username ?? undefined,
-    display_name: input.display_name ?? input.username ?? "Gym Circle",
-    avatar_url: input.avatar_url ?? null,
-  });
-}
-
 function mergeRowsByKey<T>(rows: T[], nextRows: T[], getKey: (row: T) => string): T[] {
   const map = new Map<string, T>();
   for (const row of rows) map.set(getKey(row), row);
@@ -544,6 +504,7 @@ function enrichedUserFromDiscovery(row: DiscoveryProfileRow): EnrichedUser {
     suspendedAt: null,
     reactivationSentAt: null,
     reactivationExpiresAt: null,
+    mainGymId: null,
     location: row.shared_gym_name ?? "",
     gyms: row.shared_gym_name ? [row.shared_gym_name] : [],
     preferredTimes: [],
@@ -1190,7 +1151,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         }));
       setAgg((current) => ({
         ...current,
-        profiles: mergeRowsByKey(current.profiles, surfaceProfiles, (profile) => profile.user_id),
+        profiles: mergeProfileRows(current.profiles, surfaceProfiles),
         stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
@@ -1316,7 +1277,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
         setAgg((current) => ({
           ...current,
-          profiles: mergeRowsByKey(current.profiles, suggestionProfiles, (profile) => profile.user_id),
+          profiles: mergeProfileRows(current.profiles, suggestionProfiles),
           stats: mergeRowsByKey(current.stats, suggestionStats, (stats) => stats.user_id),
           follows: mergeRowsByKey(
             current.follows,
@@ -1540,7 +1501,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       );
       setAgg((current) => ({
         ...current,
-        profiles: mergeRowsByKey(current.profiles, summaryProfiles, (profile) => profile.user_id),
+        profiles: mergeProfileRows(current.profiles, summaryProfiles),
         conversationParticipants: allConversationParticipants,
         conversations,
         conversationUnreadCounts,
@@ -1624,11 +1585,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       if (!mountedRef.current) return;
       setAgg((current) => ({
         ...current,
-        profiles: mergeRowsByKey(
-          current.profiles,
-          profileSurfaceProfiles,
-          (profile) => profile.user_id,
-        ),
+        profiles: mergeProfileRows(current.profiles, profileSurfaceProfiles),
         stats: mergeRowsByKey(current.stats, profileSurfaceStats, (stats) => stats.user_id),
         profileFeedPosts: mergeRowsByKey(
           current.profileFeedPosts,
@@ -1767,7 +1724,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       setFeedHasMore(feedPosts.length >= INITIAL_FEED_LIMIT);
       setAgg((current) => ({
         ...current,
-        profiles: mergeRowsByKey(current.profiles, surfaceProfiles, (profile) => profile.user_id),
+        profiles: mergeProfileRows(current.profiles, surfaceProfiles),
         stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
         feedPosts: mergeRowsByKey(current.feedPosts, feedPosts, (post) => post.id),
         postLikes: [
@@ -2042,6 +1999,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         suspendedAt: profile.suspended_at ?? null,
         reactivationSentAt: profile.reactivation_sent_at ?? null,
         reactivationExpiresAt: profile.reactivation_expires_at ?? null,
+        mainGymId: profile.main_gym_id ?? null,
         location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
         gyms: gymNames,
         preferredTimes,
@@ -2100,6 +2058,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         suspendedAt: null,
         reactivationSentAt: null,
         reactivationExpiresAt: null,
+        mainGymId: null,
         location: "",
         gyms: [],
         preferredTimes: [],
@@ -2672,7 +2631,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         if (mountedRef.current) {
           setAgg((current) => ({
             ...current,
-            profiles: mergeRowsByKey(current.profiles, profiles, (profile) => profile.user_id),
+            profiles: mergeProfileRows(current.profiles, profiles),
             stats: mergeRowsByKey(current.stats, stats, (stat) => stat.user_id),
             follows: mergeRowsByKey(
               current.follows,
@@ -3353,9 +3312,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             ? { preferred_training_times: input.preferredTimes }
             : {}),
         };
-        await services.profiles.update(currentUserId, {
+        const updatedProfile = await services.profiles.update(currentUserId, {
           ...patch,
         });
+        if (mountedRef.current) {
+          setAgg((current) => ({
+            ...current,
+            profiles: mergeProfileRows(current.profiles, [updatedProfile]),
+          }));
+        }
         if (input.mainGymId) {
           await services.gyms.addUserGym(currentUserId, input.mainGymId, true).catch((err) => {
             if ((err as { code?: string }).code !== "23505") throw err;

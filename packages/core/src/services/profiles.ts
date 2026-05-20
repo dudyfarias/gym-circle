@@ -38,9 +38,24 @@ export function profileService(client: GymCircleClient) {
     },
 
     async update(userId: string, patch: ProfileUpdate): Promise<ProfileRow> {
+      const cleanPatch = Object.fromEntries(
+        Object.entries(patch).filter(([, value]) => value !== undefined),
+      ) as ProfileUpdate;
+
+      if (Object.keys(cleanPatch).length === 0) {
+        const { data: current, error: currentError } = await client
+          .from("profiles")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (currentError) throw currentError;
+        if (!current) throw new Error("Perfil não encontrado.");
+        return current;
+      }
+
       const { data, error } = await client
         .from("profiles")
-        .update(patch)
+        .update(cleanPatch)
         .eq("user_id", userId)
         .select("*")
         .single();
