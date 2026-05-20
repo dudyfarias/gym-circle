@@ -98,7 +98,18 @@ const SCREEN_SWIPE_DOMINANCE = 2.15;
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
-  onUploadImage?: (file: File) => Promise<string>;
+  onUploadImage?: (file: File) => Promise<
+    | string
+    | {
+        imageUrl: string;
+        thumbnailUrl?: string | null;
+        posterUrl?: string | null;
+        mediaWidth?: number | null;
+        mediaHeight?: number | null;
+        mediaDurationSeconds?: number | null;
+        blurDataUrl?: string | null;
+      }
+  >;
   onUploadChatImage?: (file: File) => Promise<string>;
   onUploadAvatar?: (file: File) => Promise<string>;
 };
@@ -696,16 +707,16 @@ export function GymCirclePreview({
       ...social.feedPosts
         .filter((post) => post.mediaType !== "video")
         .slice(0, 3)
-        .map((post) => post.imageUrl),
+        .map((post) => post.thumbnailUrl ?? post.imageUrl),
       ...social.storyBubbles
         .filter((story) => story.mediaType !== "video")
         .slice(0, 2)
-        .map((story) => story.imageUrl),
+        .map((story) => story.thumbnailUrl ?? story.imageUrl),
       ...storyGroups
         .flatMap((group) => group.stories)
         .filter((story) => story.mediaType !== "video")
         .slice(0, 2)
-        .map((story) => story.imageUrl),
+        .map((story) => story.thumbnailUrl ?? story.imageUrl),
       ...allUsers
         .map((user) => user.avatarUrl)
         .filter((url): url is string => Boolean(url))
@@ -803,12 +814,15 @@ export function GymCirclePreview({
             formatTime={social.formatPostClock}
             hasDistancePosts={hasDistancePosts}
             headerHidden={!floatingPostVisible}
+            feedHasMore={social.feedHasMore}
+            feedLoadingMore={social.feedLoadingMore}
             commentMentionUsers={followedUsers}
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
             onDeleteComment={social.actions.deleteComment}
             onLikeComment={social.actions.likeComment}
             onLikePost={social.actions.likePost}
+            onLoadMoreFeed={social.actions.loadMoreFeed}
             onOpenLikes={openLikes}
             onOpenPostDetails={social.actions.refreshPostDetails}
             onOpenPostMenu={openPostMenu}

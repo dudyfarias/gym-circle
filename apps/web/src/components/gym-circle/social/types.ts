@@ -97,6 +97,12 @@ export type GymPost = {
   id: string;
   userId: string;
   imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
   mediaType: PostMediaType;
   caption: string;
   workoutType: string | null;
@@ -122,6 +128,12 @@ export type GymStory = {
   id: string;
   userId: string;
   imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
   mediaType: PostMediaType;
   title: string;
   caption: string;
@@ -180,6 +192,12 @@ export type ChatMessage = {
   receiverId: string | null;
   body: string | null;
   mediaUrl: string | null;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
   mediaType: "image" | "video" | null;
   storyId?: string | null;
   replyToStory?: boolean;
@@ -223,6 +241,12 @@ export type CreateWorkoutPostInput = {
   gymName?: string;
   gymId?: string | null;
   imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
   mediaType: PostMediaType;
   locationSource?: PostLocationSource;
   locationName?: string | null;
@@ -334,6 +358,7 @@ export type SocialActions = {
   sendReactivationEmail?: () => Promise<void>;
   completeOnboarding?: () => Promise<void>;
   searchProfiles?: (query: string) => Promise<EnrichedUser[]>;
+  loadMoreFeed?: () => Promise<void>;
 };
 
 export type SocialBundle = {
@@ -363,5 +388,7 @@ export type SocialBundle = {
   homeLoading?: boolean;
   secondaryLoading?: boolean;
   chatLoading?: boolean;
+  feedLoadingMore?: boolean;
+  feedHasMore?: boolean;
   refresh?: () => void | Promise<void>;
 };

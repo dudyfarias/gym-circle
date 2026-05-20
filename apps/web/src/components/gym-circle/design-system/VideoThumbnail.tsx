@@ -4,10 +4,11 @@ import { useRef } from "react";
 
 type VideoThumbnailProps = {
   src: string;
+  poster?: string | null;
   className?: string;
 };
 
-export function VideoThumbnail({ src, className = "" }: VideoThumbnailProps) {
+export function VideoThumbnail({ src, poster, className = "" }: VideoThumbnailProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   function seekFirstFrame() {
@@ -33,6 +34,7 @@ export function VideoThumbnail({ src, className = "" }: VideoThumbnailProps) {
       onCanPlay={seekFirstFrame}
       onLoadedMetadata={seekFirstFrame}
       playsInline
+      poster={poster ?? undefined}
       preload="metadata"
       src={src}
     />

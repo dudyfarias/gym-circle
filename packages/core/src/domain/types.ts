@@ -103,11 +103,23 @@ export type FeedPostRow =
     workout_date: string;
     likes_count: number;
     comments_count: number;
+    thumbnail_url?: string | null;
+    poster_url?: string | null;
+    media_width?: number | null;
+    media_height?: number | null;
+    media_duration_seconds?: number | null;
+    blur_data_url?: string | null;
   };
 
 export type CreatePostInput = {
   imageUrl: string;
   mediaType: PostMediaType;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
   caption: string;
   workoutType?: string | null;
   gymId: string | null;
@@ -122,6 +134,12 @@ export type CreatePostInput = {
 export type CreateStoryInput = {
   mediaUrl: string;
   mediaType: PostMediaType;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
   gymId: string | null;
   workoutType: string | null;
 };

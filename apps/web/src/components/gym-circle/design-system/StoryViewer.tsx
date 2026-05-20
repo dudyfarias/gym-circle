@@ -294,6 +294,7 @@ function StoryViewerContent({
             loop
             muted
             playsInline
+            poster={story.posterUrl ?? story.thumbnailUrl ?? undefined}
             preload="metadata"
             src={story.imageUrl}
           />

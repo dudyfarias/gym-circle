@@ -49,6 +49,12 @@ export function storyService(client: GymCircleClient) {
           user_id: userId,
           media_url: input.mediaUrl,
           media_type: input.mediaType,
+          thumbnail_url: input.thumbnailUrl?.trim() || null,
+          poster_url: input.posterUrl?.trim() || null,
+          media_width: input.mediaWidth ?? null,
+          media_height: input.mediaHeight ?? null,
+          media_duration_seconds: input.mediaDurationSeconds ?? null,
+          blur_data_url: input.blurDataUrl?.trim() || null,
           gym_id: input.gymId,
           workout_type: input.workoutType?.trim() || null,
         })

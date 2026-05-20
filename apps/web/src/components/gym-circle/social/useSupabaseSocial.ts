@@ -139,6 +139,7 @@ type AggregateState = {
   follows: FollowRow[];
   feedPosts: FeedPostRow[];
   profileFeedPosts: FeedPostRow[];
+  storyTrayRows: StoryTrayRow[];
   stories: StoryRow[];
   storyLikes: StoryLikeRow[];
   storyMutes: StoryMuteRow[];
@@ -170,6 +171,7 @@ const EMPTY: AggregateState = {
   follows: [],
   feedPosts: [],
   profileFeedPosts: [],
+  storyTrayRows: [],
   stories: [],
   storyLikes: [],
   storyMutes: [],
@@ -287,20 +289,58 @@ const USER_STATS_COLUMNS = [
 
 const FOLLOW_COLUMNS = "follower_id,following_id,status,created_at";
 
-type SurfacePostRow = FeedPostRow & {
+type MediaMetadata = {
+  thumbnail_url?: string | null;
+  poster_url?: string | null;
+  media_width?: number | null;
+  media_height?: number | null;
+  media_duration_seconds?: number | null;
+  blur_data_url?: string | null;
+};
+
+type SurfacePostRow = FeedPostRow & MediaMetadata & {
   liked_by_me?: boolean | null;
   is_following_author?: boolean | null;
   visibility?: string | null;
 };
 
-type StoryTrayRow = StoryRow & {
+type StoryTrayRow = MediaMetadata & {
+  author_id?: string | null;
+  user_id?: string | null;
   username?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
+  current_streak?: number | null;
+  badge_is_active_today?: boolean | null;
   author_current_streak?: number | null;
   author_badge_active?: boolean | null;
   has_unseen?: boolean | null;
   latest_story_at?: string | null;
+  story_count?: number | null;
+  first_unseen_story_id?: string | null;
+  first_story_id?: string | null;
+  id?: string | null;
+  media_url?: string | null;
+  media_type?: string | null;
+  gym_id?: string | null;
+  workout_type?: string | null;
+  expires_at?: string | null;
+  created_at?: string | null;
+};
+
+type StoryViewerItemRow = MediaMetadata & {
+  story_id: string;
+  user_id: string;
+  media_url: string;
+  media_type?: string | null;
+  caption?: string | null;
+  gym_id?: string | null;
+  workout_type?: string | null;
+  location_name?: string | null;
+  created_at: string;
+  expires_at: string;
+  viewer_has_liked?: boolean | null;
+  viewer_has_seen?: boolean | null;
 };
 
 type DiscoveryProfileRow = {
@@ -384,14 +424,16 @@ function profileRowFromPartial(input: Partial<ProfileRow> & { user_id: string })
 }
 
 function profileRowFromSurface(input: {
-  user_id: string | null;
+  user_id?: string | null;
+  author_id?: string | null;
   username?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;
 }): ProfileRow | null {
-  if (!input.user_id) return null;
+  const userId = input.user_id ?? input.author_id;
+  if (!userId) return null;
   return profileRowFromPartial({
-    user_id: input.user_id,
+    user_id: userId,
     username: input.username ?? undefined,
     display_name: input.display_name ?? input.username ?? "Gym Circle",
     avatar_url: input.avatar_url ?? null,
@@ -406,20 +448,24 @@ function mergeRowsByKey<T>(rows: T[], nextRows: T[], getKey: (row: T) => string)
 }
 
 function statsRowFromSurface(input: {
-  user_id: string | null;
+  user_id?: string | null;
+  author_id?: string | null;
   author_current_streak?: number | null;
   author_best_streak?: number | null;
   author_badge_active?: boolean | null;
+  current_streak?: number | null;
+  badge_is_active_today?: boolean | null;
 }): UserStatsRow | null {
-  if (!input.user_id) return null;
+  const userId = input.user_id ?? input.author_id;
+  if (!userId) return null;
   return {
-    user_id: input.user_id,
-    current_streak: input.author_current_streak ?? 0,
+    user_id: userId,
+    current_streak: input.author_current_streak ?? input.current_streak ?? 0,
     best_streak: input.author_best_streak ?? 0,
     workouts_this_month: 0,
     active_days_this_year: 0,
     last_active_date: null,
-    badge_is_active_today: input.author_badge_active ?? false,
+    badge_is_active_today: input.author_badge_active ?? input.badge_is_active_today ?? false,
     streak_restores_available: null,
     last_streak_restore_used_at: null,
     last_streak_restore_earned_at: null,
@@ -530,7 +576,13 @@ function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
     id: row.id,
     user_id: row.user_id,
     image_url: row.image_url,
-    media_type: row.media_type ?? "image",
+    thumbnail_url: row.thumbnail_url ?? null,
+    poster_url: row.poster_url ?? null,
+    media_width: row.media_width ?? null,
+    media_height: row.media_height ?? null,
+    media_duration_seconds: row.media_duration_seconds ?? null,
+    blur_data_url: row.blur_data_url ?? null,
+    media_type: row.media_type === "video" ? "video" : "image",
     caption: row.caption ?? null,
     gym_id: row.gym_id ?? null,
     workout_type: row.workout_type ?? null,
@@ -552,16 +604,44 @@ function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
   };
 }
 
-function storyRowFromSurface(row: StoryTrayRow): StoryRow {
+function storyRowFromSurface(row: StoryTrayRow): StoryRow | null {
+  const id = row.id ?? row.first_story_id ?? row.first_unseen_story_id;
+  const userId = row.user_id ?? row.author_id;
+  if (!id || !userId || !row.media_url || !row.expires_at || !row.created_at) return null;
   return {
-    id: row.id,
-    user_id: row.user_id,
+    id,
+    user_id: userId,
     media_url: row.media_url,
-    media_type: row.media_type ?? "image",
+    media_type: row.media_type === "video" ? "video" : "image",
     gym_id: row.gym_id ?? null,
     workout_type: row.workout_type ?? null,
     expires_at: row.expires_at,
     created_at: row.created_at,
+    thumbnail_url: row.thumbnail_url ?? null,
+    poster_url: row.poster_url ?? null,
+    media_width: row.media_width ?? null,
+    media_height: row.media_height ?? null,
+    media_duration_seconds: row.media_duration_seconds ?? null,
+    blur_data_url: row.blur_data_url ?? null,
+  };
+}
+
+function storyRowFromViewerItem(row: StoryViewerItemRow): StoryRow {
+  return {
+    id: row.story_id,
+    user_id: row.user_id,
+    media_url: row.media_url,
+    media_type: row.media_type === "video" ? "video" : "image",
+    gym_id: row.gym_id ?? null,
+    workout_type: row.workout_type ?? null,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+    thumbnail_url: row.thumbnail_url ?? null,
+    poster_url: row.poster_url ?? null,
+    media_width: row.media_width ?? null,
+    media_height: row.media_height ?? null,
+    media_duration_seconds: row.media_duration_seconds ?? null,
+    blur_data_url: row.blur_data_url ?? null,
   };
 }
 
@@ -574,6 +654,12 @@ function directMessageRowFromPartial(row: Partial<DirectMessageRow>): DirectMess
     receiver_id: row.receiver_id ?? null,
     body: row.body ?? null,
     media_url: row.media_url ?? null,
+    thumbnail_url: row.thumbnail_url ?? null,
+    poster_url: row.poster_url ?? null,
+    media_width: row.media_width ?? null,
+    media_height: row.media_height ?? null,
+    media_duration_seconds: row.media_duration_seconds ?? null,
+    blur_data_url: row.blur_data_url ?? null,
     media_type: row.media_type ?? null,
     story_id: row.story_id ?? null,
     reply_to_story: row.reply_to_story ?? false,
@@ -592,9 +678,10 @@ function logSurfaceFallback(surface: string, error: unknown) {
 async function queryHomeFeedSurface(
   client: GymCircleSupabaseClient,
   limit: number,
+  cursorCreatedAt: string | null = null,
 ): Promise<{ data: SurfacePostRow[]; error: unknown }> {
   const rpcRes = await client.rpc("get_home_feed", {
-    p_cursor_created_at: null,
+    p_cursor_created_at: cursorCreatedAt,
     p_limit: limit,
   });
   if (!rpcRes.error) {
@@ -643,14 +730,22 @@ async function queryStoryTraySurface(
   client: GymCircleSupabaseClient,
   limit: number,
 ): Promise<{ data: StoryTrayRow[]; error: unknown }> {
-  const rpcRes = await client.rpc("get_story_tray", {
+  const lightweightRes = await client.rpc("get_story_tray_lightweight", {
     p_limit: limit,
   });
-  if (!rpcRes.error) {
-    return { data: (rpcRes.data ?? []) as StoryTrayRow[], error: null };
+  if (!lightweightRes.error) {
+    return { data: (lightweightRes.data ?? []) as StoryTrayRow[], error: null };
   }
 
-  logSurfaceFallback("story tray", rpcRes.error);
+  logSurfaceFallback("lightweight story tray", lightweightRes.error);
+  const legacyRes = await client.rpc("get_story_tray", {
+    p_limit: limit,
+  });
+  if (!legacyRes.error) {
+    return { data: (legacyRes.data ?? []) as unknown as StoryTrayRow[], error: null };
+  }
+
+  logSurfaceFallback("story tray", legacyRes.error);
   const fallbackRes = await client
     .from("stories")
     .select("id,user_id,media_url,media_type,gym_id,workout_type,expires_at,created_at")
@@ -660,6 +755,48 @@ async function queryStoryTraySurface(
 
   return {
     data: (fallbackRes.data ?? []) as unknown as StoryTrayRow[],
+    error: fallbackRes.error,
+  };
+}
+
+async function queryStoryViewerItemsSurface(
+  client: GymCircleSupabaseClient,
+  authorId: string,
+): Promise<{ data: StoryViewerItemRow[]; error: unknown }> {
+  const rpcRes = await client.rpc("get_story_viewer_items", {
+    p_author_id: authorId,
+  });
+  if (!rpcRes.error) {
+    return { data: (rpcRes.data ?? []) as StoryViewerItemRow[], error: null };
+  }
+
+  logSurfaceFallback("story viewer items", rpcRes.error);
+  const fallbackRes = await client
+    .from("stories")
+    .select("id,user_id,media_url,media_type,gym_id,workout_type,expires_at,created_at")
+    .eq("user_id", authorId)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: true });
+
+  return {
+    data: ((fallbackRes.data ?? []) as unknown as Array<StoryRow & MediaMetadata>).map((row) => ({
+      story_id: row.id,
+      user_id: row.user_id,
+      media_url: row.media_url,
+      media_type: row.media_type,
+      gym_id: row.gym_id,
+      workout_type: row.workout_type,
+      created_at: row.created_at,
+      expires_at: row.expires_at,
+      thumbnail_url: row.thumbnail_url,
+      poster_url: row.poster_url,
+      media_width: row.media_width,
+      media_height: row.media_height,
+      media_duration_seconds: row.media_duration_seconds,
+      blur_data_url: row.blur_data_url,
+      viewer_has_liked: null,
+      viewer_has_seen: null,
+    })),
     error: fallbackRes.error,
   };
 }
@@ -854,6 +991,7 @@ export type SupabaseSocialActions = {
   refreshPostDetails: (postId: string) => Promise<void>;
   refreshProfilePosts: (userId: string) => Promise<void>;
   searchProfiles: (query: string) => Promise<EnrichedUser[]>;
+  loadMoreFeed: () => Promise<void>;
 };
 
 export type SupabaseSocialResult = {
@@ -883,6 +1021,8 @@ export type SupabaseSocialResult = {
   homeLoading: boolean;
   secondaryLoading: boolean;
   chatLoading: boolean;
+  feedLoadingMore: boolean;
+  feedHasMore: boolean;
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
@@ -895,6 +1035,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const [chatHydrated, setChatHydrated] = useState(false);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
+  const [feedHasMore, setFeedHasMore] = useState(true);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
@@ -1004,11 +1146,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const feedSurfaceRows = (feedRes.data ?? []) as SurfacePostRow[];
       const storySurfaceRows = (storiesRes.data ?? []) as StoryTrayRow[];
       const feedPosts = feedSurfaceRows.map(feedPostRowFromSurface);
-      const stories = storySurfaceRows.map(storyRowFromSurface);
+      const stories = storySurfaceRows
+        .map(storyRowFromSurface)
+        .filter((story): story is StoryRow => Boolean(story));
       const postIds = feedPosts.map((p) => p.id);
       const storyIds = stories.map((story) => story.id);
 
       if (!mountedRef.current) return { postIds, storyIds };
+      setFeedHasMore(feedPosts.length >= INITIAL_FEED_LIMIT);
       const blockedUserIds = ((blocksRes.data ?? []) as Array<{ blocked_id: string }>)
         .map((row) => row.blocked_id);
       const mutedPostUserIds = (
@@ -1037,9 +1182,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           created_at: row.created_at ?? new Date().toISOString(),
         }));
       const nextStoryViews: StoryViewRow[] = storySurfaceRows
-        .filter((row) => row.has_unseen === false && row.id)
+        .filter((row) => row.has_unseen === false && (row.id || row.first_story_id))
         .map((row) => ({
-          story_id: row.id as string,
+          story_id: (row.id ?? row.first_story_id) as string,
           user_id: currentUserId,
           viewed_at: row.created_at ?? new Date().toISOString(),
         }));
@@ -1049,6 +1194,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
+        storyTrayRows: storySurfaceRows,
         stories,
         postLikes: [
           ...current.postLikes.filter(
@@ -1216,6 +1362,76 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       }
     },
     [services, currentUserId, refreshNotifications, refreshUnreadMessageCount],
+  );
+
+  const refreshStoryViewerItems = useCallback(
+    async (authorId: string): Promise<StoryRow[]> => {
+      markPerf("story_viewer_items_start");
+      try {
+        const viewerRes = await queryStoryViewerItemsSurface(services.client, authorId);
+        if (viewerRes.error) throw viewerRes.error;
+        const storyRows = (viewerRes.data ?? []).map(storyRowFromViewerItem);
+        const storyIds = storyRows.map((story) => story.id);
+        const storyParticipants =
+          storyIds.length > 0
+            ? await services.participants.listStoryParticipants(storyIds)
+            : [];
+        const nextCurrentUserLikes: StoryLikeRow[] = (viewerRes.data ?? [])
+          .filter((row) => row.viewer_has_liked)
+          .map((row) => ({
+            story_id: row.story_id,
+            user_id: currentUserId,
+            created_at: row.created_at,
+          }));
+        const nextViewedRows: StoryViewRow[] = (viewerRes.data ?? [])
+          .filter((row) => row.viewer_has_seen)
+          .map((row) => ({
+            story_id: row.story_id,
+            user_id: currentUserId,
+            viewed_at: new Date().toISOString(),
+          }));
+
+        if (!mountedRef.current) return storyRows;
+        setAgg((current) => ({
+          ...current,
+          stories: mergeRowsByKey(current.stories, storyRows, (story) => story.id),
+          storyLikes: [
+            ...current.storyLikes.filter(
+              (like) =>
+                !(
+                  like.user_id === currentUserId &&
+                  storyIds.includes(like.story_id)
+                ),
+            ),
+            ...nextCurrentUserLikes,
+          ],
+          storyViews: mergeRowsByKey(
+            current.storyViews,
+            nextViewedRows,
+            (view) => `${view.story_id}:${view.user_id}`,
+          ),
+          storyParticipants: [
+            ...current.storyParticipants.filter(
+              (participant) => !storyIds.includes(participant.story_id),
+            ),
+            ...storyParticipants,
+          ],
+        }));
+        return storyRows;
+      } catch (err) {
+        if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
+          console.warn("[GymCirclePerf] story viewer hydration failed", err);
+        }
+        return [];
+      } finally {
+        measurePerf(
+          "story_viewer_items_ms",
+          "story_viewer_items_start",
+          "story_viewer_items_end",
+        );
+      }
+    },
+    [currentUserId, services],
   );
 
   const refreshChat = useCallback(async () => {
@@ -1509,6 +1725,68 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     const snapshot = await refreshHomeCritical();
     void refreshHomeSecondary(snapshot);
   }, [refreshHomeCritical, refreshHomeSecondary]);
+
+  const loadMoreFeed = useCallback(async () => {
+    if (feedLoadingMore || !feedHasMore) return;
+    const currentPosts = aggRef.current.feedPosts;
+    const cursor = currentPosts
+      .map((post) => post.created_at)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0];
+    if (!cursor) {
+      setFeedHasMore(false);
+      return;
+    }
+
+    markPerf("load_more_feed_start");
+    setFeedLoadingMore(true);
+    try {
+      const feedRes = await queryHomeFeedSurface(
+        services.client,
+        INITIAL_FEED_LIMIT,
+        cursor,
+      );
+      if (feedRes.error) throw feedRes.error;
+      const feedSurfaceRows = (feedRes.data ?? []) as SurfacePostRow[];
+      const feedPosts = feedSurfaceRows.map(feedPostRowFromSurface);
+      const postIds = feedPosts.map((post) => post.id);
+      const surfaceProfiles = feedSurfaceRows
+        .map(profileRowFromSurface)
+        .filter((profile): profile is ProfileRow => Boolean(profile));
+      const surfaceStats = feedSurfaceRows
+        .map(statsRowFromSurface)
+        .filter((stats): stats is UserStatsRow => Boolean(stats));
+      const nextCurrentUserLikes: PostLikeRow[] = feedSurfaceRows
+        .filter((row) => row.liked_by_me && row.id)
+        .map((row) => ({
+          post_id: row.id as string,
+          user_id: currentUserId,
+          created_at: row.created_at ?? new Date().toISOString(),
+        }));
+
+      if (!mountedRef.current) return;
+      setFeedHasMore(feedPosts.length >= INITIAL_FEED_LIMIT);
+      setAgg((current) => ({
+        ...current,
+        profiles: mergeRowsByKey(current.profiles, surfaceProfiles, (profile) => profile.user_id),
+        stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
+        feedPosts: mergeRowsByKey(current.feedPosts, feedPosts, (post) => post.id),
+        postLikes: [
+          ...current.postLikes.filter(
+            (like) =>
+              !(like.user_id === currentUserId && postIds.includes(like.post_id)),
+          ),
+          ...nextCurrentUserLikes,
+        ],
+      }));
+    } catch (err) {
+      if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
+        console.warn("[GymCirclePerf] load more feed failed", err);
+      }
+    } finally {
+      if (mountedRef.current) setFeedLoadingMore(false);
+      measurePerf("load_more_feed_ms", "load_more_feed_start", "load_more_feed_end");
+    }
+  }, [currentUserId, feedHasMore, feedLoadingMore, services.client]);
 
   const scheduleRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -2001,6 +2279,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           id: row.id,
           userId: row.user_id,
           imageUrl: row.image_url,
+          thumbnailUrl: row.thumbnail_url ?? null,
+          posterUrl: row.poster_url ?? null,
+          mediaWidth: row.media_width ?? null,
+          mediaHeight: row.media_height ?? null,
+          mediaDurationSeconds: row.media_duration_seconds ?? null,
+          blurDataUrl: row.blur_data_url ?? null,
           mediaType: row.media_type ?? "image",
           caption: row.caption ?? "",
           workoutType: row.workout_type ?? null,
@@ -2057,6 +2341,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     const out: EnrichedStory[] = [];
     const viewedSet = new Set(viewedStoryIds);
     for (const view of agg.storyViews) viewedSet.add(view.story_id);
+    const hydratedAuthors = new Set(agg.stories.map((story) => story.user_id));
     const visibleStories = filterMutedStories(
       agg.stories.map((story) => ({ ...story, userId: story.user_id })),
       agg.storyMutes.map((mute) => ({ mutedUserId: mute.muted_user_id })),
@@ -2101,6 +2386,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         id: row.id,
         userId: row.user_id,
         imageUrl: row.media_url,
+        thumbnailUrl: row.thumbnail_url ?? null,
+        posterUrl: row.poster_url ?? null,
+        mediaWidth: row.media_width ?? null,
+        mediaHeight: row.media_height ?? null,
+        mediaDurationSeconds: row.media_duration_seconds ?? null,
+        blurDataUrl: row.blur_data_url ?? null,
         mediaType: row.media_type ?? "image",
         title: row.workout_type ?? "Treino",
         caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
@@ -2128,9 +2419,42 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         author,
       });
     }
+    for (const trayRow of agg.storyTrayRows) {
+      const authorId = trayRow.author_id ?? trayRow.user_id;
+      const storyId = trayRow.first_unseen_story_id ?? trayRow.first_story_id ?? trayRow.id;
+      if (!authorId || !storyId || hydratedAuthors.has(authorId)) continue;
+      if (agg.storyMutes.some((mute) => mute.muted_user_id === authorId)) continue;
+      const author = enrichedAll.get(authorId);
+      if (!author) continue;
+      const viewed = trayRow.has_unseen === false || viewedSet.has(storyId);
+      out.push({
+        id: storyId,
+        userId: authorId,
+        imageUrl: trayRow.avatar_url ?? "",
+        thumbnailUrl: trayRow.avatar_url ?? null,
+        posterUrl: null,
+        mediaWidth: null,
+        mediaHeight: null,
+        mediaDurationSeconds: null,
+        blurDataUrl: null,
+        mediaType: "image",
+        title: "Treino",
+        caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
+        createdAt: trayRow.latest_story_at ?? new Date().toISOString(),
+        viewed,
+        likedByCurrentUser: false,
+        likesCount: 0,
+        kind: "workout",
+        participants: [],
+        acceptedParticipants: [],
+        pendingParticipants: [],
+        author,
+      });
+    }
     return sortStoriesNewestFirst(out);
   }, [
     agg.stories,
+    agg.storyTrayRows,
     agg.storyLikes,
     agg.storyMutes,
     agg.storyViews,
@@ -2260,6 +2584,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           receiverId: message.receiver_id,
           body: message.body,
           mediaUrl: message.media_url,
+          thumbnailUrl: message.thumbnail_url ?? null,
+          posterUrl: message.poster_url ?? null,
+          mediaWidth: message.media_width ?? null,
+          mediaHeight: message.media_height ?? null,
+          mediaDurationSeconds: message.media_duration_seconds ?? null,
+          blurDataUrl: message.blur_data_url ?? null,
           mediaType: message.media_type,
           storyId: message.story_id,
           replyToStory: message.reply_to_story,
@@ -2512,46 +2842,63 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         return result;
       },
       openStory(storyId: string) {
-        markPerf("stories_open_start");
-        const group =
-          storyGroups.find((item) => item.id === storyId) ??
-          storyGroups.find((item) => item.stories.some((story) => story.id === storyId)) ??
-          null;
-        const story =
-          group?.stories.find((item) => !item.viewed) ??
-          group?.stories.find((item) => item.id === storyId) ??
-          storyItems.find((item) => item.id === storyId) ??
-          null;
-        if (!story) return;
-        const nextStoryId = story.id;
-        setViewedStoryIds((current) => {
-          const next = new Set(current);
-          next.add(nextStoryId);
-          persistStoredViewedStoryIds(currentUserId, next);
-          return next;
-        });
-        setAgg((current) => {
-          const alreadyTracked = current.storyViews.some(
-            (view) => view.story_id === nextStoryId && view.user_id === currentUserId,
-          );
-          if (alreadyTracked) return current;
-          return {
-            ...current,
-            storyViews: [
-              ...current.storyViews,
-              {
-                story_id: nextStoryId,
-                user_id: currentUserId,
-                viewed_at: new Date().toISOString(),
-              },
-            ],
-          };
-        });
-        void services.stories.markViewed(nextStoryId, currentUserId).catch(() => undefined);
-        setSelectedStoryGroupId(group?.id ?? story.author.id);
-        setSelectedStoryId(nextStoryId);
-        simulateHaptic("brand");
-        measurePerf("stories_open_ms", "stories_open_start", "stories_open_end");
+        void (async () => {
+          markPerf("stories_open_start");
+          const group =
+            storyGroups.find((item) => item.id === storyId) ??
+            storyGroups.find((item) => item.stories.some((story) => story.id === storyId)) ??
+            null;
+          const placeholderStory =
+            group?.stories.find((item) => !item.viewed) ??
+            group?.stories.find((item) => item.id === storyId) ??
+            storyItems.find((item) => item.id === storyId) ??
+            null;
+          if (!placeholderStory) return;
+
+          let nextStoryId = placeholderStory.id;
+          const isHydrated = aggRef.current.stories.some((story) => story.id === nextStoryId);
+          if (!isHydrated) {
+            const hydratedStories = await refreshStoryViewerItems(placeholderStory.author.id);
+            const viewedSet = new Set(viewedStoryIds);
+            for (const view of aggRef.current.storyViews) viewedSet.add(view.story_id);
+            const hydratedStory =
+              hydratedStories.find((item) => !viewedSet.has(item.id)) ??
+              hydratedStories.find((item) => item.id === storyId) ??
+              hydratedStories[0] ??
+              null;
+            if (!hydratedStory) return;
+            nextStoryId = hydratedStory.id;
+          }
+
+          setViewedStoryIds((current) => {
+            const next = new Set(current);
+            next.add(nextStoryId);
+            persistStoredViewedStoryIds(currentUserId, next);
+            return next;
+          });
+          setAgg((current) => {
+            const alreadyTracked = current.storyViews.some(
+              (view) => view.story_id === nextStoryId && view.user_id === currentUserId,
+            );
+            if (alreadyTracked) return current;
+            return {
+              ...current,
+              storyViews: [
+                ...current.storyViews,
+                {
+                  story_id: nextStoryId,
+                  user_id: currentUserId,
+                  viewed_at: new Date().toISOString(),
+                },
+              ],
+            };
+          });
+          void services.stories.markViewed(nextStoryId, currentUserId).catch(() => undefined);
+          setSelectedStoryGroupId(group?.id ?? placeholderStory.author.id);
+          setSelectedStoryId(nextStoryId);
+          simulateHaptic("brand");
+          measurePerf("stories_open_ms", "stories_open_start", "stories_open_end");
+        })();
       },
       closeStory() {
         setSelectedStoryId(null);
@@ -2736,6 +3083,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           const post = await services.posts.create(currentUserId, {
             imageUrl: input.imageUrl,
             mediaType: input.mediaType,
+            thumbnailUrl: input.thumbnailUrl ?? null,
+            posterUrl: input.posterUrl ?? null,
+            mediaWidth: input.mediaWidth ?? null,
+            mediaHeight: input.mediaHeight ?? null,
+            mediaDurationSeconds: input.mediaDurationSeconds ?? null,
+            blurDataUrl: input.blurDataUrl ?? null,
             caption: input.caption,
             gymId: input.gymId ?? null,
             workoutType: input.workoutType ?? null,
@@ -2752,6 +3105,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           const story = await services.stories.create(currentUserId, {
             mediaUrl: input.imageUrl,
             mediaType: input.mediaType,
+            thumbnailUrl: input.thumbnailUrl ?? null,
+            posterUrl: input.posterUrl ?? null,
+            mediaWidth: input.mediaWidth ?? null,
+            mediaHeight: input.mediaHeight ?? null,
+            mediaDurationSeconds: input.mediaDurationSeconds ?? null,
+            blurDataUrl: input.blurDataUrl ?? null,
             gymId: input.gymId ?? null,
             workoutType: input.workoutType ?? null,
           });
@@ -3082,6 +3441,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       refreshChat,
       refreshPostDetails,
       refreshProfilePosts,
+      loadMoreFeed,
     }),
     [
       services,
@@ -3099,7 +3459,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       refreshConversationMessages,
       refreshPostDetails,
       refreshProfilePosts,
+      refreshStoryViewerItems,
+      loadMoreFeed,
       showFeedback,
+      viewedStoryIds,
     ],
   );
 
@@ -3176,6 +3539,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     homeLoading: loading,
     secondaryLoading,
     chatLoading,
+    feedLoadingMore,
+    feedHasMore,
     loading,
     error,
     refresh,

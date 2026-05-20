@@ -100,6 +100,8 @@ export function SocialPostCard({
   const [videoVisible, setVideoVisible] = useState(false);
   const canFollow = post.author.id !== currentUserId;
   const mediaType = post.mediaType ?? "image";
+  const imagePreviewUrl = post.thumbnailUrl ?? post.imageUrl;
+  const videoPosterUrl = post.posterUrl ?? post.thumbnailUrl ?? undefined;
   const isPostOwner = post.userId === currentUserId;
   const acceptedParticipants = post.acceptedParticipants ?? [];
   const pendingParticipants = post.pendingParticipants ?? [];
@@ -367,6 +369,7 @@ export function SocialPostCard({
             loop
             muted
             playsInline
+            poster={videoPosterUrl}
             preload="metadata"
             ref={videoRef}
             src={post.imageUrl}
@@ -377,7 +380,7 @@ export function SocialPostCard({
             className="w-full"
             priority={post.author.username === "edu.fit"}
             sizes="(max-width: 480px) 100vw, 480px"
-            src={post.imageUrl}
+            src={imagePreviewUrl}
           />
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/84 via-black/18 to-transparent p-4">

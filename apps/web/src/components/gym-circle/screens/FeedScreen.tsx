@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useRef } from "react";
 import {
   Camera,
   Clock3,
@@ -54,6 +57,9 @@ type FeedScreenProps = {
   hasDistancePosts?: boolean;
   headerHidden?: boolean;
   loading?: boolean;
+  feedHasMore?: boolean;
+  feedLoadingMore?: boolean;
+  onLoadMoreFeed?: () => void | Promise<void>;
 };
 
 function getSharedGymCount(currentUser: EnrichedUser, user: EnrichedUser) {
@@ -90,9 +96,28 @@ export function FeedScreen({
   hasDistancePosts = false,
   headerHidden = false,
   loading = false,
+  feedHasMore = false,
+  feedLoadingMore = false,
+  onLoadMoreFeed,
 }: FeedScreenProps) {
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const profileCompletion = calculateProfileCompletion(currentUser);
   const hasFirstPost = feedPosts.some((post) => post.userId === currentUser.id);
+
+  useEffect(() => {
+    const node = loadMoreRef.current;
+    if (!node || !onLoadMoreFeed || !feedHasMore || feedLoadingMore) return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) void onLoadMoreFeed();
+      },
+      { rootMargin: "640px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [feedHasMore, feedLoadingMore, feedPosts.length, onLoadMoreFeed]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -162,6 +187,13 @@ export function FeedScreen({
               ) : null}
             </div>
           ))}
+          <div ref={loadMoreRef} className="min-h-6 py-2 text-center">
+            {feedLoadingMore ? (
+              <span className="inline-flex items-center rounded-full bg-white/[0.05] px-3 py-2 text-[12px] font-black text-white/44">
+                Carregando mais...
+              </span>
+            ) : null}
+          </div>
         </div>
       ) : (
         <EmptyState

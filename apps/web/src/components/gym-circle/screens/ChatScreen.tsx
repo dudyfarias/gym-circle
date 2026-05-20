@@ -1142,6 +1142,7 @@ function MessageBubble({
             className="mb-1 aspect-square w-48 rounded-[18px] bg-black/20 object-cover"
             controls
             playsInline
+            poster={message.posterUrl ?? message.thumbnailUrl ?? undefined}
             preload="metadata"
             src={message.mediaUrl}
           />
@@ -1152,7 +1153,7 @@ function MessageBubble({
               className="object-cover"
               fill
               sizes="192px"
-              src={message.mediaUrl}
+              src={message.thumbnailUrl ?? message.mediaUrl}
             />
           </div>
         ) : null}

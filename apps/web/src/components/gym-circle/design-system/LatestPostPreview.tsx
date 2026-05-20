@@ -41,6 +41,7 @@ export function LatestPostPreview({
         {post.mediaType === "video" ? (
           <VideoThumbnail
             className="h-full w-full object-cover"
+            poster={post.posterUrl ?? post.thumbnailUrl}
             src={post.imageUrl}
           />
         ) : (
@@ -49,7 +50,7 @@ export function LatestPostPreview({
             className="object-cover"
             fill
             sizes="(max-width: 480px) 100vw, 480px"
-            src={post.imageUrl}
+            src={post.thumbnailUrl ?? post.imageUrl}
           />
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/88 via-black/24 to-transparent p-4">

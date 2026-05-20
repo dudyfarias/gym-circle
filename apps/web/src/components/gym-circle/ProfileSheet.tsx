@@ -215,6 +215,7 @@ export function ProfileSheet({
                         {post.mediaType === "video" ? (
                           <VideoThumbnail
                             className="h-full w-full object-cover"
+                            poster={post.posterUrl ?? post.thumbnailUrl}
                             src={post.imageUrl}
                           />
                         ) : (
@@ -223,7 +224,7 @@ export function ProfileSheet({
                             className="object-cover"
                             fill
                             sizes="120px"
-                            src={post.imageUrl}
+                            src={post.thumbnailUrl ?? post.imageUrl}
                           />
                         )}
                         {post.mediaType === "video" ? (
@@ -281,6 +282,7 @@ function PrivateLockedNotice({
           {latestPost.mediaType === "video" ? (
             <VideoThumbnail
               className="h-full w-full object-cover"
+              poster={latestPost.posterUrl ?? latestPost.thumbnailUrl}
               src={latestPost.imageUrl}
             />
           ) : (
@@ -289,7 +291,7 @@ function PrivateLockedNotice({
               className="object-cover"
               fill
               sizes="220px"
-              src={latestPost.imageUrl}
+              src={latestPost.thumbnailUrl ?? latestPost.imageUrl}
             />
           )}
           {latestPost.mediaType === "video" ? (

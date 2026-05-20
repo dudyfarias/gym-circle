@@ -36,7 +36,7 @@ type PostScreenProps = {
   currentUser: EnrichedUser;
   gyms?: GymLocationOption[];
   onPublish: (input: CreateWorkoutPostInput) => void | Promise<void>;
-  onUploadImage?: (file: File) => Promise<string>;
+  onUploadImage?: (file: File) => Promise<string | WorkoutMediaUploadResult>;
   taggableUsers?: EnrichedUser[];
   /**
    * Cataloga um lugar buscado via Maps no banco (dedup + insert) e
@@ -45,6 +45,16 @@ type PostScreenProps = {
    */
   onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
   recentLocations?: PlaceCandidate[];
+};
+
+type WorkoutMediaUploadResult = {
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
 };
 
 const workoutTypes = [
@@ -108,6 +118,7 @@ export function PostScreen({
   const [locationName, setLocationName] = useState("");
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [imageUrl, setImageUrl] = useState("");
+  const [mediaMeta, setMediaMeta] = useState<Omit<WorkoutMediaUploadResult, "imageUrl">>({});
   const [mediaType, setMediaType] = useState<PostMediaType>("image");
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -263,10 +274,24 @@ export function PostScreen({
     setUploadError(null);
     setPublishError(null);
     setMediaType(getMediaType(file));
+    setMediaMeta({});
 
     try {
-      const url = onUploadImage ? await onUploadImage(file) : URL.createObjectURL(file);
+      const uploaded = onUploadImage ? await onUploadImage(file) : URL.createObjectURL(file);
+      const url = typeof uploaded === "string" ? uploaded : uploaded.imageUrl;
       setImageUrl(url);
+      setMediaMeta(
+        typeof uploaded === "string"
+          ? {}
+          : {
+              thumbnailUrl: uploaded.thumbnailUrl ?? null,
+              posterUrl: uploaded.posterUrl ?? null,
+              mediaWidth: uploaded.mediaWidth ?? null,
+              mediaHeight: uploaded.mediaHeight ?? null,
+              mediaDurationSeconds: uploaded.mediaDurationSeconds ?? null,
+              blurDataUrl: uploaded.blurDataUrl ?? null,
+            },
+      );
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
@@ -382,6 +407,12 @@ export function PostScreen({
         gymId: resolvedLocation.gymId,
         gymName: resolvedLocation.name ?? "",
         imageUrl,
+        thumbnailUrl: mediaMeta.thumbnailUrl ?? null,
+        posterUrl: mediaMeta.posterUrl ?? null,
+        mediaWidth: mediaMeta.mediaWidth ?? null,
+        mediaHeight: mediaMeta.mediaHeight ?? null,
+        mediaDurationSeconds: mediaMeta.mediaDurationSeconds ?? null,
+        blurDataUrl: mediaMeta.blurDataUrl ?? null,
         mediaType,
         locationSource: resolvedLocation.source,
         locationName: resolvedLocation.name,
@@ -453,6 +484,7 @@ export function PostScreen({
                 loop
                 muted
                 playsInline
+                poster={mediaMeta.posterUrl ?? mediaMeta.thumbnailUrl ?? undefined}
                 preload="metadata"
                 src={imageUrl}
               />
@@ -461,7 +493,7 @@ export function PostScreen({
                 alt="Mídia do treino"
                 className="w-full"
                 sizes="(max-width: 480px) 100vw, 480px"
-                src={imageUrl}
+                src={mediaMeta.thumbnailUrl ?? imageUrl}
               />
             )}
             <button

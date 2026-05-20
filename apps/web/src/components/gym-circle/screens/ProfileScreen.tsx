@@ -340,6 +340,7 @@ function PostThumb({
       {post.mediaType === "video" ? (
         <VideoThumbnail
           className="h-full w-full object-cover"
+          poster={post.posterUrl ?? post.thumbnailUrl}
           src={post.imageUrl}
         />
       ) : (
@@ -348,7 +349,7 @@ function PostThumb({
           className="object-cover"
           fill
           sizes="(max-width: 480px) 33vw, 160px"
-          src={post.imageUrl}
+          src={post.thumbnailUrl ?? post.imageUrl}
         />
       )}
       {post.mediaType === "video" ? (

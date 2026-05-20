@@ -183,42 +183,60 @@ export type Database = {
           conversation_id: string | null
           created_at: string
           id: string
+          blur_data_url: string | null
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_width: number | null
           media_type: string | null
           media_url: string | null
+          poster_url: string | null
           read_at: string | null
           receiver_id: string | null
           reply_to_story: boolean
           sender_id: string
           story_id: string | null
           story_preview_url: string | null
+          thumbnail_url: string | null
         }
         Insert: {
           body?: string | null
           conversation_id?: string | null
           created_at?: string
           id?: string
+          blur_data_url?: string | null
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_width?: number | null
           media_type?: string | null
           media_url?: string | null
+          poster_url?: string | null
           read_at?: string | null
           receiver_id?: string | null
           reply_to_story?: boolean
           sender_id: string
           story_id?: string | null
           story_preview_url?: string | null
+          thumbnail_url?: string | null
         }
         Update: {
           body?: string | null
           conversation_id?: string | null
           created_at?: string
           id?: string
+          blur_data_url?: string | null
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_width?: number | null
           media_type?: string | null
           media_url?: string | null
+          poster_url?: string | null
           read_at?: string | null
           receiver_id?: string | null
           reply_to_story?: boolean
           sender_id?: string
           story_id?: string | null
           story_preview_url?: string | null
+          thumbnail_url?: string | null
         }
         Relationships: [
           {
@@ -558,12 +576,18 @@ export type Database = {
           id: string
           image_url: string
           is_story_source: boolean
+          blur_data_url: string | null
           location_google_maps_url: string | null
           location_latitude: number | null
           location_longitude: number | null
           location_name: string | null
           location_source: string
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_width: number | null
           media_type: string
+          poster_url: string | null
+          thumbnail_url: string | null
           user_id: string
           workout_date: string
           workout_type: string | null
@@ -575,12 +599,18 @@ export type Database = {
           id?: string
           image_url: string
           is_story_source?: boolean
+          blur_data_url?: string | null
           location_google_maps_url?: string | null
           location_latitude?: number | null
           location_longitude?: number | null
           location_name?: string | null
           location_source?: string
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_width?: number | null
           media_type?: string
+          poster_url?: string | null
+          thumbnail_url?: string | null
           user_id: string
           workout_date?: string
           workout_type?: string | null
@@ -592,12 +622,18 @@ export type Database = {
           id?: string
           image_url?: string
           is_story_source?: boolean
+          blur_data_url?: string | null
           location_google_maps_url?: string | null
           location_latitude?: number | null
           location_longitude?: number | null
           location_name?: string | null
           location_source?: string
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_width?: number | null
           media_type?: string
+          poster_url?: string | null
+          thumbnail_url?: string | null
           user_id?: string
           workout_date?: string
           workout_type?: string | null
@@ -909,8 +945,14 @@ export type Database = {
           expires_at: string
           gym_id: string | null
           id: string
+          blur_data_url: string | null
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_width: number | null
           media_type: string
           media_url: string
+          poster_url: string | null
+          thumbnail_url: string | null
           user_id: string
           workout_type: string | null
         }
@@ -919,8 +961,14 @@ export type Database = {
           expires_at?: string
           gym_id?: string | null
           id?: string
+          blur_data_url?: string | null
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_width?: number | null
           media_type?: string
           media_url: string
+          poster_url?: string | null
+          thumbnail_url?: string | null
           user_id: string
           workout_type?: string | null
         }
@@ -929,8 +977,14 @@ export type Database = {
           expires_at?: string
           gym_id?: string | null
           id?: string
+          blur_data_url?: string | null
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_width?: number | null
           media_type?: string
           media_url?: string
+          poster_url?: string | null
+          thumbnail_url?: string | null
           user_id?: string
           workout_type?: string | null
         }
@@ -1254,18 +1308,24 @@ export type Database = {
           p_limit?: number
         }
         Returns: {
+          blur_data_url: string | null
           body: string | null
           conversation_id: string | null
           created_at: string
           id: string
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_width: number | null
           media_type: string | null
           media_url: string | null
+          poster_url: string | null
           read_at: string | null
           receiver_id: string | null
           reply_to_story: boolean
           sender_id: string
           story_id: string | null
           story_preview_url: string | null
+          thumbnail_url: string | null
         }[]
       }
       get_conversation_summaries: {
@@ -1294,6 +1354,7 @@ export type Database = {
           author_best_streak: number | null
           author_current_streak: number | null
           avatar_url: string | null
+          blur_data_url: string | null
           caption: string | null
           comments_count: number | null
           created_at: string
@@ -1309,7 +1370,12 @@ export type Database = {
           location_longitude: number | null
           location_name: string | null
           location_source: string | null
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_width: number | null
           media_type: string | null
+          poster_url: string | null
+          thumbnail_url: string | null
           user_id: string
           username: string | null
           visibility: string | null
@@ -1328,6 +1394,7 @@ export type Database = {
           author_best_streak: number | null
           author_current_streak: number | null
           avatar_url: string | null
+          blur_data_url: string | null
           caption: string | null
           comments_count: number | null
           created_at: string
@@ -1343,7 +1410,12 @@ export type Database = {
           location_longitude: number | null
           location_name: string | null
           location_source: string | null
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_width: number | null
           media_type: string | null
+          poster_url: string | null
+          thumbnail_url: string | null
           user_id: string
           username: string | null
           visibility: string | null
@@ -1369,6 +1441,45 @@ export type Database = {
           shared_gym_name: string | null
           user_id: string
           username: string
+        }[]
+      }
+      get_story_tray_lightweight: {
+        Args: { p_limit?: number }
+        Returns: {
+          author_id: string
+          avatar_url: string | null
+          badge_is_active_today: boolean
+          current_streak: number
+          display_name: string | null
+          first_story_id: string
+          first_unseen_story_id: string | null
+          has_unseen: boolean
+          latest_story_at: string
+          story_count: number
+          username: string
+        }[]
+      }
+      get_story_viewer_items: {
+        Args: { p_author_id: string }
+        Returns: {
+          blur_data_url: string | null
+          caption: string | null
+          created_at: string
+          expires_at: string
+          gym_id: string | null
+          location_name: string | null
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_type: string | null
+          media_url: string
+          media_width: number | null
+          poster_url: string | null
+          story_id: string
+          thumbnail_url: string | null
+          user_id: string
+          viewer_has_liked: boolean
+          viewer_has_seen: boolean
+          workout_type: string | null
         }[]
       }
       search_profiles: {

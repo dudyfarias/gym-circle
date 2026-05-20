@@ -137,6 +137,7 @@ export function EditPostSheet({
                 controls={false}
                 muted
                 playsInline
+                poster={post.posterUrl ?? post.thumbnailUrl ?? undefined}
                 preload="metadata"
                 src={post.imageUrl}
               />
@@ -145,7 +146,7 @@ export function EditPostSheet({
                 alt="Mídia do post"
                 className="w-full"
                 sizes="(max-width: 480px) 100vw, 480px"
-                src={post.imageUrl}
+                src={post.thumbnailUrl ?? post.imageUrl}
               />
             )}
             <div className="absolute bottom-2 left-2 rounded-full bg-black/64 px-3 py-1.5 text-[11px] font-bold text-white/72 backdrop-blur-md">

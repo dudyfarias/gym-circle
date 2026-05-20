@@ -11,50 +11,151 @@ import { markPerf, measurePerf } from "./performance";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
 const POST_IMAGE_MAX_EDGE = 1600;
+const POST_THUMBNAIL_MAX_EDGE = 640;
 
-async function resizePostImageForFeed(file: File): Promise<File> {
-  if (
-    typeof window === "undefined" ||
-    !file.type.startsWith("image/") ||
-    file.type === "image/gif" ||
-    file.type === "image/svg+xml"
-  ) {
-    return file;
-  }
+type UploadedWorkoutMedia = {
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
+};
 
+type PreparedImageFile = {
+  file: File;
+  width: number | null;
+  height: number | null;
+};
+
+function isResizableImage(file: File) {
+  return (
+    typeof window !== "undefined" &&
+    file.type.startsWith("image/") &&
+    file.type !== "image/gif" &&
+    file.type !== "image/svg+xml"
+  );
+}
+
+async function loadImageFile(file: File): Promise<HTMLImageElement> {
   const url = URL.createObjectURL(file);
   try {
-    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    return await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => resolve(img);
       img.onerror = () => reject(new Error("Não foi possível preparar a imagem."));
       img.src = url;
     });
-    const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
-    if (!longestEdge || longestEdge <= POST_IMAGE_MAX_EDGE) return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
-    const ratio = POST_IMAGE_MAX_EDGE / longestEdge;
+async function imageFileVariant(
+  file: File,
+  maxEdge: number,
+  quality: number,
+  suffix: string,
+): Promise<PreparedImageFile> {
+  if (!isResizableImage(file)) {
+    return { file, width: null, height: null };
+  }
+
+  try {
+    const image = await loadImageFile(file);
+    const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+    if (!longestEdge) return { file, width: null, height: null };
+
+    const ratio = Math.min(1, maxEdge / longestEdge);
     const width = Math.max(1, Math.round(image.naturalWidth * ratio));
     const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    if (ratio === 1 && suffix !== "thumb") {
+      return { file, width: image.naturalWidth, height: image.naturalHeight };
+    }
+
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
-    if (!context) return file;
+    if (!context) return { file, width: image.naturalWidth, height: image.naturalHeight };
     context.drawImage(image, 0, 0, width, height);
 
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", 0.88);
+      canvas.toBlob(resolve, "image/jpeg", quality);
     });
-    if (!blob) return file;
+    if (!blob) return { file, width: image.naturalWidth, height: image.naturalHeight };
 
     const baseName = file.name.replace(/\.[^.]+$/, "") || "gym-circle-post";
-    return new File([blob], `${baseName}.jpg`, {
-      lastModified: file.lastModified,
-      type: "image/jpeg",
-    });
+    return {
+      file: new File([blob], `${baseName}-${suffix}.jpg`, {
+        lastModified: file.lastModified,
+        type: "image/jpeg",
+      }),
+      width,
+      height,
+    };
   } catch {
-    return file;
+    return { file, width: null, height: null };
+  }
+}
+
+async function createVideoPoster(file: File): Promise<PreparedImageFile & { duration: number | null } | null> {
+  if (typeof window === "undefined" || !file.type.startsWith("video/")) return null;
+  const url = URL.createObjectURL(file);
+  try {
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "metadata";
+    video.src = url;
+
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve();
+      video.onerror = () => reject(new Error("Não foi possível gerar preview do vídeo."));
+    });
+
+    const duration = Number.isFinite(video.duration) ? video.duration : null;
+    const width = video.videoWidth || null;
+    const height = video.videoHeight || null;
+    if (!width || !height) return null;
+
+    const seekTo = duration ? Math.min(0.18, Math.max(0.01, duration - 0.01)) : 0.01;
+    await new Promise<void>((resolve) => {
+      const done = () => resolve();
+      video.onseeked = done;
+      window.setTimeout(done, 900);
+      try {
+        video.currentTime = seekTo;
+      } catch {
+        resolve();
+      }
+    });
+
+    const ratio = Math.min(1, POST_THUMBNAIL_MAX_EDGE / Math.max(width, height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width * ratio));
+    canvas.height = Math.max(1, Math.round(height * ratio));
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.76);
+    });
+    if (!blob) return null;
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "gym-circle-video";
+    return {
+      file: new File([blob], `${baseName}-poster.jpg`, {
+        lastModified: file.lastModified,
+        type: "image/jpeg",
+      }),
+      width,
+      height,
+      duration,
+    };
+  } catch {
+    return null;
   } finally {
     URL.revokeObjectURL(url);
   }
@@ -134,7 +235,48 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   );
 
   const onUploadImage = useCallback(
-    async (file: File) => uploadTo("posts", await resizePostImageForFeed(file)),
+    async (file: File): Promise<UploadedWorkoutMedia> => {
+      markPerf("image_upload_start");
+      try {
+        if (file.type.startsWith("image/")) {
+          markPerf("thumbnail_generation_start");
+          const [feedFile, thumbnail] = await Promise.all([
+            imageFileVariant(file, POST_IMAGE_MAX_EDGE, 0.88, "feed"),
+            imageFileVariant(file, POST_THUMBNAIL_MAX_EDGE, 0.76, "thumb"),
+          ]);
+          measurePerf(
+            "thumbnail_generation_ms",
+            "thumbnail_generation_start",
+            "thumbnail_generation_end",
+          );
+          const [imageUrl, thumbnailUrl] = await Promise.all([
+            uploadTo("posts", feedFile.file),
+            uploadTo("posts", thumbnail.file),
+          ]);
+          return {
+            imageUrl,
+            thumbnailUrl,
+            mediaWidth: feedFile.width ?? thumbnail.width ?? null,
+            mediaHeight: feedFile.height ?? thumbnail.height ?? null,
+          };
+        }
+
+        const poster = await createVideoPoster(file);
+        const [imageUrl, posterUrl] = await Promise.all([
+          uploadTo("posts", file),
+          poster ? uploadTo("posts", poster.file) : Promise.resolve(null),
+        ]);
+        return {
+          imageUrl,
+          posterUrl,
+          mediaWidth: poster?.width ?? null,
+          mediaHeight: poster?.height ?? null,
+          mediaDurationSeconds: poster?.duration ?? null,
+        };
+      } finally {
+        measurePerf("image_upload_ms", "image_upload_start", "image_upload_end");
+      }
+    },
     [uploadTo],
   );
   const onUploadAvatar = useCallback(

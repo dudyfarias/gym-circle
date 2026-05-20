@@ -855,6 +855,7 @@ function CheckInPostThumb({
           className="h-full w-full object-cover"
           muted
           playsInline
+          poster={post.posterUrl ?? post.thumbnailUrl ?? undefined}
           preload="metadata"
           src={post.imageUrl}
         />
@@ -864,7 +865,7 @@ function CheckInPostThumb({
           className="object-cover"
           fill
           sizes="(max-width: 480px) 33vw, 160px"
-          src={post.imageUrl}
+          src={post.thumbnailUrl ?? post.imageUrl}
         />
       )}
       <span className="pointer-events-none absolute bottom-1 right-1 rounded-full bg-black/64 px-1.5 py-0.5 text-[9px] font-black text-white backdrop-blur-md">
