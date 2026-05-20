@@ -52,9 +52,24 @@ export function PwaController({ userId }: PwaControllerProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-        /* PWA segue funcionando sem cache offline. */
-      });
+      // Não disparamos window.location.reload() em controllerchange.
+      //
+      // O handler antigo causava loop de reload no PWA do iOS Safari:
+      // sw.js faz clients.claim() no activate, o que dispara
+      // controllerchange logo no boot da página. As guardas in-memory
+      // (hadController + controllerReloaded) zeram a cada reload, então
+      // o reload disparava outro reload — até o WebKit cortar com
+      // "Um problema ocorreu repetidamente em ...?source=pwa".
+      //
+      // Sem auto-reload, a SW nova ainda registra e ativa normalmente;
+      // o usuário pega o código atualizado na próxima abertura/navegação
+      // natural, que é o comportamento padrão de PWA.
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/" })
+        .then((registration) => registration.update())
+        .catch(() => {
+          /* PWA segue funcionando sem cache offline. */
+        });
     }
 
     const onBeforeInstall = (event: Event) => {
