@@ -33,7 +33,7 @@ export function VideoThumbnail({ src, className = "" }: VideoThumbnailProps) {
       onCanPlay={seekFirstFrame}
       onLoadedMetadata={seekFirstFrame}
       playsInline
-      preload="auto"
+      preload="metadata"
       src={src}
     />
   );

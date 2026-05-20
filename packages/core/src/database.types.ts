@@ -1247,6 +1247,163 @@ export type Database = {
       }
     }
     Functions: {
+      get_conversation_messages: {
+        Args: {
+          p_conversation_id: string
+          p_cursor_created_at?: string | null
+          p_limit?: number
+        }
+        Returns: {
+          body: string | null
+          conversation_id: string | null
+          created_at: string
+          id: string
+          media_type: string | null
+          media_url: string | null
+          read_at: string | null
+          receiver_id: string | null
+          reply_to_story: boolean
+          sender_id: string
+          story_id: string | null
+          story_preview_url: string | null
+        }[]
+      }
+      get_conversation_summaries: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          deleted_at: string | null
+          image_url: string | null
+          last_message: Json | null
+          last_message_at: string | null
+          last_read_at: string | null
+          name: string | null
+          participants: Json
+          role: string | null
+          type: string | null
+          unread_count: number | null
+        }[]
+      }
+      get_home_feed: {
+        Args: {
+          p_cursor_created_at?: string | null
+          p_limit?: number
+        }
+        Returns: {
+          author_badge_active: boolean | null
+          author_best_streak: number | null
+          author_current_streak: number | null
+          avatar_url: string | null
+          caption: string | null
+          comments_count: number | null
+          created_at: string
+          display_name: string | null
+          gym_id: string | null
+          id: string
+          image_url: string
+          is_following_author: boolean | null
+          liked_by_me: boolean | null
+          likes_count: number | null
+          location_google_maps_url: string | null
+          location_latitude: number | null
+          location_longitude: number | null
+          location_name: string | null
+          location_source: string | null
+          media_type: string | null
+          user_id: string
+          username: string | null
+          visibility: string | null
+          workout_date: string
+          workout_type: string | null
+        }[]
+      }
+      get_profile_posts: {
+        Args: {
+          p_cursor_created_at?: string | null
+          p_limit?: number
+          p_user_id: string
+        }
+        Returns: {
+          author_badge_active: boolean | null
+          author_best_streak: number | null
+          author_current_streak: number | null
+          avatar_url: string | null
+          caption: string | null
+          comments_count: number | null
+          created_at: string
+          display_name: string | null
+          gym_id: string | null
+          id: string
+          image_url: string
+          is_following_author: boolean | null
+          liked_by_me: boolean | null
+          likes_count: number | null
+          location_google_maps_url: string | null
+          location_latitude: number | null
+          location_longitude: number | null
+          location_name: string | null
+          location_source: string | null
+          media_type: string | null
+          user_id: string
+          username: string | null
+          visibility: string | null
+          workout_date: string
+          workout_type: string | null
+        }[]
+      }
+      get_user_suggestions: {
+        Args: {
+          p_current_lat?: number | null
+          p_current_lng?: number | null
+          p_limit?: number
+        }
+        Returns: {
+          avatar_url: string | null
+          badge_is_active_today: boolean
+          current_streak: number
+          display_name: string | null
+          distance_km: number | null
+          follow_status: string
+          mutual_friends_count: number
+          primary_reason: string
+          shared_gym_name: string | null
+          user_id: string
+          username: string
+        }[]
+      }
+      search_profiles: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          avatar_url: string | null
+          badge_is_active_today: boolean
+          current_streak: number
+          display_name: string | null
+          follow_status: string
+          is_private: boolean
+          user_id: string
+          username: string
+        }[]
+      }
+      get_story_tray: {
+        Args: { p_limit?: number }
+        Returns: {
+          author_badge_active: boolean | null
+          author_current_streak: number | null
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          expires_at: string
+          gym_id: string | null
+          has_unseen: boolean | null
+          id: string
+          latest_story_at: string | null
+          media_type: string | null
+          media_url: string
+          user_id: string
+          username: string | null
+          workout_type: string | null
+        }[]
+      }
       accept_alpha_legal: {
         Args: { p_privacy_version?: string; p_terms_version?: string }
         Returns: undefined

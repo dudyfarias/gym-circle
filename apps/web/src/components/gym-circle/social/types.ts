@@ -113,6 +113,7 @@ export type GymPost = {
   streakAtPost: number;
   likesCount: number;
   likedByCurrentUser: boolean;
+  commentsCount?: number;
   comments: GymComment[];
   participants?: GymParticipant[];
 };
@@ -197,6 +198,7 @@ export type ChatConversation = {
   lastReadAt: string | null;
   deletedAt?: string | null;
   lastMessageAt: string | null;
+  unreadCount?: number;
 };
 
 export type SendChatMessageInput = {
@@ -263,6 +265,7 @@ export type ProfileEditInput = {
 export type EditPostInput = {
   caption?: string | null;
   workoutType?: string | null;
+  taggedUserIds?: string[];
 };
 
 export type SocialActions = {
@@ -281,6 +284,9 @@ export type SocialActions = {
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
+  refreshChat?: () => Promise<void>;
+  refreshPostDetails?: (postId: string) => Promise<void>;
+  refreshProfilePosts?: (userId: string) => Promise<void>;
   markChatThreadRead?: (userId: string) => Promise<void>;
   markChatConversationRead?: (conversationId: string) => Promise<void>;
   deleteChatConversation?: (userId: string) => Promise<void>;
@@ -327,6 +333,7 @@ export type SocialActions = {
   suspendAccount?: () => Promise<void>;
   sendReactivationEmail?: () => Promise<void>;
   completeOnboarding?: () => Promise<void>;
+  searchProfiles?: (query: string) => Promise<EnrichedUser[]>;
 };
 
 export type SocialBundle = {
@@ -353,5 +360,8 @@ export type SocialBundle = {
   actions: SocialActions;
   unreadNotifications?: number;
   unreadMessages?: number;
+  homeLoading?: boolean;
+  secondaryLoading?: boolean;
+  chatLoading?: boolean;
   refresh?: () => void | Promise<void>;
 };

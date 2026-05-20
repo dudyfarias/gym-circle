@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { type TouchEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   calculateDistanceKm,
@@ -7,26 +8,11 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
-import { FloatingCreatePostButton, StoryViewer, ToastFeedback } from "./design-system";
+import { FloatingCreatePostButton, ToastFeedback } from "./design-system";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
-import { ChatScreen } from "./screens/ChatScreen";
 import { FeedScreen } from "./screens/FeedScreen";
-import { PostScreen } from "./screens/PostScreen";
-import { ProfileScreen } from "./screens/ProfileScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
-import { AdminPanelSheet } from "./AdminPanelSheet";
-import { UserSearchSheet } from "./UserSearchSheet";
-import { ProfileSheet } from "./ProfileSheet";
-import { EditProfileSheet } from "./EditProfileSheet";
-import { EditPostSheet } from "./EditPostSheet";
-import { MonthlyRecapSheet } from "./MonthlyRecapSheet";
-import { NotificationsSheet } from "./NotificationsSheet";
-import { ConfirmSheet } from "./ConfirmSheet";
-import { PostMenuSheet } from "./PostMenuSheet";
-import { PostDetailSheet } from "./PostDetailSheet";
-import { LikesOverlay } from "./LikesOverlay";
-import { AccountSettingsSheet } from "./AccountSettingsSheet";
 import { buildMonthlyRecap } from "./social/monthlyRecap";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
@@ -37,6 +23,72 @@ import {
   attachCapacitorKeyboardListeners,
   type KeyboardPluginLike,
 } from "./keyboardDetection";
+import { markPerf, measurePerf } from "./performance";
+
+const ChatScreen = dynamic(
+  () => import("./screens/ChatScreen").then((module) => module.ChatScreen),
+  { ssr: false },
+);
+const PostScreen = dynamic(
+  () => import("./screens/PostScreen").then((module) => module.PostScreen),
+  { ssr: false },
+);
+const ProfileScreen = dynamic(
+  () => import("./screens/ProfileScreen").then((module) => module.ProfileScreen),
+  { ssr: false },
+);
+const StoryViewer = dynamic(
+  () => import("./design-system/StoryViewer").then((module) => module.StoryViewer),
+  { ssr: false },
+);
+const AdminPanelSheet = dynamic(
+  () => import("./AdminPanelSheet").then((module) => module.AdminPanelSheet),
+  { ssr: false },
+);
+const UserSearchSheet = dynamic(
+  () => import("./UserSearchSheet").then((module) => module.UserSearchSheet),
+  { ssr: false },
+);
+const ProfileSheet = dynamic(
+  () => import("./ProfileSheet").then((module) => module.ProfileSheet),
+  { ssr: false },
+);
+const EditProfileSheet = dynamic(
+  () => import("./EditProfileSheet").then((module) => module.EditProfileSheet),
+  { ssr: false },
+);
+const EditPostSheet = dynamic(
+  () => import("./EditPostSheet").then((module) => module.EditPostSheet),
+  { ssr: false },
+);
+const MonthlyRecapSheet = dynamic(
+  () => import("./MonthlyRecapSheet").then((module) => module.MonthlyRecapSheet),
+  { ssr: false },
+);
+const NotificationsSheet = dynamic(
+  () => import("./NotificationsSheet").then((module) => module.NotificationsSheet),
+  { ssr: false },
+);
+const ConfirmSheet = dynamic(
+  () => import("./ConfirmSheet").then((module) => module.ConfirmSheet),
+  { ssr: false },
+);
+const PostMenuSheet = dynamic(
+  () => import("./PostMenuSheet").then((module) => module.PostMenuSheet),
+  { ssr: false },
+);
+const PostDetailSheet = dynamic(
+  () => import("./PostDetailSheet").then((module) => module.PostDetailSheet),
+  { ssr: false },
+);
+const LikesOverlay = dynamic(
+  () => import("./LikesOverlay").then((module) => module.LikesOverlay),
+  { ssr: false },
+);
+const AccountSettingsSheet = dynamic(
+  () => import("./AccountSettingsSheet").then((module) => module.AccountSettingsSheet),
+  { ssr: false },
+);
 
 const NO_SCREEN_SWIPE_SELECTOR =
   "button,a,input,textarea,select,video,[contenteditable='true'],[data-gc-no-screen-swipe]";
@@ -96,14 +148,25 @@ export function GymCirclePreview({
   const touchLastXRef = useRef<number | null>(null);
   const touchStartScreenRef = useRef<ScreenKey>("feed");
   const touchIgnoreScreenSwipeRef = useRef(false);
+  const touchPullingToRefreshRef = useRef(false);
   const screenOrder: ScreenKey[] = useMemo(
     () => ["feed", "chat", "post", "checkin", "profile"],
     [],
   );
+  const refreshChatAction = social.actions.refreshChat;
+  const refreshPostDetailsAction = social.actions.refreshPostDetails;
 
   useEffect(() => {
-    console.info("[GymCircleBoot] feed mounted");
+    if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
+      console.info("[GymCircleBoot] feed mounted");
+    }
+    measurePerf("app_boot_ms", "app_boot_start", "app_boot_end");
   }, []);
+
+  useEffect(() => {
+    if (activeScreen !== "chat") return;
+    void refreshChatAction?.();
+  }, [activeScreen, refreshChatAction]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ left: 0, top: 0 });
@@ -157,8 +220,13 @@ export function GymCirclePreview({
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
   const openProfile = useCallback((userId: string) => {
+    markPerf("profile_open_start");
+    void social.actions.refreshProfilePosts?.(userId);
     setProfileOpenId(userId);
-  }, []);
+    window.requestAnimationFrame(() => {
+      measurePerf("profile_open_ms", "profile_open_start", "profile_open_end");
+    });
+  }, [social.actions]);
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
   const openChatWithUser = useCallback((userId: string) => {
     setProfileOpenId(null);
@@ -184,9 +252,21 @@ export function GymCirclePreview({
   );
   const closePostMenu = useCallback(() => setPostMenuId(null), []);
   const closeEditPost = useCallback(() => setEditPostId(null), []);
-  const openPostDetail = useCallback((postId: string) => setPostDetailId(postId), []);
+  const openPostDetail = useCallback(
+    (postId: string) => {
+      setPostDetailId(postId);
+      void refreshPostDetailsAction?.(postId);
+    },
+    [refreshPostDetailsAction],
+  );
   const closePostDetail = useCallback(() => setPostDetailId(null), []);
-  const openLikes = useCallback((postId: string) => setLikesPostId(postId), []);
+  const openLikes = useCallback(
+    (postId: string) => {
+      setLikesPostId(postId);
+      void refreshPostDetailsAction?.(postId);
+    },
+    [refreshPostDetailsAction],
+  );
   const closeLikes = useCallback(() => setLikesPostId(null), []);
 
   const handleStartEditPost = useCallback(() => {
@@ -445,28 +525,36 @@ export function GymCirclePreview({
       touchLastYRef.current = touch?.clientY ?? null;
       touchStartScreenRef.current = activeScreen;
       touchStartYRef.current = touch?.clientY ?? null;
+      touchPullingToRefreshRef.current = false;
     },
     [activeScreen],
   );
 
   const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    if (touchIgnoreScreenSwipeRef.current) return;
+    if (touchIgnoreScreenSwipeRef.current || refreshing) return;
     const startY = touchStartYRef.current;
+    const startX = touchStartXRef.current;
     const touch = event.touches[0];
     touchLastXRef.current = touch?.clientX ?? touchLastXRef.current;
     touchLastYRef.current = touch?.clientY ?? touchLastYRef.current;
     if (startY === null || (scrollRef.current?.scrollTop ?? 0) > 0) return;
     const currentY = touch?.clientY ?? startY;
+    const currentX = touch?.clientX ?? startX ?? 0;
     const delta = currentY - startY;
+    const deltaX = startX === null ? 0 : currentX - startX;
     if (delta <= 0) {
       setPullDistance(0);
       return;
     }
+    if (delta < 10 || delta < Math.abs(deltaX) * 1.25) return;
+    touchPullingToRefreshRef.current = true;
+    event.preventDefault();
     setPullDistance(Math.min(94, delta * 0.48));
-  }, []);
+  }, [refreshing]);
 
   const handleTouchEnd = useCallback(() => {
     const shouldRefresh = pullDistance > 62;
+    const wasPullingToRefresh = touchPullingToRefreshRef.current;
     const startX = touchStartXRef.current;
     const startY = touchStartYRef.current;
     const endX = touchLastXRef.current;
@@ -477,10 +565,20 @@ export function GymCirclePreview({
     touchLastXRef.current = null;
     touchLastYRef.current = null;
     touchIgnoreScreenSwipeRef.current = false;
+    touchPullingToRefreshRef.current = false;
     setPullDistance(0);
     if (ignoreScreenSwipe) return;
     if (shouldRefresh) void triggerRefresh();
-    if (shouldRefresh || startX === null || startY === null || endX === null || endY === null) return;
+    if (
+      wasPullingToRefresh ||
+      shouldRefresh ||
+      startX === null ||
+      startY === null ||
+      endX === null ||
+      endY === null
+    ) {
+      return;
+    }
     const deltaX = endX - startX;
     const deltaY = endY - startY;
     if (
@@ -597,21 +695,21 @@ export function GymCirclePreview({
     const urls = [
       ...social.feedPosts
         .filter((post) => post.mediaType !== "video")
-        .slice(0, 5)
+        .slice(0, 3)
         .map((post) => post.imageUrl),
       ...social.storyBubbles
         .filter((story) => story.mediaType !== "video")
-        .slice(0, 4)
+        .slice(0, 2)
         .map((story) => story.imageUrl),
       ...storyGroups
         .flatMap((group) => group.stories)
         .filter((story) => story.mediaType !== "video")
-        .slice(0, 4)
+        .slice(0, 2)
         .map((story) => story.imageUrl),
       ...allUsers
         .map((user) => user.avatarUrl)
         .filter((url): url is string => Boolean(url))
-        .slice(0, 12),
+        .slice(0, 8),
     ];
 
     for (const url of Array.from(new Set(urls))) {
@@ -651,8 +749,8 @@ export function GymCirclePreview({
       case "chat":
         return (
           <ChatScreen
-            conversations={social.chatConversations ?? []}
-            messages={social.chatMessages ?? []}
+            conversations={social.chatLoading ? undefined : social.chatConversations ?? []}
+            messages={social.chatLoading ? undefined : social.chatMessages ?? []}
             currentUser={social.currentUser}
             onConversationOpen={social.actions.markChatConversationRead}
             onCreateGroupConversation={social.actions.createGroupConversation}
@@ -704,6 +802,7 @@ export function GymCirclePreview({
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             hasDistancePosts={hasDistancePosts}
+            headerHidden={!floatingPostVisible}
             commentMentionUsers={followedUsers}
             onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
@@ -711,6 +810,7 @@ export function GymCirclePreview({
             onLikeComment={social.actions.likeComment}
             onLikePost={social.actions.likePost}
             onOpenLikes={openLikes}
+            onOpenPostDetails={social.actions.refreshPostDetails}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
             onSharePostToChat={social.actions.sharePostToChat}
@@ -726,6 +826,7 @@ export function GymCirclePreview({
             suggestedUsers={social.suggestedUsers}
             viewerLocationError={viewerLocation.error}
             viewerLocationStatus={viewerLocation.status}
+            loading={Boolean(social.homeLoading)}
           />
         );
     }
@@ -735,6 +836,7 @@ export function GymCirclePreview({
     allUsers,
     followedUsers,
     feedPosts,
+    floatingPostVisible,
     hasDistancePosts,
     social,
     onUploadImage,
@@ -796,6 +898,7 @@ export function GymCirclePreview({
             {!keyboardOpen && !(activeScreen === "chat" && chatThreadOpen) ? (
               <BottomNav
                 active={activeScreen}
+                hidden={activeScreen === "feed" && !floatingPostVisible}
                 onChange={handleBottomNavChange}
                 unreadMessages={social.unreadMessages ?? 0}
               />
@@ -838,6 +941,7 @@ export function GymCirclePreview({
             onToggleFollow={(userId) => {
               void social.actions.toggleFollow(userId);
             }}
+            onSearchUsers={social.actions.searchProfiles}
             open={searchOpen}
             users={allUsers}
           />
@@ -996,6 +1100,7 @@ export function GymCirclePreview({
               onSave={editPost}
               open={editPostId !== null}
               post={editPostTarget}
+              taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
             />
           ) : null}
           <ConfirmSheet

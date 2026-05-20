@@ -1,11 +1,22 @@
-const GC_CACHE = "gym-circle-pwa-v1";
+const GC_CACHE = "gym-circle-pwa-v4";
 const GC_STATIC_ASSETS = [
-  "/",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/maskable-512.png"
 ];
+
+function offlineFallback() {
+  return new Response(
+    "<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Gym Circle</title><style>body{margin:0;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;display:grid;min-height:100vh;place-items:center;text-align:center;padding:24px}p{color:#a1a1aa;font-weight:700;max-width:280px}</style></head><body><main><h1>Gym Circle</h1><p>Sem conexão agora. Volte em instantes para carregar a versão mais recente.</p></main></body></html>",
+    {
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "no-store"
+      }
+    }
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -36,13 +47,9 @@ self.addEventListener("fetch", (event) => {
 
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(GC_CACHE).then((cache) => cache.put("/", copy));
-          return response;
-        })
-        .catch(() => caches.match("/") || Response.error())
+      fetch(request, { cache: "no-store" })
+        .then((response) => response)
+        .catch(() => offlineFallback())
     );
     return;
   }

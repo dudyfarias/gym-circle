@@ -10,13 +10,20 @@ type TopBarProps = {
   eyebrow: string;
   title: string;
   extraAction?: ReactNode;
+  hidden?: boolean;
 };
 
-export function TopBar({ eyebrow, title, extraAction }: TopBarProps) {
+export function TopBar({ eyebrow, title, extraAction, hidden = false }: TopBarProps) {
   const { openSearch, openNotifications, unreadNotifications } = useSearchSheet();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-2xl">
+    <header
+      className={[
+        "sticky top-0 z-20 -mx-5 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-2xl",
+        "transition-[transform,opacity] duration-300 ease-[var(--gc-ease-ios)]",
+        hidden ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100",
+      ].join(" ")}
+    >
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <BrandMark size={38} />

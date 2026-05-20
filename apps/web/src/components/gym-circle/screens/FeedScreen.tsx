@@ -33,6 +33,7 @@ type FeedScreenProps = {
   onCreatePost: () => void;
   onLikePost: (postId: string) => void;
   onCommentPost: (postId: string, body: string) => void;
+  onOpenPostDetails?: (postId: string) => void;
   onDeleteComment?: (postId: string, commentId: string) => void;
   onLikeComment?: (postId: string, commentId: string) => void;
   onSharePostToChat?: (postId: string, receiverId: string) => Promise<void> | void;
@@ -51,6 +52,8 @@ type FeedScreenProps = {
   viewerLocationError?: string | null;
   viewerLocationStatus?: ViewerLocationStatus;
   hasDistancePosts?: boolean;
+  headerHidden?: boolean;
+  loading?: boolean;
 };
 
 function getSharedGymCount(currentUser: EnrichedUser, user: EnrichedUser) {
@@ -66,6 +69,7 @@ export function FeedScreen({
   onCreatePost,
   onLikePost,
   onCommentPost,
+  onOpenPostDetails,
   onDeleteComment,
   onLikeComment,
   onSharePostToChat,
@@ -84,13 +88,15 @@ export function FeedScreen({
   viewerLocationError,
   viewerLocationStatus = "idle",
   hasDistancePosts = false,
+  headerHidden = false,
+  loading = false,
 }: FeedScreenProps) {
   const profileCompletion = calculateProfileCompletion(currentUser);
   const hasFirstPost = feedPosts.some((post) => post.userId === currentUser.id);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Gym Circle" title="Hoje" />
+      <TopBar eyebrow="Gym Circle" hidden={headerHidden} title="Hoje" />
       <StoryBubbles onOpenStory={onOpenStory} stories={stories} />
       <ProgressiveOnboardingCard
         completion={profileCompletion}
@@ -109,7 +115,9 @@ export function FeedScreen({
         status={viewerLocationStatus}
       />
 
-      {feedPosts.length > 0 ? (
+      {loading && feedPosts.length === 0 ? (
+        <FeedSkeleton />
+      ) : feedPosts.length > 0 ? (
         <div className="space-y-5">
           {feedPosts.map((post) => (
             <div key={post.id}>
@@ -121,6 +129,7 @@ export function FeedScreen({
                 onLike={onLikePost}
                 onLikeComment={onLikeComment}
                 onOpenLikes={onOpenLikes}
+                onOpenComments={onOpenPostDetails}
                 onOpenPostMenu={onOpenPostMenu}
                 onSelectUser={onSelectUser}
                 onShareToChat={onSharePostToChat}
@@ -170,6 +179,34 @@ export function FeedScreen({
         />
       )}
     </section>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <div className="space-y-5" aria-label="Carregando feed">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <article
+          className="overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#0c0d0e]"
+          key={index}
+        >
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <div className="size-12 animate-pulse rounded-full bg-white/[0.08]" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="h-4 w-32 animate-pulse rounded-full bg-white/[0.08]" />
+              <div className="h-3 w-24 animate-pulse rounded-full bg-white/[0.05]" />
+            </div>
+            <div className="size-11 animate-pulse rounded-full bg-white/[0.06]" />
+          </div>
+          <div className="aspect-[4/5] animate-pulse bg-white/[0.045]" />
+          <div className="space-y-3 px-4 py-4">
+            <div className="h-11 w-36 animate-pulse rounded-full bg-white/[0.06]" />
+            <div className="h-4 w-full animate-pulse rounded-full bg-white/[0.05]" />
+            <div className="h-4 w-2/3 animate-pulse rounded-full bg-white/[0.04]" />
+          </div>
+        </article>
+      ))}
+    </div>
   );
 }
 

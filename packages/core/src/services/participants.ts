@@ -88,6 +88,67 @@ export function participantService(client: GymCircleClient) {
       return (data ?? []) as PostParticipantRow[];
     },
 
+    async requestPostTags(
+      postId: string,
+      taggedByUserId: string,
+      taggedUserIds: string[],
+    ): Promise<PostParticipantRow[]> {
+      const userIds = uniqueUserIds(taggedUserIds, taggedByUserId);
+      if (userIds.length === 0) return [];
+
+      const { data: existing, error: selectError } = await client
+        .from("post_participants")
+        .select("*")
+        .eq("post_id", postId)
+        .in("tagged_user_id", userIds);
+      if (selectError) {
+        if (isMissingParticipantTable(selectError, "post_participants")) return [];
+        throw selectError;
+      }
+
+      const existingRows = (existing ?? []) as PostParticipantRow[];
+      const blockedIds = new Set(
+        existingRows
+          .filter((row) => row.status === "pending" || row.status === "accepted")
+          .map((row) => row.tagged_user_id),
+      );
+      const rejectedIds = existingRows
+        .filter((row) => row.status === "rejected")
+        .map((row) => row.tagged_user_id);
+
+      if (rejectedIds.length > 0) {
+        const { error: deleteError } = await client
+          .from("post_participants")
+          .delete()
+          .eq("post_id", postId)
+          .in("tagged_user_id", rejectedIds);
+        if (deleteError) {
+          if (isMissingParticipantTable(deleteError, "post_participants")) return [];
+          throw deleteError;
+        }
+      }
+
+      const rows = userIds
+        .filter((taggedUserId) => !blockedIds.has(taggedUserId))
+        .map((taggedUserId) => ({
+          post_id: postId,
+          tagged_by_user_id: taggedByUserId,
+          tagged_user_id: taggedUserId,
+          status: "pending",
+        }));
+      if (rows.length === 0) return [];
+
+      const { data, error } = await client
+        .from("post_participants")
+        .insert(rows)
+        .select("*");
+      if (error) {
+        if (isMissingParticipantTable(error, "post_participants")) return [];
+        throw error;
+      }
+      return (data ?? []) as PostParticipantRow[];
+    },
+
     async createStoryTags(
       storyId: string,
       taggedByUserId: string,

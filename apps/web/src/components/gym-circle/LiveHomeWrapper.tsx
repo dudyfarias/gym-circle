@@ -7,16 +7,78 @@ import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
 import { NativeBootController } from "./NativeBootController";
 import { PwaController } from "./PwaController";
+import { markPerf, measurePerf } from "./performance";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
+
+const POST_IMAGE_MAX_EDGE = 1600;
+
+async function resizePostImageForFeed(file: File): Promise<File> {
+  if (
+    typeof window === "undefined" ||
+    !file.type.startsWith("image/") ||
+    file.type === "image/gif" ||
+    file.type === "image/svg+xml"
+  ) {
+    return file;
+  }
+
+  const url = URL.createObjectURL(file);
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error("Não foi possível preparar a imagem."));
+      img.src = url;
+    });
+    const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+    if (!longestEdge || longestEdge <= POST_IMAGE_MAX_EDGE) return file;
+
+    const ratio = POST_IMAGE_MAX_EDGE / longestEdge;
+    const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+    const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.88);
+    });
+    if (!blob) return file;
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "gym-circle-post";
+    return new File([blob], `${baseName}.jpg`, {
+      lastModified: file.lastModified,
+      type: "image/jpeg",
+    });
+  } catch {
+    return file;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 export function LiveHomeWrapper() {
   const { user, loading } = useAuth();
+  const bootMarkedRef = useRef(false);
+
+  useEffect(() => {
+    if (bootMarkedRef.current) return;
+    bootMarkedRef.current = true;
+    markPerf("app_boot_start");
+    markPerf("auth_restore_start");
+  }, []);
 
   useEffect(() => {
     if (!loading) {
-      console.info("[GymCircleBoot] auth restored", {
-        hasUser: Boolean(user),
-      });
+      measurePerf("auth_restore_ms", "auth_restore_start", "auth_restore_end");
+      if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
+        console.info("[GymCircleBoot] auth restored", {
+          hasUser: Boolean(user),
+        });
+      }
     }
   }, [loading, user]);
 
@@ -72,7 +134,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   );
 
   const onUploadImage = useCallback(
-    (file: File) => uploadTo("posts", file),
+    async (file: File) => uploadTo("posts", await resizePostImageForFeed(file)),
     [uploadTo],
   );
   const onUploadAvatar = useCallback(
@@ -84,15 +146,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
     [uploadTo],
   );
 
-  if (social.loading && social.feedPosts.length === 0) {
-    return (
-      <main className="grid min-h-screen place-items-center bg-black text-white">
-        <p className="text-[14px] font-bold text-white/60">Carregando feed...</p>
-      </main>
-    );
-  }
-
-  if (social.error) {
+  if (social.error && social.feedPosts.length === 0 && !social.loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
         <div>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { ChangeEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import {
@@ -26,6 +25,7 @@ import type {
   PostMediaType,
 } from "../social/types";
 import { TopBar } from "../TopBar";
+import { PinchZoomImage } from "../design-system/PinchZoomImage";
 import {
   GymSearchSheet,
   type LocatedPlaceCandidate,
@@ -445,7 +445,7 @@ export function PostScreen({
       {/* Área de mídia: protagonista quando preenchida, CTA simples quando vazia */}
       {imageUrl ? (
         <div className="mt-4 overflow-hidden rounded-[24px] bg-black">
-          <div className="relative aspect-[4/5]">
+          <div className={mediaType === "video" ? "relative aspect-[4/5]" : "relative"}>
             {mediaType === "video" ? (
               <video
                 autoPlay
@@ -453,14 +453,13 @@ export function PostScreen({
                 loop
                 muted
                 playsInline
-                preload="auto"
+                preload="metadata"
                 src={imageUrl}
               />
             ) : (
-              <Image
+              <PinchZoomImage
                 alt="Mídia do treino"
-                className="object-cover"
-                fill
+                className="w-full"
                 sizes="(max-width: 480px) 100vw, 480px"
                 src={imageUrl}
               />

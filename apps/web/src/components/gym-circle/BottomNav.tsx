@@ -13,6 +13,7 @@ export type ScreenKey = "feed" | "chat" | "post" | "checkin" | "profile";
 
 type BottomNavProps = {
   active: ScreenKey;
+  hidden?: boolean;
   onChange: (screen: ScreenKey) => void;
   unreadMessages?: number;
 };
@@ -29,11 +30,16 @@ const baseNavItems = [
   icon: typeof House;
 }>;
 
-export function BottomNav({ active, onChange, unreadMessages = 0 }: BottomNavProps) {
+export function BottomNav({
+  active,
+  hidden = false,
+  onChange,
+  unreadMessages = 0,
+}: BottomNavProps) {
   const navItems = baseNavItems.map((item) =>
     item.key === "chat" ? { ...item, badge: unreadMessages } : item,
   );
   return (
-    <BottomTabBar active={active} items={navItems} onChange={onChange} />
+    <BottomTabBar active={active} hidden={hidden} items={navItems} onChange={onChange} />
   );
 }

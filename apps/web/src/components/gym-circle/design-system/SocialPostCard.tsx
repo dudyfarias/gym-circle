@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
   Clock3,
@@ -24,6 +23,7 @@ import { getPostLikeSummary } from "../social/likes";
 import { formatTrainingStreakText } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { EmptyState } from "./EmptyState";
+import { PinchZoomImage } from "./PinchZoomImage";
 import { StreakBadge } from "./StreakBadge";
 import { SwipeRevealDelete } from "./SwipeRevealDelete";
 
@@ -33,6 +33,7 @@ type SocialPostCardProps = {
   formatTime: (createdAt: string) => string;
   onLike: (postId: string) => void;
   onComment: (postId: string, body: string) => void;
+  onOpenComments?: (postId: string) => void;
   onDeleteComment?: (postId: string, commentId: string) => void;
   onLikeComment?: (postId: string, commentId: string) => void;
   onShareToChat?: (postId: string, receiverId: string) => Promise<void> | void;
@@ -77,6 +78,7 @@ export function SocialPostCard({
   formatTime,
   onLike,
   onComment,
+  onOpenComments,
   onDeleteComment,
   onLikeComment,
   onShareToChat,
@@ -94,6 +96,8 @@ export function SocialPostCard({
   const [shareOpen, setShareOpen] = useState(false);
   const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoVisible, setVideoVisible] = useState(false);
   const canFollow = post.author.id !== currentUserId;
   const mediaType = post.mediaType ?? "image";
   const isPostOwner = post.userId === currentUserId;
@@ -139,6 +143,31 @@ export function SocialPostCard({
         .slice(0, 12),
     [currentUserId, shareTargets],
   );
+  const commentsCount = post.commentsCount ?? post.comments.length;
+
+  useEffect(() => {
+    if (mediaType !== "video") return;
+    const node = videoRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        const active = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.65);
+        setVideoVisible(active);
+        if (active) {
+          void node.play().catch(() => undefined);
+        } else {
+          node.pause();
+        }
+      },
+      { threshold: [0, 0.65, 1] },
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      node.pause();
+    };
+  }, [mediaType, post.id]);
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -324,25 +353,28 @@ export function SocialPostCard({
         </div>
       </div>
 
-      <div className="relative aspect-[4/5] overflow-hidden bg-zinc-950">
+      <div
+        className={[
+          "relative overflow-hidden bg-black",
+          mediaType === "video" ? "aspect-[4/5]" : "",
+        ].join(" ")}
+      >
         {mediaType === "video" ? (
           <video
-            // Estilo Instagram Reels: auto-play silencioso em loop, sem barra
-            // de controles. iOS Safari + WKWebView só auto-tocam vídeos com
-            // muted + playsInline + autoPlay simultâneos.
-            autoPlay
+            // Toca só quando está visível para não carregar vários vídeos no boot do iOS WebView.
+            autoPlay={videoVisible}
             className="h-full w-full object-cover"
             loop
             muted
             playsInline
-            preload="auto"
+            preload="metadata"
+            ref={videoRef}
             src={post.imageUrl}
           />
         ) : (
-          <Image
+          <PinchZoomImage
             alt={`Treino de ${post.author.name}`}
-            className="object-cover"
-            fill
+            className="w-full"
             priority={post.author.username === "edu.fit"}
             sizes="(max-width: 480px) 100vw, 480px"
             src={post.imageUrl}
@@ -388,7 +420,10 @@ export function SocialPostCard({
             <IconButton
               className="size-11"
               label="Comentar"
-              onClick={() => setCommentsOpen((value) => !value)}
+              onClick={() => {
+                onOpenComments?.(post.id);
+                setCommentsOpen((value) => !value);
+              }}
             >
               <MessageCircle size={19} strokeWidth={2.4} />
             </IconButton>
@@ -560,7 +595,7 @@ export function SocialPostCard({
           />
         </p>
         <p className="text-[12px] font-bold text-white/38">
-          {post.comments.length} comentarios · {post.smartReason.toLowerCase()}
+          {commentsCount} comentarios · {post.smartReason.toLowerCase()}
         </p>
 
         {commentsOpen ? (

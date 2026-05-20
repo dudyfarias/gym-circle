@@ -14,6 +14,7 @@ type UserSearchSheetProps = {
   currentUserId: string;
   onToggleFollow: (userId: string) => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
+  onSearchUsers?: (query: string) => Promise<EnrichedUser[]>;
 };
 
 function normalize(value: string): string {
@@ -30,14 +31,21 @@ export function UserSearchSheet({
   currentUserId,
   onToggleFollow,
   onSelectUser,
+  onSearchUsers,
 }: UserSearchSheetProps) {
   const [query, setQuery] = useState("");
+  const [remoteResults, setRemoteResults] = useState<EnrichedUser[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (open) {
       const id = window.setTimeout(() => {
         setQuery("");
+        setRemoteResults([]);
+        setSearching(false);
+        setSearchError(null);
         inputRef.current?.focus();
       }, 60);
       return () => window.clearTimeout(id);
@@ -53,7 +61,32 @@ export function UserSearchSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  const results = useMemo(() => {
+  useEffect(() => {
+    if (!open || !onSearchUsers) return;
+    let cancelled = false;
+    const id = window.setTimeout(async () => {
+      setSearching(true);
+      setSearchError(null);
+      try {
+        const users = await onSearchUsers(query.trim());
+        if (!cancelled) setRemoteResults(users.filter((u) => u.id !== currentUserId));
+      } catch {
+        if (!cancelled) {
+          setRemoteResults([]);
+          setSearchError("Não foi possível buscar agora.");
+        }
+      } finally {
+        if (!cancelled) setSearching(false);
+      }
+    }, 220);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(id);
+    };
+  }, [currentUserId, onSearchUsers, open, query]);
+
+  const localResults = useMemo(() => {
     const filtered = users.filter((u) => u.id !== currentUserId);
     const currentUser = users.find((u) => u.id === currentUserId);
     const isAdmin = currentUser?.username.toLowerCase() === "dudy";
@@ -79,6 +112,8 @@ export function UserSearchSheet({
       .map((x) => x.user)
       .slice(0, 30);
   }, [users, query, currentUserId]);
+
+  const results = onSearchUsers && !searchError ? remoteResults : localResults;
 
   if (!open) return null;
 
@@ -122,10 +157,12 @@ export function UserSearchSheet({
             <div className="grid h-full place-items-center text-center">
               <div>
                 <p className="text-[16px] font-black text-white/72">
-                  {query ? "Ninguém encontrado" : "Digite um @username"}
+                  {searching ? "Buscando..." : query ? "Ninguém encontrado" : "Digite um @username"}
                 </p>
                 <p className="mt-2 text-[13px] font-bold text-white/44">
-                  {query
+                  {searchError
+                    ? searchError
+                    : query
                     ? `Nenhum match pra "${query}". Confira o username.`
                     : users.find((u) => u.id === currentUserId)?.username.toLowerCase() === "dudy"
                       ? "Como admin, você vê todos os perfis cadastrados."

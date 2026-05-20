@@ -294,7 +294,7 @@ function StoryViewerContent({
             loop
             muted
             playsInline
-            preload="auto"
+            preload="metadata"
             src={story.imageUrl}
           />
         ) : (

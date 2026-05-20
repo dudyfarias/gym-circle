@@ -183,7 +183,7 @@ export function ChatScreen({
           const lastReadAt = conversation.lastReadAt
             ? new Date(conversation.lastReadAt).getTime()
             : 0;
-          const unread = sortedMessages.filter(
+          const unread = conversation.unreadCount ?? sortedMessages.filter(
             (message) =>
               message.senderId !== currentUser.id &&
               new Date(message.createdAt).getTime() > lastReadAt,
@@ -207,7 +207,7 @@ export function ChatScreen({
           (last ? getOtherUserId(last, currentUser.id) : null);
         const user = otherUserId ? usersById.get(otherUserId) ?? null : null;
         if (!user) return null;
-        const unread = sortedMessages.filter(
+        const unread = conversation.unreadCount ?? sortedMessages.filter(
           (message) => message.receiverId === currentUser.id && !message.readAt,
         ).length;
         return {
@@ -316,14 +316,24 @@ export function ChatScreen({
     return () => onThreadViewChange?.(false);
   }, [onThreadViewChange, selectedThread]);
 
+  const selectedThreadType = selectedThread?.type ?? null;
+  const selectedConversationOpenId =
+    selectedThreadType === "group" ? selectedThread?.id ?? null : null;
+  const selectedDirectOpenUserId =
+    selectedThreadType === "direct" ? selectedThread?.user?.id ?? null : null;
+
   useEffect(() => {
-    if (!selectedThread || selectedThread.unread === 0) return;
-    if (selectedThread.type === "group" && selectedThread.id) {
-      void onConversationOpen?.(selectedThread.id);
+    if (selectedConversationOpenId) {
+      void onConversationOpen?.(selectedConversationOpenId);
       return;
     }
-    if (selectedThread.user) void onThreadOpen?.(selectedThread.user.id);
-  }, [onConversationOpen, onThreadOpen, selectedThread]);
+    if (selectedDirectOpenUserId) void onThreadOpen?.(selectedDirectOpenUserId);
+  }, [
+    onConversationOpen,
+    onThreadOpen,
+    selectedConversationOpenId,
+    selectedDirectOpenUserId,
+  ]);
 
   useEffect(() => {
     if (!selectedThread) return;

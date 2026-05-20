@@ -11,17 +11,25 @@ export type BottomTabItem<Key extends string> = {
 
 type BottomTabBarProps<Key extends string> = {
   active: Key;
+  hidden?: boolean;
   items: Array<BottomTabItem<Key>>;
   onChange: (key: Key) => void;
 };
 
 export function BottomTabBar<Key extends string>({
   active,
+  hidden = false,
   items,
   onChange,
 }: BottomTabBarProps<Key>) {
   return (
-    <nav className="z-30 shrink-0 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2">
+    <nav
+      className={[
+        "z-30 shrink-0 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2",
+        "transition-[transform,opacity] duration-300 ease-[var(--gc-ease-ios)]",
+        hidden ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100",
+      ].join(" ")}
+    >
       <div className="gc-ios-tabbar grid rounded-full p-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {
           const Icon = item.icon;

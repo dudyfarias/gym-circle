@@ -27,6 +27,7 @@ import type {
   UserStatsRow,
 } from "@gym-circle/core";
 import { simulateHaptic } from "./haptics";
+import { markPerf, measurePerf } from "../performance";
 import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
@@ -137,6 +138,7 @@ type AggregateState = {
   userGyms: UserGymRow[];
   follows: FollowRow[];
   feedPosts: FeedPostRow[];
+  profileFeedPosts: FeedPostRow[];
   stories: StoryRow[];
   storyLikes: StoryLikeRow[];
   storyMutes: StoryMuteRow[];
@@ -151,7 +153,9 @@ type AggregateState = {
   myNotifications: NotificationRow[];
   conversationParticipants: ConversationParticipantRow[];
   conversations: ConversationRow[];
+  conversationUnreadCounts: Record<string, number>;
   chatMessages: DirectMessageRow[];
+  suggestedUserIds: string[];
   /** IDs que EU bloqueei. Filtramos feed/stories/profiles/comments/messages. */
   blockedUserIds: string[];
   /** IDs cujos posts no feed eu silenciei. Stories continuam aparecendo. */
@@ -165,6 +169,7 @@ const EMPTY: AggregateState = {
   userGyms: [],
   follows: [],
   feedPosts: [],
+  profileFeedPosts: [],
   stories: [],
   storyLikes: [],
   storyMutes: [],
@@ -179,7 +184,9 @@ const EMPTY: AggregateState = {
   myNotifications: [],
   conversationParticipants: [],
   conversations: [],
+  conversationUnreadCounts: {},
   chatMessages: [],
+  suggestedUserIds: [],
   blockedUserIds: [],
   mutedPostUserIds: [],
 };
@@ -232,6 +239,475 @@ const VIEWED_STORIES_STORAGE_PREFIX = "gym-circle:viewed-stories:";
 const HIDDEN_DIRECT_CONVERSATIONS_STORAGE_PREFIX =
   "gym-circle:hidden-direct-conversations:";
 const MAX_STORED_VIEWED_STORIES = 500;
+const INITIAL_FEED_LIMIT = 30;
+const INITIAL_STORY_LIMIT = 40;
+type GymCircleSupabaseClient = ReturnType<typeof useGymCircleServices>["client"];
+
+const PROFILE_COLUMNS = [
+  "id",
+  "user_id",
+  "username",
+  "display_name",
+  "avatar_url",
+  "bio",
+  "fitness_goal",
+  "main_gym_id",
+  "preferred_training_times",
+  "is_private",
+  "created_at",
+  "instagram_username",
+  "birth_date",
+  "sports",
+  "onboarding_completed_at",
+  "alpha_terms_accepted_at",
+  "privacy_policy_accepted_at",
+  "account_status",
+  "suspended_at",
+  "reactivation_sent_at",
+  "reactivation_expires_at",
+  "deleted_at",
+].join(",");
+
+const USER_STATS_COLUMNS = [
+  "user_id",
+  "current_streak",
+  "best_streak",
+  "workouts_this_month",
+  "active_days_this_year",
+  "last_active_date",
+  "badge_is_active_today",
+  "streak_restores_available",
+  "last_streak_restore_used_at",
+  "last_streak_restore_earned_at",
+  "streak_restore_deadline_at",
+  "streak_restore_missed_date",
+  "streak_restore_status",
+  "updated_at",
+].join(",");
+
+const FOLLOW_COLUMNS = "follower_id,following_id,status,created_at";
+
+type SurfacePostRow = FeedPostRow & {
+  liked_by_me?: boolean | null;
+  is_following_author?: boolean | null;
+  visibility?: string | null;
+};
+
+type StoryTrayRow = StoryRow & {
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  author_current_streak?: number | null;
+  author_badge_active?: boolean | null;
+  has_unseen?: boolean | null;
+  latest_story_at?: string | null;
+};
+
+type DiscoveryProfileRow = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  is_private?: boolean | null;
+  follow_status?: string | null;
+  current_streak?: number | null;
+  badge_is_active_today?: boolean | null;
+  primary_reason?: string | null;
+  mutual_friends_count?: number | null;
+  distance_km?: number | null;
+  shared_gym_name?: string | null;
+};
+
+type ConversationSummaryParticipant = {
+  conversation_id?: string | null;
+  user_id?: string | null;
+  role?: string | null;
+  joined_at?: string | null;
+  created_at?: string | null;
+  last_read_at?: string | null;
+  deleted_at?: string | null;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  account_status?: string | null;
+};
+
+type ConversationSummaryRow = {
+  conversation_id: string;
+  type: string | null;
+  name: string | null;
+  image_url: string | null;
+  last_message_at: string | null;
+  role: string | null;
+  last_read_at: string | null;
+  deleted_at: string | null;
+  unread_count: number | null;
+  participants: ConversationSummaryParticipant[] | string | null;
+  last_message: Partial<DirectMessageRow> | string | null;
+};
+
+function parseJsonValue<T>(value: unknown, fallback: T): T {
+  if (typeof value !== "string") return (value ?? fallback) as T;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function profileRowFromPartial(input: Partial<ProfileRow> & { user_id: string }): ProfileRow {
+  return {
+    id: input.id ?? `profile-${input.user_id}`,
+    user_id: input.user_id,
+    username: input.username ?? "usuario",
+    display_name: input.display_name ?? input.username ?? "Gym Circle",
+    avatar_url: input.avatar_url ?? null,
+    bio: input.bio ?? null,
+    fitness_goal: input.fitness_goal ?? null,
+    main_gym_id: input.main_gym_id ?? null,
+    preferred_training_times: input.preferred_training_times ?? [],
+    is_private: input.is_private ?? false,
+    created_at: input.created_at ?? new Date(0).toISOString(),
+    instagram_username: input.instagram_username ?? null,
+    birth_date: input.birth_date ?? null,
+    sports: input.sports ?? [],
+    onboarding_completed_at: input.onboarding_completed_at ?? null,
+    alpha_terms_accepted_at: input.alpha_terms_accepted_at ?? null,
+    privacy_policy_accepted_at: input.privacy_policy_accepted_at ?? null,
+    account_status: input.account_status ?? "active",
+    suspended_at: input.suspended_at ?? null,
+    reactivation_sent_at: input.reactivation_sent_at ?? null,
+    reactivation_expires_at: input.reactivation_expires_at ?? null,
+    reactivation_token_hash: null,
+    deleted_at: input.deleted_at ?? null,
+  };
+}
+
+function profileRowFromSurface(input: {
+  user_id: string | null;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+}): ProfileRow | null {
+  if (!input.user_id) return null;
+  return profileRowFromPartial({
+    user_id: input.user_id,
+    username: input.username ?? undefined,
+    display_name: input.display_name ?? input.username ?? "Gym Circle",
+    avatar_url: input.avatar_url ?? null,
+  });
+}
+
+function mergeRowsByKey<T>(rows: T[], nextRows: T[], getKey: (row: T) => string): T[] {
+  const map = new Map<string, T>();
+  for (const row of rows) map.set(getKey(row), row);
+  for (const row of nextRows) map.set(getKey(row), row);
+  return Array.from(map.values());
+}
+
+function statsRowFromSurface(input: {
+  user_id: string | null;
+  author_current_streak?: number | null;
+  author_best_streak?: number | null;
+  author_badge_active?: boolean | null;
+}): UserStatsRow | null {
+  if (!input.user_id) return null;
+  return {
+    user_id: input.user_id,
+    current_streak: input.author_current_streak ?? 0,
+    best_streak: input.author_best_streak ?? 0,
+    workouts_this_month: 0,
+    active_days_this_year: 0,
+    last_active_date: null,
+    badge_is_active_today: input.author_badge_active ?? false,
+    streak_restores_available: null,
+    last_streak_restore_used_at: null,
+    last_streak_restore_earned_at: null,
+    streak_restore_deadline_at: null,
+    streak_restore_missed_date: null,
+    streak_restore_status: null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function profileRowFromDiscovery(row: DiscoveryProfileRow): ProfileRow {
+  return profileRowFromPartial({
+    user_id: row.user_id,
+    username: row.username ?? "usuario",
+    display_name: row.display_name ?? row.username ?? "Gym Circle",
+    avatar_url: row.avatar_url ?? null,
+    is_private: row.is_private ?? false,
+  });
+}
+
+function statsRowFromDiscovery(row: DiscoveryProfileRow): UserStatsRow {
+  return {
+    user_id: row.user_id,
+    current_streak: row.current_streak ?? 0,
+    best_streak: row.current_streak ?? 0,
+    workouts_this_month: 0,
+    active_days_this_year: 0,
+    last_active_date: null,
+    badge_is_active_today: row.badge_is_active_today ?? false,
+    streak_restores_available: null,
+    last_streak_restore_used_at: null,
+    last_streak_restore_earned_at: null,
+    streak_restore_deadline_at: null,
+    streak_restore_missed_date: null,
+    streak_restore_status: null,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function followRowFromDiscovery(
+  row: DiscoveryProfileRow,
+  currentUserId: string,
+): FollowRow | null {
+  if (row.follow_status !== "accepted" && row.follow_status !== "pending") return null;
+  return {
+    follower_id: currentUserId,
+    following_id: row.user_id,
+    status: row.follow_status,
+    created_at: new Date().toISOString(),
+  };
+}
+
+function enrichedUserFromDiscovery(row: DiscoveryProfileRow): EnrichedUser {
+  const followStatus =
+    row.follow_status === "accepted" || row.follow_status === "pending"
+      ? row.follow_status
+      : "none";
+  return {
+    id: row.user_id,
+    createdAt: undefined,
+    name: row.display_name ?? row.username ?? "Gym Circle",
+    username: row.username ?? "usuario",
+    accent: accentForId(row.user_id),
+    avatarUrl: row.avatar_url ?? null,
+    bio: row.primary_reason ?? "",
+    goal: row.primary_reason ?? "",
+    instagramUsername: null,
+    birthDate: null,
+    age: null,
+    isBirthday: false,
+    sports: [],
+    onboardingCompletedAt: null,
+    alphaTermsAcceptedAt: null,
+    privacyPolicyAcceptedAt: null,
+    accountStatus: "active",
+    suspendedAt: null,
+    reactivationSentAt: null,
+    reactivationExpiresAt: null,
+    location: row.shared_gym_name ?? "",
+    gyms: row.shared_gym_name ? [row.shared_gym_name] : [],
+    preferredTimes: [],
+    currentStreak: row.current_streak ?? 0,
+    longestStreak: row.current_streak ?? 0,
+    lastWorkoutDate: "",
+    workoutsThisMonth: 0,
+    activeDaysCount: 0,
+    streakRestoresAvailable: 0,
+    lastStreakRestoreUsedAt: null,
+    lastStreakRestoreEarnedAt: null,
+    streakRestoreDeadlineAt: null,
+    streakRestoreMissedDate: null,
+    streakRestoreStatus: null,
+    checkInsCount: 0,
+    achievements: deriveAchievements(statsRowFromDiscovery(row)),
+    followersCount: row.mutual_friends_count ?? 0,
+    followingCount: 0,
+    isFollowing: followStatus === "accepted",
+    followStatus,
+    isPrivate: row.is_private ?? false,
+    workoutDays: [],
+    streakLitToday: row.badge_is_active_today ?? false,
+    streakPresenceSource: row.badge_is_active_today ? "feed-photo" : "none",
+  };
+}
+
+function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    image_url: row.image_url,
+    media_type: row.media_type ?? "image",
+    caption: row.caption ?? null,
+    gym_id: row.gym_id ?? null,
+    workout_type: row.workout_type ?? null,
+    workout_date: row.workout_date,
+    created_at: row.created_at,
+    location_source: row.location_source ?? "none",
+    location_name: row.location_name ?? null,
+    location_latitude: row.location_latitude ?? null,
+    location_longitude: row.location_longitude ?? null,
+    location_google_maps_url: row.location_google_maps_url ?? null,
+    likes_count: row.likes_count ?? 0,
+    comments_count: row.comments_count ?? 0,
+    username: row.username ?? null,
+    display_name: row.display_name ?? null,
+    avatar_url: row.avatar_url ?? null,
+    author_current_streak: row.author_current_streak ?? 0,
+    author_best_streak: row.author_best_streak ?? 0,
+    author_badge_active: row.author_badge_active ?? false,
+  };
+}
+
+function storyRowFromSurface(row: StoryTrayRow): StoryRow {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    media_url: row.media_url,
+    media_type: row.media_type ?? "image",
+    gym_id: row.gym_id ?? null,
+    workout_type: row.workout_type ?? null,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+  };
+}
+
+function directMessageRowFromPartial(row: Partial<DirectMessageRow>): DirectMessageRow | null {
+  if (!row.id || !row.sender_id || !row.created_at) return null;
+  return {
+    id: row.id,
+    conversation_id: row.conversation_id ?? null,
+    sender_id: row.sender_id,
+    receiver_id: row.receiver_id ?? null,
+    body: row.body ?? null,
+    media_url: row.media_url ?? null,
+    media_type: row.media_type ?? null,
+    story_id: row.story_id ?? null,
+    reply_to_story: row.reply_to_story ?? false,
+    story_preview_url: row.story_preview_url ?? null,
+    created_at: row.created_at,
+    read_at: row.read_at ?? null,
+  };
+}
+
+function logSurfaceFallback(surface: string, error: unknown) {
+  if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
+    console.warn(`[GymCirclePerf] ${surface} RPC failed, using safe fallback`, error);
+  }
+}
+
+async function queryHomeFeedSurface(
+  client: GymCircleSupabaseClient,
+  limit: number,
+): Promise<{ data: SurfacePostRow[]; error: unknown }> {
+  const rpcRes = await client.rpc("get_home_feed", {
+    p_cursor_created_at: null,
+    p_limit: limit,
+  });
+  if (!rpcRes.error) {
+    return { data: (rpcRes.data ?? []) as SurfacePostRow[], error: null };
+  }
+
+  logSurfaceFallback("home feed", rpcRes.error);
+  const fallbackRes = await client
+    .from("feed_posts")
+    .select(
+      [
+        "id",
+        "user_id",
+        "image_url",
+        "media_type",
+        "caption",
+        "gym_id",
+        "workout_type",
+        "workout_date",
+        "created_at",
+        "location_source",
+        "location_name",
+        "location_latitude",
+        "location_longitude",
+        "location_google_maps_url",
+        "likes_count",
+        "comments_count",
+        "username",
+        "display_name",
+        "avatar_url",
+        "author_current_streak",
+        "author_best_streak",
+        "author_badge_active",
+      ].join(","),
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  return {
+    data: (fallbackRes.data ?? []) as unknown as SurfacePostRow[],
+    error: fallbackRes.error,
+  };
+}
+
+async function queryStoryTraySurface(
+  client: GymCircleSupabaseClient,
+  limit: number,
+): Promise<{ data: StoryTrayRow[]; error: unknown }> {
+  const rpcRes = await client.rpc("get_story_tray", {
+    p_limit: limit,
+  });
+  if (!rpcRes.error) {
+    return { data: (rpcRes.data ?? []) as StoryTrayRow[], error: null };
+  }
+
+  logSurfaceFallback("story tray", rpcRes.error);
+  const fallbackRes = await client
+    .from("stories")
+    .select("id,user_id,media_url,media_type,gym_id,workout_type,expires_at,created_at")
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  return {
+    data: (fallbackRes.data ?? []) as unknown as StoryTrayRow[],
+    error: fallbackRes.error,
+  };
+}
+
+async function queryUserSuggestionsSurface(
+  client: GymCircleSupabaseClient,
+  limit: number,
+): Promise<{ data: DiscoveryProfileRow[]; error: unknown }> {
+  const rpcRes = await client.rpc("get_user_suggestions", {
+    p_current_lat: null,
+    p_current_lng: null,
+    p_limit: limit,
+  });
+  if (!rpcRes.error) {
+    return { data: (rpcRes.data ?? []) as DiscoveryProfileRow[], error: null };
+  }
+
+  logSurfaceFallback("user suggestions", rpcRes.error);
+  return { data: [], error: null };
+}
+
+async function querySearchProfilesSurface(
+  client: GymCircleSupabaseClient,
+  query: string,
+  limit: number,
+): Promise<{ data: DiscoveryProfileRow[]; error: unknown }> {
+  const rpcRes = await client.rpc("search_profiles", {
+    p_query: query,
+    p_limit: limit,
+  });
+  if (!rpcRes.error) {
+    return { data: (rpcRes.data ?? []) as DiscoveryProfileRow[], error: null };
+  }
+
+  logSurfaceFallback("profile search", rpcRes.error);
+  return { data: [], error: rpcRes.error };
+}
+
+type HomeRefreshSnapshot = {
+  postIds: string[];
+  storyIds: string[];
+};
+
+type RealtimePayload = {
+  eventType?: string;
+  new?: Record<string, unknown>;
+  old?: Record<string, unknown>;
+};
 
 function getViewedStoriesStorageKey(userId: string) {
   return `${VIEWED_STORIES_STORAGE_PREFIX}${userId}`;
@@ -374,6 +850,10 @@ export type SupabaseSocialActions = {
   suspendAccount: () => Promise<void>;
   sendReactivationEmail: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  refreshChat: () => Promise<void>;
+  refreshPostDetails: (postId: string) => Promise<void>;
+  refreshProfilePosts: (userId: string) => Promise<void>;
+  searchProfiles: (query: string) => Promise<EnrichedUser[]>;
 };
 
 export type SupabaseSocialResult = {
@@ -400,6 +880,9 @@ export type SupabaseSocialResult = {
   actions: SupabaseSocialActions;
   unreadNotifications: number;
   unreadMessages: number;
+  homeLoading: boolean;
+  secondaryLoading: boolean;
+  chatLoading: boolean;
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
@@ -409,6 +892,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const services = useGymCircleServices();
   const [agg, setAgg] = useState<AggregateState>(EMPTY);
   const [loading, setLoading] = useState(true);
+  const [secondaryLoading, setSecondaryLoading] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatHydrated, setChatHydrated] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
   const [selectedStoryGroupId, setSelectedStoryGroupId] = useState<string | null>(null);
@@ -420,62 +907,72 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   >(() => loadStoredHiddenDirectConversations(currentUserId));
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const mountedRef = useRef(true);
+  const aggRef = useRef<AggregateState>(EMPTY);
   const analyticsBootRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
+  const chatHydratedRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  useEffect(() => {
+    aggRef.current = agg;
+  }, [agg]);
+
+  const refreshNotifications = useCallback(async () => {
+    const myNotificationsRes = await services.client
+      .from("notifications")
+      .select("id,user_id,actor_id,kind,body,post_id,story_id,comment_id,read_at,created_at")
+      .eq("user_id", currentUserId)
+      .in("kind", SOCIAL_BELL_NOTIFICATION_KINDS)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (myNotificationsRes.error) throw myNotificationsRes.error;
+    if (!mountedRef.current) return;
+    setAgg((current) => ({
+      ...current,
+      myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
+    }));
+  }, [services, currentUserId]);
+
+  const refreshUnreadMessageCount = useCallback(async () => {
+    const unreadRes = await services.client
+      .from("direct_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("receiver_id", currentUserId)
+      .is("read_at", null);
+    if (unreadRes.error) throw unreadRes.error;
+    if (!mountedRef.current) return;
+    setUnreadMessageCount(unreadRes.count ?? 0);
+  }, [services, currentUserId]);
+
+  const refreshHomeCritical = useCallback(async (): Promise<HomeRefreshSnapshot> => {
+    markPerf("feed_first_posts_start");
+    setLoading(true);
+    void services.stats.syncStreakRestores().catch(() => undefined);
     try {
-      await services.stats.syncStreakRestores().catch(() => undefined);
       const [
-        profilesRes,
-        statsRes,
-        gymsRes,
-        userGymsRes,
+        currentProfileRes,
+        currentStatsRes,
         followsRes,
         feedRes,
         storiesRes,
-        myActivityRes,
-        checkinsTodayRes,
-        myNotificationsRes,
-        conversationParticipantsRes,
         blocksRes,
         postMutesRes,
       ] = await Promise.all([
-        services.client.from("profiles").select("*"),
-        services.client.from("user_stats_live").select("*"),
-        services.client.from("gyms").select("*"),
-        services.client.from("user_gyms").select("*"),
-        services.client.from("follows").select("*"),
         services.client
-          .from("feed_posts")
-          .select("*")
-          .order("created_at", { ascending: false })
-          .limit(200),
-        services.client
-          .from("stories")
-          .select("*")
-          .gt("expires_at", new Date().toISOString())
-          .order("created_at", { ascending: false }),
-        services.client
-          .from("user_activity_days")
-          .select("*")
+          .from("profiles")
+          .select(PROFILE_COLUMNS)
           .eq("user_id", currentUserId)
-          .order("activity_date", { ascending: true }),
+          .maybeSingle(),
         services.client
-          .from("checkins")
-          .select("*")
-          .eq("checkin_date", new Date().toISOString().slice(0, 10)),
-        services.client
-          .from("notifications")
-          .select("*")
+          .from("user_stats_live")
+          .select(USER_STATS_COLUMNS)
           .eq("user_id", currentUserId)
-          .in("kind", SOCIAL_BELL_NOTIFICATION_KINDS)
-          .order("created_at", { ascending: false })
-          .limit(50),
+          .maybeSingle(),
         services.client
-          .from("conversation_participants")
-          .select("*")
-          .eq("user_id", currentUserId),
+          .from("follows")
+          .select(FOLLOW_COLUMNS)
+          .or(`follower_id.eq.${currentUserId},following_id.eq.${currentUserId}`),
+        queryHomeFeedSurface(services.client, INITIAL_FEED_LIMIT),
+        queryStoryTraySurface(services.client, INITIAL_STORY_LIMIT),
         // Apple Guideline 1.2: app de UGC precisa filtrar conteúdo de
         // blocked users de TODOS os surfaces (feed, stories, profiles,
         // comments, search, mensagens). Carrego a lista no refresh
@@ -493,107 +990,465 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       ]);
 
       for (const r of [
-        profilesRes,
-        statsRes,
-        gymsRes,
-        userGymsRes,
+        currentProfileRes,
+        currentStatsRes,
         followsRes,
         feedRes,
         storiesRes,
-        myActivityRes,
-        checkinsTodayRes,
-        myNotificationsRes,
-        conversationParticipantsRes,
         blocksRes,
         postMutesRes,
       ]) {
         if (r.error) throw r.error;
       }
 
-      const feedPosts = (feedRes.data ?? []) as FeedPostRow[];
-      const ownConversationParticipants = (conversationParticipantsRes.data ??
-        []) as ConversationParticipantRow[];
-      const conversationIds = ownConversationParticipants.map(
-        (participant) => participant.conversation_id,
-      );
-      const [conversationsRes, allConversationParticipantsRes, chatMessagesRes] =
-        await Promise.all([
-          conversationIds.length > 0
-            ? services.client
-                .from("conversations")
-                .select("*")
-                .in("id", conversationIds)
-            : Promise.resolve({ data: [] as ConversationRow[], error: null }),
-          conversationIds.length > 0
-            ? services.client
-                .from("conversation_participants")
-                .select("*")
-                .in("conversation_id", conversationIds)
-            : Promise.resolve({
-                data: [] as ConversationParticipantRow[],
-                error: null,
-              }),
-          conversationIds.length > 0
-            ? services.client
-                .from("direct_messages")
-                .select("*")
-                .in("conversation_id", conversationIds)
-                .order("created_at", { ascending: true })
-                .limit(300)
-            : services.client
-                .from("direct_messages")
-                .select("*")
-                .or(`sender_id.eq.${currentUserId},receiver_id.eq.${currentUserId}`)
-                .order("created_at", { ascending: true })
-                .limit(200),
-        ]);
-      if (conversationsRes.error) throw conversationsRes.error;
-      if (allConversationParticipantsRes.error) throw allConversationParticipantsRes.error;
-      if (chatMessagesRes.error) throw chatMessagesRes.error;
+      const feedSurfaceRows = (feedRes.data ?? []) as SurfacePostRow[];
+      const storySurfaceRows = (storiesRes.data ?? []) as StoryTrayRow[];
+      const feedPosts = feedSurfaceRows.map(feedPostRowFromSurface);
+      const stories = storySurfaceRows.map(storyRowFromSurface);
       const postIds = feedPosts.map((p) => p.id);
-      const stories = (storiesRes.data ?? []) as StoryRow[];
       const storyIds = stories.map((story) => story.id);
-      const [
-        likesRes,
-        commentsRes,
-        storyLikesRes,
-        storyMutesRes,
-        storyViewsRes,
-        postParticipants,
-        storyParticipants,
-      ] = await Promise.all([
-        postIds.length > 0
-          ? services.client.from("post_likes").select("*").in("post_id", postIds)
-          : Promise.resolve({ data: [] as PostLikeRow[], error: null }),
-        postIds.length > 0
-          ? services.client
-              .from("post_comments")
-              .select("*")
-              .in("post_id", postIds)
-              .order("created_at", { ascending: true })
-          : Promise.resolve({ data: [] as PostCommentRow[], error: null }),
-        storyIds.length > 0
-          ? services.client
-              .from("story_likes")
-              .select("*")
-              .in("story_id", storyIds)
-          : Promise.resolve({ data: [] as StoryLikeRow[], error: null }),
+
+      if (!mountedRef.current) return { postIds, storyIds };
+      const blockedUserIds = ((blocksRes.data ?? []) as Array<{ blocked_id: string }>)
+        .map((row) => row.blocked_id);
+      const mutedPostUserIds = (
+        (postMutesRes.data ?? []) as Array<{ muted_user_id: string }>
+      ).map((row) => row.muted_user_id);
+
+      const surfaceProfiles = [
+        currentProfileRes.data
+          ? profileRowFromPartial(
+              currentProfileRes.data as unknown as Partial<ProfileRow> & { user_id: string },
+            )
+          : null,
+        ...feedSurfaceRows.map(profileRowFromSurface),
+        ...storySurfaceRows.map(profileRowFromSurface),
+      ].filter((profile): profile is ProfileRow => Boolean(profile));
+      const surfaceStats = [
+        currentStatsRes.data as UserStatsRow | null,
+        ...feedSurfaceRows.map(statsRowFromSurface),
+        ...storySurfaceRows.map(statsRowFromSurface),
+      ].filter((stats): stats is UserStatsRow => Boolean(stats));
+      const nextCurrentUserLikes: PostLikeRow[] = feedSurfaceRows
+        .filter((row) => row.liked_by_me && row.id)
+        .map((row) => ({
+          post_id: row.id as string,
+          user_id: currentUserId,
+          created_at: row.created_at ?? new Date().toISOString(),
+        }));
+      const nextStoryViews: StoryViewRow[] = storySurfaceRows
+        .filter((row) => row.has_unseen === false && row.id)
+        .map((row) => ({
+          story_id: row.id as string,
+          user_id: currentUserId,
+          viewed_at: row.created_at ?? new Date().toISOString(),
+        }));
+      setAgg((current) => ({
+        ...current,
+        profiles: mergeRowsByKey(current.profiles, surfaceProfiles, (profile) => profile.user_id),
+        stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
+        follows: (followsRes.data ?? []) as FollowRow[],
+        feedPosts,
+        stories,
+        postLikes: [
+          ...current.postLikes.filter(
+            (like) => !(like.user_id === currentUserId && postIds.includes(like.post_id)),
+          ),
+          ...nextCurrentUserLikes,
+        ],
+        storyViews: mergeRowsByKey(current.storyViews, nextStoryViews, (view) => `${view.story_id}:${view.user_id}`),
+        blockedUserIds,
+        mutedPostUserIds,
+      }));
+      setError(null);
+      return { postIds, storyIds };
+    } catch (err) {
+      if (mountedRef.current) setError(err as Error);
+      return { postIds: [], storyIds: [] };
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+        measurePerf("feed_first_posts_ms", "feed_first_posts_start", "feed_first_posts_end");
+      }
+    }
+  }, [services, currentUserId]);
+
+  const refreshHomeSecondary = useCallback(
+    async (snapshot?: HomeRefreshSnapshot) => {
+      const postIds = snapshot?.postIds ?? aggRef.current.feedPosts.map((post) => post.id);
+      const storyIds = snapshot?.storyIds ?? aggRef.current.stories.map((story) => story.id);
+      setSecondaryLoading(true);
+      try {
+        const [
+          suggestionsRes,
+          gymsRes,
+          userGymsRes,
+          myActivityRes,
+          checkinsTodayRes,
+          storyLikesRes,
+          storyMutesRes,
+          storyViewsRes,
+          postParticipants,
+          storyParticipants,
+        ] = await Promise.all([
+          queryUserSuggestionsSurface(services.client, 24),
+          services.client
+            .from("gyms")
+            .select("id,name,address,city,state,latitude,longitude,created_at"),
+          services.client
+            .from("user_gyms")
+            .select("id,user_id,gym_id,is_main,preferred_days,preferred_times,created_at"),
+          services.client
+            .from("user_activity_days")
+            .select("id,user_id,activity_date,source_type,source_id,has_photo,created_at")
+            .eq("user_id", currentUserId)
+            .order("activity_date", { ascending: true }),
+          services.client
+            .from("checkins")
+            .select("id,user_id,gym_id,checkin_date,created_at")
+            .eq("checkin_date", new Date().toISOString().slice(0, 10)),
+          storyIds.length > 0
+            ? services.client
+                .from("story_likes")
+                .select("story_id,user_id,created_at")
+                .eq("user_id", currentUserId)
+                .in("story_id", storyIds)
+            : Promise.resolve({ data: [] as StoryLikeRow[], error: null }),
+          services.client
+            .from("story_mutes")
+            .select("user_id,muted_user_id,created_at")
+            .eq("user_id", currentUserId),
+          storyIds.length > 0
+            ? services.client
+                .from("story_views")
+                .select("story_id,user_id,viewed_at")
+                .eq("user_id", currentUserId)
+                .in("story_id", storyIds)
+            : Promise.resolve({ data: [] as StoryViewRow[], error: null }),
+          postIds.length > 0
+            ? services.participants.listPostParticipants(postIds)
+            : Promise.resolve([] as PostParticipantRow[]),
+          storyIds.length > 0
+            ? services.participants.listStoryParticipants(storyIds)
+            : Promise.resolve([] as StoryParticipantRow[]),
+        ]);
+
+        for (const r of [
+          suggestionsRes,
+          gymsRes,
+          userGymsRes,
+          myActivityRes,
+          checkinsTodayRes,
+        ]) {
+          if (r.error) throw r.error;
+        }
+
+        const storyLikes = optionalStorySocialRows(
+          storyLikesRes as { data: StoryLikeRow[] | null; error: unknown },
+          "story_likes",
+        );
+        const storyMutes = optionalStorySocialRows(
+          storyMutesRes as { data: StoryMuteRow[] | null; error: unknown },
+          "story_mutes",
+        );
+        const storyViews = optionalStorySocialRows(
+          storyViewsRes as { data: StoryViewRow[] | null; error: unknown },
+          "story_views",
+        );
+        const suggestionRows = suggestionsRes.data ?? [];
+        const suggestionProfiles = suggestionRows.map(profileRowFromDiscovery);
+        const suggestionStats = suggestionRows.map(statsRowFromDiscovery);
+        const suggestionFollows = suggestionRows
+          .map((row) => followRowFromDiscovery(row, currentUserId))
+          .filter((follow): follow is FollowRow => Boolean(follow));
+
+        if (!mountedRef.current) return;
+        const nextViewedStoryIds = loadStoredViewedStoryIds(currentUserId);
+        for (const view of storyViews) nextViewedStoryIds.add(view.story_id);
+        persistStoredViewedStoryIds(currentUserId, nextViewedStoryIds);
+        setViewedStoryIds(nextViewedStoryIds);
+
+        setAgg((current) => ({
+          ...current,
+          profiles: mergeRowsByKey(current.profiles, suggestionProfiles, (profile) => profile.user_id),
+          stats: mergeRowsByKey(current.stats, suggestionStats, (stats) => stats.user_id),
+          follows: mergeRowsByKey(
+            current.follows,
+            suggestionFollows,
+            (follow) => `${follow.follower_id}:${follow.following_id}`,
+          ),
+          suggestedUserIds: suggestionRows.map((row) => row.user_id),
+          gyms: (gymsRes.data ?? []) as unknown as GymRow[],
+          userGyms: (userGymsRes.data ?? []) as unknown as UserGymRow[],
+          storyLikes: [
+            ...current.storyLikes.filter(
+              (like) =>
+                !(like.user_id === currentUserId && storyIds.includes(like.story_id)),
+            ),
+            ...storyLikes,
+          ],
+          storyMutes,
+          storyViews,
+          postParticipants: [
+            ...current.postParticipants.filter(
+              (participant) => !postIds.includes(participant.post_id),
+            ),
+            ...postParticipants,
+          ],
+          storyParticipants: [
+            ...current.storyParticipants.filter(
+              (participant) => !storyIds.includes(participant.story_id),
+            ),
+            ...storyParticipants,
+          ],
+          checkinsToday: (checkinsTodayRes.data ?? []) as unknown as CheckinRow[],
+          myActivityDays: (myActivityRes.data ?? []) as unknown as UserActivityDayRow[],
+        }));
+
+        await refreshNotifications();
+        await refreshUnreadMessageCount();
+      } catch (err) {
+        if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
+          console.warn("[GymCirclePerf] secondary refresh failed", err);
+        }
+      } finally {
+        if (mountedRef.current) setSecondaryLoading(false);
+      }
+    },
+    [services, currentUserId, refreshNotifications, refreshUnreadMessageCount],
+  );
+
+  const refreshChat = useCallback(async () => {
+    markPerf("chat_open_start");
+    setChatLoading(true);
+    try {
+      const summariesRes = await services.client.rpc("get_conversation_summaries");
+      if (summariesRes.error) {
+        logSurfaceFallback("chat summaries", summariesRes.error);
+        if (!mountedRef.current) return;
+        chatHydratedRef.current = true;
+        setChatHydrated(true);
+        setAgg((current) => ({
+          ...current,
+          conversationParticipants: [],
+          conversations: [],
+          conversationUnreadCounts: {},
+        }));
+        return;
+      }
+
+      const summaries = (summariesRes.data ?? []) as ConversationSummaryRow[];
+      const conversations = summaries.map<ConversationRow>((summary) => ({
+        id: summary.conversation_id,
+        type: summary.type === "group" ? "group" : "direct",
+        name: summary.name,
+        image_url: summary.image_url,
+        last_message_at: summary.last_message_at,
+        created_at: summary.last_message_at ?? new Date().toISOString(),
+        updated_at: summary.last_message_at ?? new Date().toISOString(),
+        created_by: null,
+        direct_key: null,
+      }));
+      const conversationUnreadCounts = Object.fromEntries(
+        summaries.map((summary) => [
+          summary.conversation_id,
+          summary.unread_count ?? 0,
+        ]),
+      );
+      const allConversationParticipants = summaries.flatMap((summary) => {
+        const participants = parseJsonValue<ConversationSummaryParticipant[]>(
+          summary.participants,
+          [],
+        );
+        return participants
+          .filter((participant) => Boolean(participant.user_id))
+          .map<ConversationParticipantRow>((participant) => ({
+            conversation_id: participant.conversation_id ?? summary.conversation_id,
+            user_id: participant.user_id as string,
+            role: participant.role ?? "member",
+            joined_at:
+              participant.joined_at ??
+              participant.created_at ??
+              summary.last_message_at ??
+              new Date().toISOString(),
+            created_at:
+              participant.created_at ??
+              participant.joined_at ??
+              summary.last_message_at ??
+              new Date().toISOString(),
+            last_read_at:
+              participant.user_id === currentUserId
+                ? summary.last_read_at
+                : participant.last_read_at ?? null,
+            deleted_at:
+              participant.user_id === currentUserId
+                ? summary.deleted_at
+                : participant.deleted_at ?? null,
+          }));
+      });
+      const summaryProfiles = summaries.flatMap((summary) => {
+        const participants = parseJsonValue<ConversationSummaryParticipant[]>(
+          summary.participants,
+          [],
+        );
+        return participants
+          .map((participant) =>
+            participant.user_id
+              ? profileRowFromPartial({
+                  user_id: participant.user_id,
+                  username: participant.username ?? undefined,
+                  display_name:
+                    participant.display_name ??
+                    participant.username ??
+                    "Gym Circle",
+                  avatar_url: participant.avatar_url ?? null,
+                  account_status: participant.account_status ?? "active",
+                })
+              : null,
+          )
+          .filter((profile): profile is ProfileRow => Boolean(profile));
+      });
+      const lastMessages = summaries
+        .map((summary) =>
+          directMessageRowFromPartial(
+            parseJsonValue<Partial<DirectMessageRow> | null>(summary.last_message, null) ?? {},
+          ),
+        )
+        .filter((message): message is DirectMessageRow => Boolean(message));
+
+      if (!mountedRef.current) return;
+      chatHydratedRef.current = true;
+      setChatHydrated(true);
+      setUnreadMessageCount(
+        summaries.reduce((sum, summary) => sum + (summary.unread_count ?? 0), 0),
+      );
+      setAgg((current) => ({
+        ...current,
+        profiles: mergeRowsByKey(current.profiles, summaryProfiles, (profile) => profile.user_id),
+        conversationParticipants: allConversationParticipants,
+        conversations,
+        conversationUnreadCounts,
+        chatMessages: mergeRowsByKey(current.chatMessages, lastMessages, (message) => message.id),
+      }));
+    } finally {
+      if (mountedRef.current) {
+        setChatLoading(false);
+        measurePerf("chat_open_ms", "chat_open_start", "chat_open_end");
+      }
+    }
+  }, [services, currentUserId]);
+
+  const refreshConversationMessages = useCallback(
+    async (conversationId: string) => {
+      markPerf("conversation_open_start");
+      try {
+        const messagesRes = await services.client.rpc("get_conversation_messages", {
+          p_conversation_id: conversationId,
+          p_cursor_created_at: null,
+          p_limit: 30,
+        });
+        if (messagesRes.error) {
+          logSurfaceFallback("conversation messages", messagesRes.error);
+          return;
+        }
+        const messages = ((messagesRes.data ?? []) as Partial<DirectMessageRow>[])
+          .map(directMessageRowFromPartial)
+          .filter((message): message is DirectMessageRow => Boolean(message));
+        if (!mountedRef.current) return;
+        setAgg((current) => ({
+          ...current,
+          chatMessages: [
+            ...current.chatMessages.filter(
+              (message) => message.conversation_id !== conversationId,
+            ),
+            ...messages,
+          ],
+        }));
+      } finally {
+        measurePerf(
+          "conversation_open_ms",
+          "conversation_open_start",
+          "conversation_open_end",
+        );
+      }
+    },
+    [services],
+  );
+
+  const refreshProfilePosts = useCallback(
+    async (userId: string) => {
+      markPerf("profile_posts_start");
+      const profilePostsRes = await services.client.rpc("get_profile_posts", {
+        p_user_id: userId,
+        p_cursor_created_at: null,
+        p_limit: 30,
+      });
+      if (profilePostsRes.error) {
+        logSurfaceFallback("profile posts", profilePostsRes.error);
+        measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
+        return;
+      }
+
+      const profileSurfaceRows = (profilePostsRes.data ?? []) as SurfacePostRow[];
+      const profileFeedPosts = profileSurfaceRows.map(feedPostRowFromSurface);
+      const profileSurfaceProfiles = profileSurfaceRows
+        .map(profileRowFromSurface)
+        .filter((profile): profile is ProfileRow => Boolean(profile));
+      const profileSurfaceStats = profileSurfaceRows
+        .map(statsRowFromSurface)
+        .filter((stats): stats is UserStatsRow => Boolean(stats));
+      const profileCurrentUserLikes: PostLikeRow[] = profileSurfaceRows
+        .filter((row) => row.liked_by_me && row.id)
+        .map((row) => ({
+          post_id: row.id as string,
+          user_id: currentUserId,
+          created_at: row.created_at ?? new Date().toISOString(),
+        }));
+
+      if (!mountedRef.current) return;
+      setAgg((current) => ({
+        ...current,
+        profiles: mergeRowsByKey(
+          current.profiles,
+          profileSurfaceProfiles,
+          (profile) => profile.user_id,
+        ),
+        stats: mergeRowsByKey(current.stats, profileSurfaceStats, (stats) => stats.user_id),
+        profileFeedPosts: mergeRowsByKey(
+          current.profileFeedPosts,
+          profileFeedPosts,
+          (post) => post.id,
+        ),
+        postLikes: [
+          ...current.postLikes.filter(
+            (like) =>
+              !(
+                like.user_id === currentUserId &&
+                profileFeedPosts.some((post) => post.id === like.post_id)
+              ),
+          ),
+          ...profileCurrentUserLikes,
+        ],
+      }));
+      measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
+    },
+    [currentUserId, services],
+  );
+
+  const refreshPostDetails = useCallback(
+    async (postId: string) => {
+      const [likesRes, commentsRes, postParticipants] = await Promise.all([
+        services.client.from("post_likes").select("*").eq("post_id", postId),
         services.client
-          .from("story_mutes")
+          .from("post_comments")
           .select("*")
-          .eq("user_id", currentUserId),
-        storyIds.length > 0
-          ? services.client
-              .from("story_views")
-              .select("*")
-              .eq("user_id", currentUserId)
-              .in("story_id", storyIds)
-          : Promise.resolve({ data: [] as StoryViewRow[], error: null }),
-        services.participants.listPostParticipants(postIds),
-        services.participants.listStoryParticipants(storyIds),
+          .eq("post_id", postId)
+          .order("created_at", { ascending: true }),
+        services.participants.listPostParticipants([postId]),
       ]);
       if (likesRes.error) throw likesRes.error;
       if (commentsRes.error) throw commentsRes.error;
+
       const postComments = (commentsRes.data ?? []) as PostCommentRow[];
       const commentIds = postComments.map((comment) => comment.id);
       const postCommentLikesRes =
@@ -603,66 +1458,57 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
               .select("*")
               .in("comment_id", commentIds)
           : { data: [] as PostCommentLikeRow[], error: null };
-      const storyLikes = optionalStorySocialRows(
-        storyLikesRes as { data: StoryLikeRow[] | null; error: unknown },
-        "story_likes",
-      );
-      const storyMutes = optionalStorySocialRows(
-        storyMutesRes as { data: StoryMuteRow[] | null; error: unknown },
-        "story_mutes",
-      );
-      const storyViews = optionalStorySocialRows(
-        storyViewsRes as { data: StoryViewRow[] | null; error: unknown },
-        "story_views",
-      );
       const postCommentLikes = optionalStorySocialRows(
         postCommentLikesRes as { data: PostCommentLikeRow[] | null; error: unknown },
         "post_comment_likes",
       );
 
       if (!mountedRef.current) return;
-      const nextViewedStoryIds = loadStoredViewedStoryIds(currentUserId);
-      for (const view of storyViews) nextViewedStoryIds.add(view.story_id);
-      persistStoredViewedStoryIds(currentUserId, nextViewedStoryIds);
-      setViewedStoryIds(nextViewedStoryIds);
-      const blockedUserIds = ((blocksRes.data ?? []) as Array<{ blocked_id: string }>)
-        .map((row) => row.blocked_id);
-      const mutedPostUserIds = (
-        (postMutesRes.data ?? []) as Array<{ muted_user_id: string }>
-      ).map((row) => row.muted_user_id);
-      setAgg({
-        profiles: (profilesRes.data ?? []) as ProfileRow[],
-        stats: (statsRes.data ?? []) as UserStatsRow[],
-        gyms: (gymsRes.data ?? []) as GymRow[],
-        userGyms: (userGymsRes.data ?? []) as UserGymRow[],
-        follows: (followsRes.data ?? []) as FollowRow[],
-        feedPosts,
-        stories,
-        storyLikes,
-        storyMutes,
-        storyViews,
-        postParticipants,
-        storyParticipants,
-        postLikes: (likesRes.data ?? []) as PostLikeRow[],
-        postCommentLikes,
-        postComments,
-        checkinsToday: (checkinsTodayRes.data ?? []) as CheckinRow[],
-        myActivityDays: (myActivityRes.data ?? []) as UserActivityDayRow[],
-        myNotifications: (myNotificationsRes.data ?? []) as NotificationRow[],
-        conversationParticipants: (allConversationParticipantsRes.data ??
-          ownConversationParticipants) as ConversationParticipantRow[],
-        conversations: (conversationsRes.data ?? []) as ConversationRow[],
-        chatMessages: (chatMessagesRes.data ?? []) as DirectMessageRow[],
-        blockedUserIds,
-        mutedPostUserIds,
+      setAgg((current) => {
+        const previousCommentIds = current.postComments
+          .filter((comment) => comment.post_id === postId)
+          .map((comment) => comment.id);
+        const nextCommentIds = new Set(commentIds);
+        const staleCommentIds = new Set(
+          previousCommentIds.filter((commentId) => !nextCommentIds.has(commentId)),
+        );
+
+        return {
+          ...current,
+          feedPosts: current.feedPosts.map((row) =>
+            row.id === postId ? { ...row, comments_count: postComments.length } : row,
+          ),
+          postLikes: [
+            ...current.postLikes.filter((like) => like.post_id !== postId),
+            ...((likesRes.data ?? []) as PostLikeRow[]),
+          ],
+          postComments: [
+            ...current.postComments.filter((comment) => comment.post_id !== postId),
+            ...postComments,
+          ],
+          postCommentLikes: [
+            ...current.postCommentLikes.filter(
+              (like) =>
+                !staleCommentIds.has(like.comment_id) && !commentIds.includes(like.comment_id),
+            ),
+            ...postCommentLikes,
+          ],
+          postParticipants: [
+            ...current.postParticipants.filter(
+              (participant) => participant.post_id !== postId,
+            ),
+            ...postParticipants,
+          ],
+        };
       });
-      setError(null);
-    } catch (err) {
-      if (mountedRef.current) setError(err as Error);
-    } finally {
-      if (mountedRef.current) setLoading(false);
-    }
-  }, [services, currentUserId]);
+    },
+    [services],
+  );
+
+  const refresh = useCallback(async () => {
+    const snapshot = await refreshHomeCritical();
+    void refreshHomeSecondary(snapshot);
+  }, [refreshHomeCritical, refreshHomeSecondary]);
 
   const scheduleRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {
@@ -674,29 +1520,113 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }, 220);
   }, [refresh]);
 
+  const handlePostLikeRealtime = useCallback(
+    (payload: RealtimePayload) => {
+      const row = (payload.new ?? payload.old) as Partial<PostLikeRow> | undefined;
+      if (!row?.post_id || row.user_id === currentUserId) return;
+      const delta = payload.eventType === "DELETE" ? -1 : payload.eventType === "INSERT" ? 1 : 0;
+      if (!delta) return;
+      setAgg((current) => ({
+        ...current,
+        feedPosts: current.feedPosts.map((post) =>
+          post.id === row.post_id
+            ? { ...post, likes_count: Math.max(0, (post.likes_count ?? 0) + delta) }
+            : post,
+        ),
+      }));
+    },
+    [currentUserId],
+  );
+
+  const handlePostCommentRealtime = useCallback(
+    (payload: RealtimePayload) => {
+      const row = (payload.new ?? payload.old) as Partial<PostCommentRow> | undefined;
+      if (!row?.post_id) return;
+      const delta = payload.eventType === "DELETE" ? -1 : payload.eventType === "INSERT" ? 1 : 0;
+      if (delta) {
+        setAgg((current) => ({
+          ...current,
+          feedPosts: current.feedPosts.map((post) =>
+            post.id === row.post_id
+              ? {
+                  ...post,
+                  comments_count: Math.max(0, (post.comments_count ?? 0) + delta),
+                }
+              : post,
+          ),
+        }));
+      }
+      const detailsLoaded = aggRef.current.postComments.some(
+        (comment) => comment.post_id === row.post_id,
+      );
+      if (detailsLoaded) void refreshPostDetails(row.post_id);
+    },
+    [refreshPostDetails],
+  );
+
+  const handleStoryLikeRealtime = useCallback(
+    (payload: RealtimePayload) => {
+      const row = (payload.new ?? payload.old) as Partial<StoryLikeRow> | undefined;
+      if (!row?.story_id || !row.user_id || row.user_id === currentUserId) return;
+      const storyId = row.story_id;
+      const userId = row.user_id;
+      setAgg((current) => ({
+        ...current,
+        storyLikes:
+          payload.eventType === "DELETE"
+            ? current.storyLikes.filter(
+                (like) => !(like.story_id === storyId && like.user_id === userId),
+              )
+            : current.storyLikes.some(
+                  (like) => like.story_id === storyId && like.user_id === userId,
+                )
+              ? current.storyLikes
+              : [
+                  ...current.storyLikes,
+                  {
+                    story_id: storyId,
+                    user_id: userId,
+                    created_at: (row.created_at as string | undefined) ?? new Date().toISOString(),
+                  },
+                ],
+      }));
+    },
+    [currentUserId],
+  );
+
+  const handleChatRealtime = useCallback(() => {
+    if (chatHydratedRef.current) {
+      void refreshChat();
+      return;
+    }
+    void refreshUnreadMessageCount().catch(() => undefined);
+  }, [refreshChat, refreshUnreadMessageCount]);
+
   useEffect(() => {
     mountedRef.current = true;
     const refreshId = window.setTimeout(() => {
-      void refresh();
+      void refreshHomeCritical().then((snapshot) => {
+        void refreshHomeSecondary(snapshot);
+      });
     }, 0);
     const channel = services.client
       .channel("supabase-social")
       .on("postgres_changes", { event: "*", schema: "public", table: "posts" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "stories" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "story_likes" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "story_likes" }, handleStoryLikeRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "story_mutes" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_participants" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "story_participants" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_mutes" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_comment_likes" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, handlePostLikeRealtime)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comment_likes" }, () => undefined)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, handlePostCommentRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, scheduleRefresh)
-      .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, handleChatRealtime)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, handleChatRealtime)
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversation_participants" }, handleChatRealtime)
       .on(
         "postgres_changes",
         {
@@ -705,7 +1635,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           table: "notifications",
           filter: `user_id=eq.${currentUserId}`,
         },
-        scheduleRefresh,
+        () => {
+          void refreshNotifications().catch(() => undefined);
+        },
       )
       .subscribe();
     return () => {
@@ -717,7 +1649,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       mountedRef.current = false;
       services.client.removeChannel(channel);
     };
-  }, [services, refresh, scheduleRefresh, currentUserId]);
+  }, [
+    services,
+    refreshHomeCritical,
+    refreshHomeSecondary,
+    scheduleRefresh,
+    currentUserId,
+    handleStoryLikeRealtime,
+    handlePostLikeRealtime,
+    handlePostCommentRealtime,
+    handleChatRealtime,
+    refreshNotifications,
+  ]);
 
   const showFeedback = useCallback(
     (tone: FeedbackTone, title: string, detail?: string) => {
@@ -950,7 +1893,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   }, [agg.storyParticipants]);
 
   const profilePosts = useMemo<EnrichedPost[]>(() => {
-    if (!agg.feedPosts.length) return [];
+    const visibleRows = mergeRowsByKey(
+      agg.feedPosts,
+      agg.profileFeedPosts,
+      (post) => post.id,
+    );
+    if (!visibleRows.length) return [];
     const myLikedSet = new Set(
       agg.postLikes.filter((l) => l.user_id === currentUserId).map((l) => l.post_id),
     );
@@ -986,7 +1934,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       likesByPost.set(l.post_id, list);
     }
 
-    return agg.feedPosts
+    return visibleRows
       // Histórico de perfil usa tudo que a RLS/view deixa o usuário ver.
       // O home feed continua filtrado abaixo para seguir-only.
       .filter((row) => {
@@ -1069,6 +2017,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           streakAtPost: row.author_current_streak ?? 0,
           likesCount,
           likedByCurrentUser: myLikedSet.has(row.id),
+          commentsCount: row.comments_count ?? postComments.length,
           comments: postComments.map((c) => ({
             ...enrichComment(c, author),
           })),
@@ -1223,6 +2172,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const suggestedUsers = useMemo<EnrichedUser[]>(() => {
+    if (agg.suggestedUserIds.length > 0) {
+      return agg.suggestedUserIds
+        .map((userId) => enrichedAll.get(userId))
+        .filter((user): user is EnrichedUser => Boolean(user));
+    }
     const list: EnrichedUser[] = [];
     enrichedAll.forEach((u) => {
       if (u.id !== currentUserId) list.push(u);
@@ -1238,7 +2192,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         b.currentStreak;
       return bScore - aScore;
     });
-  }, [enrichedAll, currentUser, currentUserId]);
+  }, [agg.suggestedUserIds, enrichedAll, currentUser, currentUserId]);
 
   const nearbyUsers = useMemo<EnrichedUser[]>(
     () => suggestedUsers.filter((u) => getSharedGymCount(currentUser, u) > 0),
@@ -1361,13 +2315,45 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           lastReadAt: currentParticipant.last_read_at,
           deletedAt: currentParticipant.deleted_at,
           lastMessageAt: conversation.last_message_at,
+          unreadCount: agg.conversationUnreadCounts[conversation.id] ?? 0,
         } satisfies ChatConversation;
       })
       .filter((conversation): conversation is ChatConversation => Boolean(conversation));
-  }, [agg.conversations, agg.conversationParticipants, chatMessages, currentUserId]);
+  }, [
+    agg.conversations,
+    agg.conversationParticipants,
+    agg.conversationUnreadCounts,
+    chatMessages,
+    currentUserId,
+  ]);
 
   const actions = useMemo<SupabaseSocialActions>(
     () => ({
+      async searchProfiles(query: string) {
+        const searchRes = await querySearchProfilesSurface(services.client, query, 30);
+        if (searchRes.error) throw searchRes.error;
+        const rows = searchRes.data ?? [];
+        const profiles = rows.map(profileRowFromDiscovery);
+        const stats = rows.map(statsRowFromDiscovery);
+        const follows = rows
+          .map((row) => followRowFromDiscovery(row, currentUserId))
+          .filter((follow): follow is FollowRow => Boolean(follow));
+
+        if (mountedRef.current) {
+          setAgg((current) => ({
+            ...current,
+            profiles: mergeRowsByKey(current.profiles, profiles, (profile) => profile.user_id),
+            stats: mergeRowsByKey(current.stats, stats, (stat) => stat.user_id),
+            follows: mergeRowsByKey(
+              current.follows,
+              follows,
+              (follow) => `${follow.follower_id}:${follow.following_id}`,
+            ),
+          }));
+        }
+
+        return rows.map(enrichedUserFromDiscovery);
+      },
       async likePost(postId: string) {
         const post = profilePosts.find((p) => p.id === postId);
         const liked = post?.likedByCurrentUser ?? false;
@@ -1434,6 +2420,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       },
       async commentPost(postId: string, body: string) {
         await services.posts.comment(postId, currentUserId, body);
+        await refreshPostDetails(postId);
         showFeedback("comment", "Comentário publicado");
       },
       async deleteComment(postId: string, commentId: string) {
@@ -1459,7 +2446,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           await services.posts.deleteComment(commentId, currentUserId);
           showFeedback("success", "Comentário apagado");
         } catch (err) {
-          await refresh();
+          await refreshPostDetails(postId).catch(() => undefined);
           throw err;
         }
       },
@@ -1498,7 +2485,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             showFeedback("like", "Comentário curtido");
           }
         } catch (err) {
-          await refresh();
+          await refreshPostDetails(postId).catch(() => undefined);
           throw err;
         }
       },
@@ -1525,6 +2512,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         return result;
       },
       openStory(storyId: string) {
+        markPerf("stories_open_start");
         const group =
           storyGroups.find((item) => item.id === storyId) ??
           storyGroups.find((item) => item.stories.some((story) => story.id === storyId)) ??
@@ -1563,6 +2551,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         setSelectedStoryGroupId(group?.id ?? story.author.id);
         setSelectedStoryId(nextStoryId);
         simulateHaptic("brand");
+        measurePerf("stories_open_ms", "stories_open_start", "stories_open_end");
       },
       closeStory() {
         setSelectedStoryId(null);
@@ -1579,7 +2568,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           replyToStory: true,
           storyPreviewUrl: story.imageUrl,
         });
-        await refresh();
+        await refreshChat();
         showFeedback("comment", "Resposta enviada", story.author.name);
       },
       async likeStory(storyId: string) {
@@ -1595,7 +2584,24 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           try {
             await services.stories.unlike(storyId, currentUserId);
           } catch (err) {
-            await refresh();
+            setAgg((current) => {
+              const exists = current.storyLikes.some(
+                (like) => like.story_id === storyId && like.user_id === currentUserId,
+              );
+              return exists
+                ? current
+                : {
+                    ...current,
+                    storyLikes: [
+                      ...current.storyLikes,
+                      {
+                        story_id: storyId,
+                        user_id: currentUserId,
+                        created_at: new Date().toISOString(),
+                      },
+                    ],
+                  };
+            });
             throw err;
           }
           return;
@@ -1616,7 +2622,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         try {
           await services.stories.like(storyId, currentUserId);
           showFeedback("like", "Story curtido", story.author.name);
-          await refresh();
         } catch (err) {
           setAgg((current) => ({
             ...current,
@@ -1699,7 +2704,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           mediaUrl: post.imageUrl,
           mediaType: post.mediaType,
         });
-        await refresh();
+        await refreshChat();
         showFeedback("comment", "Publicação enviada", receiver.name);
       },
       async shareStoryToChat(storyId: string, receiverId: string) {
@@ -1713,7 +2718,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           replyToStory: false,
           storyPreviewUrl: story.imageUrl,
         });
-        await refresh();
+        await refreshChat();
         showFeedback("comment", "Story enviado", receiver.name);
       },
       async publishWorkout(input: CreateWorkoutPostInput) {
@@ -1827,8 +2832,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         if (input.caption !== undefined) patch.caption = input.caption;
         if (input.workoutType !== undefined) patch.workout_type = input.workoutType;
         await services.posts.update(postId, patch);
+        const taggedUserIds = input.taggedUserIds ?? [];
+        if (taggedUserIds.length > 0) {
+          await services.participants.requestPostTags(postId, currentUserId, taggedUserIds);
+        }
         await refresh();
-        showFeedback("success", "Post atualizado");
+        showFeedback(
+          "success",
+          taggedUserIds.length > 0 ? "Solicitação enviada" : "Post atualizado",
+          taggedUserIds.length > 0 ? "Aguardando aceite" : undefined,
+        );
       },
       async deletePost(postId: string) {
         await services.posts.remove(postId);
@@ -1836,6 +2849,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         showFeedback("success", "Post apagado");
       },
       async sendChatMessage(input: SendChatMessageInput) {
+        let conversationIdForMessages = input.conversationId ?? null;
         if (input.conversationId) {
           await services.messages.sendGroup({
             conversationId: input.conversationId,
@@ -1853,25 +2867,49 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             replyToStory: input.replyToStory,
             storyPreviewUrl: input.storyPreviewUrl,
           });
+          conversationIdForMessages =
+            aggRef.current.conversationParticipants.find(
+              (participant) =>
+                participant.user_id === input.receiverId &&
+                aggRef.current.conversationParticipants.some(
+                  (own) =>
+                    own.conversation_id === participant.conversation_id &&
+                    own.user_id === currentUserId,
+                ),
+            )?.conversation_id ?? null;
         } else {
           throw new Error("Escolha uma conversa.");
         }
-        await refresh();
+        await refreshChat();
+        if (conversationIdForMessages) {
+          await refreshConversationMessages(conversationIdForMessages).catch(() => undefined);
+        }
         showFeedback("comment", input.mediaUrl ? "Mídia enviada" : "Mensagem enviada");
       },
       async markChatThreadRead(userId: string) {
         void services.analytics.trackSafe(currentUserId, "conversation_opened", {
           other_user_id: userId,
         });
+        const conversationId = aggRef.current.conversations.find((conversation) => {
+          if (conversation.type === "group") return false;
+          const members = aggRef.current.conversationParticipants
+            .filter((participant) => participant.conversation_id === conversation.id)
+            .map((participant) => participant.user_id);
+          return members.includes(currentUserId) && members.includes(userId);
+        })?.id;
+        if (conversationId) {
+          await refreshConversationMessages(conversationId).catch(() => undefined);
+        }
         await services.messages.markDirectRead(currentUserId, userId);
-        await refresh();
+        void refreshChat();
       },
       async markChatConversationRead(conversationId: string) {
         void services.analytics.trackSafe(currentUserId, "conversation_opened", {
           conversation_id: conversationId,
         });
+        await refreshConversationMessages(conversationId).catch(() => undefined);
         await services.messages.markConversationRead(conversationId);
-        await refresh();
+        void refreshChat();
       },
       async deleteChatConversation(userId: string) {
         const target = enrichedAll.get(userId);
@@ -1902,7 +2940,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         try {
           await services.messages.deleteConversationForMe(currentUserId, userId);
           showFeedback("success", "Conversa apagada", target?.name);
-          await refresh();
+          await refreshChat();
         } catch {
           showFeedback("success", "Conversa apagada", target?.name);
         }
@@ -1923,7 +2961,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         }));
         await services.messages.deleteConversationByIdForMe(conversationId);
         showFeedback("success", "Conversa apagada");
-        await refresh();
+        await refreshChat();
       },
       async createGroupConversation(input) {
         const conversationId = await services.messages.createGroup({
@@ -1931,7 +2969,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           memberIds: input.memberIds,
           imageUrl: input.imageUrl,
         });
-        await refresh();
+        await refreshChat();
         showFeedback("success", "Grupo criado", input.name);
         return conversationId;
       },
@@ -2041,6 +3079,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await refresh();
         showFeedback("success", "Perfil pronto para alpha");
       },
+      refreshChat,
+      refreshPostDetails,
+      refreshProfilePosts,
     }),
     [
       services,
@@ -2054,6 +3095,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       agg.postCommentLikes,
       agg.chatMessages,
       refresh,
+      refreshChat,
+      refreshConversationMessages,
+      refreshPostDetails,
+      refreshProfilePosts,
       showFeedback,
     ],
   );
@@ -2074,6 +3119,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   const unreadMessages = useMemo(
     () => {
+      if (!chatHydrated) return unreadMessageCount;
+      const summaryUnread = Object.values(agg.conversationUnreadCounts).reduce(
+        (total, count) => total + count,
+        0,
+      );
+      if (summaryUnread > 0) return summaryUnread;
       const directUnread = chatMessages.filter(
         (message) => message.receiverId === currentUserId && !message.readAt,
       ).length;
@@ -2092,7 +3143,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       }, 0);
       return directUnread + groupUnread;
     },
-    [chatConversations, chatMessages, currentUserId],
+    [
+      agg.conversationUnreadCounts,
+      chatConversations,
+      chatHydrated,
+      chatMessages,
+      currentUserId,
+      unreadMessageCount,
+    ],
   );
 
   return {
@@ -2115,6 +3173,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     actions,
     unreadNotifications,
     unreadMessages,
+    homeLoading: loading,
+    secondaryLoading,
+    chatLoading,
     loading,
     error,
     refresh,

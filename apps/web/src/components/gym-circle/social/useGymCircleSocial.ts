@@ -506,11 +506,44 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
       // Mock só edita posts do dono atual; UI só expõe o menu para posts próprios.
       const target = state.posts.find((p) => p.id === action.postId);
       if (!target || target.userId !== state.currentUserId) return state;
+      const requestedIds = Array.from(
+        new Set(
+          (action.input.taggedUserIds ?? []).filter(
+            (id) => id && id !== state.currentUserId,
+          ),
+        ),
+      );
 
       return {
         ...state,
         posts: state.posts.map((post) => {
           if (post.id !== action.postId) return post;
+          const existingParticipants = post.participants ?? [];
+          const activeIds = new Set(
+            existingParticipants
+              .filter((participant) => participant.status !== "rejected")
+              .map((participant) => participant.taggedUserId),
+          );
+          const keptParticipants = existingParticipants.filter(
+            (participant) =>
+              !(
+                participant.status === "rejected" &&
+                requestedIds.includes(participant.taggedUserId)
+              ),
+          );
+          const createdAt = new Date().toISOString();
+          const newParticipants = requestedIds
+            .filter((taggedUserId) => !activeIds.has(taggedUserId))
+            .map((taggedUserId) => ({
+              id: `mock-post-participant-${post.id}-${taggedUserId}`,
+              targetId: post.id,
+              taggedUserId,
+              taggedByUserId: state.currentUserId,
+              status: "pending" as const,
+              acceptedAt: null,
+              rejectedAt: null,
+              createdAt,
+            }));
           return {
             ...post,
             caption:
@@ -521,6 +554,7 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
               action.input.workoutType !== undefined
                 ? action.input.workoutType
                 : post.workoutType,
+            participants: [...keptParticipants, ...newParticipants],
           };
         }),
       };
