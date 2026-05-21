@@ -27,6 +27,14 @@ import type {
   UserStatsRow,
 } from "@gym-circle/core";
 import { simulateHaptic } from "./haptics";
+import {
+  clearNativeFeelCaches,
+  nativeCacheKeys,
+  nativeCacheTtl,
+  readNativeCache,
+  writeNativeCache,
+} from "../native/LocalAppCache";
+import { PushNotificationsService } from "../native/PushNotificationsService";
 import { markPerf, measurePerf } from "../performance";
 import {
   calculateAgeFromBirthDate,
@@ -197,6 +205,57 @@ const EMPTY: AggregateState = {
   blockedUserIds: [],
   mutedPostUserIds: [],
 };
+
+type HomeNativeCache = Pick<
+  AggregateState,
+  "feedPosts" | "profiles" | "stats" | "stories" | "storyTrayRows"
+>;
+
+type StoryTrayNativeCache = Pick<
+  AggregateState,
+  "profiles" | "stats" | "stories" | "storyTrayRows"
+>;
+
+function loadNativeHomeCache(userId: string): AggregateState {
+  const cachedHome = readNativeCache<HomeNativeCache>(nativeCacheKeys.home(userId));
+  const cachedStoryTray = readNativeCache<StoryTrayNativeCache>(
+    nativeCacheKeys.storyTray(userId),
+  );
+  const cachedOwnProfile = readNativeCache<ProfileRow>(
+    nativeCacheKeys.ownProfile(userId),
+  );
+  if (!cachedHome && !cachedStoryTray && !cachedOwnProfile) return EMPTY;
+  return {
+    ...EMPTY,
+    ...(cachedHome ?? {}),
+    ...(cachedStoryTray ?? {}),
+    profiles: mergeProfileRows(
+      mergeProfileRows(cachedHome?.profiles ?? [], cachedStoryTray?.profiles ?? []),
+      cachedOwnProfile ? [cachedOwnProfile] : [],
+    ),
+    stats: mergeRowsByKey(
+      cachedHome?.stats ?? [],
+      cachedStoryTray?.stats ?? [],
+      (stats) => stats.user_id,
+    ),
+  };
+}
+
+function writeNativeHomeCache(userId: string, state: HomeNativeCache) {
+  writeNativeCache(nativeCacheKeys.home(userId), state, nativeCacheTtl.feedMs);
+}
+
+function writeNativeStoryTrayCache(userId: string, state: StoryTrayNativeCache) {
+  writeNativeCache(nativeCacheKeys.storyTray(userId), state, nativeCacheTtl.storyTrayMs);
+}
+
+function writeNativeOwnProfileCache(userId: string, profile: ProfileRow) {
+  writeNativeCache(
+    nativeCacheKeys.ownProfile(userId),
+    profile,
+    nativeCacheTtl.ownProfileMs,
+  );
+}
 
 function findDirectConversationId(
   state: AggregateState,
@@ -974,7 +1033,7 @@ export type SupabaseSocialResult = {
 
 export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const services = useGymCircleServices();
-  const [agg, setAgg] = useState<AggregateState>(EMPTY);
+  const [agg, setAgg] = useState<AggregateState>(() => loadNativeHomeCache(currentUserId));
   const [loading, setLoading] = useState(true);
   const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -1115,6 +1174,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         ...feedSurfaceRows.map(statsRowFromSurface),
         ...storySurfaceRows.map(statsRowFromSurface),
       ].filter((stats): stats is UserStatsRow => Boolean(stats));
+      const currentProfile = surfaceProfiles.find(
+        (profile) => profile.user_id === currentUserId,
+      );
       const nextCurrentUserLikes: PostLikeRow[] = feedSurfaceRows
         .filter((row) => row.liked_by_me && row.id)
         .map((row) => ({
@@ -1147,6 +1209,20 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         blockedUserIds,
         mutedPostUserIds,
       }));
+      writeNativeHomeCache(currentUserId, {
+        profiles: surfaceProfiles,
+        stats: surfaceStats,
+        feedPosts,
+        storyTrayRows: storySurfaceRows,
+        stories,
+      });
+      writeNativeStoryTrayCache(currentUserId, {
+        profiles: surfaceProfiles,
+        stats: surfaceStats,
+        storyTrayRows: storySurfaceRows,
+        stories,
+      });
+      if (currentProfile) writeNativeOwnProfileCache(currentUserId, currentProfile);
       setError(null);
       return { postIds, storyIds };
     } catch (err) {
@@ -3297,6 +3373,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         return conversationId;
       },
       async signOut() {
+        await PushNotificationsService.unregisterPushToken(services.push);
+        clearNativeFeelCaches();
         await services.auth.signOut();
       },
       async updateProfile(input: ProfileEditInput) {
@@ -3326,6 +3404,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             profiles: mergeProfileRows(current.profiles, [updatedProfile]),
           }));
         }
+        writeNativeOwnProfileCache(currentUserId, updatedProfile);
         if (input.mainGymId) {
           await services.gyms.addUserGym(currentUserId, input.mainGymId, true).catch((err) => {
             if ((err as { code?: string }).code !== "23505") throw err;

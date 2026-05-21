@@ -255,6 +255,45 @@ export type Database = {
           },
         ]
       }
+      device_push_tokens: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          device_id: string | null
+          id: string
+          last_seen_at: string
+          platform: string
+          revoked_at: string | null
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          last_seen_at?: string
+          platform: string
+          revoked_at?: string | null
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          last_seen_at?: string
+          platform?: string
+          revoked_at?: string | null
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       follows: {
         Row: {
           created_at: string

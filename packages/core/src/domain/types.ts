@@ -28,6 +28,8 @@ export type StreakRestoredDayRow =
 export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 export type PushSubscriptionRow =
   Database["public"]["Tables"]["push_subscriptions"]["Row"];
+export type DevicePushTokenRow =
+  Database["public"]["Tables"]["device_push_tokens"]["Row"];
 export type AnalyticsEventRow =
   Database["public"]["Tables"]["analytics_events"]["Row"];
 export type UserBlockRow = Database["public"]["Tables"]["user_blocks"]["Row"];

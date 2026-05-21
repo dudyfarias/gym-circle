@@ -6,6 +6,7 @@ import { BrandMark } from "./design-system";
 import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
 import { NativeBootController } from "./NativeBootController";
+import { NativePushController } from "./NativePushController";
 import { PwaController } from "./PwaController";
 import { markPerf, measurePerf } from "./performance";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
@@ -319,6 +320,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
         onUploadImage={onUploadImage}
         social={social}
       />
+      <NativePushController userId={userId} />
       <PwaController userId={userId} />
     </>
   );

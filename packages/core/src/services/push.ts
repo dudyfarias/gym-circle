@@ -7,6 +7,13 @@ export type SavePushSubscriptionInput = {
   userAgent?: string | null;
 };
 
+export type SaveDevicePushTokenInput = {
+  platform: "ios" | "android" | "web";
+  token: string;
+  deviceId?: string | null;
+  appVersion?: string | null;
+};
+
 export function pushService(client: GymCircleClient) {
   return {
     async save(userId: string, input: SavePushSubscriptionInput): Promise<void> {
@@ -31,6 +38,40 @@ export function pushService(client: GymCircleClient) {
         .from("push_subscriptions")
         .delete()
         .eq("endpoint", endpoint);
+      if (error) throw error;
+    },
+
+    async saveDeviceToken(
+      userId: string,
+      input: SaveDevicePushTokenInput,
+    ): Promise<void> {
+      const now = new Date().toISOString();
+      const { error } = await client
+        .from("device_push_tokens")
+        .upsert(
+          {
+            user_id: userId,
+            platform: input.platform,
+            token: input.token,
+            device_id: input.deviceId ?? null,
+            app_version: input.appVersion ?? null,
+            updated_at: now,
+            last_seen_at: now,
+            revoked_at: null,
+          },
+          { onConflict: "token" },
+        );
+      if (error) throw error;
+    },
+
+    async revokeDeviceToken(token: string): Promise<void> {
+      const { error } = await client
+        .from("device_push_tokens")
+        .update({
+          revoked_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("token", token);
       if (error) throw error;
     },
   };

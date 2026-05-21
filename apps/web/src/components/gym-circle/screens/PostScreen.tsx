@@ -31,6 +31,8 @@ import {
   type LocatedPlaceCandidate,
   type PlaceCandidate,
 } from "../GymSearchSheet";
+import { HapticsService } from "../native/HapticsService";
+import { NativeMediaPickerService } from "../native/NativeMediaPickerService";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
@@ -261,10 +263,7 @@ export function PostScreen({
     return "";
   }, [coordinates, locationMode, selectedGym]);
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  async function uploadSelectedFile(file: File) {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       setUploadError("Escolha uma foto ou vídeo.");
       return;
@@ -301,6 +300,32 @@ export function PostScreen({
     }
   }
 
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    await uploadSelectedFile(file);
+  }
+
+  async function openNativeCamera() {
+    void HapticsService.selection();
+    const nativeMedia = await NativeMediaPickerService.takePhoto();
+    if (nativeMedia?.file) {
+      await uploadSelectedFile(nativeMedia.file);
+      return;
+    }
+    cameraInputRef.current?.click();
+  }
+
+  async function openNativeGallery() {
+    void HapticsService.selection();
+    const nativeMedia = await NativeMediaPickerService.pickWorkoutMedia();
+    if (nativeMedia?.file) {
+      await uploadSelectedFile(nativeMedia.file);
+      return;
+    }
+    fileInputRef.current?.click();
+  }
+
   function removeLocation() {
     setLocationMode("none");
     setSelectedGymId("");
@@ -323,6 +348,7 @@ export function PostScreen({
         typeof place.latitude === "number" &&
         typeof place.longitude === "number"
       ) {
+        void HapticsService.selection();
         setLocationMode("current");
         setSelectedGymId("");
         setCoordinates({
@@ -335,6 +361,7 @@ export function PostScreen({
       }
 
       if (place.provider === "registered" && place.gymId) {
+        void HapticsService.selection();
         setLocationMode("gym");
         setSelectedGymId(place.gymId);
         setCoordinates(null);
@@ -363,6 +390,7 @@ export function PostScreen({
           ? current
           : [...current, cataloged],
       );
+      void HapticsService.selection();
       setLocationMode("gym");
       setSelectedGymId(cataloged.id);
       setSearchOpen(false);
@@ -422,7 +450,9 @@ export function PostScreen({
         taggedUserIds,
         destinations: { feed: postToFeed, story: postToStory },
       });
+      void HapticsService.success();
     } catch (err) {
+      void HapticsService.error();
       setPublishError(getErrorMessage(err));
     } finally {
       setPublishing(false);
@@ -499,7 +529,7 @@ export function PostScreen({
             <button
               aria-label="Trocar mídia"
               className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={openNativeGallery}
               type="button"
             >
               <RefreshCw size={16} strokeWidth={2.4} />
@@ -518,7 +548,7 @@ export function PostScreen({
             <button
               className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-55"
               disabled={uploading}
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={openNativeCamera}
               type="button"
             >
               <Camera size={16} strokeWidth={2.5} />
@@ -527,7 +557,7 @@ export function PostScreen({
             <button
               className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[14px] font-bold text-white disabled:opacity-55"
               disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={openNativeGallery}
               type="button"
             >
               <Upload size={16} strokeWidth={2.4} />
