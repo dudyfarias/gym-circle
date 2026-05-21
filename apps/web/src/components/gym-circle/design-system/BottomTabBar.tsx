@@ -25,10 +25,17 @@ export function BottomTabBar<Key extends string>({
   return (
     <nav
       className={[
-        "z-30 shrink-0 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2",
-        "transition-[transform,opacity] duration-300 ease-[var(--gc-ease-ios)]",
+        "z-30 px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-2 will-change-transform",
         hidden ? "pointer-events-none translate-y-full opacity-0" : "translate-y-0 opacity-100",
       ].join(" ")}
+      style={{
+        // Inline pra garantir que a transição rode (arbitrary-value Tailwind 4
+        // com var() pode falhar em compilar a classe). Removido `shrink-0`
+        // porque o BottomNav agora é wrapped num container absolute em
+        // GymCirclePreview — não é mais flex item.
+        transition:
+          "transform 320ms var(--gc-ease-ios), opacity 320ms var(--gc-ease-ios)",
+      }}
     >
       <div className="gc-ios-tabbar grid rounded-full p-1" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => {

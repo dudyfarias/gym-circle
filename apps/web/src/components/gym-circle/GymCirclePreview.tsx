@@ -149,7 +149,14 @@ export function GymCirclePreview({
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [chatThreadOpen, setChatThreadOpen] = useState(false);
-  const [floatingPostVisible, setFloatingPostVisible] = useState(true);
+  // scrollState dirige a visibilidade direcional do chrome durante scroll do feed:
+  //   "top"   → topo (scrollY <= 12): header E footer visíveis.
+  //   "down"  → rolando pra baixo (delta>6): esconde HEADER, mantém footer pro
+  //             usuário continuar navegando entre tabs durante leitura profunda.
+  //   "up"    → rolando pra cima (delta<-8): mantém HEADER, esconde FOOTER
+  //             (clean experience ao voltar pro topo).
+  // FloatingCreatePostButton segue o header (some quando entra em "down").
+  const [scrollState, setScrollState] = useState<"top" | "down" | "up">("top");
   const viewerLocation = useViewerLocation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
@@ -489,7 +496,7 @@ export function GymCirclePreview({
 
   const scrollFeedToTop = useCallback(() => {
     scrollRef.current?.scrollTo({ left: 0, top: 0, behavior: "smooth" });
-    setFloatingPostVisible(true);
+    setScrollState("top");
   }, []);
 
   const handleAppScroll = useCallback(
@@ -500,15 +507,16 @@ export function GymCirclePreview({
       lastScrollTopRef.current = nextTop;
 
       if (activeScreen !== "feed") return;
+      // Thresholds 6/-8 absorvem micro-jitter do inertial scroll do iOS.
       if (nextTop <= 12) {
-        setFloatingPostVisible(true);
+        setScrollState("top");
         return;
       }
       if (delta > 6) {
-        setFloatingPostVisible(false);
+        setScrollState("down");
         return;
       }
-      if (delta < -8) setFloatingPostVisible(true);
+      if (delta < -8) setScrollState("up");
     },
     [activeScreen],
   );
@@ -519,7 +527,7 @@ export function GymCirclePreview({
         scrollFeedToTop();
         return;
       }
-      if (screen === "feed") setFloatingPostVisible(true);
+      if (screen === "feed") setScrollState("top");
       setActiveScreen(screen);
     },
     [activeScreen, scrollFeedToTop],
@@ -603,7 +611,7 @@ export function GymCirclePreview({
     const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
     const next = screenOrder[nextIndex];
     if (next) {
-      if (next === "feed") setFloatingPostVisible(true);
+      if (next === "feed") setScrollState("top");
       setActiveScreen(next);
     }
   }, [pullDistance, screenOrder, triggerRefresh]);
@@ -788,7 +796,7 @@ export function GymCirclePreview({
             onCatalogPlace={social.actions.catalogPlace}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
-              setFloatingPostVisible(true);
+              setScrollState("top");
               setActiveScreen("feed");
             }}
             onUploadImage={onUploadImage}
@@ -816,7 +824,7 @@ export function GymCirclePreview({
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             hasDistancePosts={hasDistancePosts}
-            headerHidden={!floatingPostVisible}
+            headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
             feedLoadingMore={social.feedLoadingMore}
             commentMentionUsers={followedUsers}
@@ -851,7 +859,7 @@ export function GymCirclePreview({
     allUsers,
     followedUsers,
     feedPosts,
-    floatingPostVisible,
+    scrollState,
     hasDistancePosts,
     social,
     onUploadImage,
@@ -880,7 +888,7 @@ export function GymCirclePreview({
     <SearchSheetProvider value={sheetContextValue}>
       <main className="min-h-[100dvh] bg-black text-white">
         <div className="relative mx-auto h-[100dvh] min-h-[100dvh] w-full max-w-none overflow-hidden bg-black shadow-none sm:max-w-[480px] lg:border-x lg:border-white/[0.06] lg:shadow-[0_0_90px_rgba(0,0,0,0.92)]">
-          <div className="gc-phone-shell flex h-full min-h-0 flex-col">
+          <div className="gc-phone-shell relative h-full">
             <div
               className="pointer-events-none absolute left-1/2 top-[calc(var(--gc-safe-top)+10px)] z-40 grid size-10 -translate-x-1/2 place-items-center rounded-full border border-white/[0.08] bg-black/72 text-[var(--gc-brand)] opacity-0 shadow-[0_0_28px_rgba(48,213,255,0.18)] backdrop-blur-2xl transition-opacity duration-200"
               style={{ opacity: pullDistance > 8 || refreshing ? 1 : 0 }}
@@ -891,8 +899,12 @@ export function GymCirclePreview({
                 style={{ transform: refreshing ? undefined : `rotate(${pullDistance * 2.2}deg)` }}
               />
             </div>
+            {/* Scroll area ocupa a tela inteira; BottomNav abaixo é posicionado
+                absolute pra eliminar a faixa preta que ficava atrás dele no
+                layout flex-col anterior. O feed sangra até o fundo, e o pill
+                do tab bar com backdrop-blur sobrepõe o conteúdo (iOS-style). */}
             <div
-              className="gc-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain pb-24"
+              className="gc-scrollbar h-full overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+96px)]"
               onTouchEnd={handleTouchEnd}
               onTouchMove={handleTouchMove}
               onTouchStart={handleTouchStart}
@@ -910,17 +922,21 @@ export function GymCirclePreview({
               </div>
             </div>
             {!keyboardOpen && !(activeScreen === "chat" && chatThreadOpen) ? (
-              <BottomNav
-                active={activeScreen}
-                hidden={activeScreen === "feed" && !floatingPostVisible}
-                onChange={handleBottomNavChange}
-                unreadMessages={social.unreadMessages ?? 0}
-              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
+                <div className="pointer-events-auto">
+                  <BottomNav
+                    active={activeScreen}
+                    hidden={activeScreen === "feed" && scrollState === "up"}
+                    onChange={handleBottomNavChange}
+                    unreadMessages={social.unreadMessages ?? 0}
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
           {activeScreen === "feed" && !keyboardOpen ? (
             <FloatingCreatePostButton
-              hidden={!floatingPostVisible}
+              hidden={scrollState === "down"}
               onClick={() => setActiveScreen("post")}
             />
           ) : null}

@@ -19,10 +19,16 @@ export function TopBar({ eyebrow, title, extraAction, hidden = false }: TopBarPr
   return (
     <header
       className={[
-        "sticky top-0 z-20 -mx-5 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-2xl",
-        "transition-[transform,opacity] duration-300 ease-[var(--gc-ease-ios)]",
+        "sticky top-0 z-20 -mx-5 border-b border-white/[0.06] bg-black/72 px-5 pb-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-2xl will-change-transform",
         hidden ? "pointer-events-none -translate-y-full opacity-0" : "translate-y-0 opacity-100",
       ].join(" ")}
+      style={{
+        // Inline style pra garantir que a transição apareça mesmo se o
+        // arbitrary-value Tailwind 4 (`ease-[var(--gc-ease-ios)]`) não gerar
+        // a classe corretamente. 320ms dá sensação de slide iOS confortável.
+        transition:
+          "transform 320ms var(--gc-ease-ios), opacity 320ms var(--gc-ease-ios)",
+      }}
     >
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
