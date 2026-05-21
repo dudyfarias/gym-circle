@@ -3176,14 +3176,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       async sendChatMessage(input: SendChatMessageInput) {
         let conversationIdForMessages = input.conversationId ?? null;
         if (input.conversationId) {
-          await services.messages.sendGroup({
+          const sentMessage = await services.messages.sendGroup({
             conversationId: input.conversationId,
             body: input.body,
             mediaUrl: input.mediaUrl,
             mediaType: input.mediaType,
           });
+          conversationIdForMessages =
+            sentMessage.conversation_id ?? input.conversationId;
         } else if (input.receiverId) {
-          await services.messages.sendDirect(currentUserId, {
+          const sentMessage = await services.messages.sendDirect(currentUserId, {
             receiverId: input.receiverId,
             body: input.body,
             mediaUrl: input.mediaUrl,
@@ -3193,6 +3195,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             storyPreviewUrl: input.storyPreviewUrl,
           });
           conversationIdForMessages =
+            sentMessage.conversation_id ??
             aggRef.current.conversationParticipants.find(
               (participant) =>
                 participant.user_id === input.receiverId &&

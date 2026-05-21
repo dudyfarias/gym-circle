@@ -25,16 +25,24 @@ import type {
   EnrichedUser,
   SendChatMessageInput,
 } from "../social/types";
+import {
+  filterKnownChatUsers,
+  mergeChatUsers,
+  normalizeChatSearchQuery,
+} from "../social/chatSearch";
 import { TopBar } from "../TopBar";
 
 type ChatScreenProps = {
   currentUser: EnrichedUser;
   suggestedUsers: EnrichedUser[];
+  knownUsers?: EnrichedUser[];
   messages?: ChatMessage[];
   conversations?: ChatConversation[];
   selectedUserId?: string | null;
+  selectedUser?: EnrichedUser | null;
   onSelectedUserIdChange?: (userId: string | null) => void;
   onSelectUser?: (userId: string) => void;
+  onSearchUsers?: (query: string) => Promise<EnrichedUser[]>;
   onSendMessage?: (input: SendChatMessageInput) => Promise<void> | void;
   onCreateGroupConversation?: (input: {
     name: string;
@@ -100,11 +108,14 @@ function getGroupName(members: EnrichedUser[], fallback?: string | null): string
 export function ChatScreen({
   currentUser,
   suggestedUsers,
+  knownUsers = [],
   messages,
   conversations,
   selectedUserId: controlledSelectedUserId,
+  selectedUser,
   onSelectedUserIdChange,
   onSelectUser,
+  onSearchUsers,
   onSendMessage,
   onCreateGroupConversation,
   onDeleteConversation,
@@ -118,6 +129,7 @@ export function ChatScreen({
   const safeConversations = useMemo(() => conversations ?? [], [conversations]);
   const loading = messages === undefined;
   const [internalSelectedUserId, setInternalSelectedUserId] = useState<string | null>(null);
+  const [selectedDirectUser, setSelectedDirectUser] = useState<EnrichedUser | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [groupComposerOpen, setGroupComposerOpen] = useState(false);
   const [groupName, setGroupName] = useState("");
@@ -125,6 +137,11 @@ export function ChatScreen({
   const [chatQuery, setChatQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [pendingSearchQuery, setPendingSearchQuery] = useState<string | null>(null);
+  const [remoteSearch, setRemoteSearch] = useState<{
+    query: string;
+    users: EnrichedUser[];
+  }>({ query: "", users: [] });
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -133,21 +150,86 @@ export function ChatScreen({
   const searchRef = useRef<HTMLInputElement | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
 
+  const normalizedChatQuery = useMemo(
+    () => normalizeChatSearchQuery(chatQuery),
+    [chatQuery],
+  );
+
+  const seedUsers = useMemo(
+    () =>
+      mergeChatUsers(
+        [currentUser],
+        knownUsers,
+        suggestedUsers,
+        selectedUser ? [selectedUser] : [],
+        selectedDirectUser ? [selectedDirectUser] : [],
+      ),
+    [currentUser, knownUsers, selectedDirectUser, selectedUser, suggestedUsers],
+  );
+
+  const localSearchResults = useMemo(
+    () => filterKnownChatUsers(seedUsers, currentUser.id, normalizedChatQuery),
+    [currentUser.id, normalizedChatQuery, seedUsers],
+  );
+
+  useEffect(() => {
+    if (!normalizedChatQuery || !onSearchUsers) return;
+
+    let cancelled = false;
+    const searchId = window.setTimeout(() => {
+      setPendingSearchQuery(normalizedChatQuery);
+      setError(null);
+      void onSearchUsers(normalizedChatQuery)
+        .then((users) => {
+          if (!cancelled) setRemoteSearch({ query: normalizedChatQuery, users });
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setRemoteSearch({ query: normalizedChatQuery, users: [] });
+            setError((err as Error).message || "Falha ao buscar usuários");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setPendingSearchQuery(null);
+        });
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(searchId);
+    };
+  }, [normalizedChatQuery, onSearchUsers]);
+
+  const remoteSearchResults = useMemo(
+    () => (remoteSearch.query === normalizedChatQuery ? remoteSearch.users : []),
+    [normalizedChatQuery, remoteSearch],
+  );
+  const isSearchingCurrentQuery = pendingSearchQuery === normalizedChatQuery;
+
+  const searchResults = useMemo(
+    () =>
+      mergeChatUsers(remoteSearchResults, localSearchResults)
+        .filter((user) => user.id !== currentUser.id)
+        .slice(0, 12),
+    [currentUser.id, localSearchResults, remoteSearchResults],
+  );
+
   const usersById = useMemo(() => {
     const map = new Map<string, EnrichedUser>();
-    for (const user of [currentUser, ...suggestedUsers]) {
+    for (const user of mergeChatUsers(seedUsers, searchResults)) {
       map.set(user.id, user);
     }
     return map;
-  }, [currentUser, suggestedUsers]);
+  }, [searchResults, seedUsers]);
 
   const friends = useMemo(
     () =>
-      suggestedUsers
+      seedUsers
+        .filter((user) => user.id !== currentUser.id)
         .filter((user) => user.followStatus === "accepted" || user.isFollowing)
         .sort((a, b) => b.currentStreak - a.currentStreak)
         .slice(0, 14),
-    [suggestedUsers],
+    [currentUser.id, seedUsers],
   );
 
   const conversationItems = useMemo<ConversationItem[]>(() => {
@@ -265,20 +347,6 @@ export function ChatScreen({
     });
   }, [currentUser.id, safeConversations, safeMessages, usersById]);
 
-  const searchResults = useMemo(() => {
-    const q = chatQuery.trim().replace(/^@/, "").toLowerCase();
-    if (!q) return [];
-    return suggestedUsers
-      .filter((user) => user.id !== currentUser.id)
-      .filter((user) => user.username.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const aStarts = a.username.toLowerCase().startsWith(q) ? 1 : 0;
-        const bStarts = b.username.toLowerCase().startsWith(q) ? 1 : 0;
-        return bStarts - aStarts || b.currentStreak - a.currentStreak;
-      })
-      .slice(0, 12);
-  }, [chatQuery, currentUser.id, suggestedUsers]);
-
   const hasControlledSelectedUserId = controlledSelectedUserId !== undefined;
   const selectedUserId = hasControlledSelectedUserId
     ? controlledSelectedUserId
@@ -349,6 +417,7 @@ export function ChatScreen({
     const existing = conversationItems.find(
       (item) => item.type === "direct" && item.user?.id === userId,
     );
+    setSelectedDirectUser(existing?.user ?? usersById.get(userId) ?? null);
     setSelectedConversationId(existing?.id ?? null);
     setSelectedUser(userId);
     setGroupComposerOpen(false);
@@ -358,6 +427,7 @@ export function ChatScreen({
 
   function openConversation(conversation: ConversationItem) {
     setSelectedConversationId(conversation.id);
+    setSelectedDirectUser(conversation.type === "direct" ? conversation.user : null);
     setSelectedUser(conversation.type === "direct" ? conversation.user?.id ?? null : null);
     setGroupComposerOpen(false);
     setChatQuery("");
@@ -366,6 +436,7 @@ export function ChatScreen({
 
   function closeThread() {
     setSelectedConversationId(null);
+    setSelectedDirectUser(null);
     setSelectedUser(null);
   }
 
@@ -529,6 +600,7 @@ export function ChatScreen({
           candidates={chatQuery.trim() ? searchResults : friends}
           disabled={!onCreateGroupConversation || sending}
           groupName={groupName}
+          loading={isSearchingCurrentQuery}
           onCreate={createGroup}
           onGroupNameChange={setGroupName}
           onToggleMember={toggleGroupMember}
@@ -598,6 +670,11 @@ export function ChatScreen({
             searchResults.map((user) => (
               <UserSearchRow key={user.id} onOpen={openDirectThread} user={user} />
             ))
+          ) : isSearchingCurrentQuery ? (
+            <EmptyState
+              detail="Procurando perfis pelo username."
+              title="Buscando..."
+            />
           ) : (
             <EmptyState
               detail="Para começar uma conversa, você precisa saber o @username."
@@ -664,6 +741,7 @@ function GroupComposer({
   candidates,
   disabled,
   groupName,
+  loading = false,
   onCreate,
   onGroupNameChange,
   onToggleMember,
@@ -672,6 +750,7 @@ function GroupComposer({
   candidates: EnrichedUser[];
   disabled: boolean;
   groupName: string;
+  loading?: boolean;
   onCreate: () => void;
   onGroupNameChange: (value: string) => void;
   onToggleMember: (userId: string) => void;
@@ -723,6 +802,10 @@ function GroupComposer({
               </span>
             </button>
           ))
+        ) : loading ? (
+          <p className="px-2 py-2 text-[12px] font-bold text-white/38">
+            Buscando usuários...
+          </p>
         ) : (
           <p className="px-2 py-2 text-[12px] font-bold text-white/38">
             Busque por @username para adicionar pessoas.

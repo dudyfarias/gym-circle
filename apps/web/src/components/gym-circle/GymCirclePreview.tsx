@@ -774,10 +774,12 @@ export function GymCirclePreview({
             conversations={social.chatLoading ? undefined : social.chatConversations ?? []}
             messages={social.chatLoading ? undefined : social.chatMessages ?? []}
             currentUser={social.currentUser}
+            knownUsers={allUsers}
             onConversationOpen={social.actions.markChatConversationRead}
             onCreateGroupConversation={social.actions.createGroupConversation}
             onDeleteConversation={social.actions.deleteChatConversation}
             onDeleteConversationById={social.actions.deleteChatConversationById}
+            onSearchUsers={social.actions.searchProfiles}
             onSendMessage={social.actions.sendChatMessage}
             onSelectUser={openProfile}
             onSelectedUserIdChange={setChatTargetUserId}
@@ -785,6 +787,7 @@ export function GymCirclePreview({
             onThreadViewChange={setChatThreadOpen}
             onUploadImage={onUploadChatImage}
             selectedUserId={chatTargetUserId}
+            selectedUser={chatTargetUserId ? usersById[chatTargetUserId] ?? null : null}
             suggestedUsers={social.suggestedUsers}
           />
         );
@@ -870,6 +873,7 @@ export function GymCirclePreview({
     openProfile,
     openPostDetail,
     openLikes,
+    usersById,
     resolveUser,
     openPostMenu,
     currentUserPosts,
