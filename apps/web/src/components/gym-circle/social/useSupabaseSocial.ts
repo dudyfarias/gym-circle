@@ -612,6 +612,62 @@ function enrichedUserFromDiscovery(row: DiscoveryProfileRow): EnrichedUser {
   };
 }
 
+function enrichedUserFromProfileRow(
+  profile: ProfileRow,
+  stats: UserStatsRow | undefined,
+  followStatus: "none" | "pending" | "accepted",
+): EnrichedUser {
+  const birthDate = profile.birth_date ?? null;
+  return {
+    id: profile.user_id,
+    createdAt: profile.created_at,
+    name: profile.display_name,
+    username: profile.username,
+    accent: accentForId(profile.user_id),
+    avatarUrl: profile.avatar_url ?? null,
+    bio: profile.bio ?? "",
+    goal: profile.fitness_goal ?? "",
+    instagramUsername: profile.instagram_username ?? null,
+    birthDate,
+    age: calculateAgeFromBirthDate(birthDate),
+    isBirthday: isBirthdayFromBirthDate(birthDate),
+    sports: profile.sports ?? [],
+    onboardingCompletedAt: profile.onboarding_completed_at ?? null,
+    profileCompletionNoticeDismissed:
+      profile.profile_completion_notice_dismissed ?? false,
+    alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
+    privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
+    accountStatus: profile.account_status ?? "active",
+    suspendedAt: profile.suspended_at ?? null,
+    reactivationSentAt: profile.reactivation_sent_at ?? null,
+    reactivationExpiresAt: profile.reactivation_expires_at ?? null,
+    mainGymId: profile.main_gym_id ?? null,
+    location: "",
+    gyms: [],
+    preferredTimes: profile.preferred_training_times ?? [],
+    currentStreak: stats?.current_streak ?? 0,
+    longestStreak: stats?.best_streak ?? 0,
+    lastWorkoutDate: stats?.last_active_date ?? "",
+    workoutsThisMonth: stats?.workouts_this_month ?? 0,
+    activeDaysCount: stats?.active_days_this_year ?? 0,
+    streakRestoresAvailable: 0,
+    lastStreakRestoreUsedAt: null,
+    lastStreakRestoreEarnedAt: null,
+    streakRestoreDeadlineAt: null,
+    streakRestoreMissedDate: null,
+    streakRestoreStatus: null,
+    checkInsCount: 0,
+    achievements: deriveAchievements(stats),
+    followersCount: 0,
+    followingCount: 0,
+    isFollowing: followStatus === "accepted",
+    followStatus,
+    isPrivate: profile.is_private ?? false,
+    workoutDays: [],
+    ...getDailyPresenceFromStats(stats),
+  };
+}
+
 function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
   return {
     id: row.id,
@@ -993,6 +1049,10 @@ export type SupabaseSocialActions = {
   refreshPostDetails: (postId: string) => Promise<void>;
   refreshProfilePosts: (userId: string) => Promise<void>;
   searchProfiles: (query: string) => Promise<EnrichedUser[]>;
+  listFollowUsers: (
+    userId: string,
+    kind: "followers" | "following",
+  ) => Promise<EnrichedUser[]>;
   loadMoreFeed: () => Promise<void>;
 };
 
@@ -2714,6 +2774,89 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         }
 
         return rows.map(enrichedUserFromDiscovery);
+      },
+      async listFollowUsers(userId: string, kind: "followers" | "following") {
+        const edgesQuery =
+          kind === "followers"
+            ? services.client
+                .from("follows")
+                .select(FOLLOW_COLUMNS)
+                .eq("following_id", userId)
+                .eq("status", "accepted")
+                .order("created_at", { ascending: false })
+            : services.client
+                .from("follows")
+                .select(FOLLOW_COLUMNS)
+                .eq("follower_id", userId)
+                .eq("status", "accepted")
+                .order("created_at", { ascending: false });
+
+        const edgesRes = await edgesQuery;
+        if (edgesRes.error) throw edgesRes.error;
+        const edges = (edgesRes.data ?? []) as FollowRow[];
+        const orderedIds = edges
+          .map((edge) => (kind === "followers" ? edge.follower_id : edge.following_id))
+          .filter((id) => id !== currentUserId || userId === currentUserId);
+        const uniqueIds = Array.from(new Set(orderedIds));
+        if (uniqueIds.length === 0) return [];
+
+        const [profilesRes, statsRes, myFollowsRes] = await Promise.all([
+          services.client
+            .from("profiles")
+            .select(PROFILE_COLUMNS)
+            .in("user_id", uniqueIds)
+            .or("account_status.is.null,account_status.eq.active"),
+          services.client
+            .from("user_stats_live")
+            .select(USER_STATS_COLUMNS)
+            .in("user_id", uniqueIds),
+          services.client
+            .from("follows")
+            .select(FOLLOW_COLUMNS)
+            .eq("follower_id", currentUserId)
+            .in("following_id", uniqueIds),
+        ]);
+
+        if (profilesRes.error) throw profilesRes.error;
+        if (statsRes.error) throw statsRes.error;
+        if (myFollowsRes.error) throw myFollowsRes.error;
+
+        const profiles = (profilesRes.data ?? []) as unknown as ProfileRow[];
+        const statsRows = (statsRes.data ?? []) as unknown as UserStatsRow[];
+        const myFollowRows = (myFollowsRes.data ?? []) as FollowRow[];
+        const statsByUser = new Map(statsRows.map((stats) => [stats.user_id, stats]));
+        const myFollowStatusByTarget = new Map<string, "pending" | "accepted">();
+        for (const follow of myFollowRows) {
+          if (follow.status === "pending" || follow.status === "accepted") {
+            myFollowStatusByTarget.set(follow.following_id, follow.status);
+          }
+        }
+        const profileByUser = new Map(profiles.map((profile) => [profile.user_id, profile]));
+
+        if (mountedRef.current) {
+          setAgg((current) => ({
+            ...current,
+            profiles: mergeProfileRows(current.profiles, profiles),
+            stats: mergeRowsByKey(current.stats, statsRows, (stats) => stats.user_id),
+            follows: mergeRowsByKey(
+              current.follows,
+              [...edges, ...myFollowRows],
+              (follow) => `${follow.follower_id}:${follow.following_id}`,
+            ),
+          }));
+        }
+
+        return uniqueIds
+          .map((id) => {
+            const profile = profileByUser.get(id);
+            if (!profile) return null;
+            return enrichedUserFromProfileRow(
+              profile,
+              statsByUser.get(id),
+              myFollowStatusByTarget.get(id) ?? "none",
+            );
+          })
+          .filter((user): user is EnrichedUser => Boolean(user));
       },
       async likePost(postId: string) {
         const post = profilePosts.find((p) => p.id === postId);

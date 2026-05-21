@@ -361,6 +361,10 @@ export type SocialActions = {
   sendReactivationEmail?: () => Promise<void>;
   completeOnboarding?: () => Promise<void>;
   searchProfiles?: (query: string) => Promise<EnrichedUser[]>;
+  listFollowUsers?: (
+    userId: string,
+    kind: "followers" | "following",
+  ) => Promise<EnrichedUser[]>;
   loadMoreFeed?: () => Promise<void>;
 };
 

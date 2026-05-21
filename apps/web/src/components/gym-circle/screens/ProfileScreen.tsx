@@ -43,6 +43,8 @@ type ProfileScreenProps = {
   onSelectUser?: (userId: string) => void;
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
+  onOpenFollowers?: () => void;
+  onOpenFollowing?: () => void;
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
@@ -65,6 +67,8 @@ export function ProfileScreen({
   onEditProfile,
   onOpenAdmin,
   onOpenSettings,
+  onOpenFollowers,
+  onOpenFollowing,
   hasStory,
   storyViewed,
   onOpenStory,
@@ -136,8 +140,16 @@ export function ProfileScreen({
 
         <div className="grid flex-1 grid-cols-3 gap-1 text-center">
           <ProfileStat label="Posts" value={posts.length} />
-          <ProfileStat label="Seguidores" value={currentUser.followersCount} />
-          <ProfileStat label="Seguindo" value={currentUser.followingCount} />
+          <ProfileStat
+            label="Seguidores"
+            onClick={onOpenFollowers}
+            value={currentUser.followersCount}
+          />
+          <ProfileStat
+            label="Seguindo"
+            onClick={onOpenFollowing}
+            value={currentUser.followingCount}
+          />
         </div>
       </div>
 
@@ -311,13 +323,39 @@ function formatRestoreCountdown(deadlineAt?: string | null) {
   return `Restam ${hours}h`;
 }
 
-function ProfileStat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="min-w-0">
+function ProfileStat({
+  label,
+  onClick,
+  value,
+}: {
+  label: string;
+  onClick?: () => void;
+  value: number;
+}) {
+  const content = (
+    <>
       <p className="truncate text-[18px] font-black text-white">
         {value.toLocaleString("pt-BR")}
       </p>
       <p className="mt-0.5 text-[11px] font-bold text-white/52">{label}</p>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        className="gc-pressable min-w-0 rounded-[12px] px-1 py-1 text-center"
+        onClick={onClick}
+        type="button"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className="min-w-0 px-1 py-1">
+      {content}
     </div>
   );
 }

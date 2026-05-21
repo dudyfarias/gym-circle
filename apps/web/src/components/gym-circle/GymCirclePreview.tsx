@@ -85,6 +85,10 @@ const LikesOverlay = dynamic(
   () => import("./LikesOverlay").then((module) => module.LikesOverlay),
   { ssr: false },
 );
+const FollowListOverlay = dynamic(
+  () => import("./FollowListOverlay").then((module) => module.FollowListOverlay),
+  { ssr: false },
+);
 const AccountSettingsSheet = dynamic(
   () => import("./AccountSettingsSheet").then((module) => module.AccountSettingsSheet),
   { ssr: false },
@@ -133,6 +137,11 @@ export function GymCirclePreview({
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [postDetailId, setPostDetailId] = useState<string | null>(null);
   const [likesPostId, setLikesPostId] = useState<string | null>(null);
+  const [followListOverlay, setFollowListOverlay] = useState<{
+    kind: "followers" | "following";
+    loading: boolean;
+    users: EnrichedUser[];
+  } | null>(null);
   const [chatTargetUserId, setChatTargetUserId] = useState<string | null>(null);
   // Sheet de confirmação genérico — substitui window.confirm em ações
   // destrutivas. `intent` decide qual handler dispara no botão "Confirmar".
@@ -289,6 +298,47 @@ export function GymCirclePreview({
     [refreshPostDetailsAction],
   );
   const closeLikes = useCallback(() => setLikesPostId(null), []);
+  const closeFollowListOverlay = useCallback(() => setFollowListOverlay(null), []);
+  const openFollowListOverlay = useCallback(
+    async (kind: "followers" | "following") => {
+      setFollowListOverlay({ kind, loading: true, users: [] });
+      try {
+        const users =
+          (await social.actions.listFollowUsers?.(social.currentUser.id, kind)) ?? [];
+        setFollowListOverlay({ kind, loading: false, users });
+      } catch {
+        setFollowListOverlay({ kind, loading: false, users: [] });
+      }
+    },
+    [social.actions, social.currentUser.id],
+  );
+  const toggleFollowFromFollowList = useCallback(
+    async (userId: string) => {
+      const result = await social.actions.toggleFollow(userId);
+      const followStatus =
+        result && typeof result === "object" && "followStatus" in result
+          ? result.followStatus
+          : "none";
+      setFollowListOverlay((current) =>
+        current
+          ? {
+              ...current,
+              users: current.users.map((user) =>
+                user.id === userId
+                  ? {
+                      ...user,
+                      followStatus,
+                      isFollowing: followStatus === "accepted",
+                    }
+                  : user,
+              ),
+            }
+          : current,
+      );
+      return { followStatus };
+    },
+    [social.actions],
+  );
 
   const handleStartEditPost = useCallback(() => {
     if (!postMenuId) return;
@@ -753,6 +803,8 @@ export function GymCirclePreview({
             onEditProfile={handleEditProfile}
             onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
             onOpenSettings={() => setSettingsOpen(true)}
+            onOpenFollowers={() => void openFollowListOverlay("followers")}
+            onOpenFollowing={() => void openFollowListOverlay("following")}
             onSelectUser={openProfile}
             onToggleFollow={toggleFollowIgnoringResult}
             posts={currentUserPosts}
@@ -876,6 +928,7 @@ export function GymCirclePreview({
     toggleFollowIgnoringResult,
     openAdmin,
     openProfile,
+    openFollowListOverlay,
     openPostDetail,
     openLikes,
     usersById,
@@ -1047,6 +1100,19 @@ export function GymCirclePreview({
                   })
                 : []
             }
+          />
+          <FollowListOverlay
+            currentUserId={social.currentUser.id}
+            kind={followListOverlay?.kind ?? "followers"}
+            loading={followListOverlay?.loading ?? false}
+            onClose={closeFollowListOverlay}
+            onSelectUser={(userId) => {
+              closeFollowListOverlay();
+              openProfile(userId);
+            }}
+            onToggleFollow={toggleFollowFromFollowList}
+            open={followListOverlay !== null}
+            users={followListOverlay?.users ?? []}
           />
           <MonthlyRecapSheet
             onClose={() => setMonthlyRecapOpen(false)}
