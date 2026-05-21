@@ -775,8 +775,9 @@ export function GymCirclePreview({
       case "chat":
         return (
           <ChatScreen
-            conversations={social.chatLoading ? undefined : social.chatConversations ?? []}
-            messages={social.chatLoading ? undefined : social.chatMessages ?? []}
+            conversations={social.chatConversations ?? []}
+            loading={social.chatLoading && !social.chatHydrated}
+            messages={social.chatMessages ?? []}
             currentUser={social.currentUser}
             knownUsers={allUsers}
             onConversationOpen={social.actions.markChatConversationRead}

@@ -391,6 +391,7 @@ export type SocialBundle = {
   homeLoading?: boolean;
   secondaryLoading?: boolean;
   chatLoading?: boolean;
+  chatHydrated?: boolean;
   feedLoadingMore?: boolean;
   feedHasMore?: boolean;
   refresh?: () => void | Promise<void>;

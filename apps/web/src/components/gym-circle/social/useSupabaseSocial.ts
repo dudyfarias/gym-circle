@@ -198,6 +198,27 @@ const EMPTY: AggregateState = {
   mutedPostUserIds: [],
 };
 
+function findDirectConversationId(
+  state: AggregateState,
+  currentUserId: string,
+  otherUserId: string,
+) {
+  const directConversation = state.conversations.find((conversation) => {
+    if (conversation.type === "group") return false;
+    const memberIds = state.conversationParticipants
+      .filter((participant) => participant.conversation_id === conversation.id)
+      .map((participant) => participant.user_id);
+    return memberIds.includes(currentUserId) && memberIds.includes(otherUserId);
+  });
+  if (directConversation) return directConversation.id;
+
+  return state.chatMessages.find(
+    (message) =>
+      (message.sender_id === currentUserId && message.receiver_id === otherUserId) ||
+      (message.sender_id === otherUserId && message.receiver_id === currentUserId),
+  )?.conversation_id ?? null;
+}
+
 type OptionalStorySocialTable =
   | "story_likes"
   | "story_mutes"
@@ -243,8 +264,6 @@ function optionalStorySocialRows<T>(
 }
 
 const VIEWED_STORIES_STORAGE_PREFIX = "gym-circle:viewed-stories:";
-const HIDDEN_DIRECT_CONVERSATIONS_STORAGE_PREFIX =
-  "gym-circle:hidden-direct-conversations:";
 const MAX_STORED_VIEWED_STORIES = 500;
 const INITIAL_FEED_LIMIT = 30;
 const INITIAL_STORY_LIMIT = 40;
@@ -842,47 +861,6 @@ function persistStoredViewedStoryIds(userId: string, ids: Set<string>) {
   }
 }
 
-function getHiddenDirectConversationsStorageKey(userId: string) {
-  return `${HIDDEN_DIRECT_CONVERSATIONS_STORAGE_PREFIX}${userId}`;
-}
-
-function loadStoredHiddenDirectConversations(userId: string) {
-  if (typeof window === "undefined") return {} as Record<string, string>;
-  try {
-    const parsed = JSON.parse(
-      window.localStorage.getItem(getHiddenDirectConversationsStorageKey(userId)) ??
-        "{}",
-    );
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {} as Record<string, string>;
-    }
-    return Object.fromEntries(
-      Object.entries(parsed).filter(
-        ([otherUserId, deletedAt]) =>
-          typeof otherUserId === "string" && typeof deletedAt === "string",
-      ),
-    ) as Record<string, string>;
-  } catch {
-    return {} as Record<string, string>;
-  }
-}
-
-function persistStoredHiddenDirectConversations(
-  userId: string,
-  value: Record<string, string>,
-) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(
-      getHiddenDirectConversationsStorageKey(userId),
-      JSON.stringify(value),
-    );
-  } catch {
-    // Fail-soft: se localStorage estiver bloqueado, o servidor ainda cuida
-    // do delete-for-me quando a migration já está aplicada.
-  }
-}
-
 function buildReactivationRedirectUrl(token: string) {
   if (typeof window === "undefined") return undefined;
   const url = new URL("/reactivate-account", window.location.origin);
@@ -986,6 +964,7 @@ export type SupabaseSocialResult = {
   homeLoading: boolean;
   secondaryLoading: boolean;
   chatLoading: boolean;
+  chatHydrated: boolean;
   feedLoadingMore: boolean;
   feedHasMore: boolean;
   loading: boolean;
@@ -1009,14 +988,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [viewedStoryIds, setViewedStoryIds] = useState<Set<string>>(() =>
     loadStoredViewedStoryIds(currentUserId),
   );
-  const [hiddenDirectConversations, setHiddenDirectConversations] = useState<
-    Record<string, string>
-  >(() => loadStoredHiddenDirectConversations(currentUserId));
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
   const mountedRef = useRef(true);
   const aggRef = useRef<AggregateState>(EMPTY);
   const analyticsBootRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
+  const chatRealtimeTimerRef = useRef<number | null>(null);
   const chatHydratedRef = useRef(false);
 
   useEffect(() => {
@@ -1040,15 +1017,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   }, [services, currentUserId]);
 
   const refreshUnreadMessageCount = useCallback(async () => {
-    const unreadRes = await services.client
-      .from("direct_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("receiver_id", currentUserId)
-      .is("read_at", null);
+    const unreadRes = await services.client.rpc("get_conversation_summaries");
     if (unreadRes.error) throw unreadRes.error;
+    const summaries = (unreadRes.data ?? []) as ConversationSummaryRow[];
     if (!mountedRef.current) return;
-    setUnreadMessageCount(unreadRes.count ?? 0);
-  }, [services, currentUserId]);
+    setUnreadMessageCount(
+      summaries.reduce((sum, summary) => sum + (summary.unread_count ?? 0), 0),
+    );
+  }, [services]);
 
   const refreshHomeCritical = useCallback(async (): Promise<HomeRefreshSnapshot> => {
     markPerf("feed_first_posts_start");
@@ -1496,6 +1472,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ),
         )
         .filter((message): message is DirectMessageRow => Boolean(message));
+      const visibleConversationIds = new Set(
+        conversations.map((conversation) => conversation.id),
+      );
 
       if (!mountedRef.current) return;
       chatHydratedRef.current = true;
@@ -1509,7 +1488,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         conversationParticipants: allConversationParticipants,
         conversations,
         conversationUnreadCounts,
-        chatMessages: mergeRowsByKey(current.chatMessages, lastMessages, (message) => message.id),
+        chatMessages: mergeRowsByKey(
+          current.chatMessages.filter(
+            (message) =>
+              message.conversation_id !== null &&
+              visibleConversationIds.has(message.conversation_id),
+          ),
+          lastMessages,
+          (message) => message.id,
+        ),
       }));
     } finally {
       if (mountedRef.current) {
@@ -1834,11 +1821,17 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const handleChatRealtime = useCallback(() => {
-    if (chatHydratedRef.current) {
-      void refreshChat();
-      return;
+    if (chatRealtimeTimerRef.current !== null) {
+      window.clearTimeout(chatRealtimeTimerRef.current);
     }
-    void refreshUnreadMessageCount().catch(() => undefined);
+    chatRealtimeTimerRef.current = window.setTimeout(() => {
+      chatRealtimeTimerRef.current = null;
+      if (chatHydratedRef.current) {
+        void refreshChat();
+        return;
+      }
+      void refreshUnreadMessageCount().catch(() => undefined);
+    }, 260);
   }, [refreshChat, refreshUnreadMessageCount]);
 
   useEffect(() => {
@@ -1884,6 +1877,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       if (refreshTimerRef.current !== null) {
         window.clearTimeout(refreshTimerRef.current);
         refreshTimerRef.current = null;
+      }
+      if (chatRealtimeTimerRef.current !== null) {
+        window.clearTimeout(chatRealtimeTimerRef.current);
+        chatRealtimeTimerRef.current = null;
       }
       mountedRef.current = false;
       services.client.removeChannel(channel);
@@ -2534,14 +2531,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         const deletedAt = message.conversation_id
           ? deletedByConversation.get(message.conversation_id)
           : null;
-        const otherUserId =
-          message.sender_id === currentUserId ? message.receiver_id : message.sender_id;
-        const locallyDeletedAt =
-          otherUserId && hiddenDirectConversations[otherUserId]
-            ? new Date(hiddenDirectConversations[otherUserId]).getTime()
-            : null;
-        const effectiveDeletedAt = Math.max(deletedAt ?? 0, locallyDeletedAt ?? 0);
-        return !effectiveDeletedAt || new Date(message.created_at).getTime() > effectiveDeletedAt;
+        return !deletedAt || new Date(message.created_at).getTime() > deletedAt;
       })
       .map((message) => ({
           id: message.id,
@@ -2568,7 +2558,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     agg.conversationParticipants,
     blockedSet,
     currentUserId,
-    hiddenDirectConversations,
   ]);
 
   const chatConversations = useMemo<ChatConversation[]>(() => {
@@ -3241,26 +3230,27 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       },
       async deleteChatConversation(userId: string) {
         const target = enrichedAll.get(userId);
-        const now = new Date().toISOString();
         const isThreadMessage = (message: DirectMessageRow) =>
           (message.sender_id === currentUserId && message.receiver_id === userId) ||
           (message.sender_id === userId && message.receiver_id === currentUserId);
-        const conversationId = agg.chatMessages.find(isThreadMessage)?.conversation_id ?? null;
+        const conversationId = findDirectConversationId(aggRef.current, currentUserId, userId);
 
-        setHiddenDirectConversations((current) => {
-          const next = { ...current, [userId]: now };
-          persistStoredHiddenDirectConversations(currentUserId, next);
-          return next;
-        });
         setAgg((current) => ({
           ...current,
+          conversations: conversationId
+            ? current.conversations.filter((conversation) => conversation.id !== conversationId)
+            : current.conversations,
           chatMessages: current.chatMessages.filter((message) => !isThreadMessage(message)),
+          conversationUnreadCounts: conversationId
+            ? Object.fromEntries(
+                Object.entries(current.conversationUnreadCounts).filter(
+                  ([id]) => id !== conversationId,
+                ),
+              )
+            : current.conversationUnreadCounts,
           conversationParticipants: conversationId
-            ? current.conversationParticipants.map((participant) =>
-                participant.conversation_id === conversationId &&
-                participant.user_id === currentUserId
-                  ? { ...participant, deleted_at: now, last_read_at: now }
-                  : participant,
+            ? current.conversationParticipants.filter(
+                (participant) => participant.conversation_id !== conversationId,
               )
             : current.conversationParticipants,
         }));
@@ -3269,22 +3259,27 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           await services.messages.deleteConversationForMe(currentUserId, userId);
           showFeedback("success", "Conversa apagada", target?.name);
           await refreshChat();
-        } catch {
-          showFeedback("success", "Conversa apagada", target?.name);
+        } catch (err) {
+          await refreshChat().catch(() => undefined);
+          throw err;
         }
       },
       async deleteChatConversationById(conversationId: string) {
-        const now = new Date().toISOString();
         setAgg((current) => ({
           ...current,
+          conversations: current.conversations.filter(
+            (conversation) => conversation.id !== conversationId,
+          ),
           chatMessages: current.chatMessages.filter(
             (message) => message.conversation_id !== conversationId,
           ),
-          conversationParticipants: current.conversationParticipants.map((participant) =>
-            participant.conversation_id === conversationId &&
-            participant.user_id === currentUserId
-              ? { ...participant, deleted_at: now, last_read_at: now }
-              : participant,
+          conversationUnreadCounts: Object.fromEntries(
+            Object.entries(current.conversationUnreadCounts).filter(
+              ([id]) => id !== conversationId,
+            ),
+          ),
+          conversationParticipants: current.conversationParticipants.filter(
+            (participant) => participant.conversation_id !== conversationId,
           ),
         }));
         await services.messages.deleteConversationByIdForMe(conversationId);
@@ -3461,7 +3456,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       agg.gyms,
       agg.postComments,
       agg.postCommentLikes,
-      agg.chatMessages,
       agg.profiles,
       refresh,
       refreshChat,
@@ -3548,6 +3542,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     homeLoading: loading,
     secondaryLoading,
     chatLoading,
+    chatHydrated,
     feedLoadingMore,
     feedHasMore,
     loading,

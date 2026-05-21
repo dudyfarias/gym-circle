@@ -40,6 +40,7 @@ type ChatScreenProps = {
   conversations?: ChatConversation[];
   selectedUserId?: string | null;
   selectedUser?: EnrichedUser | null;
+  loading?: boolean;
   onSelectedUserIdChange?: (userId: string | null) => void;
   onSelectUser?: (userId: string) => void;
   onSearchUsers?: (query: string) => Promise<EnrichedUser[]>;
@@ -113,6 +114,7 @@ export function ChatScreen({
   conversations,
   selectedUserId: controlledSelectedUserId,
   selectedUser,
+  loading: loadingProp,
   onSelectedUserIdChange,
   onSelectUser,
   onSearchUsers,
@@ -127,7 +129,7 @@ export function ChatScreen({
 }: ChatScreenProps) {
   const safeMessages = useMemo(() => messages ?? [], [messages]);
   const safeConversations = useMemo(() => conversations ?? [], [conversations]);
-  const loading = messages === undefined;
+  const loading = loadingProp ?? messages === undefined;
   const [internalSelectedUserId, setInternalSelectedUserId] = useState<string | null>(null);
   const [selectedDirectUser, setSelectedDirectUser] = useState<EnrichedUser | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
