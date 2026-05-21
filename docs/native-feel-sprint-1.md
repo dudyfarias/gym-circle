@@ -80,6 +80,81 @@ Fluxo ativo: email/senha.
 - Cache local não armazena mensagens privadas nem secrets.
 - A migration de push é aditiva e usa RLS por `auth.uid()`.
 
+## Hardening pós-Sprint 1 (2026-05-21)
+
+Polish aplicado após code review do Sprint 1. Cinco itens, todos aditivos
+e sem mudar comportamento observado em produção.
+
+### 1. PushNotificationsService — listener cleanup
+
+Bug: `addListener("registration"|"registrationError", …)` retorna
+`Promise<PluginListenerHandle>`. O código original chamava `void addListener(...)`
+e descartava o handle, então listeners ficavam pendurados após resolve/reject.
+Em re-registros (ex: troca de usuário sem fechar o app) os listeners velhos
+acumulavam.
+
+Fix: `waitForNativeToken` agora `await`a o handle de cada listener, mantém
+referência local, e `try/finally` chama `handle.remove()` independente de
+sucesso, erro ou timeout. Removido o flag `settled` redundante — Promise é
+"settle once" naturalmente.
+
+Bônus: `void PushNotifications.register()` virou `await` — `register()` resolve
+quando a chamada nativa foi disparada (rápido); o token chega via listener
+depois. Await garante ordem.
+
+### 2. NativeMediaPickerService — `media.type` simbolico
+
+Antes: `const kind = media.type === 1 ? "video" : "image"`. Funciona porque
+`MediaType.Video === 1` no `@capacitor/camera` v8, mas é magic number que
+quebra silenciosamente se o enum mudar.
+
+Fix: comparação contra `camera.MediaType.Video` (enum value, type-safe). Plus
+refactor: `mediaResultToFile(media, kind: NativeMediaKind)` recebe `kind`
+explícito porque `takePhoto`/`recordVideo` já sabem o tipo pelo método
+chamado — só `chooseFromGallery` precisa inspecionar `media.type`.
+
+### 3. HapticsService — module cache dos dynamic imports
+
+Antes: cada chamada (`HapticsService.light()`, `.success()` etc) fazia 2
+dynamic imports. Bundler cacheia internamente mas há overhead de lookup +
+criação de Promise no path quente (haptics são chamados em burst, ex:
+scrubbing, taps).
+
+Fix: variável `cachedNativeModules: Promise<NativeHapticModules | null>` em
+escopo de módulo, populada na primeira chamada. Catch retorna `null` se os
+módulos não existirem (path web). Subsequentes chamadas reusam a Promise
+resolvida.
+
+### 4. LocationProvider — JSDoc no AppleMapsProvider
+
+Sem mudança funcional. Adicionado JSDoc explícito marcando
+`AppleMapsProvider` como **placeholder Sprint 1**, com referência ao Item B
+do `native-feel-roadmap.md` para a implementação MapKit real (CoreLocation,
+MKLocalSearch, CLGeocoder) que chega na Sprint 2. Sem isso, devs novos
+poderiam assumir que o provider já fala com MapKit.
+
+### 5. Tests — cobertura de unregisterPushToken
+
+Adicionados 2 testes no `nativeServices.test.ts`:
+
+- `unregisterPushToken revokes stored token and clears local storage`:
+  pre-popula storage, chama unregister, valida que revoke foi com o token
+  certo e que storage foi limpa.
+- `unregisterPushToken is a no-op when no token was stored`: edge case de
+  logout sem ter registrado push antes não pode falhar.
+
+Total: 7/7 tests passam (5 originais + 2 novos).
+
+### Validações pós-hardening
+
+- `npm run lint` em `apps/web`: passou
+- `npm run build` em `apps/web`: typecheck pleno em 3.2s, 12/12 páginas
+  estáticas geradas
+- `npx vitest run apps/web/src/components/gym-circle/native/nativeServices.test.ts`:
+  7/7 passed em 252ms
+
 ## Estado
 
-Sprint 1 implementada de forma incremental. O envio real de push, Apple Maps nativo e transições nativas profundas ficam para a Sprint 2.
+Sprint 1 implementada de forma incremental + hardening aplicado. O envio
+real de push, Apple Maps nativo e transições nativas profundas ficam para
+a Sprint 2.

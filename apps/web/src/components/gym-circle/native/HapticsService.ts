@@ -25,12 +25,33 @@ function vibrateFallback(level: HapticLevel) {
   }
 }
 
+// Cache module-level dos dynamic imports do Capacitor. Sem isso, cada chamada
+// (Haptics pode disparar dezenas de vezes em ações burst — swipe, scrub) faria
+// 2 dynamic imports. Bundler cacheia internamente, mas o lookup de Promise
+// ainda tem overhead. Cache aqui evita tanto o lookup quanto múltiplas
+// criações de Promise no path quente.
+type NativeHapticModules = {
+  Capacitor: typeof import("@capacitor/core").Capacitor;
+  haptics: typeof import("@capacitor/haptics");
+};
+let cachedNativeModules: Promise<NativeHapticModules | null> | null = null;
+
+function loadNativeHapticModules(): Promise<NativeHapticModules | null> {
+  if (cachedNativeModules) return cachedNativeModules;
+  cachedNativeModules = Promise.all([
+    import("@capacitor/core"),
+    import("@capacitor/haptics"),
+  ])
+    .then(([core, haptics]) => ({ Capacitor: core.Capacitor, haptics }))
+    .catch(() => null);
+  return cachedNativeModules;
+}
+
 async function runNativeHaptic(level: HapticLevel): Promise<boolean> {
   try {
-    const [{ Capacitor }, haptics] = await Promise.all([
-      import("@capacitor/core"),
-      import("@capacitor/haptics"),
-    ]);
+    const loaded = await loadNativeHapticModules();
+    if (!loaded) return false;
+    const { Capacitor, haptics } = loaded;
     if (!Capacitor.isNativePlatform()) return false;
 
     if (level === "selection") {

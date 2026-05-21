@@ -76,6 +76,41 @@ describe("Native Feel services", () => {
     ).resolves.toEqual({ status: "unsupported" });
   });
 
+  it("unregisterPushToken revokes stored token and clears local storage", async () => {
+    // Pré-popular storage simulando registro nativo anterior.
+    const storage = createStorage();
+    storage.setItem("gym-circle.native-push-token.v1", "apns-test-token");
+    vi.stubGlobal("window", { localStorage: storage });
+
+    const push = {
+      saveDeviceToken: vi.fn(),
+      revokeDeviceToken: vi.fn().mockResolvedValue(undefined),
+    } as unknown as PushService;
+
+    await PushNotificationsService.unregisterPushToken(push);
+
+    // Token foi mandado pro server pra revoke + storage local foi limpa.
+    // Mesmo que o revoke server falhe (catch silencioso), o storage local
+    // SEMPRE é limpo — garante que o próximo registro pega flow zero.
+    expect(push.revokeDeviceToken).toHaveBeenCalledWith("apns-test-token");
+    expect(storage.getItem("gym-circle.native-push-token.v1")).toBeNull();
+  });
+
+  it("unregisterPushToken is a no-op when no token was stored", async () => {
+    // Caso de logout sem ter registrado push antes — não pode falhar.
+    const storage = createStorage();
+    vi.stubGlobal("window", { localStorage: storage });
+
+    const push = {
+      saveDeviceToken: vi.fn(),
+      revokeDeviceToken: vi.fn().mockResolvedValue(undefined),
+    } as unknown as PushService;
+
+    await PushNotificationsService.unregisterPushToken(push);
+
+    expect(push.revokeDeviceToken).not.toHaveBeenCalled();
+  });
+
   it("normalizes web location candidates and calculates distance", () => {
     const normalized = CurrentWebLocationProvider.normalizePlace({
       providerId: "osm/1",

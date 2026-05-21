@@ -40,7 +40,6 @@ async function isNativeCapacitor() {
 
 async function mediaResultToFile(
   media: {
-    type?: unknown;
     uri?: string;
     webPath?: string;
     metadata?: {
@@ -49,8 +48,8 @@ async function mediaResultToFile(
       resolution?: string;
     };
   },
+  kind: NativeMediaKind,
 ): Promise<NativeMediaResult | null> {
-  const kind = media.type === 1 ? "video" : "image";
   const sourceUrl = media.webPath ?? media.uri;
   if (!sourceUrl) return null;
 
@@ -85,13 +84,16 @@ async function runNativePicker(
 
   try {
     const camera = await import("@capacitor/camera");
+    // takePhoto/recordVideo são determinísticos no kind: o método já decide.
+    // Só chooseFromGallery (mode "pick-*") precisa inspecionar media.type
+    // contra o enum MediaType pra distinguir foto/vídeo.
     if (mode === "take-photo") {
       const media = await camera.Camera.takePhoto({
         quality: 88,
         saveToGallery: false,
         includeMetadata: true,
       });
-      return mediaResultToFile(media);
+      return mediaResultToFile(media, "image");
     }
 
     if (mode === "capture-video") {
@@ -100,7 +102,7 @@ async function runNativePicker(
         includeMetadata: true,
         isPersistent: false,
       });
-      return mediaResultToFile(media);
+      return mediaResultToFile(media, "video");
     }
 
     const mediaType =
@@ -117,7 +119,12 @@ async function runNativePicker(
       presentationStyle: "fullscreen",
     });
     const first = result.results[0];
-    return first ? mediaResultToFile(first) : null;
+    if (!first) return null;
+    // Compara contra o enum simbólico (MediaType.Video === 1 hoje, mas o
+    // enum value pode mudar em versões futuras do plugin).
+    const kind: NativeMediaKind =
+      first.type === camera.MediaType.Video ? "video" : "image";
+    return mediaResultToFile(first, kind);
   } catch {
     return null;
   }

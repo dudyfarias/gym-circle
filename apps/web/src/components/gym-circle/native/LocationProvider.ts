@@ -115,6 +115,18 @@ export const CurrentWebLocationProvider: LocationProvider = {
   },
 };
 
+/**
+ * Placeholder enquanto Sprint 1. Funcionalmente idêntico ao
+ * `CurrentWebLocationProvider` (delegando search/nearby/reverse pra
+ * `/api/places/*` que faz proxy ao Nominatim/OSM); só marca os places
+ * normalizados como `provider: "apple-maps"` pra surfaces poderem
+ * diferenciar visualmente quando a Sprint 2 chegar.
+ *
+ * A implementação MapKit nativa real (CoreLocation, MKLocalSearch,
+ * reverse geocoding via CLGeocoder) fica para a Sprint 2 — Item B do
+ * `docs/native-feel-roadmap.md`. Não use este provider esperando
+ * funcionalidade nativa ainda.
+ */
 export const AppleMapsProvider: LocationProvider = {
   ...CurrentWebLocationProvider,
   normalizePlace(place) {

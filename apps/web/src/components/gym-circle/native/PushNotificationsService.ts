@@ -50,30 +50,56 @@ function clearStoredToken() {
 
 async function waitForNativeToken(): Promise<string> {
   const { PushNotifications } = await import("@capacitor/push-notifications");
-  return new Promise<string>((resolve, reject) => {
-    let settled = false;
-    const timer = window.setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      reject(new Error("Tempo esgotado ao registrar notificações."));
-    }, 12_000);
 
-    void PushNotifications.addListener("registration", (token) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      resolve(token.value);
-    });
+  // Guarda handles dos listeners pra remover no finally — sem isso, chamar
+  // waitForNativeToken() múltiplas vezes (ex: troca de user) acumularia
+  // listeners "registration"/"registrationError" mortos em memória.
+  let registrationHandle:
+    | Awaited<ReturnType<typeof PushNotifications.addListener>>
+    | null = null;
+  let errorHandle:
+    | Awaited<ReturnType<typeof PushNotifications.addListener>>
+    | null = null;
 
-    void PushNotifications.addListener("registrationError", (error) => {
-      if (settled) return;
-      settled = true;
-      window.clearTimeout(timer);
-      reject(error);
-    });
-
-    void PushNotifications.register();
+  // Promise externa: resolveFn/rejectFn escapam o construtor pra os callbacks
+  // dos listeners conseguirem settlar a token wait. Promise é "settle once",
+  // então não precisamos de flag `settled` extra — chamadas tardias são no-op.
+  let resolveFn!: (value: string) => void;
+  let rejectFn!: (reason: unknown) => void;
+  const tokenPromise = new Promise<string>((resolve, reject) => {
+    resolveFn = resolve;
+    rejectFn = reject;
   });
+
+  const timer = window.setTimeout(
+    () => rejectFn(new Error("Tempo esgotado ao registrar notificações.")),
+    12_000,
+  );
+
+  try {
+    registrationHandle = await PushNotifications.addListener(
+      "registration",
+      (token) => {
+        resolveFn(token.value);
+      },
+    );
+    errorHandle = await PushNotifications.addListener(
+      "registrationError",
+      (error) => {
+        rejectFn(error);
+      },
+    );
+
+    // register() resolve quando a chamada nativa foi feita (rápido); o token
+    // em si chega depois via listener "registration". Await garante que o
+    // dispatch nativo aconteceu antes de bloquear na tokenPromise.
+    await PushNotifications.register();
+    return await tokenPromise;
+  } finally {
+    window.clearTimeout(timer);
+    void registrationHandle?.remove();
+    void errorHandle?.remove();
+  }
 }
 
 async function registerToken(
