@@ -665,6 +665,7 @@ export type Database = {
           main_gym_id: string | null
           onboarding_completed_at: string | null
           preferred_training_times: string[]
+          profile_completion_notice_dismissed: boolean
           privacy_policy_accepted_at: string | null
           reactivation_expires_at: string | null
           reactivation_sent_at: string | null
@@ -690,6 +691,7 @@ export type Database = {
           main_gym_id?: string | null
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]
+          profile_completion_notice_dismissed?: boolean
           privacy_policy_accepted_at?: string | null
           reactivation_expires_at?: string | null
           reactivation_sent_at?: string | null
@@ -715,6 +717,7 @@ export type Database = {
           main_gym_id?: string | null
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]
+          profile_completion_notice_dismissed?: boolean
           privacy_policy_accepted_at?: string | null
           reactivation_expires_at?: string | null
           reactivation_sent_at?: string | null

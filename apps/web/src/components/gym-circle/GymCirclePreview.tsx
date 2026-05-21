@@ -748,6 +748,9 @@ export function GymCirclePreview({
             monthlyRecap={monthlyRecap}
             onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
             onUseStreakRestore={social.actions.useStreakRestore}
+            onDismissProfileCompletionNotice={
+              social.actions.dismissProfileCompletionNotice
+            }
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
@@ -828,9 +831,7 @@ export function GymCirclePreview({
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
             onSharePostToChat={social.actions.sharePostToChat}
-            onEditProfile={handleEditProfile}
             onDismissViewerLocationPrompt={viewerLocation.dismiss}
-            onFindPeople={openSearch}
             onRequestViewerLocation={viewerLocation.request}
             onSelectUser={openProfile}
             onToggleFollow={toggleFollowIgnoringResult}
@@ -858,7 +859,6 @@ export function GymCirclePreview({
     handleEditProfile,
     toggleFollowIgnoringResult,
     openAdmin,
-    openSearch,
     openProfile,
     openPostDetail,
     openLikes,

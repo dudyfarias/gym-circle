@@ -11,12 +11,16 @@ import {
   Pencil,
   Play,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { VideoThumbnail } from "../design-system";
 import type { MonthlyRecap } from "../social/monthlyRecap";
-import { calculateProfileCompletion } from "../social/profile";
+import {
+  calculateProfileCompletion,
+  shouldShowProfileCompletionNotice,
+} from "../social/profile";
 import { getStreakLevel } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { TopBar } from "../TopBar";
@@ -46,6 +50,7 @@ type ProfileScreenProps = {
   onOpenMonthlyRecap?: () => void;
   onOpenPost?: (postId: string) => void;
   onUseStreakRestore?: () => void | Promise<void>;
+  onDismissProfileCompletionNotice?: () => void | Promise<void>;
 };
 
 /**
@@ -67,6 +72,7 @@ export function ProfileScreen({
   onOpenMonthlyRecap,
   onOpenPost,
   onUseStreakRestore,
+  onDismissProfileCompletionNotice,
 }: ProfileScreenProps) {
   const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
@@ -78,6 +84,11 @@ export function ProfileScreen({
       currentUser.streakRestoresAvailable > 0 &&
       restoreCountdown,
   );
+  const shouldShowCompletionNotice = shouldShowProfileCompletionNotice(
+    currentUser,
+    profileCompletion,
+  );
+  const nextCompletionItem = profileCompletion.missing[0];
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -181,25 +192,42 @@ export function ProfileScreen({
         </div>
       ) : null}
 
-      {/* Completar perfil — só aparece quando < 100% */}
-      {onEditProfile && profileCompletion.percentage < 100 ? (
-        <button
-          className="gc-pressable mt-3 flex w-full items-center justify-between gap-3 rounded-[14px] border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-left"
-          onClick={onEditProfile}
-          type="button"
-        >
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-black text-white">
-              Perfil {profileCompletion.percentage}% completo
-            </p>
-            <p className="mt-0.5 truncate text-[11px] font-bold text-white/46">
-              {profileCompletion.missing[0]?.label ?? "Continue preenchendo"}
-            </p>
-          </div>
-          <span className="grid h-7 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] px-3 text-[11px] font-black text-black">
-            Completar
-          </span>
-        </button>
+      {onEditProfile && shouldShowCompletionNotice ? (
+        <section className="relative mt-3 rounded-[16px] border border-white/[0.08] bg-white/[0.04] p-3 pr-12">
+          {onDismissProfileCompletionNotice ? (
+            <button
+              aria-label="Fechar aviso de completar perfil"
+              className="gc-pressable absolute right-2 top-2 grid size-11 place-items-center rounded-full bg-white/[0.05] text-white/48 transition hover:text-white"
+              onClick={() => void onDismissProfileCompletionNotice()}
+              type="button"
+            >
+              <X size={15} strokeWidth={2.6} />
+            </button>
+          ) : null}
+          <button
+            className="gc-pressable flex w-full items-center justify-between gap-3 text-left"
+            onClick={onEditProfile}
+            type="button"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-black text-white">
+                Perfil {profileCompletion.percentage}% completo
+              </p>
+              <p className="mt-0.5 truncate text-[11px] font-bold text-white/46">
+                {nextCompletionItem?.label ?? "Continue preenchendo"}
+              </p>
+              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#8CFBFF,#30D5FF,#0066FF)] transition-all duration-500"
+                  style={{ width: `${profileCompletion.percentage}%` }}
+                />
+              </div>
+            </div>
+            <span className="grid h-8 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] px-3 text-[11px] font-black text-black">
+              Completar
+            </span>
+          </button>
+        </section>
       ) : null}
 
       {/* Streak compacto — uma linha, abre o sheet detalhado ao tocar */}

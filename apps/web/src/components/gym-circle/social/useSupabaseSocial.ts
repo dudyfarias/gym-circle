@@ -266,6 +266,7 @@ const PROFILE_COLUMNS = [
   "birth_date",
   "sports",
   "onboarding_completed_at",
+  "profile_completion_notice_dismissed",
   "alpha_terms_accepted_at",
   "privacy_policy_accepted_at",
   "account_status",
@@ -498,6 +499,7 @@ function enrichedUserFromDiscovery(row: DiscoveryProfileRow): EnrichedUser {
     isBirthday: false,
     sports: [],
     onboardingCompletedAt: null,
+    profileCompletionNoticeDismissed: false,
     alphaTermsAcceptedAt: null,
     privacyPolicyAcceptedAt: null,
     accountStatus: "active",
@@ -928,6 +930,7 @@ export type SupabaseSocialActions = {
   }) => Promise<string>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileEditInput) => Promise<void>;
+  dismissProfileCompletionNotice: () => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   reportUser: (userId: string, reason?: string) => Promise<void>;
   reportPost: (postId: string, authorId: string, reason?: string) => Promise<void>;
@@ -947,6 +950,7 @@ export type SupabaseSocialActions = {
   requestAccountDeletion: (reason?: string) => Promise<void>;
   suspendAccount: () => Promise<void>;
   sendReactivationEmail: () => Promise<void>;
+  useStreakRestore?: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   refreshChat: () => Promise<void>;
   refreshPostDetails: (postId: string) => Promise<void>;
@@ -1993,6 +1997,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         isBirthday: isBirthdayFromBirthDate(birthDate),
         sports: profile.sports ?? [],
         onboardingCompletedAt: profile.onboarding_completed_at ?? null,
+        profileCompletionNoticeDismissed:
+          profile.profile_completion_notice_dismissed ?? false,
         alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
         privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
         accountStatus,
@@ -2052,6 +2058,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         isBirthday: false,
         sports: [],
         onboardingCompletedAt: null,
+        profileCompletionNoticeDismissed: false,
         alphaTermsAcceptedAt: null,
         privacyPolicyAcceptedAt: null,
         accountStatus: "active",
@@ -3329,6 +3336,39 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await refresh();
         showFeedback("success", "Perfil atualizado");
       },
+      async dismissProfileCompletionNotice() {
+        const currentProfile = agg.profiles.find(
+          (profile) => profile.user_id === currentUserId,
+        );
+        if (currentProfile?.profile_completion_notice_dismissed) return;
+
+        if (currentProfile && mountedRef.current) {
+          setAgg((current) => ({
+            ...current,
+            profiles: mergeProfileRows(current.profiles, [
+              {
+                ...currentProfile,
+                profile_completion_notice_dismissed: true,
+              },
+            ]),
+          }));
+        }
+
+        try {
+          const updatedProfile = await services.profiles.update(currentUserId, {
+            profile_completion_notice_dismissed: true,
+          });
+          if (mountedRef.current) {
+            setAgg((current) => ({
+              ...current,
+              profiles: mergeProfileRows(current.profiles, [updatedProfile]),
+            }));
+          }
+        } catch (err) {
+          await refresh();
+          throw err;
+        }
+      },
       async acceptFollowRequest(requesterId: string) {
         const requester = enrichedAll.get(requesterId);
         await services.follows.acceptRequest(currentUserId, requesterId);
@@ -3419,6 +3459,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       agg.postComments,
       agg.postCommentLikes,
       agg.chatMessages,
+      agg.profiles,
       refresh,
       refreshChat,
       refreshConversationMessages,

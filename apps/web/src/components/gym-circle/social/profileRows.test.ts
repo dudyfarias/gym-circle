@@ -19,6 +19,8 @@ function fullProfile(input: Partial<ProfileRow> & Pick<ProfileRow, "user_id">): 
     fitness_goal: input.fitness_goal !== undefined ? input.fitness_goal : "Consistencia",
     main_gym_id: input.main_gym_id !== undefined ? input.main_gym_id : "gym-1",
     preferred_training_times: input.preferred_training_times ?? ["Manha"],
+    profile_completion_notice_dismissed:
+      input.profile_completion_notice_dismissed ?? false,
     is_private: input.is_private ?? true,
     created_at: input.created_at ?? "2026-05-01T10:00:00.000Z",
     instagram_username:
@@ -99,7 +101,11 @@ describe("profile row merging", () => {
   });
 
   it("keeps preview search results from becoming the source of truth for editing", () => {
-    const full = fullProfile({ user_id: "user-1", bio: "Bio completa" });
+    const full = fullProfile({
+      user_id: "user-1",
+      bio: "Bio completa",
+      profile_completion_notice_dismissed: true,
+    });
     const preview = profileRowFromPartial({
       user_id: "user-1",
       username: "dudy",
@@ -114,5 +120,6 @@ describe("profile row merging", () => {
     expect(merged.avatar_url).toBe("https://cdn.example/new-avatar.jpg");
     expect(merged.bio).toBe("Bio completa");
     expect(merged.is_private).toBe(true);
+    expect(merged.profile_completion_notice_dismissed).toBe(true);
   });
 });

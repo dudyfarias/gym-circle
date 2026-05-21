@@ -141,3 +141,10 @@ export function calculateProfileCompletion(user: EnrichedUser): ProfileCompletio
     missing: items.filter((item) => !item.complete),
   };
 }
+
+export function shouldShowProfileCompletionNotice(
+  user: Pick<EnrichedUser, "profileCompletionNoticeDismissed">,
+  completion: ProfileCompletion,
+) {
+  return completion.percentage < 100 && user.profileCompletionNoticeDismissed !== true;
+}

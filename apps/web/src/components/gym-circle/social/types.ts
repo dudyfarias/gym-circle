@@ -16,6 +16,7 @@ export type GymUser = {
   isBirthday?: boolean;
   sports?: string[];
   onboardingCompletedAt?: string | null;
+  profileCompletionNoticeDismissed?: boolean;
   alphaTermsAcceptedAt?: string | null;
   privacyPolicyAcceptedAt?: string | null;
   accountStatus?: string;
@@ -306,6 +307,7 @@ export type SocialActions = {
   checkIn: (gymName: string) => void | Promise<void>;
   signOut?: () => Promise<void>;
   updateProfile?: (input: ProfileEditInput) => Promise<void>;
+  dismissProfileCompletionNotice?: () => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;

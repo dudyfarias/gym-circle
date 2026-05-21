@@ -12,6 +12,7 @@ export type ProfileUpdate = Partial<{
   sports: string[];
   main_gym_id: string | null;
   preferred_training_times: string[];
+  profile_completion_notice_dismissed: boolean;
   is_private: boolean;
 }>;
 

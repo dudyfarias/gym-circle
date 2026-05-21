@@ -31,6 +31,8 @@ export function profileRowFromPartial(
     birth_date: input.birth_date ?? null,
     sports: input.sports ?? [],
     onboarding_completed_at: input.onboarding_completed_at ?? null,
+    profile_completion_notice_dismissed:
+      input.profile_completion_notice_dismissed ?? false,
     alpha_terms_accepted_at: input.alpha_terms_accepted_at ?? null,
     privacy_policy_accepted_at: input.privacy_policy_accepted_at ?? null,
     account_status: input.account_status ?? "active",

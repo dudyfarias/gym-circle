@@ -14,6 +14,8 @@ function profile(input: Partial<ProfileRow> & Pick<ProfileRow, "user_id">): Prof
     fitness_goal: input.fitness_goal ?? null,
     main_gym_id: input.main_gym_id ?? null,
     preferred_training_times: input.preferred_training_times ?? [],
+    profile_completion_notice_dismissed:
+      input.profile_completion_notice_dismissed ?? false,
     is_private: input.is_private ?? false,
     created_at: input.created_at ?? "2026-05-20T12:00:00.000Z",
     instagram_username: input.instagram_username ?? null,
