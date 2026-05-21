@@ -81,6 +81,33 @@ Objetivo: trocar apenas as partes que mais ganham com APIs nativas.
 - Apple Login e Google Login podem ser reavaliados depois.
 - Enquanto isso, a interface oficial continua email/senha.
 
+## Sprint 3: Feed + Comments UX Polish
+
+Objetivo: feed e comentários minimalistas, social, iOS-like, mantendo
+identidade Gym Circle. Inspiração em Instagram dark mode (apenas UX —
+sem copiar marca/ícones/assets).
+
+Detalhes em `docs/native-feel-sprint-3.md`.
+
+### Resumo
+
+- Post header minimalista
+- Actions row clean
+- Caption inline com "mais"
+- Comments em bottom sheet
+- Reactions rápidas
+- Sugestões de amizade reformuladas (sem foco em academia)
+- Microinterações + haptics
+- Performance preservada (Sprints A–D + Native Sprint 1)
+
+### Fora do escopo
+
+- Apple Maps (Sprint 4)
+- HealthKit (Sprint 4+)
+- Login Apple/Google
+- Reescrita nativa
+- Refactor backend grande
+
 ## Fase 3: App Nativo Completo no Futuro
 
 Objetivo: migrar surfaces críticas para React Native/Expo ou Swift quando o produto provar retenção e escala.

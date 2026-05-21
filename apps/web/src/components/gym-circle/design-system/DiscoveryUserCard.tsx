@@ -5,10 +5,35 @@ import { StreakBadge } from "./StreakBadge";
 
 type DiscoveryUserCardProps = {
   user: EnrichedUser;
-  sharedGymCount: number;
   onToggleFollow: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
 };
+
+/**
+ * Frase social contextual baseada em sinais REAIS já presentes no
+ * `EnrichedUser`. Decisões intencionais:
+ *
+ * - Nunca menciona academia (decisão de produto da Sprint 3 — feed precisa
+ *   parecer rede social, não diretório de academias).
+ * - Não inventa dados: usa só streak, streakLitToday, longestStreak, sports,
+ *   followStatus, goal. Distância e amigos em comum não são acessíveis nesse
+ *   componente, então não aparecem aqui (a contextualização precisaria de
+ *   props extras que viriam do FeedScreen, e dependeriam de viewerLocation +
+ *   intersection de follows — escopo futuro).
+ * - Prioridade do mais social pro mais neutro (primeiro match wins).
+ */
+function getSuggestionContext(user: EnrichedUser): string {
+  if (user.followStatus === "accepted") return "Vocês já se seguem";
+  if (user.streakLitToday) return "Treinou hoje";
+  if (user.currentStreak >= 14) return "Treina forte ultimamente";
+  if (user.currentStreak >= 7) return "Treina frequentemente";
+  if (user.longestStreak >= 30) return "Streak consistente";
+  if (user.workoutsThisMonth >= 12) return "Treina toda semana";
+  if (user.sports?.includes("Corrida")) return "Também corre";
+  if (user.sports?.includes("Musculação")) return "Treina musculação";
+  if (user.goal && user.goal.trim().length > 0) return user.goal;
+  return "Sugerido pra você";
+}
 
 function followIconState(user: EnrichedUser) {
   switch (user.followStatus) {
@@ -48,11 +73,11 @@ function followIconState(user: EnrichedUser) {
 
 export function DiscoveryUserCard({
   user,
-  sharedGymCount,
   onToggleFollow,
   onSelectUser,
 }: DiscoveryUserCardProps) {
   const cta = followIconState(user);
+  const context = getSuggestionContext(user);
   return (
     <div className="gc-ios-sheet gc-pressable min-w-[220px] rounded-[28px] p-4">
       <div className="flex items-start justify-between gap-4">
@@ -86,7 +111,7 @@ export function DiscoveryUserCard({
         {user.name}
       </button>
       <p className="mt-1 truncate text-[12px] font-bold text-white/44">
-        {sharedGymCount > 0 ? `${sharedGymCount} academia em comum` : user.goal}
+        {context}
       </p>
       <div className="mt-4 flex items-center justify-between gap-2">
         <StreakBadge

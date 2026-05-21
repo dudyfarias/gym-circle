@@ -555,7 +555,8 @@ export function SocialPostCard({
                     post.likedByCurrentUser ? "text-[var(--gc-blue)]" : "text-white/58",
                   ].join(" ")}
                 >
-                  {post.likesCount.toLocaleString("pt-BR")} curtidas
+                  {post.likesCount.toLocaleString("pt-BR")}{" "}
+                  {post.likesCount === 1 ? "curtida" : "curtidas"}
                 </span>
               </div>
             ) : (
