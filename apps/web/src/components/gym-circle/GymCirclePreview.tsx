@@ -155,8 +155,11 @@ export function GymCirclePreview({
   //             usuário continuar navegando entre tabs durante leitura profunda.
   //   "up"    → rolando pra cima (delta<-8): mantém HEADER, esconde FOOTER
   //             (clean experience ao voltar pro topo).
-  // FloatingCreatePostButton segue o header (some quando entra em "down").
+  // FloatingCreatePostButton tem comportamento próprio: ao sumir por scroll,
+  // só volta numa nova abertura/montagem do app.
   const [scrollState, setScrollState] = useState<"top" | "down" | "up">("top");
+  const [createPostButtonHiddenForSession, setCreatePostButtonHiddenForSession] =
+    useState(false);
   const viewerLocation = useViewerLocation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
@@ -514,6 +517,7 @@ export function GymCirclePreview({
       }
       if (delta > 6) {
         setScrollState("down");
+        setCreatePostButtonHiddenForSession(true);
         return;
       }
       if (delta < -8) setScrollState("up");
@@ -940,7 +944,7 @@ export function GymCirclePreview({
           </div>
           {activeScreen === "feed" && !keyboardOpen ? (
             <FloatingCreatePostButton
-              hidden={scrollState === "down"}
+              hidden={createPostButtonHiddenForSession}
               onClick={() => setActiveScreen("post")}
             />
           ) : null}
