@@ -9,6 +9,7 @@ import {
 } from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
 import { FloatingCreatePostButton, ToastFeedback } from "./design-system";
+import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
@@ -793,6 +794,21 @@ export function GymCirclePreview({
     () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, -1),
     [selectedStoryId, selectedStorySequence],
   );
+
+  // Sprint 2.3: pré-carrega + pré-decodifica a mídia da PRÓXIMA story
+  // assim que o user abre uma. Quando avançar (swipe/tap), a próxima já
+  // está pronta — troca instantânea sem flash preto.
+  // Pula vídeos (file inteiro é grande demais; <video preload="metadata"
+  // nativo já cuida do necessário).
+  useEffect(() => {
+    if (!nextStoryId) return;
+    const nextStory = selectedStorySequence.find((s) => s.id === nextStoryId);
+    if (!nextStory) return;
+    if (nextStory.mediaType === "video") return;
+    const src = nextStory.imageUrl;
+    if (!src) return;
+    void preloadImage(src);
+  }, [nextStoryId, selectedStorySequence]);
 
   const currentUserStoryGroup = useMemo(
     () => storyGroups.find((group) => group.id === social.currentUser.id) ?? null,

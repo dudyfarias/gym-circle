@@ -204,6 +204,48 @@ Sprint 2 PLANEJADA em 2026-05-22. Sub-fase 2.1 (Foundation) entregue
 no mesmo dia. Próximas 2.2 → 2.6 ficam pra sessões seguintes conforme
 plano acima.
 
+### Fase 2.3 entregue (2026-05-22) — Stories preload + crossfade
+
+**Commit:** TBD
+
+**O que foi feito:**
+
+- **`StoryViewer.tsx` ganhou blur + crossfade**:
+  - Container outer trocou `bg-[#090A0B]` (Tailwind class) por
+    `style.backgroundColor: "#090A0B"` + optional
+    `backgroundImage: url(blurDataUrl)` quando a story tem blur. Resolve
+    o "flash preto antes de aparecer a mídia".
+  - Novo state `mediaLoaded` (init com `hasImageLoaded(story.imageUrl)`)
+    controla opacity do `<Image fill>`: 0 enquanto decode, 1 quando
+    `onLoad` dispara.
+  - `markImageLoaded` no `onLoad` — re-abrir a mesma story na sessão
+    renderiza instant.
+  - Vídeos não mudaram (já têm `poster={story.posterUrl ?? thumbnailUrl}`
+    e `preload="metadata"`).
+- **Preload da próxima story em `GymCirclePreview.tsx`**:
+  - Novo useEffect que monitora `nextStoryId` + `selectedStorySequence`.
+  - Quando user abre uma story, dispara `preloadImage(next.imageUrl)`
+    em paralelo — quando avançar (swipe/tap), bytes + bitmap já estão
+    prontos.
+  - Pula vídeos (file inteiro é grande demais pra preload; `<video
+    preload="metadata">` nativo cobre o caso).
+  - Roda automaticamente sempre que muda a story atual.
+
+**Pendente (movido pra Sprint 2.6 — polish)**:
+
+- **Preserve previous frame verdadeiro** — exigiria remover
+  `key={story.id}` do `StoryViewerContent` (que força remount entre
+  stories). Refactor delicado: afeta hooks internos, audio, progress
+  bar. Pragmático ficou: blur background do container cobre o gap
+  visual durante o decode da nova; suficiente pra eliminar flash preto.
+
+**Como verificar visualmente (após deploy)**:
+
+1. Abrir uma story de outro user.
+2. Tap/swipe pra próxima: troca deve ser **mais rápida**, com fundo
+   blur ao invés de preto se a story tiver `blurDataUrl`.
+3. Em re-abertura (mesma sessão): mídia aparece **instant**, sem fade.
+
 ### Fase 2.2 entregue (2026-05-22) — Feed integration
 
 **Commit:** TBD (após validação)

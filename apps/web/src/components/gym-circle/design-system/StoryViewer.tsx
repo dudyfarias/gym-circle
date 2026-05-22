@@ -29,6 +29,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedStory, EnrichedUser } from "../social/types";
 import { formatStoryLikesCount } from "../social/likes";
 import { formatStoryAge } from "../social/storyInteractions";
+import { hasImageLoaded, markImageLoaded } from "./imageCache";
 import { StreakBadge } from "./StreakBadge";
 
 const STORY_DURATION_MS = 5200;
@@ -95,6 +96,11 @@ function StoryViewerContent({
   const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
+  // Sprint 2.3: crossfade da imagem da story. Init com hasImageLoaded
+  // pra render instant em re-mounts (cache da sessão).
+  const [mediaLoaded, setMediaLoaded] = useState(() =>
+    hasImageLoaded(story.imageUrl),
+  );
 
   const isOwner = Boolean(story && currentUserId === story.userId);
   const isInteracting =
@@ -271,10 +277,24 @@ function StoryViewerContent({
       data-gc-no-screen-swipe
     >
       <div
-        className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#090A0B] shadow-[0_28px_72px_rgba(0,0,0,0.7)]"
+        className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] shadow-[0_28px_72px_rgba(0,0,0,0.7)]"
         onClick={handleViewerClick}
         onTouchEnd={handleTouchEnd}
         onTouchStart={handleTouchStart}
+        style={{
+          // Sprint 2.3: fundo blur + solid fallback. Quando a story tem
+          // blurDataUrl, o blur cobre o gap visual durante o decode da
+          // mídia HQ. Senão, solid #090A0B (tema dark) — NUNCA tela
+          // preta vazia.
+          backgroundColor: "#090A0B",
+          ...(story.blurDataUrl
+            ? {
+                backgroundImage: `url(${story.blurDataUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : {}),
+        }}
       >
         <div className="absolute inset-x-4 top-3 z-20 h-1 overflow-hidden rounded-full bg-white/18">
           <div
@@ -306,6 +326,17 @@ function StoryViewerContent({
             priority
             sizes="(max-width: 480px) 100vw, 480px"
             src={story.imageUrl}
+            onLoad={() => {
+              markImageLoaded(story.imageUrl);
+              setMediaLoaded(true);
+            }}
+            style={{
+              // Sprint 2.3: crossfade — opacity 0 enquanto decode, 1
+              // quando onLoad dispara. Background blur do container já
+              // cobre o gap visual.
+              opacity: mediaLoaded ? 1 : 0,
+              transition: "opacity 280ms var(--gc-ease-ios, ease-out)",
+            }}
           />
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/86" />
