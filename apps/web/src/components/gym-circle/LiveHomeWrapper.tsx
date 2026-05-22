@@ -11,8 +11,18 @@ import { PwaController } from "./PwaController";
 import { markPerf, measurePerf } from "./performance";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
-const POST_IMAGE_MAX_EDGE = 1600;
+// Sprint 2.4: qualidade priorizada (revert Sprint 1 agressivo).
+// 1920 cobre Retina iPhone Pro Max sem upscaling. Quality 0.88 mantém
+// arquivos sob ~400KB médio mas com sensação premium em zoom.
+const POST_IMAGE_MAX_EDGE = 1920;
+const POST_IMAGE_QUALITY = 0.88;
 const POST_THUMBNAIL_MAX_EDGE = 640;
+const POST_THUMBNAIL_QUALITY = 0.82;
+const POSTER_QUALITY = 0.88;
+// Blur placeholder: 10x10px é o sweet spot — base64 ~500 bytes,
+// renderiza como "watercolor" suave que casa com qualquer foto.
+const BLUR_PLACEHOLDER_EDGE = 10;
+const BLUR_PLACEHOLDER_QUALITY = 0.5;
 
 type UploadedWorkoutMedia = {
   imageUrl: string;
@@ -50,6 +60,57 @@ async function loadImageFile(file: File): Promise<HTMLImageElement> {
     });
   } finally {
     URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Sprint 2.4: gera blur placeholder base64 (~500 bytes) pra usar como
+ * `placeholder="blur"` no `next/image` ou `background-image` em
+ * `PinchZoomImage`/`StoryViewer`. Elimina o flash preto antes do
+ * decode da mídia HQ.
+ *
+ * Funciona a partir de um `HTMLImageElement` (foto carregada) OU um
+ * `<canvas>` já desenhado (caso poster de vídeo — reusa o frame).
+ *
+ * Retorna `null` em erro — blurDataUrl é best-effort, não bloqueia
+ * upload se falhar.
+ */
+async function generateBlurDataUrl(
+  source: HTMLImageElement | HTMLCanvasElement,
+): Promise<string | null> {
+  if (typeof document === "undefined") return null;
+  try {
+    const naturalW =
+      source instanceof HTMLCanvasElement ? source.width : source.naturalWidth;
+    const naturalH =
+      source instanceof HTMLCanvasElement
+        ? source.height
+        : source.naturalHeight;
+    if (!naturalW || !naturalH) return null;
+
+    const ratio = naturalW / naturalH;
+    const w =
+      ratio >= 1
+        ? BLUR_PLACEHOLDER_EDGE
+        : Math.max(2, Math.round(BLUR_PLACEHOLDER_EDGE * ratio));
+    const h =
+      ratio >= 1
+        ? Math.max(2, Math.round(BLUR_PLACEHOLDER_EDGE / ratio))
+        : BLUR_PLACEHOLDER_EDGE;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    // `imageSmoothingQuality: "high"` deixa a redução suave em vez de
+    // pixelizada — importante pro blur ficar bonito ao ser scale-up.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", BLUR_PLACEHOLDER_QUALITY);
+  } catch {
+    return null;
   }
 }
 
@@ -101,7 +162,7 @@ async function imageFileVariant(
   }
 }
 
-async function createVideoPoster(file: File): Promise<PreparedImageFile & { duration: number | null } | null> {
+async function createVideoPoster(file: File): Promise<(PreparedImageFile & { duration: number | null; blurDataUrl: string | null }) | null> {
   if (typeof window === "undefined" || !file.type.startsWith("video/")) return null;
   const url = URL.createObjectURL(file);
   try {
@@ -141,9 +202,16 @@ async function createVideoPoster(file: File): Promise<PreparedImageFile & { dura
     if (!context) return null;
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", 0.76);
+      // Sprint 2.4: poster ganha quality HQ (0.88 vs 0.76 antigo). Frame
+      // de vídeo precisa de detalhe pra não parecer pixelado quando o
+      // user ver no feed antes do play.
+      canvas.toBlob(resolve, "image/jpeg", POSTER_QUALITY);
     });
     if (!blob) return null;
+
+    // Sprint 2.4: também gera blur placeholder do poster — reusa o frame
+    // já desenhado na canvas. Custo zero adicional.
+    const posterBlur = await generateBlurDataUrl(canvas);
 
     const baseName = file.name.replace(/\.[^.]+$/, "") || "gym-circle-video";
     return {
@@ -154,6 +222,7 @@ async function createVideoPoster(file: File): Promise<PreparedImageFile & { dura
       width,
       height,
       duration,
+      blurDataUrl: posterBlur,
     };
   } catch {
     return null;
@@ -242,13 +311,32 @@ function AuthenticatedShell({ userId }: { userId: string }) {
         if (file.type.startsWith("image/")) {
           markPerf("thumbnail_generation_start");
           const [feedFile, thumbnail] = await Promise.all([
-            imageFileVariant(file, POST_IMAGE_MAX_EDGE, 0.88, "feed"),
-            imageFileVariant(file, POST_THUMBNAIL_MAX_EDGE, 0.76, "thumb"),
+            imageFileVariant(file, POST_IMAGE_MAX_EDGE, POST_IMAGE_QUALITY, "feed"),
+            imageFileVariant(
+              file,
+              POST_THUMBNAIL_MAX_EDGE,
+              POST_THUMBNAIL_QUALITY,
+              "thumb",
+            ),
           ]);
           measurePerf(
             "thumbnail_generation_ms",
             "thumbnail_generation_start",
             "thumbnail_generation_end",
+          );
+          // Sprint 2.4: gera blur placeholder no client durante o
+          // upload. Custo: 1 canvas 10x10px + toDataURL JPEG. Resultado
+          // ~500 bytes que vai pro `blur_data_url` no banco e elimina o
+          // flash preto no feed/stories quando o post aparecer.
+          markPerf("blur_generation_start");
+          const blurImage = await loadImageFile(file).catch(() => null);
+          const blurDataUrl = blurImage
+            ? await generateBlurDataUrl(blurImage)
+            : null;
+          measurePerf(
+            "blur_generation_ms",
+            "blur_generation_start",
+            "blur_generation_end",
           );
           const [imageUrl, thumbnailUrl] = await Promise.all([
             uploadTo("posts", feedFile.file),
@@ -257,6 +345,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
           return {
             imageUrl,
             thumbnailUrl,
+            blurDataUrl,
             mediaWidth: feedFile.width ?? thumbnail.width ?? null,
             mediaHeight: feedFile.height ?? thumbnail.height ?? null,
           };
@@ -270,6 +359,11 @@ function AuthenticatedShell({ userId }: { userId: string }) {
         return {
           imageUrl,
           posterUrl,
+          // Sprint 2.4: vídeo herda blur do frame do poster (já
+          // gerado em `createVideoPoster`). Resolve flash preto também
+          // pra posts de vídeo no feed antes do `<video>` carregar
+          // metadata.
+          blurDataUrl: poster?.blurDataUrl ?? null,
           mediaWidth: poster?.width ?? null,
           mediaHeight: poster?.height ?? null,
           mediaDurationSeconds: poster?.duration ?? null,

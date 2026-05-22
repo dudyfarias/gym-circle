@@ -204,6 +204,58 @@ Sprint 2 PLANEJADA em 2026-05-22. Sub-fase 2.1 (Foundation) entregue
 no mesmo dia. Próximas 2.2 → 2.6 ficam pra sessões seguintes conforme
 plano acima.
 
+### Fase 2.4 entregue (2026-05-22) — Upload pipeline polish
+
+**Commit:** TBD
+
+**O que foi feito em `LiveHomeWrapper.tsx`:**
+
+- **Constantes ajustadas** (revert Sprint 1 agressivo):
+  - `POST_IMAGE_MAX_EDGE`: 1600 → **1920** (Retina iPhone Pro Max sem
+    upscaling).
+  - `POST_IMAGE_QUALITY`: 0.88 (mantido — já era bom).
+  - `POST_THUMBNAIL_QUALITY`: 0.76 → **0.82** (sutil melhoria no preload
+    sem inflar bytes).
+  - `POSTER_QUALITY`: 0.76 → **0.88** (poster HQ — não fica pixelado
+    quando user ver no feed antes do play).
+- **Nova função `generateBlurDataUrl(source)`**:
+  - Aceita `HTMLImageElement` OU `HTMLCanvasElement` (reusa frame de
+    vídeo sem redesenhar).
+  - Cria canvas 10x10px (mantém aspect ratio mín 2x*), desenha com
+    `imageSmoothingQuality: "high"` pra ficar suave em upscale.
+  - Exporta via `toDataURL("image/jpeg", 0.5)` → base64 ~500 bytes.
+  - Retorna `null` em erro — best-effort, não bloqueia upload.
+- **Pipeline `onUploadImage` atualizado**:
+  - **Imagem**: gera blur DA imagem original (full quality) em paralelo
+    com os variants `feed`/`thumb`. Retorna no `UploadedWorkoutMedia`.
+    Custo: 1 `HTMLImageElement` extra + 1 canvas 10x10 + 1 `toDataURL`.
+    ~10ms em iPhone moderno.
+  - **Vídeo**: blur sai do **frame do poster** já desenhado em
+    `createVideoPoster` — custo zero adicional. Resolve flash preto pra
+    posts de vídeo no feed antes do `<video>` carregar metadata.
+  - Adicionada métrica `blur_generation_ms` via `markPerf`/`measurePerf`.
+
+**Como o blurDataUrl flui pelo sistema:**
+
+1. `LiveHomeWrapper.onUploadImage(file)` retorna `{ ..., blurDataUrl }`.
+2. `PostScreen.tsx:291,443` já passava `blurDataUrl: uploaded.blurDataUrl ?? null`
+   pro `createPost` (estava sempre null antes; agora vem populado).
+3. `useSupabaseSocial.ts` insere `blur_data_url` no row do post (já fazia).
+4. Próxima leitura do feed/stories trás `blurDataUrl` populado no
+   `EnrichedPost`/`EnrichedStory`.
+5. `SocialPostCard` → `PinchZoomImage` consome (Sprint 2.2).
+6. `StoryViewer` consome direto (Sprint 2.3).
+
+**Sem mudanças de schema** — `blur_data_url` JÁ existia no banco; só
+estava sempre null. Posts antigos continuam sem blur (fallback solid
+dark já cobre). Posts novos a partir deste deploy terão blur populado
+automaticamente.
+
+**Validação local pendente** — Vercel build remoto valida.
+
+**Próxima sub-fase (2.5)**: performance audit — memoization no
+`SocialPostCard` + connection-aware preload tuning.
+
 ### Fase 2.3 entregue (2026-05-22) — Stories preload + crossfade
 
 **Commit:** TBD
