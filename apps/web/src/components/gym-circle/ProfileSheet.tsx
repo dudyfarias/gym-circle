@@ -52,6 +52,8 @@ type ProfileSheetProps = {
   onOpenPost?: (postId: string) => void;
   onOpenFollowers?: () => void;
   onOpenFollowing?: () => void;
+  /** Sprint 3.5.3: tap nos rings do ProfileIdentity → abre MyCircleSheet. */
+  onOpenMyCircle?: () => void;
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
@@ -90,6 +92,7 @@ export function ProfileSheet({
   onOpenPost,
   onOpenFollowers,
   onOpenFollowing,
+  onOpenMyCircle,
   hasStory,
   storyViewed,
   onOpenStory,
@@ -130,6 +133,7 @@ export function ProfileSheet({
             onOpenStory={onOpenStory}
             onOpenFollowers={onOpenFollowers}
             onOpenFollowing={onOpenFollowing}
+            onOpenMyCircle={onOpenMyCircle}
             actions={
               !isMe ? (
                 <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-2">

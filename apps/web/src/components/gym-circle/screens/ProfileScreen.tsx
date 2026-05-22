@@ -45,6 +45,8 @@ type ProfileScreenProps = {
   onOpenStory?: () => void;
   monthlyRecap: MonthlyRecap;
   onOpenMonthlyRecap?: () => void;
+  /** Sprint 3.5.3: abre o `MyCircleSheet` (gamificação rica). */
+  onOpenMyCircle?: () => void;
   onOpenPost?: (postId: string) => void;
   onUseStreakRestore?: () => void | Promise<void>;
   onDismissProfileCompletionNotice?: () => void | Promise<void>;
@@ -69,6 +71,7 @@ export function ProfileScreen({
   onOpenStory,
   monthlyRecap,
   onOpenMonthlyRecap,
+  onOpenMyCircle,
   onOpenPost,
   onUseStreakRestore,
   onDismissProfileCompletionNotice,
@@ -112,6 +115,7 @@ export function ProfileScreen({
           onOpenStory={onOpenStory}
           onOpenFollowers={onOpenFollowers}
           onOpenFollowing={onOpenFollowing}
+          onOpenMyCircle={onOpenMyCircle}
           actions={
             onEditProfile || onOpenAdmin ? (
               <div className="flex gap-2">

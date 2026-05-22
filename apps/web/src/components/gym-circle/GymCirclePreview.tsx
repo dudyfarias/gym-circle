@@ -90,6 +90,10 @@ const FollowListOverlay = dynamic(
   () => import("./FollowListOverlay").then((module) => module.FollowListOverlay),
   { ssr: false },
 );
+const MyCircleSheet = dynamic(
+  () => import("./MyCircleSheet").then((module) => module.MyCircleSheet),
+  { ssr: false },
+);
 const AccountSettingsSheet = dynamic(
   () => import("./AccountSettingsSheet").then((module) => module.AccountSettingsSheet),
   { ssr: false },
@@ -128,6 +132,9 @@ export function GymCirclePreview({
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
+  // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
+  // outro user via tap nos rings do ProfileIdentity. Guardamos o id.
+  const [myCircleUserId, setMyCircleUserId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -259,6 +266,11 @@ export function GymCirclePreview({
     });
   }, [social.actions]);
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
+  // Sprint 3.5.3: handlers do MyCircleSheet.
+  const openMyCircle = useCallback((userId: string) => {
+    setMyCircleUserId(userId);
+  }, []);
+  const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   const openChatWithUser = useCallback((userId: string) => {
     setProfileOpenId(null);
     setChatTargetUserId(userId);
@@ -699,6 +711,21 @@ export function GymCirclePreview({
     }
   }, [pullDistance, screenOrder, triggerRefresh]);
 
+  // Sprint 3.5.3: derivados do MyCircleSheet (próprio user OU outro).
+  const myCircleUser = useMemo<EnrichedUser | null>(() => {
+    if (!myCircleUserId) return null;
+    if (myCircleUserId === social.currentUser.id) return social.currentUser;
+    return usersById[myCircleUserId] ?? null;
+  }, [myCircleUserId, social.currentUser, usersById]);
+  const myCircleUserPosts = useMemo<EnrichedPost[]>(() => {
+    if (!myCircleUserId) return [];
+    return profilePosts.filter(
+      (p) =>
+        p.userId === myCircleUserId ||
+        p.acceptedParticipants?.some((participant) => participant.id === myCircleUserId),
+    );
+  }, [profilePosts, myCircleUserId]);
+
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
   const profileSheetPosts = useMemo(() => {
     if (!profileOpenId) return [];
@@ -840,6 +867,7 @@ export function GymCirclePreview({
             onOpenPost={openPostDetail}
             monthlyRecap={monthlyRecap}
             onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
+            onOpenMyCircle={() => openMyCircle(social.currentUser.id)}
             onUseStreakRestore={social.actions.useStreakRestore}
             onDismissProfileCompletionNotice={
               social.actions.dismissProfileCompletionNotice
@@ -1080,9 +1108,27 @@ export function GymCirclePreview({
             }
             onToggleFollow={toggleFollowIgnoringResult}
             open={profileOpenId !== null}
+            onOpenMyCircle={() => profileSheetUser && openMyCircle(profileSheetUser.id)}
             onOpenPost={openPostDetail}
             posts={profileSheetPosts}
             user={profileSheetUser}
+          />
+          <MyCircleSheet
+            hasStory={
+              myCircleUser?.id === social.currentUser.id
+                ? Boolean(currentUserStoryGroup)
+                : Boolean(profileSheetStoryGroup)
+            }
+            isOwn={myCircleUser?.id === social.currentUser.id}
+            onClose={closeMyCircle}
+            open={myCircleUserId !== null}
+            posts={myCircleUserPosts}
+            storyViewed={
+              myCircleUser?.id === social.currentUser.id
+                ? currentUserStoryGroup?.viewed ?? false
+                : profileSheetStoryGroup?.viewed ?? false
+            }
+            user={myCircleUser}
           />
           <CommentsBottomSheet
             currentUser={social.currentUser}
