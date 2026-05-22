@@ -3099,9 +3099,20 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             storyGroups.find((item) => item.id === storyId) ??
             storyGroups.find((item) => item.stories.some((story) => story.id === storyId)) ??
             null;
+          // Sprint 2 bug fix: quando TODAS as stories do group já foram
+          // vistas, `find(!viewed)` retorna undefined. A chamada do
+          // StoryBubbles passa `storyId = group.id` (user_id), que nunca
+          // casa com `item.id` (id da story). Resultado: placeholderStory
+          // ficava null e o openStory dava return early — user não
+          // conseguia rever stories já vistos.
+          //
+          // Fix: fallback pra `group.stories[0]` (primeira do group, mais
+          // antiga). Re-abertura sempre funciona; user pode rever o group
+          // completo do início.
           const placeholderStory =
             group?.stories.find((item) => !item.viewed) ??
             group?.stories.find((item) => item.id === storyId) ??
+            group?.stories[0] ??
             storyItems.find((item) => item.id === storyId) ??
             null;
           if (!placeholderStory) return;

@@ -25,7 +25,13 @@ export function StoryBubbles({ stories, onOpenStory }: StoryBubblesProps) {
           <div
             className={[
               "relative mx-auto grid size-[66px] place-items-center rounded-full p-[2px]",
-              group.viewed ? "bg-white/[0.12]" : "gc-story-ring",
+              // Sprint 2: quando o group já foi visto, REMOVE o ring em
+              // volta (padrão Instagram). Antes mostrava ring cinza
+              // translúcido. User decision: "apagar o círculo em volta".
+              // Bubble continua clicável pra rever — o background bg-black
+              // do filho interno (`bg-black p-[3px]`) mantém o avatar
+              // alinhado com o tamanho `size-[66px]` mesmo sem ring.
+              group.viewed ? "" : "gc-story-ring",
             ].join(" ")}
           >
             <div className="rounded-full bg-black p-[3px]">

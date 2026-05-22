@@ -144,17 +144,20 @@ export function AvatarConsistencyRings({
           </defs>
         ) : null}
 
-        {hasStory ? (
+        {hasStory && !storyViewed ? (
+          // Sprint 2: quando o story JÁ foi visto, NÃO desenhamos o ring
+          // (decisão do user — "apagar o círculo em volta"). Antes
+          // mostrava cinza translúcido. Bubble continua clicável pra
+          // rever; ring colorido só significa "tem story novo".
+          // Spacing entre consistency rings e borda permanece igual ao
+          // estado "tem story novo" pra evitar layout shift entre
+          // estados.
           <circle
             cx={center}
             cy={center}
             fill="none"
             r={storyRadius}
-            stroke={
-              storyViewed
-                ? "rgba(255,255,255,0.18)"
-                : `url(#gc-story-gradient-${user.id})`
-            }
+            stroke={`url(#gc-story-gradient-${user.id})`}
             strokeWidth={strokeWidth}
           />
         ) : null}
