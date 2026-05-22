@@ -1,21 +1,16 @@
 "use client";
 
-import Image from "next/image";
 import {
-  Camera,
   Clock,
   Flame,
   LifeBuoy,
-  MapPin,
   MoreHorizontal,
   Pencil,
-  Play,
   ShieldCheck,
   X,
 } from "lucide-react";
-import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
-import { VideoThumbnail } from "../design-system";
+import { ProfileIdentity, ProfilePostsGrid } from "../design-system";
 import type { MonthlyRecap } from "../social/monthlyRecap";
 import {
   calculateProfileCompletion,
@@ -80,7 +75,6 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
-  const mainGym = currentUser.gyms[0];
   const restoreCountdown = formatRestoreCountdown(currentUser.streakRestoreDeadlineAt);
   const canRestoreStreak = Boolean(
     onUseStreakRestore &&
@@ -108,101 +102,44 @@ export function ProfileScreen({
         title="Perfil"
       />
 
-      {/* Identidade — avatar + 3 métricas inline (padrão IG/Threads) */}
-      <div className="mt-5 flex items-center gap-5">
-        {hasStory && onOpenStory ? (
-          <button
-            aria-label={`Ver story de ${currentUser.name}`}
-            className={[
-              "gc-pressable shrink-0 rounded-full p-[3px]",
-              storyViewed ? "bg-white/[0.14]" : "gc-story-ring",
-            ].join(" ")}
-            onClick={onOpenStory}
-            type="button"
-          >
-            <div className="rounded-full bg-black p-[2px]">
-              <Avatar
-                accent={currentUser.accent ?? "var(--gc-brand)"}
-                name={currentUser.name}
-                size="md"
-                src={currentUser.avatarUrl ?? undefined}
-              />
-            </div>
-          </button>
-        ) : (
-          <Avatar
-            accent={currentUser.accent ?? "var(--gc-brand)"}
-            name={currentUser.name}
-            size="md"
-            src={currentUser.avatarUrl ?? undefined}
-          />
-        )}
-
-        <div className="grid flex-1 grid-cols-3 gap-1 text-center">
-          <ProfileStat label="Posts" value={posts.length} />
-          <ProfileStat
-            label="Seguidores"
-            onClick={onOpenFollowers}
-            value={currentUser.followersCount}
-          />
-          <ProfileStat
-            label="Seguindo"
-            onClick={onOpenFollowing}
-            value={currentUser.followingCount}
-          />
-        </div>
+      {/* Identidade compartilhada — mesmo componente do ProfileSheet (Sprint 3 pós-3.4) */}
+      <div className="mt-5">
+        <ProfileIdentity
+          user={currentUser}
+          postsCount={posts.length}
+          hasStory={hasStory}
+          storyViewed={storyViewed}
+          onOpenStory={onOpenStory}
+          onOpenFollowers={onOpenFollowers}
+          onOpenFollowing={onOpenFollowing}
+          actions={
+            onEditProfile || onOpenAdmin ? (
+              <div className="flex gap-2">
+                {onEditProfile ? (
+                  <button
+                    className="gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-[12px] bg-white/[0.06] text-[13px] font-black text-white"
+                    onClick={onEditProfile}
+                    type="button"
+                  >
+                    <Pencil size={14} strokeWidth={2.6} />
+                    Editar perfil
+                  </button>
+                ) : null}
+                {onOpenAdmin ? (
+                  <button
+                    aria-label="Admin"
+                    className="gc-pressable grid size-11 place-items-center rounded-[12px] bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
+                    onClick={onOpenAdmin}
+                    type="button"
+                  >
+                    <ShieldCheck size={15} strokeWidth={2.6} />
+                  </button>
+                ) : null}
+              </div>
+            ) : undefined
+          }
+        />
       </div>
-
-      {/* Nome + handle + bio + local */}
-      <div className="mt-4">
-        <h2 className="truncate text-[18px] font-black leading-tight text-white">
-          {currentUser.name}
-        </h2>
-        <p className="mt-0.5 text-[13px] font-bold text-white/52">
-          @{currentUser.username}
-        </p>
-        {currentUser.bio ? (
-          <p className="mt-2 max-w-[420px] text-[14px] font-medium leading-5 text-white/86">
-            {currentUser.bio}
-          </p>
-        ) : null}
-        {mainGym || currentUser.location ? (
-          <div className="mt-2 flex items-center gap-1 text-[12px] font-bold text-white/52">
-            <MapPin size={12} strokeWidth={2.4} />
-            <span className="truncate">
-              {[mainGym, currentUser.location && currentUser.location !== mainGym ? currentUser.location : null]
-                .filter(Boolean)
-                .join(" · ")}
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Ações: Editar / Admin — conta e privacidade ficam no menu do topo */}
-      {onEditProfile || onOpenAdmin ? (
-        <div className="mt-4 flex gap-2">
-          {onEditProfile ? (
-            <button
-              className="gc-pressable flex h-11 flex-1 items-center justify-center gap-2 rounded-[12px] bg-white/[0.06] text-[13px] font-black text-white"
-              onClick={onEditProfile}
-              type="button"
-            >
-              <Pencil size={14} strokeWidth={2.6} />
-              Editar perfil
-            </button>
-          ) : null}
-          {onOpenAdmin ? (
-            <button
-              aria-label="Admin"
-              className="gc-pressable grid size-11 place-items-center rounded-[12px] bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
-              onClick={onOpenAdmin}
-              type="button"
-            >
-              <ShieldCheck size={15} strokeWidth={2.6} />
-            </button>
-          ) : null}
-        </div>
-      ) : null}
 
       {onEditProfile && shouldShowCompletionNotice ? (
         <section className="relative mt-3 rounded-[16px] border border-white/[0.08] bg-white/[0.04] p-3 pr-12">
@@ -308,7 +245,11 @@ export function ProfileScreen({
       ) : null}
 
       {/* Posts grid — protagonista */}
-      <PostsGrid onOpenPost={onOpenPost} posts={posts} />
+      <ProfilePostsGrid
+        emptyTitle="Seus treinos vão aparecer aqui"
+        onOpenPost={onOpenPost}
+        posts={posts}
+      />
     </section>
   );
 }
@@ -323,106 +264,7 @@ function formatRestoreCountdown(deadlineAt?: string | null) {
   return `Restam ${hours}h`;
 }
 
-function ProfileStat({
-  label,
-  onClick,
-  value,
-}: {
-  label: string;
-  onClick?: () => void;
-  value: number;
-}) {
-  const content = (
-    <>
-      <p className="truncate text-[18px] font-black text-white">
-        {value.toLocaleString("pt-BR")}
-      </p>
-      <p className="mt-0.5 text-[11px] font-bold text-white/52">{label}</p>
-    </>
-  );
-
-  if (onClick) {
-    return (
-      <button
-        className="gc-pressable min-w-0 rounded-[12px] px-1 py-1 text-center"
-        onClick={onClick}
-        type="button"
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className="min-w-0 px-1 py-1">
-      {content}
-    </div>
-  );
-}
-
-function PostsGrid({
-  posts,
-  onOpenPost,
-}: {
-  posts: EnrichedPost[];
-  onOpenPost?: (postId: string) => void;
-}) {
-  if (posts.length === 0) {
-    return (
-      <div className="mt-6 grid place-items-center rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] py-14 text-center">
-        <Camera className="text-white/32" size={28} strokeWidth={2} />
-        <p className="mt-3 text-[13px] font-bold text-white/52">
-          Seus treinos vão aparecer aqui
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="-mx-5 mt-6">
-      <div className="grid grid-cols-3 gap-[2px]">
-        {posts.map((post) => (
-          <PostThumb key={post.id} onOpenPost={onOpenPost} post={post} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PostThumb({
-  post,
-  onOpenPost,
-}: {
-  post: EnrichedPost;
-  onOpenPost?: (postId: string) => void;
-}) {
-  return (
-    <button
-      aria-label={`Abrir post ${post.mediaType === "video" ? "em vídeo" : "com foto"}`}
-      className="gc-pressable relative aspect-square w-full overflow-hidden bg-zinc-950 text-left"
-      onClick={() => onOpenPost?.(post.id)}
-      type="button"
-    >
-      {post.mediaType === "video" ? (
-        <VideoThumbnail
-          className="h-full w-full object-cover"
-          poster={post.posterUrl ?? post.thumbnailUrl}
-          src={post.imageUrl}
-        />
-      ) : (
-        <Image
-          alt={post.workoutType || "Treino"}
-          className="object-cover"
-          fill
-          sizes="(max-width: 480px) 33vw, 160px"
-          src={post.thumbnailUrl ?? post.imageUrl}
-        />
-      )}
-      {post.mediaType === "video" ? (
-        <span className="absolute right-1.5 top-1.5 grid size-6 place-items-center rounded-full bg-black/58 text-white backdrop-blur-md">
-          <Play size={12} fill="currentColor" strokeWidth={2.4} />
-        </span>
-      ) : null}
-    </button>
-  );
-}
+// ProfileStat, PostsGrid e PostThumb migraram pros componentes compartilhados
+// `ProfileIdentity` e `ProfilePostsGrid` em `design-system/` (Sprint 3 pós-3.4).
+// Ambos agora são usados pelo `ProfileSheet.tsx` também, garantindo paridade
+// visual entre a aba "Perfil" e o overlay ao clicar em outro user.
