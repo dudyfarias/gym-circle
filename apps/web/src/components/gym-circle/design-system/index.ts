@@ -1,5 +1,6 @@
 export * from "./AchievementBadge";
 export * from "./ActivityCircle";
+export * from "./AvatarConsistencyRings";
 export * from "./BottomTabBar";
 export * from "./BrandMark";
 export * from "./DiscoveryUserCard";

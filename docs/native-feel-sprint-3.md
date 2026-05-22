@@ -296,8 +296,287 @@ Antes de marcar a sprint como completa:
 
 ## Estado
 
-Sprint 3 PLANEJADA em 2026-05-21. **Todas as 4 fases entregues em 2026-05-22**.
-Só falta o smoke test manual em iPhone real (Eduardo).
+Sprint 3 PLANEJADA em 2026-05-21. Fases 3.1 → 3.4 entregues em
+2026-05-22. **Fase 3.5 (Gym Circle Profile & Gamification) iniciada** em
+2026-05-22 — sub-fase 3.5.1 entregue, 3.5.2 em andamento, 3.5.3 / 3.5.4 /
+3.5.5 pendentes. Smoke test no iPhone real ainda pendente do Eduardo.
+
+---
+
+### Fase 3.5 — Gym Circle Profile & Gamification (em andamento)
+
+**Objetivo (vindo direto do Eduardo, 2026-05-22):**
+
+Reformular o perfil pra trazer de volta o conceito visual do "círculo"
+como assinatura do app. Os 3 círculos deixam de ser decorativos e passam
+a representar consistência REAL em 3 períodos: semana, mês, ano. Streak
+sai do centro e vira chip discreto. Tocar nos rings abre uma tela rica
+de gamificação ("Meu Circle") com calendário mensal, badges derivados de
+dados reais, níveis e progressão. Performance preservada — gamificação
+carregada sob demanda.
+
+**Decisões já tomadas (não revisar — Eduardo confirmou):**
+
+1. **Denominador dos rings = TOTAL do período** (não "dias decorridos"):
+   - Semana: `workoutsThisWeek / 7`
+   - Mês: `workoutsThisMonth / totalDiasDoMês`
+   - Ano: `workoutsThisYear / totalDiasDoAno` (365 ou 366)
+   - Trade-off conhecido: no início do mês o ring parece "vazio" mesmo
+     treinando todo dia (4/31 ≈ 13%). Aceitamos.
+2. **MyCircleSheet absorve o MonthlyRecap** — calendário mensal vive
+   DENTRO do novo sheet (Eduardo: "o monthlyrecap vai estar dentro do
+   mycircle").
+3. **5 sub-fases**, cada uma com lint+test+build+deploy independente:
+   3.5.1 Foundations → 3.5.2 Visual rings → 3.5.3 MyCircleSheet →
+   3.5.4 GamificationService → 3.5.5 Polish + docs.
+
+---
+
+#### Fase 3.5.1 entregue (2026-05-22) — Foundations
+
+**Commit:** `896323d` — `feat(sprint-3.5.1): foundations — workoutsThisWeek + 3 rings semana/mês/ano`
+
+**O que foi feito:**
+
+- **`social/streak.ts` refatorado:**
+  - Novos helpers exportados: `getMondayOfWeek(date)`, `getTotalDaysInMonth(date)`, `getTotalDaysInYear(date)` (regra de bissexto correta: múltiplo de 4 exceto 100 exceto 400).
+  - `ConsistencyProgressInput` agora é `{ workoutsThisWeek, workoutsThisMonth, workoutsThisYear }`. Antigo `streakLitToday`/`activeDaysCount` foi removido do input.
+  - `getConsistencyProgress` retorna `{ week, month, year }` (não mais `day`).
+  - `buildConsistencyRings` retorna `[year, month, week]` (ordem externo→interno — index 0 = ring de fora, maior raio).
+  - `calculateWorkoutStats(workoutDays, todayKey)` agora também retorna `workoutsThisWeek` (segunda→domingo ISO) e `workoutsThisYear`.
+  - Removido `getDayOfYear` (não tem mais consumer).
+- **`social/types.ts`:** `GymUser` ganhou `workoutsThisWeek: number`. JSDoc explica que `activeDaysCount` é year-scoped (vem de `user_stats.active_days_this_year` no Supabase).
+- **Wire-up:**
+  - `mock-data.ts`: `workoutsThisWeek: 0` placeholder em todos os users (fixture).
+  - `useGymCircleSocial.ts`: spread explícito de `calculateWorkoutStats` em vez de `...stats`, evita derramamento de `workoutsThisYear` que não está no GymUser.
+  - `useSupabaseSocial.ts`: `workoutsThisWeek: 0` em 4 lugares (fallback). **Não há RPC novo nesta sprint.** Quando GamificationService (3.5.4) carregar `user_activity_days`, o frontend deriva `workoutsThisWeek` real client-side via `calculateWorkoutStats`.
+  - `StreakCard.tsx` (componente legado, ainda não removido): adicionada prop opcional `weekWorkouts?` com fallback `Math.min(current, 7)`.
+- **Testes (`social/streak.test.ts`):** 23 testes novos cobrindo `getMondayOfWeek` (segunda própria, quarta, domingo, cross-month), `getTotalDaysInMonth` (28/29/30/31), `getTotalDaysInYear` (bissextos + caso 1900/2000), `calculateWorkoutStats` (semana/mês/ano/streak), `getConsistencyProgress` (clamp + denominadores), `buildConsistencyRings` (ordem + ausência de `day`).
+- **Validação:** lint 0 warnings, **189/189 testes** (23 novos), build Turbopack + TS ✓.
+
+---
+
+#### Fase 3.5.2 — Visual rings ao redor do avatar (em andamento)
+
+**Status:** código escrito, validação BLOQUEADA por filesystem timeout
+local (iCloud sync no Documents/) em 2026-05-22T13:30Z. **Não foi
+commitada nem deployada ainda.** Continuar daqui na próxima sessão.
+
+**Arquivos criados localmente (no worktree):**
+
+1. `apps/web/src/components/gym-circle/design-system/AvatarConsistencyRings.tsx`
+   - Componente novo: foto centralizada + 3 rings ao redor (semana/mês/ano).
+   - SVG com `rotate(-90)` pra começar do topo (12h). `stroke` fino, glow discreto via `drop-shadow`. Sem dependência de lib.
+   - Avatar central no `<div>` com `pointer-events-none`, dimensionado por `avatarDiameter = (innerRingRadius − strokeWidth − padding) * 2`. Usa `next/image` se `avatarUrl`, senão fallback gradient + iniciais.
+   - Story ring opcional: ring extra MAIS EXTERNO (com `storyGap` separando dos 3 rings de consistência). Gradient brand→month→year quando não vista; cinza translúcido quando vista.
+   - `onTap` único — caller decide o que faz (vai apontar pro `MyCircleSheet` na 3.5.3). Haptic `light` antes do callback via `simulateHaptic("like")`.
+   - Aria-label inteligente: "Consistência de X, Semana N%, Mês N%, Ano N%, story novo/visto".
+2. `apps/web/src/components/gym-circle/design-system/ProfileIdentity.tsx` **reescrito**:
+   - Layout CENTRALIZADO (era inline com stats ao lado do avatar).
+   - Topo: `AvatarConsistencyRings` (default 180px).
+   - Abaixo: nome grande (22px) centralizado + lock-if-private + @username.
+   - Row de chips: `[🔥 streak]` + `[nível shortLabel]` + `[📍 mainGym]` — todos discretos `bg-white/[0.06]`.
+   - Bio centralizada (max 340px).
+   - Stats `[Posts | Seguidores | Seguindo]` em grid 3 colunas centralizado.
+   - `actions` slot abaixo (caller compõe Editar/Admin ou Follow/Mensagem/Flag/Block).
+   - Nova prop `onOpenMyCircle?: () => void` — propagada pro tap dos rings.
+   - Nova prop `ringsSize?: number` (default 180).
+   - **Atenção:** `onOpenStory` ainda recebido no type mas não destructurado/consumido — adicionado lint-friendly fallback (comentário inline). Caller continua passando, mas é silenciosamente ignorado por enquanto. Polish na 3.5.5 ou já agora se quisermos: o tap no avatar central pode disparar story se hasStory, vs tap nos rings → MyCircle.
+3. `apps/web/src/components/gym-circle/design-system/index.ts` — adicionado `export * from "./AvatarConsistencyRings"`. **`ProfilePostsGrid` já é exportado da fase anterior.**
+
+**O que falta na 3.5.2 antes do commit:**
+
+- [ ] Rodar `npm run lint` (apps/web) — esperar 0 warnings (1 warning recente sobre `_onOpenStory` já foi removido com edit).
+- [ ] Rodar `npm test` — esperar 189/189 (não há testes novos pro AvatarConsistencyRings ainda — adicionar na 3.5.5).
+- [ ] Rodar `npm run build` (apps/web) — esperar 12 páginas.
+- [ ] Wire-up real: passar `onOpenMyCircle` do `ProfileScreen` e `ProfileSheet` pra abrir o futuro `MyCircleSheet`. Hoje passa `undefined`, então tap nos rings é no-op. Vale fazer JÁ NA 3.5.2 (parametrizar via callback) deixando a abertura real pra 3.5.3.
+- [ ] Validar visualmente em dev local (`npm run dev`): a foto fica realmente centralizada + rings circundando? Avatar maior que antes?
+- [ ] Commit + push + sync main + verify deploy via Vercel MCP.
+
+**Sintoma do bloqueio (pra debug se voltar):**
+
+- `cat /Users/eduardofariascappia/Documents/Site-de-vendas-oracao/gym-circle/apps/web/package.json` → "Operation timed out" (FS read).
+- `npm run lint` → `ETIMEDOUT: connection timed out, read` (npm tentando ler package.json via node fs API).
+- `ls` funcionou normalmente — file existe, mas read content bloqueado.
+- **Suspeita:** iCloud Drive evicted o arquivo (download on demand). Aguardar ~minutos pra refazer, ou rodar `brctl download` no path antes.
+- O worktree em `.claude/worktrees/flamboyant-fermi-c51db9/` está OK e pode ser usado pra acessar arquivos.
+
+---
+
+#### Fase 3.5.3 — MyCircleSheet (PENDENTE)
+
+**Objetivo:** sheet de gamificação rica, aberto via tap nos rings do
+`AvatarConsistencyRings`. Vai substituir parcialmente o
+`MonthlyRecapSheet` (que é absorvido como subseção interna —
+calendário mensal vive dentro).
+
+**Plano de implementação:**
+
+1. Criar `apps/web/src/components/gym-circle/MyCircleSheet.tsx`:
+   - Mesma estrutura de overlay/sheet do `CommentsBottomSheet` (handle bar visual, backdrop tap, max-h-[100dvh]).
+   - Título "Meu Circle" (próprio) ou "Circle de [Nome]" (visitando outro user).
+   - Botão X de fechar (44px) + safe-area.
+2. **Seções (top → bottom):**
+   - **A. Header**: avatar (`AvatarConsistencyRings` em tamanho menor, ~120px) + nome + username + chip de nível + chip de streak.
+   - **B. Resumo principal**: 6 cards pequenos em grid 2x3:
+     - Streak atual (`currentStreak`)
+     - Maior streak (`longestStreak`)
+     - Treinos no mês (`workoutsThisMonth`)
+     - Dias treinados no ano (`activeDaysCount`)
+     - Check-ins (`checkInsCount`)
+     - Posts (posts.length)
+   - **C. Explicação dos rings**:
+     - "Semana: X/7 dias"
+     - "Mês: X/Y dias" (Y = total do mês)
+     - "Ano: X/365 dias" (ou 366 se bissexto)
+     - Cada item com mini-progress bar reaproveitando cor do ring correspondente.
+   - **D. Calendário do mês**: trazer de volta o calendário mensal:
+     - Mês atual.
+     - Dias treinados em azul/ciano (`var(--gc-consistency-month)`).
+     - Dias sem treino em cinza escuro (`white/[0.06]`).
+     - Dia atual com glow/borda discreta.
+     - Indicador especial se restaurou streak (ícone `LifeBuoy` no dia).
+     - Fonte: `user_activity_days` filtrado pelo mês corrente. Helper `buildMonthWorkoutDays` já existe em `social/streak.ts`. Reusar.
+     - Trocar de mês via swipe ou setas (sem animação pesada — Sprint 4).
+   - **E. Níveis de consistência** (`getStreakLevel`/`getAllStreakLevels` já existem):
+     - Lista vertical: Iniciante (0+) / Consistente (4+) / Elite (14+) / Lendário (30+).
+     - Nível atual destacado com fundo brand.
+     - Próximos níveis em cinza com "Faltam N dias" ou similar.
+     - Progress bar entre níveis.
+   - **F. Badges conquistados** (nova seção):
+     - Grid 4-5 colunas com ícones.
+     - Conquistado = cor brand + ícone preenchido.
+     - Bloqueado = cinza com cadeado.
+     - **NÃO INVENTAR BADGE FAKE.** Derivar de dados existentes:
+       - "Primeiro treino": posts.length >= 1
+       - "Primeiro check-in": checkInsCount >= 1
+       - "Primeiro story": stories do user >= 1 (verificar tabela `stories`)
+       - "3 dias seguidos": longestStreak >= 3
+       - "7 dias seguidos": longestStreak >= 7
+       - "14 dias seguidos": longestStreak >= 14
+       - "30 dias seguidos": longestStreak >= 30
+       - "Consistente na semana": workoutsThisWeek >= 5
+       - "Mês ativo": workoutsThisMonth >= 15
+       - "Social": followersCount >= 10
+       - "Storyteller": stories.length >= 3 (precisa do count)
+       - "Voltou após perder streak": tem registro em `streak_restore_events` com status="recovered"
+   - **G. Competição/social — placeholder**:
+     - Apenas card "Em breve" com texto "Ranking do seu circle, desafios e comparação com amigos chegam em breve".
+     - Sem implementação nesta sprint — Sprint futura `Competition & Rankings`.
+
+3. **Wire-up:**
+   - `ProfileScreen.tsx`: criar state `myCircleOpen: boolean`, callback `onOpenMyCircle = () => setMyCircleOpen(true)`. Passar pro `ProfileIdentity`. Render `<MyCircleSheet open user posts ... />`.
+   - `ProfileSheet.tsx`: idem, mas o user é o user visitando (não currentUser). Respeitar `canSeePosts` da privacidade — se private + não follow, esconder calendário/badges, mostrar só resumo público.
+   - `GymCirclePreview.tsx`: dynamic import do `MyCircleSheet` (lazy chunk).
+
+4. **Privacidade:**
+   - Próprio perfil: tudo visível.
+   - Outro user público: tudo visível (já que feed é público).
+   - Outro user privado, não followed: esconder calendário, badges, resumo detalhado. Mostrar só "Perfil privado" + último treino preview (igual `PrivateLockedNotice` atual).
+
+5. **Performance:**
+   - Sheet só renderiza quando `open === true` (já vem do dynamic import).
+   - `calculateWorkoutStats(user.workoutDays)` no client é rápido (já existe).
+   - Calendário usa `buildMonthWorkoutDays` (já existe).
+   - Badges são derivações puras — sem chamadas API.
+
+6. **Haptics:**
+   - Abrir sheet: `light`.
+   - Tocar em badge: `selection`.
+   - Trocar mês no calendário: `selection`.
+   - Fechar: nenhum (já no `handleClose`).
+
+---
+
+#### Fase 3.5.4 — GamificationService (PENDENTE)
+
+**Objetivo:** centralizar lógica de derivação de gamificação em um service
+testável. Sob demanda — não no boot.
+
+**Plano:**
+
+1. Criar `packages/core/src/services/gamificationService.ts` (ou
+   `apps/web/.../social/gamificationService.ts` se preferir client-only).
+2. Métodos:
+   - `getUserGamificationSummary(userId)`: stats + level + counts agregados.
+   - `getMonthlyActivityCalendar(userId, month: string)`: dias do mês com status (trained/missed/restored/today). Carrega `user_activity_days` filtrado por mês. Cache curto (sessionStorage com TTL ~5min).
+   - `getConsistencyLevel(stats)`: já existe `getStreakLevel`, só wrapping com contexto extra (progresso até próximo nível).
+   - `getEarnedBadges(userId, stats, activityDays)`: pure function que retorna lista de badges (id + earned + earned_at?). Cobertura via tests.
+   - `getNextBadgeProgress(userId, stats)`: o próximo badge que o user está mais próximo de ganhar + "faltam N treinos/dias".
+3. **NÃO carregar gamificação pesada no boot** — só quando `MyCircleSheet` abrir.
+4. **Cache curto** via `LocalAppCache` (existe em `social/` ou similar — verificar).
+5. **Fallback vazio amigável** — se Supabase não responder, mostrar
+   "Carregando..." e nunca crashar.
+6. **Sem RPC novo** nesta sprint (Eduardo: "Mas evitar RPC extra se
+   frontend já tiver os dados"). Carregar `user_activity_days` direto
+   com `select activity_date, source_type` filtrado por user_id e mês.
+7. **Testes vitest** pra cada método derivacional (especialmente badges).
+
+---
+
+#### Fase 3.5.5 — Polish + docs + roadmap (PENDENTE)
+
+1. **Microinterações + haptics finais:**
+   - Tocar ring = light (já feito na 3.5.2).
+   - Abrir sheet = light (3.5.3).
+   - Tocar badge = selection.
+   - Badge conquistado anim = success.
+   - Trocar mês = selection.
+2. **Animações:**
+   - Progress reveal dos rings ao montar (já tem `gc-activity-ring-value` CSS class — verificar `globals.css` e ajustar se necessário).
+   - Fade/scale suaves no sheet (já existe no `CommentsBottomSheet`, padronizar).
+3. **UI cleanup:** revisar `StreakCard`/`StreakScreen` legados — podem ser deletados se nada mais usa. Cleanup do que sobrou.
+4. **Testes vitest:**
+   - `AvatarConsistencyRings`: aria-label correto, story ring quando `hasStory`, tap dispara `onTap`.
+   - `MyCircleSheet`: estados (loading, vazio, completo, privado).
+   - `getEarnedBadges`: cada regra de badge cobrindo true/false.
+   - `getMonthlyActivityCalendar`: trained/missed/today/restored.
+5. **Testes manuais no iPhone** (Eduardo): meu perfil, outro perfil, perfil privado, abrir MyCircle, calendário, badges, performance/scroll, animações, haptics, regressão feed/stories/chat.
+6. **Atualizar `docs/native-feel-sprint-3.md`** (este arquivo): substituir status "em andamento" das fases 3.5.2-3.5.5 por "entregue" com commits e validação. Marcar Sprint 3 como **COMPLETA** se Eduardo aprovar pós smoke test.
+7. **Atualizar `docs/native-feel-roadmap.md`:** adicionar sprint futura `Competition & Rankings` com:
+   - Ranking semanal entre amigos
+   - Ranking entre circles
+   - Desafios sazonais
+   - Conquistas compartilháveis (deeplink + share sheet)
+   - Badge unlockable shareable
+
+---
+
+### Como retomar daqui (próxima sessão)
+
+1. **Esperar/forçar download do FS** se `Operation timed out` aparecer:
+   - `ls` no path do arquivo (força iCloud download).
+   - Ou trabalhar via worktree path: `.claude/worktrees/flamboyant-fermi-c51db9/`.
+2. **Validar a 3.5.2** rodando lint+test+build (provavelmente já passa).
+3. **Adicionar wire-up `onOpenMyCircle`** no `ProfileScreen` e `ProfileSheet` (callback que vai abrir o futuro sheet — por enquanto, `undefined` é OK).
+4. **Commitar 3.5.2** com mensagem padronizada (ver pattern dos commits 3.x anteriores).
+5. **Implementar 3.5.3** seguindo o plano acima — comece pelo esqueleto do sheet com seções vazias, depois preenche uma de cada vez.
+6. **Implementar 3.5.4** depois ou em paralelo (badges são puros — independem do sheet).
+7. **Fechar com 3.5.5** (polish + docs final + cleanup).
+
+### Dados de teste pra Sprint 3.5 (criados em 2026-05-22)
+
+Pra facilitar testes visuais da gamificação, o user **@johnny** (id
+`833f628e-c4e1-415d-ac8b-5f63e006a7f8`) foi populado com streak completo:
+
+- 141 dias treinados consecutivos (2026-01-01 → 2026-05-21, todos os dias).
+- `user_activity_days`: 141 registros (`source_type='post'`).
+- `user_stats`: `current_streak=141`, `best_streak=141`,
+  `workouts_this_month=21`, `active_days_this_year=141`,
+  `last_active_date='2026-05-21'`, `badge_is_active_today=false`.
+
+Esses dados permitem ver:
+- Rings em estado próximo de cheio (semana, mês, ano).
+- Badges desbloqueados (3+, 7+, 14+, 30+ dias seguidos).
+- Calendário mensal com quase todos os dias preenchidos.
+- Nível "Lendário" (>= 30 dias).
+
+Pra resetar: `DELETE FROM user_activity_days WHERE user_id =
+'833f628e-c4e1-415d-ac8b-5f63e006a7f8' AND source_type='post' AND
+activity_date BETWEEN '2026-01-01' AND '2026-05-21'` (preserva os 33
+registros originais de outras `source_type`).
+
+---
 
 ### Fase 3.4 entregue (2026-05-22)
 
