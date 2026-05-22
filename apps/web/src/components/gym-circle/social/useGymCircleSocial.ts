@@ -460,7 +460,14 @@ function socialReducer(state: SocialState, action: SocialAction): SocialState {
             ...currentUser,
             workoutDays,
             activeDaysCount: currentUser.activeDaysCount + (isNewWorkoutDay ? 1 : 0),
-            ...stats,
+            // Sprint 3.5: spread explícito — `calculateWorkoutStats` também
+            // retorna `workoutsThisYear`, mas mantemos `activeDaysCount`
+            // como fonte year-scoped (já vem do backend assim).
+            currentStreak: stats.currentStreak,
+            longestStreak: stats.longestStreak,
+            lastWorkoutDate: stats.lastWorkoutDate,
+            workoutsThisWeek: stats.workoutsThisWeek,
+            workoutsThisMonth: stats.workoutsThisMonth,
           },
         },
         posts: newPost ? [newPost, ...state.posts] : state.posts,

@@ -594,6 +594,7 @@ function enrichedUserFromDiscovery(row: DiscoveryProfileRow): EnrichedUser {
     currentStreak: row.current_streak ?? 0,
     longestStreak: row.current_streak ?? 0,
     lastWorkoutDate: "",
+    workoutsThisWeek: 0,
     workoutsThisMonth: 0,
     activeDaysCount: 0,
     streakRestoresAvailable: 0,
@@ -651,6 +652,11 @@ function enrichedUserFromProfileRow(
     currentStreak: stats?.current_streak ?? 0,
     longestStreak: stats?.best_streak ?? 0,
     lastWorkoutDate: stats?.last_active_date ?? "",
+    // Sprint 3.5: `workoutsThisWeek` derivado client-side via
+    // `calculateWorkoutStats(workoutDays, todayKey)` quando workoutDays
+    // estiver populado. Sem isso, fallback 0 (ring de semana vazio até
+    // hidratação real). Sem RPC novo nesta sprint.
+    workoutsThisWeek: 0,
     workoutsThisMonth: stats?.workouts_this_month ?? 0,
     activeDaysCount: stats?.active_days_this_year ?? 0,
     streakRestoresAvailable: 0,
@@ -2148,6 +2154,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         currentStreak: stats?.current_streak ?? 0,
         longestStreak: stats?.best_streak ?? 0,
         lastWorkoutDate: stats?.last_active_date ?? "",
+        workoutsThisWeek: 0,
         workoutsThisMonth: stats?.workouts_this_month ?? 0,
         activeDaysCount: stats?.active_days_this_year ?? 0,
         streakRestoresAvailable:
@@ -2208,6 +2215,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         currentStreak: 0,
         longestStreak: 0,
         lastWorkoutDate: "",
+        workoutsThisWeek: 0,
         workoutsThisMonth: 0,
         activeDaysCount: 0,
         streakRestoresAvailable: 3,

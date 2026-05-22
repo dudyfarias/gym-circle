@@ -91,33 +91,79 @@ function clampPercent(value: number) {
   return Math.max(0, Math.min(100, value));
 }
 
-function getDayOfYear(date: Date) {
-  const start = new Date(date.getFullYear(), 0, 0);
-  const diff = date.getTime() - start.getTime();
+/**
+ * Início (segunda-feira 00:00 local) da semana ISO 8601 da data dada.
+ * Sprint 3.5: usado pra calcular `workoutsThisWeek` (segunda → domingo).
+ */
+export function getMondayOfWeek(date: Date): Date {
+  const day = date.getDay(); // 0=dom, 1=seg, 2=ter, ..., 6=sáb
+  const offsetToMonday = day === 0 ? 6 : day - 1;
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate() - offsetToMonday,
+  );
+}
 
-  return Math.max(1, Math.floor(diff / 86400000));
+/**
+ * Total de dias do mês da data dada (28/29/30/31 conforme o calendário).
+ * Sprint 3.5: denominador do ring de Mês ("X / total de dias do mês").
+ */
+export function getTotalDaysInMonth(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+}
+
+/**
+ * Total de dias do ano (365 ou 366) — bissexto: divisível por 4, exceto
+ * múltiplos de 100, exceto múltiplos de 400. Sprint 3.5: denominador do
+ * ring de Ano.
+ */
+export function getTotalDaysInYear(date: Date): number {
+  const year = date.getFullYear();
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  return isLeap ? 366 : 365;
 }
 
 export type ConsistencyProgressInput = {
-  streakLitToday: boolean;
+  workoutsThisWeek: number;
   workoutsThisMonth: number;
-  activeDaysCount: number;
+  workoutsThisYear: number;
 };
 
+/**
+ * Sprint 3.5 — os 3 rings do "Gym Circle" representam:
+ *   - Semana atual (segunda → domingo): X / 7
+ *   - Mês atual: X / total de dias do mês
+ *   - Ano atual: X / total de dias do ano
+ *
+ * Decisão de produto (Eduardo): usar TOTAL do período como denominador,
+ * não "dias decorridos". Trade-off conhecido: no início do mês, o ring
+ * parece "vazio" mesmo treinando todo dia (4/31 ≈ 13%). Compensa a
+ * mensagem de progresso contínuo ao longo do período.
+ */
 export function getConsistencyProgress(
   input: ConsistencyProgressInput,
   today = new Date(),
 ) {
-  const elapsedMonthDays = Math.max(1, today.getDate());
-  const elapsedYearDays = getDayOfYear(today);
-
   return {
-    day: input.streakLitToday ? 100 : 22,
-    month: clampPercent((input.workoutsThisMonth / elapsedMonthDays) * 100),
-    year: clampPercent((input.activeDaysCount / elapsedYearDays) * 100),
+    week: clampPercent((input.workoutsThisWeek / 7) * 100),
+    month: clampPercent(
+      (input.workoutsThisMonth / getTotalDaysInMonth(today)) * 100,
+    ),
+    year: clampPercent(
+      (input.workoutsThisYear / getTotalDaysInYear(today)) * 100,
+    ),
   };
 }
 
+/**
+ * Sprint 3.5 — ordem fixa: índice 0 = mais externo (maior raio). Como o
+ * `ActivityCircle` desenha radius = center − stroke/2 − index * gap, o
+ * primeiro elemento é o ring de fora. Aqui:
+ *   index 0 → Ano (envolve tudo, raio máximo)
+ *   index 1 → Mês (meio)
+ *   index 2 → Semana (mais próximo do avatar)
+ */
 export function buildConsistencyRings(input: ConsistencyProgressInput) {
   const progress = getConsistencyProgress(input);
 
@@ -137,13 +183,11 @@ export function buildConsistencyRings(input: ConsistencyProgressInput) {
       value: progress.month,
     },
     {
-      id: "day",
-      label: "Dia",
-      color: input.streakLitToday
-        ? "var(--gc-consistency-daily)"
-        : "rgba(140,251,255,0.36)",
-      glow: input.streakLitToday ? "rgba(140,251,255,0.28)" : "rgba(48,213,255,0)",
-      value: progress.day,
+      id: "week",
+      label: "Semana",
+      color: "var(--gc-consistency-week, var(--gc-consistency-daily))",
+      glow: "rgba(140,251,255,0.28)",
+      value: progress.week,
     },
   ];
 }
@@ -211,15 +255,30 @@ export function calculateWorkoutStats(workoutDays: string[], todayKey = formatDa
     previous = day;
   }
 
+  // Sprint 3.5: derivar contagens dos 3 períodos dos rings do Gym Circle.
+  // - Semana corrente (segunda-domingo): set de 7 keys via `getMondayOfWeek`.
+  // - Mês corrente: prefix do `monthKey` (YYYY-MM).
+  // - Ano corrente: prefix do `yearKey` (YYYY).
+  const today = new Date(`${todayKey}T12:00:00`);
+  const mondayKey = formatDateKey(getMondayOfWeek(today));
+  const weekKeys = new Set<string>();
+  for (let i = 0; i < 7; i += 1) {
+    weekKeys.add(addDays(mondayKey, i));
+  }
   const monthKey = todayKey.slice(0, 7);
+  const yearKey = todayKey.slice(0, 4);
+  const workoutsThisWeek = uniqueDays.filter((day) => weekKeys.has(day)).length;
   const workoutsThisMonth = uniqueDays.filter((day) => day.startsWith(monthKey)).length;
+  const workoutsThisYear = uniqueDays.filter((day) => day.startsWith(`${yearKey}-`)).length;
   const lastWorkoutDate = uniqueDays.at(-1) ?? "";
 
   return {
     currentStreak,
     longestStreak,
     lastWorkoutDate,
+    workoutsThisWeek,
     workoutsThisMonth,
+    workoutsThisYear,
   };
 }
 

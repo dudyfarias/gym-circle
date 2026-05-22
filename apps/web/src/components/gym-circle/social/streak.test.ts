@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { formatStreakDays, formatTrainingStreakText } from "./streak";
+import {
+  buildConsistencyRings,
+  calculateWorkoutStats,
+  formatStreakDays,
+  formatTrainingStreakText,
+  getConsistencyProgress,
+  getMondayOfWeek,
+  getTotalDaysInMonth,
+  getTotalDaysInYear,
+} from "./streak";
 
 describe("streak copy helpers", () => {
   it("usa singular para 1 dia", () => {
@@ -11,5 +20,206 @@ describe("streak copy helpers", () => {
     expect(formatStreakDays(0)).toBe("0 dias");
     expect(formatStreakDays(2)).toBe("2 dias");
     expect(formatTrainingStreakText("Dudy", 7)).toBe("Dudy está há 7 dias treinando");
+  });
+});
+
+describe("getMondayOfWeek", () => {
+  it("retorna a própria segunda quando date é segunda", () => {
+    // 2026-05-18 é uma segunda-feira
+    const monday = getMondayOfWeek(new Date(2026, 4, 18));
+    expect(monday.getFullYear()).toBe(2026);
+    expect(monday.getMonth()).toBe(4);
+    expect(monday.getDate()).toBe(18);
+  });
+
+  it("retorna a segunda anterior quando date é quarta", () => {
+    // 2026-05-20 é uma quarta
+    const monday = getMondayOfWeek(new Date(2026, 4, 20));
+    expect(monday.getDate()).toBe(18);
+  });
+
+  it("retorna a segunda anterior quando date é domingo (ISO week ends Sunday)", () => {
+    // 2026-05-24 é um domingo — semana ISO começa em 18 (segunda)
+    const monday = getMondayOfWeek(new Date(2026, 4, 24));
+    expect(monday.getDate()).toBe(18);
+  });
+
+  it("cruza meses corretamente", () => {
+    // 2026-06-01 é uma segunda — sua "segunda da semana" é ela própria
+    const monday = getMondayOfWeek(new Date(2026, 5, 1));
+    expect(monday.getMonth()).toBe(5);
+    expect(monday.getDate()).toBe(1);
+    // 2026-06-03 (quarta) — segunda foi 2026-06-01
+    const monday2 = getMondayOfWeek(new Date(2026, 5, 3));
+    expect(monday2.getMonth()).toBe(5);
+    expect(monday2.getDate()).toBe(1);
+  });
+});
+
+describe("getTotalDaysInMonth", () => {
+  it("janeiro tem 31 dias", () => {
+    expect(getTotalDaysInMonth(new Date(2026, 0, 15))).toBe(31);
+  });
+
+  it("fevereiro em ano comum tem 28 dias", () => {
+    expect(getTotalDaysInMonth(new Date(2026, 1, 15))).toBe(28);
+  });
+
+  it("fevereiro em ano bissexto (2024) tem 29 dias", () => {
+    expect(getTotalDaysInMonth(new Date(2024, 1, 15))).toBe(29);
+  });
+
+  it("abril tem 30 dias", () => {
+    expect(getTotalDaysInMonth(new Date(2026, 3, 15))).toBe(30);
+  });
+
+  it("dezembro tem 31 dias", () => {
+    expect(getTotalDaysInMonth(new Date(2026, 11, 15))).toBe(31);
+  });
+});
+
+describe("getTotalDaysInYear", () => {
+  it("ano comum tem 365 dias", () => {
+    expect(getTotalDaysInYear(new Date(2026, 5, 15))).toBe(365);
+    expect(getTotalDaysInYear(new Date(2025, 0, 1))).toBe(365);
+  });
+
+  it("ano bissexto múltiplo de 4 tem 366", () => {
+    expect(getTotalDaysInYear(new Date(2024, 5, 15))).toBe(366);
+  });
+
+  it("anos centenários NÃO bissextos (1900) têm 365", () => {
+    expect(getTotalDaysInYear(new Date(1900, 5, 15))).toBe(365);
+  });
+
+  it("anos divisíveis por 400 (2000) são bissextos", () => {
+    expect(getTotalDaysInYear(new Date(2000, 5, 15))).toBe(366);
+  });
+});
+
+describe("calculateWorkoutStats — Gym Circle Sprint 3.5", () => {
+  // 2026-05-22 (sexta-feira). Semana ISO = seg 2026-05-18 → dom 2026-05-24.
+  const todayKey = "2026-05-22";
+
+  it("conta workoutsThisWeek (segunda → domingo da semana corrente)", () => {
+    const workoutDays = [
+      "2026-05-17", // domingo anterior — NÃO entra (semana passada)
+      "2026-05-18", // segunda (esta semana)
+      "2026-05-19", // terça
+      "2026-05-20", // quarta
+      "2026-05-25", // segunda seguinte — não entra
+    ];
+    const stats = calculateWorkoutStats(workoutDays, todayKey);
+    expect(stats.workoutsThisWeek).toBe(3);
+  });
+
+  it("conta workoutsThisMonth (todos do mês corrente)", () => {
+    const workoutDays = [
+      "2026-04-30", // mês anterior
+      "2026-05-01",
+      "2026-05-10",
+      "2026-05-22",
+      "2026-06-01", // mês seguinte
+    ];
+    const stats = calculateWorkoutStats(workoutDays, todayKey);
+    expect(stats.workoutsThisMonth).toBe(3);
+  });
+
+  it("conta workoutsThisYear (todos do ano corrente)", () => {
+    const workoutDays = [
+      "2025-12-31",
+      "2026-01-01",
+      "2026-05-22",
+      "2026-12-31",
+      "2027-01-01",
+    ];
+    const stats = calculateWorkoutStats(workoutDays, todayKey);
+    expect(stats.workoutsThisYear).toBe(3);
+  });
+
+  it("preserva currentStreak e longestStreak", () => {
+    const workoutDays = ["2026-05-20", "2026-05-21", "2026-05-22"];
+    const stats = calculateWorkoutStats(workoutDays, todayKey);
+    expect(stats.currentStreak).toBe(3);
+    expect(stats.longestStreak).toBe(3);
+  });
+
+  it("retorna zeros quando workoutDays vazio", () => {
+    const stats = calculateWorkoutStats([], todayKey);
+    expect(stats.workoutsThisWeek).toBe(0);
+    expect(stats.workoutsThisMonth).toBe(0);
+    expect(stats.workoutsThisYear).toBe(0);
+  });
+});
+
+describe("getConsistencyProgress + buildConsistencyRings — Sprint 3.5", () => {
+  // 2026-05-22 (sexta). Maio tem 31 dias. 2026 = ano comum (365 dias).
+  const today = new Date(2026, 4, 22);
+
+  it("calcula progresso com denominadores corretos (total do período)", () => {
+    const progress = getConsistencyProgress(
+      {
+        workoutsThisWeek: 3, // 3/7 ≈ 42.86%
+        workoutsThisMonth: 10, // 10/31 ≈ 32.26%
+        workoutsThisYear: 50, // 50/365 ≈ 13.70%
+      },
+      today,
+    );
+    expect(progress.week).toBeCloseTo((3 / 7) * 100, 1);
+    expect(progress.month).toBeCloseTo((10 / 31) * 100, 1);
+    expect(progress.year).toBeCloseTo((50 / 365) * 100, 1);
+  });
+
+  it("clampa em 100% quando workoutsThisWeek excede 7 (caso impossível mas defensivo)", () => {
+    const progress = getConsistencyProgress(
+      {
+        workoutsThisWeek: 9,
+        workoutsThisMonth: 50,
+        workoutsThisYear: 500,
+      },
+      today,
+    );
+    expect(progress.week).toBe(100);
+    expect(progress.month).toBe(100);
+    expect(progress.year).toBe(100);
+  });
+
+  it("clampa em 0% quando valores negativos", () => {
+    const progress = getConsistencyProgress(
+      {
+        workoutsThisWeek: -1,
+        workoutsThisMonth: 0,
+        workoutsThisYear: 0,
+      },
+      today,
+    );
+    expect(progress.week).toBe(0);
+    expect(progress.month).toBe(0);
+    expect(progress.year).toBe(0);
+  });
+
+  it("buildConsistencyRings retorna 3 anéis na ordem externo→interno (ano, mês, semana)", () => {
+    const rings = buildConsistencyRings({
+      workoutsThisWeek: 3,
+      workoutsThisMonth: 10,
+      workoutsThisYear: 50,
+    });
+    expect(rings).toHaveLength(3);
+    expect(rings[0]!.id).toBe("year");
+    expect(rings[1]!.id).toBe("month");
+    expect(rings[2]!.id).toBe("week");
+    expect(rings[0]!.label).toBe("Ano");
+    expect(rings[1]!.label).toBe("Mês");
+    expect(rings[2]!.label).toBe("Semana");
+  });
+
+  it("buildConsistencyRings não inclui streak/dia (streak vira chip separado — Sprint 3.5)", () => {
+    const rings = buildConsistencyRings({
+      workoutsThisWeek: 0,
+      workoutsThisMonth: 0,
+      workoutsThisYear: 0,
+    });
+    expect(rings.find((r) => r.id === "day")).toBeUndefined();
+    expect(rings.find((r) => r.id === "streak")).toBeUndefined();
   });
 });

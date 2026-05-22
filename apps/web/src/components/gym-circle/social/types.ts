@@ -30,7 +30,16 @@ export type GymUser = {
   currentStreak: number;
   longestStreak: number;
   lastWorkoutDate: string;
+  /** Sprint 3.5: contagem de dias treinados na semana corrente (segunda→domingo). */
+  workoutsThisWeek: number;
+  /** Sprint 3.5: contagem de dias treinados no mês corrente. */
   workoutsThisMonth: number;
+  /**
+   * Sprint 3.5: contagem de dias treinados no ano corrente.
+   * No Supabase vem de `user_stats.active_days_this_year`. Mantemos o nome
+   * original `activeDaysCount` por compat — tratado como year-scoped no
+   * `buildConsistencyRings` via `workoutsThisYear` derivado.
+   */
   activeDaysCount: number;
   streakRestoresAvailable: number;
   lastStreakRestoreUsedAt?: string | null;

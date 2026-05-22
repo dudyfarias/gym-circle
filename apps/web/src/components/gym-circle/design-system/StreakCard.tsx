@@ -12,7 +12,10 @@ import { StreakBadge } from "./StreakBadge";
 type StreakCardProps = {
   current: number;
   longest: number;
+  /** Sprint 3.5: opcional. Quando não vier, derivamos um fallback. */
+  weekWorkouts?: number;
   monthWorkouts: number;
+  /** Year-scoped (vem de `user_stats.active_days_this_year` no Supabase). */
   activeDaysCount: number;
   isLit: boolean;
 };
@@ -20,21 +23,24 @@ type StreakCardProps = {
 export function StreakCard({
   current,
   longest,
+  weekWorkouts,
   monthWorkouts,
   activeDaysCount,
   isLit,
 }: StreakCardProps) {
   const level = getStreakLevel(current);
-  const progress = getConsistencyProgress({
-    activeDaysCount,
-    streakLitToday: isLit,
+  // Sprint 3.5: novo input dos rings = workoutsThisWeek/Month/Year (denominador
+  // do período inteiro). Sem `weekWorkouts` explícito, estimamos pelo streak
+  // atual (no máximo 7 dias) — fallback razoável até GamificationService trazer
+  // dado real via `user_activity_days`.
+  const weekCount = weekWorkouts ?? Math.min(current, 7);
+  const consistencyInput = {
+    workoutsThisWeek: weekCount,
     workoutsThisMonth: monthWorkouts,
-  });
-  const rings = buildConsistencyRings({
-    activeDaysCount,
-    streakLitToday: isLit,
-    workoutsThisMonth: monthWorkouts,
-  });
+    workoutsThisYear: activeDaysCount,
+  };
+  const progress = getConsistencyProgress(consistencyInput);
+  const rings = buildConsistencyRings(consistencyInput);
 
   return (
     <section className="gc-brand-card rounded-[36px] p-5">
