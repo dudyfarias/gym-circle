@@ -30,10 +30,9 @@ type FeedScreenProps = {
   formatTime: (createdAt: string) => string;
   onCreatePost: () => void;
   onLikePost: (postId: string) => void;
-  onCommentPost: (postId: string, body: string) => void;
+  /** Sprint 3 — Fase 3.3+: abre o CommentsBottomSheet (carrega detalhes via
+   *  `refreshPostDetails`). Escrita/like/delete de comentários moram no sheet. */
   onOpenPostDetails?: (postId: string) => void;
-  onDeleteComment?: (postId: string, commentId: string) => void;
-  onLikeComment?: (postId: string, commentId: string) => void;
   onSharePostToChat?: (postId: string, receiverId: string) => Promise<void> | void;
   onToggleFollow: (userId: string) => void;
   onOpenStory: (storyGroupId: string) => void;
@@ -43,7 +42,6 @@ type FeedScreenProps = {
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
   onOpenLikes?: (postId: string) => void;
-  commentMentionUsers?: EnrichedUser[];
   postShareTargets?: EnrichedUser[];
   viewerLocationError?: string | null;
   viewerLocationStatus?: ViewerLocationStatus;
@@ -63,10 +61,7 @@ export function FeedScreen({
   formatTime,
   onCreatePost,
   onLikePost,
-  onCommentPost,
   onOpenPostDetails,
-  onDeleteComment,
-  onLikeComment,
   onSharePostToChat,
   onToggleFollow,
   onOpenStory,
@@ -76,7 +71,6 @@ export function FeedScreen({
   resolveUser,
   onOpenPostMenu,
   onOpenLikes,
-  commentMentionUsers = [],
   postShareTargets = [],
   viewerLocationError,
   viewerLocationStatus = "idle",
@@ -125,17 +119,13 @@ export function FeedScreen({
               <SocialPostCard
                 currentUserId={currentUser.id}
                 formatTime={formatTime}
-                onComment={onCommentPost}
-                onDeleteComment={onDeleteComment}
                 onLike={onLikePost}
-                onLikeComment={onLikeComment}
                 onOpenLikes={onOpenLikes}
                 onOpenComments={onOpenPostDetails}
                 onOpenPostMenu={onOpenPostMenu}
                 onSelectUser={onSelectUser}
                 onShareToChat={onSharePostToChat}
                 onToggleFollow={onToggleFollow}
-                mentionUsers={commentMentionUsers}
                 post={post}
                 resolveUser={resolveUser}
                 shareTargets={postShareTargets}

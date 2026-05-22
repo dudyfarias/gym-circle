@@ -916,11 +916,7 @@ export function GymCirclePreview({
             headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
             feedLoadingMore={social.feedLoadingMore}
-            commentMentionUsers={followedUsers}
-            onCommentPost={social.actions.commentPost}
             onCreatePost={() => setActiveScreen("post")}
-            onDeleteComment={social.actions.deleteComment}
-            onLikeComment={social.actions.likeComment}
             onLikePost={social.actions.likePost}
             onLoadMoreFeed={social.actions.loadMoreFeed}
             onOpenLikes={openLikes}

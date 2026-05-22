@@ -112,11 +112,14 @@ sendo email/senha.
 | Remover "academia" do DiscoveryUserCard | Sim | Sim (3.1) | Sim | — |
 | DiscoveryUserCard refactor visual | Sim | Sim (3.1) | Sim | — |
 | Botão "Adicionar" iOS-like | Sim | Sim (já estava — pill com haptic indireto via toggleFollow) | Sim | — |
-| Microinterações + haptics | Sim | Parcial (like + comentar — Fase 3.2) | Sim | Fase 3.4 (restantes) |
-| Safe area / Dynamic Island / keyboard | Sim | — | — | Fase 3.3 |
-| Acessibilidade (aria-labels, tap >=44px) | Sim | Parcial (3.2 — aria nos novos botões) | Sim | Fase 3.4 (auditoria final) |
-| Testes vitest | Sim | Parcial (3.2 — `caption.test.ts` 8 testes) | Sim | Fase 3.4 |
-| Teste manual no iPhone | Sim | — | — | Fase 3.4 |
+| Microinterações + haptics | Sim | Sim (3.2 + 3.3 — like, comentar, reactions row) | Sim | — |
+| Safe area / Dynamic Island / keyboard | Sim | Sim (3.3 + 3.4 — chat refactor + dismiss global) | Sim | — |
+| Acessibilidade (aria-labels, tap >=44px) | Sim | Sim (3.4 — aria nos inputs do auth + chat) | Sim | — |
+| Testes vitest | Sim | Sim (3.2 — `caption.test.ts` 8 testes) | Sim | — |
+| Teste manual no iPhone | Sim | — | — | A fazer pelo Eduardo |
+| **Bug**: teclado não fecha em tap fora | — | Sim (3.4 — `pointerdown` global) | Sim | — |
+| **Bug**: chat barra voando + mensagens pulando | — | Sim (3.4 — `h-[100dvh]` + overflow interno) | Sim | — |
+| **UX**: login com username OU email | — | Sim (já existia em prod — validado via Supabase MCP) | Sim | — |
 
 ## Implementação planejada
 
@@ -293,8 +296,101 @@ Antes de marcar a sprint como completa:
 
 ## Estado
 
-Sprint 3 PLANEJADA em 2026-05-21. Fases 3.1, 3.2 e 3.3 entregues. Fase 3.4
-(polish + validação manual) fica para próxima sessão.
+Sprint 3 PLANEJADA em 2026-05-21. **Todas as 4 fases entregues em 2026-05-22**.
+Só falta o smoke test manual em iPhone real (Eduardo).
+
+### Fase 3.4 entregue (2026-05-22)
+
+**Cleanup das props deprecadas:**
+
+- `SocialPostCardProps` perdeu `onComment`, `onDeleteComment`, `onLikeComment`,
+  `mentionUsers`. Essas callbacks migraram pro `CommentsBottomSheet` na 3.3 e
+  permaneciam só por retrocompat. O sheet recebe direto de `GymCirclePreview`.
+- `FeedScreenProps` perdeu as mesmas + `commentMentionUsers`. Wire-up no
+  `GymCirclePreview` corrigido (parar de passar essas props pro `FeedScreen`).
+
+**Auditoria de keyboard handling (fora de escopo original — bug-fix
+prioritário identificado pelo Eduardo)**:
+
+3 sintomas reportados, 3 fixes:
+
+1. **"Barra de escrever voando" no chat**
+   - **Causa**: `<section className="min-h-screen">` + `<form sticky bottom>`.
+     `100vh` é fixo no viewport inicial; o teclado iOS encolhe o WebView
+     com `resize: "native"`, mas `min-h-screen` não muda → sticky bottom
+     calcula posição abaixo do teclado.
+   - **Fix em `ChatScreen.tsx` ConversationView**: `h-[100dvh]` (dynamic
+     viewport height, encolhe junto com teclado em iOS 16+/Android moderno) +
+     flex column + lista de mensagens com `overflow-y-auto` próprio + form
+     como `last-child` do flex sem `sticky bottom`. Input sobe naturalmente
+     com o keyboard — zero JS, zero hacks de cálculo.
+
+2. **"Conversa se mexendo sozinha"**
+   - **Causa**: `scrollIntoView({behavior:"smooth", block:"end"})` no
+     `threadEndRef` em `useEffect [messages.length]`. Em iOS WebView esse
+     método mexe o body inteiro quando dispara durante a animação do
+     teclado.
+   - **Fix**: novo `messagesContainerRef`, scroll manual via
+     `node.scrollTop = node.scrollHeight` dentro de `requestAnimationFrame`
+     (garante paint antes da medição). Só mexe o container interno, nunca
+     o body.
+
+3. **"Teclado entra e não conseguimos tirar da tela"**
+   - **Causa**: tap em `<button>`/`<div>`/`<span>` no iOS WebView não tira
+     foco do input ativo automaticamente.
+   - **Fix em `GymCirclePreview.tsx`**: handler global de `pointerdown` —
+     se o tap caiu fora de `input/textarea/[contenteditable=true]`, blur o
+     `activeElement` se for editável. Não interfere em buttons (já disparam
+     ação antes do blur) nem em sheets (backdrop fecha sheet E teclado
+     juntos, comportamento desejado).
+
+**Polish de inputs (`LiveAuthGate.tsx`)**:
+
+- `enterKeyHint="next"` no email/username (vai pro password)
+- `enterKeyHint="go"` no password (envia o form) e no username de sign-up
+- `enterKeyHint="send"` no `CommentsBottomSheet` e chat
+- `enterKeyHint="send"` no `ChatScreen` (input de mensagem)
+- `autoCapitalize="none"` + `spellCheck={false}` em campos de username/email
+- `inputMode="text"` ou `"email"` apropriado por modo
+- `aria-label` semântico em todos os inputs do auth
+
+**Login com username/email — validação produção**:
+
+Tudo já existia. Stack:
+- Migration `20260507192248_chat_messages_and_username_login.sql` cria
+  `public.resolve_email_for_username(p_username text)` com `security definer`,
+  case-insensitive (`lower(p.username) = lower(trim(p_username))`).
+- `packages/core/src/services/auth.ts:32-40` detecta `@` no identifier:
+  com `@` usa direto, sem `@` chama a RPC.
+- `LiveAuthGate.tsx:88` já tinha placeholder `"email ou username"` com
+  `autoComplete="username"`.
+
+Validado via Supabase MCP (`mcp__07a3cfe0-...`-`execute_sql`):
+- Função existe, `security_definer = true`, executable por
+  `anon`/`authenticated`/`service_role`.
+- Testes em 5 usernames reais retornaram email válido.
+- Username inexistente retorna `NULL` (frontend lança erro friendly).
+
+**Validação:**
+
+- `npm run lint` (apps/web): 0 warnings ✓
+- `npm test` (vitest): 30 arquivos, **166/166** testes passed ✓
+- `npm run build` (apps/web): Turbopack 1.78s + TS, 12 páginas ✓
+
+**Pendência única do Sprint 3:**
+
+- **Smoke test no iPhone real** pelo Eduardo. Plano de teste documentado
+  na seção "Teste manual iPhone real" acima.
+
+**Pendências futuras (não-bloqueantes do Sprint 3, fora do escopo)**:
+
+- Replies aninhados no `CommentsBottomSheet` — exigem migration backend
+  (`parentCommentId` no `GymComment`). Vale juntar com Sprint que mexer
+  no schema (ex.: carrossel de mídia múltipla).
+- Swipe-to-dismiss real do `CommentsBottomSheet` — visual handle ok por
+  enquanto; gesto real fica pra Sprint 4 quando o app ganhar swipe-back
+  patterns iOS.
+- Apple Maps real, HealthKit, push real — conforme `native-feel-roadmap.md`.
 
 ### Fase 3.1 entregue (2026-05-21)
 

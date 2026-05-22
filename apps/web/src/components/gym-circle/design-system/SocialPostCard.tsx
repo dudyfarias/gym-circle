@@ -35,15 +35,13 @@ type SocialPostCardProps = {
   currentUserId: string;
   formatTime: (createdAt: string) => string;
   onLike: (postId: string) => void;
-  onComment: (postId: string, body: string) => void;
+  /** Sprint 3 — Fase 3.3+: abre o `CommentsBottomSheet` (escrita, like e
+   *  delete de comentário moram no sheet, não no card). */
   onOpenComments?: (postId: string) => void;
-  onDeleteComment?: (postId: string, commentId: string) => void;
-  onLikeComment?: (postId: string, commentId: string) => void;
   onShareToChat?: (postId: string, receiverId: string) => Promise<void> | void;
   onToggleFollow: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
-  mentionUsers?: EnrichedUser[];
   shareTargets?: EnrichedUser[];
   /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
   onOpenPostMenu?: (postId: string) => void;
@@ -64,14 +62,10 @@ export function SocialPostCard({
   onOpenPostMenu,
   onOpenLikes,
 }: SocialPostCardProps) {
-  // Sprint 3 — Fase 3.3: props `onComment`, `onDeleteComment`, `onLikeComment`
-  // e `mentionUsers` permanecem na assinatura por retrocompat com o wire-up
-  // existente (FeedScreen, GymCirclePreview), mas não são consumidas aqui —
-  // toda interação com comentários migrou pro CommentsBottomSheet. Cleanup
-  // do contrato pra Fase 3.4.
-  // Sprint 3 — Fase 3.3: comentários migraram pro CommentsBottomSheet.
-  // `onOpenComments` agora abre o sheet em vez de toggle inline.
-  // `draft`/`caretIndex`/`inputRef`/mentions foram movidos pro sheet.
+  // Sprint 3 — Fase 3.4: cleanup final do contrato. As props de comentário
+  // (onComment, onDeleteComment, onLikeComment, mentionUsers) foram removidas
+  // do type; o sheet em CommentsBottomSheet recebe essas callbacks diretamente
+  // de GymCirclePreview.
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
