@@ -403,7 +403,51 @@ commitada nem deployada ainda.** Continuar daqui na próxima sessão.
 
 ---
 
-#### Fase 3.5.3 — MyCircleSheet (PENDENTE)
+#### Fase 3.5.3 entregue (2026-05-22) — MyCircleSheet
+
+**Commit:** `f210e68` — `feat(sprint-3.5.3): MyCircleSheet — gamificação rica do Gym Circle`
+
+**O que foi feito:**
+
+- **Novo módulo `social/gamification.ts`** — helpers puros pra
+  derivação de badges, **sem rede, sem cache** (3.5.4 vira service).
+  - `getEarnedBadges({ user, postsCount, hasUsedStreakRestore })` — 11
+    badges com regras 100% baseadas em dados existentes:
+    `first-workout`, `streak-3/7/14/30`, `active-week`, `month-active`,
+    `year-active`, `social`, `popular`, `streak-recovered`.
+  - `countEarnedBadges(badges)` + `getNextBadge(badges)` pra UI.
+  - **Nenhum badge fake.** Bloqueados ficam cinza com cadeado.
+- **Novo componente `MyCircleSheet.tsx`** com 7 seções:
+  - **A.** Header com `AvatarConsistencyRings` (130px) + nome + `@username` + `StreakBadge`.
+  - **B.** Resumo 2x3: streak atual, maior streak, treinos no mês, dias no ano, posts, restauradores.
+  - **C.** Explicação dos rings com mini-progress bars coloridas: "Semana X/7", "Mês X/Y", "Ano X/365".
+  - **D.** Calendário mensal navegável (← / →) — usa `buildMonthWorkoutDays` existente. Dias treinados em ciano, sem treino em cinza, hoje com glow brand discreto.
+  - **E.** Níveis (Iniciante/Consistente/Elite/Lendário) — atual destacado com ring brand, anteriores opacos, próximos cinza, range de dias em cada um.
+  - **F.** Badges grid (3-4 colunas) — conquistadas em brand com Trophy preenchido, bloqueadas em cinza com cadeado. Contador X/N + CTA "Falta pouco pra ..." do próximo badge.
+  - **G.** Competição (placeholder) — card "Em breve" com Trophy icon e copy sobre ranking semanal.
+- **Privacidade:**
+  - Próprio user OU público OU follow accepted: tudo visível.
+  - Outro user privado + não follow: header + notice "Perfil privado" (esconde calendário/badges/níveis).
+- **Haptics:**
+  - Trocar mês no calendário → `simulateHaptic("brand")` (selection).
+  - Entry-point dos rings → `simulateHaptic("like")` (light, já feito na 3.5.2 no `AvatarConsistencyRings`).
+- **Wire-up em `GymCirclePreview.tsx`:**
+  - Dynamic import (chunk lazy separado).
+  - State `myCircleUserId: string | null` + actions `openMyCircle/closeMyCircle`.
+  - Derivados `myCircleUser` e `myCircleUserPosts` (resolve próprio user ou outro via `usersById`).
+  - Render `<MyCircleSheet />` ao lado do `ProfileSheet`.
+  - Passa `hasStory`/`storyViewed` do storyGroup apropriado (próprio: `currentUserStoryGroup`, outro: `profileSheetStoryGroup`).
+- **Wire-up em `ProfileScreen.tsx` + `ProfileSheet.tsx`:**
+  - Nova prop `onOpenMyCircle?: () => void` propagada pro `ProfileIdentity` (que já tinha a prop desde 3.5.2 — agora ligada).
+  - `ProfileScreen`: `onOpenMyCircle={() => openMyCircle(currentUser.id)}`.
+  - `ProfileSheet`: `onOpenMyCircle={() => openMyCircle(user.id)}`.
+
+**Validação:**
+
+- FS local com timeouts intermitentes (iCloud sync no `Documents/`) — lint/test/build local NÃO foram re-rodados nesta etapa.
+- Vercel build remoto valida TypeScript + bundle. Se quebrar, fix-up commit follow-up.
+
+#### Fase 3.5.3 — MyCircleSheet (PENDENTE — substituído pela seção acima)
 
 **Objetivo:** sheet de gamificação rica, aberto via tap nos rings do
 `AvatarConsistencyRings`. Vai substituir parcialmente o
