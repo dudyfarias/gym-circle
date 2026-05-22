@@ -1,7 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { simulateHaptic } from "../social/haptics";
 import {
   buildConsistencyRings,
@@ -188,13 +187,26 @@ export function AvatarConsistencyRings({
                 strokeDashoffset={dashTarget}
                 strokeLinecap="round"
                 strokeWidth={strokeWidth}
-                style={{
-                  animationDelay: `${index * 110}ms`,
-                  filter: ring.glow
-                    ? `drop-shadow(0 0 5px ${ring.glow})`
-                    : undefined,
-                }}
-                transform={`rotate(-90 ${center} ${center})`}
+                style={
+                  {
+                    // `--gc-ring-target` é consumido pela `@keyframes
+                    // gc-activity-fill` no globals.css — sem essa custom
+                    // property a animação termina em `stroke-dashoffset: 0`
+                    // (ring cheio independente do dado real). BUG visto na
+                    // primeira versão do AvatarConsistencyRings (Sprint 3.5.2):
+                    // todos os rings pareciam 100% mesmo com dados modestos.
+                    "--gc-ring-target": dashTarget,
+                    animationDelay: `${index * 110}ms`,
+                    filter: ring.glow
+                      ? `drop-shadow(0 0 5px ${ring.glow})`
+                      : undefined,
+                  } as CSSProperties
+                }
+                // Sem `transform=rotate(-90 ...)`: a classe CSS
+                // `gc-activity-ring-value` já aplica
+                // `transform: rotate(-90deg) + transform-origin: center +
+                // transform-box: fill-box`. Aplicar de novo aqui duplica a
+                // rotação e quebra o ponto inicial do progresso.
               />
             </g>
           );
@@ -202,20 +214,32 @@ export function AvatarConsistencyRings({
       </svg>
 
       <div
-        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-        style={{ width: avatarDiameter, height: avatarDiameter }}
+        className="pointer-events-none absolute left-1/2 top-1/2 overflow-hidden rounded-full -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: avatarDiameter,
+          height: avatarDiameter,
+          // `aspect-ratio` + `overflow-hidden + rounded-full` forçam o crop
+          // circular mesmo se o <img> nativo decidir respeitar proporção da
+          // imagem (era o caso quando estava com `next/image` e a foto saiu
+          // oval — bug Sprint 3.5.2).
+          aspectRatio: "1 / 1",
+        }}
       >
         {user.avatarUrl ? (
-          <Image
+          // <img> nativo em vez de next/image: dimensões fixas, sem
+          // wrapper extra do Next, sem regras de aspect-ratio intrínseco da
+          // imagem. `object-cover` + `h-full w-full` no <img> dentro de
+          // container quadrado garantem crop circular previsível.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             alt={user.name}
-            className="rounded-full object-cover"
-            height={avatarDiameter}
+            className="h-full w-full object-cover"
+            draggable={false}
             src={user.avatarUrl}
-            width={avatarDiameter}
           />
         ) : (
           <div
-            className="grid h-full w-full place-items-center rounded-full font-extrabold text-black"
+            className="grid h-full w-full place-items-center font-extrabold text-black"
             style={{
               background: `linear-gradient(135deg, ${user.accent ?? "var(--gc-brand)"}, rgba(255,255,255,0.86))`,
               boxShadow: `0 0 24px ${user.accent ?? "var(--gc-brand)"}38`,
