@@ -121,7 +121,10 @@ function getSharedGymCount(a: EnrichedUser, b: EnrichedUser): number {
 function getSmartReason(post: FeedPostRow, author: EnrichedUser, currentUser: EnrichedUser): string {
   if (post.user_id === currentUser.id) return "Seu treino";
   if (author.isFollowing) return "Seguindo";
-  if (getSharedGymCount(currentUser, author) > 0) return "Mesma academia";
+  // Sprint 3 — Fase 3.2: removida razão visual "Mesma academia" (feed mais
+  // social). O sinal continua existindo no `getSmartScore` abaixo via
+  // `getSharedGymCount * 26`, então quem treina na mesma academia continua
+  // sendo melhor candidato a aparecer no topo do feed.
   if ((post.author_current_streak ?? 0) >= 10) return "Streak em alta";
   return "Descoberta";
 }

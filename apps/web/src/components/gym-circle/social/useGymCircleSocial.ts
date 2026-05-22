@@ -79,9 +79,10 @@ function getSmartReason(post: GymPost, author: GymUser, currentUser: GymUser) {
     return "Seguindo";
   }
 
-  if (getSharedGymCount(currentUser, author) > 0) {
-    return "Mesma academia";
-  }
+  // Sprint 3 — Fase 3.2: removida razão visual "Mesma academia" (feed mais
+  // social, menos diretório de academia). O sinal continua existindo no
+  // `getSmartScore` abaixo via `getSharedGymCount * 26`, então quem treina na
+  // mesma academia continua sendo melhor candidato a aparecer no topo do feed.
 
   if (post.streakAtPost >= 10) {
     return "Streak em alta";

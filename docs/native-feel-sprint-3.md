@@ -93,29 +93,30 @@ sendo email/senha.
 
 | Item | Planejado | Implementado | Validado | Pendente |
 | --- | --- | --- | --- | --- |
-| Bug plural curtidas no feed | Sim | — | — | Sim |
-| `formatLikesSummary` helper testável | Sim | — | — | Sim |
-| Post header minimalista | Sim | — | — | Sim |
-| Actions row clean | Sim | — | — | Sim |
-| Caption inline com "mais" | Sim | — | — | Sim |
-| Comments preview "Ver todos os X" | Sim | — | — | Sim |
-| Timestamp curto cinza | Sim | — | — | Sim |
-| CommentsBottomSheet (novo) | Sim | — | — | Sim |
-| Estado vazio CommentsSheet | Sim | — | — | Sim |
-| Input fixo no rodapé do sheet | Sim | — | — | Sim |
-| Keyboard handling no sheet | Sim | — | — | Sim |
-| Reactions row rápidas | Sim | — | — | Sim |
-| Replies agrupadas (se backend suportar) | Sim | — | — | Sim |
-| Comment likes update otimista | Sim | — | — | Sim |
-| Header "Sugestões de amizade" | Sim | — | — | Sim |
-| Remover "academia" do DiscoveryUserCard | Sim | — | — | Sim |
-| DiscoveryUserCard refactor visual | Sim | — | — | Sim |
-| Botão "Adicionar" iOS-like | Sim | — | — | Sim |
-| Microinterações + haptics | Sim | — | — | Sim |
-| Safe area / Dynamic Island / keyboard | Sim | — | — | Sim |
-| Acessibilidade (aria-labels, tap >=44px) | Sim | — | — | Sim |
-| Testes vitest | Sim | — | — | Sim |
-| Teste manual no iPhone | Sim | — | — | Sim |
+| Bug plural curtidas no feed | Sim | Sim (3.1) | Sim | — |
+| `formatLikesSummary` helper testável | Sim | Sim (já existia: `getPostLikeSummary`) | Sim | — |
+| Post header minimalista | Sim | Sim (3.2 — já estava limpo) | Sim | — |
+| Actions row clean | Sim | Sim (3.2) | Sim | — |
+| Caption inline com "mais" | Sim | Sim (3.2) | Sim | — |
+| Comments preview "Ver todos os X" | Sim | Sim (3.2) | Sim | — |
+| Timestamp curto cinza | Sim | Sim (3.2) | Sim | — |
+| Remover "Mesma academia" do smartReason | Sim | Sim (3.2) | Sim | — |
+| CommentsBottomSheet (novo) | Sim | — | — | Fase 3.3 |
+| Estado vazio CommentsSheet | Sim | — | — | Fase 3.3 |
+| Input fixo no rodapé do sheet | Sim | — | — | Fase 3.3 |
+| Keyboard handling no sheet | Sim | — | — | Fase 3.3 |
+| Reactions row rápidas | Sim | — | — | Fase 3.3 |
+| Replies agrupadas (se backend suportar) | Sim | — | — | Fase 3.3 |
+| Comment likes update otimista | Sim | Sim (já existia) | Sim | — |
+| Header "Sugestões de amizade" | Sim | Sim (3.1) | Sim | — |
+| Remover "academia" do DiscoveryUserCard | Sim | Sim (3.1) | Sim | — |
+| DiscoveryUserCard refactor visual | Sim | Sim (3.1) | Sim | — |
+| Botão "Adicionar" iOS-like | Sim | Sim (já estava — pill com haptic indireto via toggleFollow) | Sim | — |
+| Microinterações + haptics | Sim | Parcial (like + comentar — Fase 3.2) | Sim | Fase 3.4 (restantes) |
+| Safe area / Dynamic Island / keyboard | Sim | — | — | Fase 3.3 |
+| Acessibilidade (aria-labels, tap >=44px) | Sim | Parcial (3.2 — aria nos novos botões) | Sim | Fase 3.4 (auditoria final) |
+| Testes vitest | Sim | Parcial (3.2 — `caption.test.ts` 8 testes) | Sim | Fase 3.4 |
+| Teste manual no iPhone | Sim | — | — | Fase 3.4 |
 
 ## Implementação planejada
 
@@ -292,8 +293,84 @@ Antes de marcar a sprint como completa:
 
 ## Estado
 
-Sprint 3 PLANEJADA em 2026-05-21. Implementação iniciada na Fase 3.1
-(quick wins — bug plural curtidas, header "Sugestões de amizade",
-`DiscoveryUserCard` sem academia). Fases 3.2 (post visual refactor),
-3.3 (CommentsBottomSheet), 3.4 (polish + validação) ficam para próximas
-sessões.
+Sprint 3 PLANEJADA em 2026-05-21. Fases 3.1 e 3.2 entregues. Fases 3.3
+(CommentsBottomSheet) e 3.4 (polish + validação) ficam para próximas sessões.
+
+### Fase 3.1 entregue (2026-05-21)
+
+- Plural correto no feed (`1 curtida` vs `N curtidas` — inline em
+  `SocialPostCard.tsx`).
+- `DiscoveryUserCard.tsx` refeito: sem `sharedGymCount`, sem "academia em
+  comum". Novo `getSuggestionContext(user)` deriva texto contextual de sinais
+  reais (`followStatus`, `streakLitToday`, `currentStreak`, `longestStreak`,
+  `workoutsThisMonth`, `sports`, `goal`).
+- `FeedScreen.tsx`: header "Sugestões de amizade" sem subtítulo de academia,
+  removida a função morta local `getSharedGymCount`.
+
+Deploy: `dpl_HqV3AycEVvjmkaWtGbF1fnqowuyq` (commit `450ab2c`) → READY em
+produção via auto-promote do Vercel.
+
+### Fase 3.2 entregue (2026-05-22)
+
+**Refactor visual completo do `SocialPostCard.tsx`:**
+
+- Likes summary unificado Instagram-style — usa `getPostLikeSummary`
+  ("Curtido por @ana.fit e mais 2 pessoas") quando há dados de quem curtiu,
+  com fallback de contador puro (`X curtidas`). Avatares empilhados (`-space-x-2`)
+  pra preview. Clicável apenas pelo owner (UX existente — só dono vê sheet).
+- Caption inline com botão "**mais**" — truncada em
+  `CAPTION_TRUNCATE_THRESHOLD = 140` chars, cortando no último espaço pra não
+  quebrar palavra/mention. State `captionExpanded` controla expansão.
+- Comments preview clicável — substitui a linha
+  `{commentsCount} comentarios · {smartReason}`. Plural correto:
+  `Ver 1 comentário` / `Ver todos os N comentários` / `Ocultar comentários`.
+- Haptic `light` no botão Heart e no botão MessageCircle via novos handlers
+  `handleLike` e `handleToggleComments` (chamam `simulateHaptic("like")` e
+  `simulateHaptic("comment")` respectivamente, antes do callback).
+- Removida microinteração "Primeiro apoio ainda aberto" pra visitor sem likes
+  (consistente com Instagram — só o coração no actions row sinaliza o estado).
+
+**`smartReason` "Mesma academia" removido dos dois hooks:**
+
+- `useGymCircleSocial.ts:73-91` e `useSupabaseSocial.ts:121-127`.
+- O ranking `getSmartScore` continua usando `getSharedGymCount * 26` —
+  o sinal influencia ordem do feed, só não vaza visualmente.
+- Razões remanescentes: "Seu treino", "Seguindo", "Streak em alta",
+  "Descoberta". Como o card não exibe mais `smartReason`, são strings vivas
+  no `EnrichedPost.smartReason` sem render, prontas pra próximos usos
+  (debug/analytics) ou remoção total numa sprint futura.
+
+**Novo módulo: `apps/web/src/components/gym-circle/social/caption.ts`**
+
+- `CAPTION_TRUNCATE_THRESHOLD = 140`
+- `truncateCaptionText(text, max)` — corta no último espaço antes do limite,
+  trimEnd no resultado.
+- `isCaptionLong(text, threshold?)` — predicate booleano.
+
+Decisão arquitetural: truncar por contagem de chars (não por CSS `line-clamp`)
+porque `line-clamp` esconde texto mas não nos diz se cortou — o botão "mais"
+precisaria adivinhar via medição de DOM, frágil em iOS WebView.
+
+**Cobertura unitária:**
+
+- `apps/web/src/components/gym-circle/social/caption.test.ts` — 8 testes
+  cobrindo: texto curto preservado, texto no limite exato, corte no último
+  espaço, fallback hard-cut sem espaços, preservação de `@mention` quando
+  cabe, trim de trailing whitespace, `isCaptionLong` default e custom
+  threshold.
+
+**Validação:**
+
+- `npm run lint` (apps/web): 0 warnings ✓
+- `npm test` (root, vitest): 30 arquivos, 166/166 testes passed ✓
+- `npm run build` (apps/web): TypeScript 3.0s, build Turbopack 1.78s ✓
+
+**Não escopo desta fase (movido pra 3.3/3.4):**
+
+- CommentsBottomSheet dedicado (o card ainda renderiza comentários inline
+  via `commentsOpen` toggle).
+- Reactions row rápida (`❤️ 🙌 🔥 👏 🥲 😍 😮 😂`).
+- Replies agrupadas e expansão.
+- Microinterações em todos os taps do feed (compartilhar, follow, etc).
+- Auditoria final de acessibilidade.
+- Teste manual no iPhone real.

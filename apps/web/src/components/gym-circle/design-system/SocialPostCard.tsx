@@ -19,6 +19,11 @@ import {
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { MentionText } from "../MentionText";
+import {
+  CAPTION_TRUNCATE_THRESHOLD,
+  truncateCaptionText,
+} from "../social/caption";
+import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
 import { formatTrainingStreakText } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
@@ -91,6 +96,7 @@ export function SocialPostCard({
   onOpenLikes,
 }: SocialPostCardProps) {
   const [commentsOpen, setCommentsOpen] = useState(post.comments.length > 0);
+  const [captionExpanded, setCaptionExpanded] = useState(false);
   const [draft, setDraft] = useState("");
   const [caretIndex, setCaretIndex] = useState(0);
   const [shareOpen, setShareOpen] = useState(false);
@@ -146,6 +152,24 @@ export function SocialPostCard({
     [currentUserId, shareTargets],
   );
   const commentsCount = post.commentsCount ?? post.comments.length;
+  const isCaptionLong = post.caption.length > CAPTION_TRUNCATE_THRESHOLD;
+  const showFullCaption = captionExpanded || !isCaptionLong;
+  const captionToShow = showFullCaption
+    ? post.caption
+    : truncateCaptionText(post.caption, CAPTION_TRUNCATE_THRESHOLD);
+
+  function handleLike() {
+    // Haptic light pré-callback pra resposta tátil imediata mesmo se o callback
+    // for assíncrono (mock vs Supabase otimista vs erro). Sprint 3 — Fase 3.2.
+    simulateHaptic("like");
+    onLike(post.id);
+  }
+
+  function handleToggleComments() {
+    simulateHaptic("comment");
+    onOpenComments?.(post.id);
+    setCommentsOpen((value) => !value);
+  }
 
   useEffect(() => {
     if (mediaType !== "video") return;
@@ -412,7 +436,7 @@ export function SocialPostCard({
                   : "text-white",
               ].join(" ")}
               label="Curtir"
-              onClick={() => onLike(post.id)}
+              onClick={handleLike}
             >
               <Heart
                 fill={post.likedByCurrentUser ? "currentColor" : "none"}
@@ -423,10 +447,7 @@ export function SocialPostCard({
             <IconButton
               className="size-11"
               label="Comentar"
-              onClick={() => {
-                onOpenComments?.(post.id);
-                setCommentsOpen((value) => !value);
-              }}
+              onClick={handleToggleComments}
             >
               <MessageCircle size={19} strokeWidth={2.4} />
             </IconButton>
@@ -506,12 +527,22 @@ export function SocialPostCard({
           </div>
         ) : null}
 
-        {!isPostOwner || post.likesCount > 0 || post.likedByCurrentUser ? (
-          <div className="flex items-center gap-2">
-            {isPostOwner && likeSummary ? (
-              <>
+        {/* Likes summary — Instagram-style. Sprint 3 — Fase 3.2.
+            Unifica branches owner/visitor: usa likeSummary ("Curtido por @ana e
+            mais N pessoas") quando disponível, com fallback de contador puro.
+            Clicável apenas pelo owner (UX existente — apenas o dono vê o sheet
+            com lista completa). */}
+        {post.likesCount > 0 ? (() => {
+          const summaryText =
+            likeSummary ??
+            `${post.likesCount.toLocaleString("pt-BR")} ${
+              post.likesCount === 1 ? "curtida" : "curtidas"
+            }`;
+          const summaryContent = (
+            <>
+              {post.likedByPreview.length > 0 ? (
                 <div className="flex -space-x-2">
-                  {post.likedByPreview.map((user) => (
+                  {post.likedByPreview.slice(0, 3).map((user) => (
                     <div
                       className="rounded-full border-2 border-[#0c0d0e]"
                       key={user.id}
@@ -526,81 +557,79 @@ export function SocialPostCard({
                     </div>
                   ))}
                 </div>
+              ) : null}
+              <span className="min-w-0 flex-1 truncate text-[13px] font-bold text-white">
+                {summaryText}
+              </span>
+            </>
+          );
+          return isPostOwner && onOpenLikes ? (
+            <button
+              aria-label="Ver quem curtiu"
+              className="gc-pressable flex items-center gap-2 text-left"
+              onClick={() => onOpenLikes(post.id)}
+              type="button"
+            >
+              {summaryContent}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">{summaryContent}</div>
+          );
+        })() : isPostOwner ? (
+          <p className="text-[13px] font-bold text-white/44">
+            Seja o primeiro a curtir
+          </p>
+        ) : null}
+
+        {/* Caption inline com botão "mais" se truncada. Sprint 3 — Fase 3.2.
+            Username em bold + texto. Trunca em CAPTION_TRUNCATE_THRESHOLD chars
+            no último espaço pra não cortar palavra. */}
+        {post.caption ? (
+          <p className="text-[14px] font-semibold leading-5 text-white/82">
+            <button
+              className="gc-pressable text-white"
+              onClick={() => onSelectUser?.(post.author.id)}
+              type="button"
+            >
+              {post.author.username}
+            </button>{" "}
+            <MentionText
+              onSelectUser={onSelectUser}
+              resolveUser={resolveUser}
+              text={captionToShow}
+            />
+            {!showFullCaption ? (
+              <>
+                …{" "}
                 <button
-                  className="gc-pressable min-w-0 flex-1 truncate text-left text-[12px] font-bold text-white/58"
-                  onClick={() => onOpenLikes?.(post.id)}
+                  aria-label="Expandir legenda"
+                  className="gc-pressable text-[13px] font-bold text-white/56"
+                  onClick={() => setCaptionExpanded(true)}
                   type="button"
                 >
-                  {likeSummary}
+                  mais
                 </button>
-                {post.likedByPreview[0] ? (
-                  <StreakBadge
-                    isLit={post.likedByPreview[0].streakLitToday}
-                    size="xs"
-                    streak={post.likedByPreview[0].currentStreak}
-                  />
-                ) : null}
               </>
-            ) : !isPostOwner ? (
-              <div className="flex flex-1 items-center gap-2 rounded-full bg-white/[0.045] px-3 py-2">
-                <Heart
-                  className={post.likedByCurrentUser ? "text-[var(--gc-blue)]" : "text-white/42"}
-                  fill={post.likedByCurrentUser ? "currentColor" : "none"}
-                  size={14}
-                  strokeWidth={2.4}
-                />
-                <span
-                  className={[
-                    "text-[12px] font-black",
-                    post.likedByCurrentUser ? "text-[var(--gc-blue)]" : "text-white/58",
-                  ].join(" ")}
-                >
-                  {post.likesCount.toLocaleString("pt-BR")}{" "}
-                  {post.likesCount === 1 ? "curtida" : "curtidas"}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between gap-3 rounded-full bg-white/[0.045] px-3 py-2">
-                <span className="text-[12px] font-bold text-white/44">
-                  {post.likesCount > 0
-                    ? `${post.likesCount.toLocaleString("pt-BR")} ${
-                        post.likesCount === 1 ? "curtida" : "curtidas"
-                      }`
-                    : "Seja o primeiro a curtir"}
-                </span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-between gap-3 rounded-full bg-white/[0.045] px-3 py-2">
-            <span className="text-[12px] font-bold text-white/44">
-              Primeiro apoio ainda aberto
-            </span>
-            <StreakBadge
-              isLit={post.author.streakLitToday}
-              size="xs"
-              streak={post.author.currentStreak}
-            />
-          </div>
-        )}
+            ) : null}
+          </p>
+        ) : null}
 
-        <p className="text-[14px] font-semibold leading-5 text-white/82">
+        {/* Comments preview clicável — substitui "X comentarios · smartReason".
+            Plural correto ("Ver 1 comentário" vs "Ver todos os N comentários").
+            Sprint 3 — Fase 3.2. */}
+        {commentsCount > 0 ? (
           <button
-            className="gc-pressable text-white"
-            onClick={() => onSelectUser?.(post.author.id)}
+            className="gc-pressable block text-left text-[13px] font-bold text-white/42"
+            onClick={handleToggleComments}
             type="button"
           >
-            {post.author.username}
-          </button>{" "}
-          <MentionText
-            onSelectUser={onSelectUser}
-            resolveUser={resolveUser}
-            text={post.caption}
-          />
-        </p>
-        <p className="text-[12px] font-bold text-white/38">
-          {commentsCount} comentarios · {post.smartReason.toLowerCase()}
-        </p>
+            {commentsOpen
+              ? "Ocultar comentários"
+              : commentsCount === 1
+                ? "Ver 1 comentário"
+                : `Ver todos os ${commentsCount.toLocaleString("pt-BR")} comentários`}
+          </button>
+        ) : null}
 
         {commentsOpen ? (
           <div className="space-y-3 rounded-[24px] border border-white/[0.06] bg-white/[0.035] p-3">
