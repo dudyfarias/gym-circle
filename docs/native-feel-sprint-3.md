@@ -101,12 +101,12 @@ sendo email/senha.
 | Comments preview "Ver todos os X" | Sim | Sim (3.2) | Sim | — |
 | Timestamp curto cinza | Sim | Sim (3.2) | Sim | — |
 | Remover "Mesma academia" do smartReason | Sim | Sim (3.2) | Sim | — |
-| CommentsBottomSheet (novo) | Sim | — | — | Fase 3.3 |
-| Estado vazio CommentsSheet | Sim | — | — | Fase 3.3 |
-| Input fixo no rodapé do sheet | Sim | — | — | Fase 3.3 |
-| Keyboard handling no sheet | Sim | — | — | Fase 3.3 |
-| Reactions row rápidas | Sim | — | — | Fase 3.3 |
-| Replies agrupadas (se backend suportar) | Sim | — | — | Fase 3.3 |
+| CommentsBottomSheet (novo) | Sim | Sim (3.3) | Sim | — |
+| Estado vazio CommentsSheet | Sim | Sim (3.3) | Sim | — |
+| Input fixo no rodapé do sheet | Sim | Sim (3.3) | Sim | — |
+| Keyboard handling no sheet | Sim | Sim (3.3 — Capacitor + visualViewport) | Sim | — |
+| Reactions row rápidas | Sim | Sim (3.3 — 8 emojis enviados como comentário) | Sim | — |
+| Replies agrupadas (se backend suportar) | Sim | — | — | Backend não suporta (sem `parentCommentId`) — pendência futura |
 | Comment likes update otimista | Sim | Sim (já existia) | Sim | — |
 | Header "Sugestões de amizade" | Sim | Sim (3.1) | Sim | — |
 | Remover "academia" do DiscoveryUserCard | Sim | Sim (3.1) | Sim | — |
@@ -293,8 +293,8 @@ Antes de marcar a sprint como completa:
 
 ## Estado
 
-Sprint 3 PLANEJADA em 2026-05-21. Fases 3.1 e 3.2 entregues. Fases 3.3
-(CommentsBottomSheet) e 3.4 (polish + validação) ficam para próximas sessões.
+Sprint 3 PLANEJADA em 2026-05-21. Fases 3.1, 3.2 e 3.3 entregues. Fase 3.4
+(polish + validação manual) fica para próxima sessão.
 
 ### Fase 3.1 entregue (2026-05-21)
 
@@ -309,6 +309,91 @@ Sprint 3 PLANEJADA em 2026-05-21. Fases 3.1 e 3.2 entregues. Fases 3.3
 
 Deploy: `dpl_HqV3AycEVvjmkaWtGbF1fnqowuyq` (commit `450ab2c`) → READY em
 produção via auto-promote do Vercel.
+
+### Fase 3.3 entregue (2026-05-22)
+
+**Novo: `apps/web/src/components/gym-circle/CommentsBottomSheet.tsx`**
+
+Sheet dedicado a comentários, substitui o antigo `PostDetailSheet.tsx`
+(que reabria o post inteiro num overlay). Layout estilo Instagram, dark mode,
+sem assets copiados.
+
+- **Backdrop tap pra fechar** — botão a11y de fundo (`role="button"` implícito,
+  `aria-label="Fechar comentários"`).
+- **Handle bar visual** no topo (drag indicator). Gesto real de swipe-to-dismiss
+  fica pra Sprint 4 quando o resto do app for retrabalhado com gestos.
+- **Header** com título "Comentários" centralizado + botão X de fechar (44px).
+- **Lista scrollável** com avatar/username/tempo/texto/like/delete. Reusa
+  `SwipeRevealDelete` pra apagar próprios comentários (gesture iOS).
+- **Estado vazio** quando `commentPreviews.length === 0`:
+  "Ainda não há nenhum comentário / Inicie a conversa..."
+- **Reactions row** sticky entre lista e input: `❤️ 🙌 🔥 👏 🥲 😍 😮 😂`.
+  Tap → envia o emoji como comentário via `onCommentPost(postId, emoji)`.
+  Haptic `selection` (tone "brand").
+- **Input fixo** no rodapé com avatar do `currentUser` à esquerda, placeholder
+  "Adicione um comentário...", botão send circular ciano (brand). Disabled se
+  `draft.trim() === ""` ou submitting.
+- **Mention autocomplete** `@username` migrado do `SocialPostCard`. Popover
+  acima do input, mesma lógica de `getDraftMentionMatch`.
+- **Keyboard handling híbrido**: `attachCapacitorKeyboardListeners` (Capacitor
+  nativo iOS — vide `keyboardDetection.ts` pra contexto do bug do App Store
+  Guideline 2.1) + `visualViewport` como fallback web/PWA.
+  - Quando teclado aberto: `padding-bottom: 12px`.
+  - Quando fechado: `padding-bottom: max(12px, env(safe-area-inset-bottom))`
+    pra respeitar home bar do iPhone.
+- **Reset on close** via `handleClose` local (não via `useEffect`) — evita o
+  React `react-hooks/set-state-in-effect` que dispararia cascading re-renders.
+- **`getCommentsCount` overflow indicator**: se `commentsCount > commentPreviews.length`,
+  mostra "Mostrando N de M comentários" no rodapé da lista.
+
+**Wire-up em `GymCirclePreview.tsx`:**
+
+- Import dinâmico do `CommentsBottomSheet` substitui o `PostDetailSheet`.
+- Renderizado no mesmo lugar (estado `postDetailId` reutilizado).
+- Passa `currentUser` adicionalmente pro avatar do input.
+- Props desnecessárias removidas (`onLikePost`, `onSharePostToChat`,
+  `onOpenPostMenu`, `onToggleFollow`, `onOpenLikes`, `shareTargets`,
+  `formatTime` continua).
+
+**Refactor no `SocialPostCard.tsx`:**
+
+- Removido toggle inline `commentsOpen` + bloco JSX de lista/input/reactions
+  inline (~150 linhas).
+- Removidas funções `submitComment`, `updateCaret`, `selectMention`.
+- Removidos imports `EmptyState` e `SwipeRevealDelete` (não usados mais aqui —
+  migraram pro sheet).
+- Removido tipo `MentionMatch` + helper `getDraftMentionMatch` (idem).
+- `handleToggleComments` virou `handleOpenComments` — chama apenas
+  `onOpenComments?.(post.id)` (que abre o sheet via parent).
+- Novo **preview inline do último comentário** acima do "Ver todos os N":
+  `<username bold> <body>` clicável → abre sheet (estilo Instagram).
+- "Ver todos os N comentários" perde a variante "Ocultar comentários" (não
+  há toggle local mais).
+- Props `onComment`, `onDeleteComment`, `onLikeComment`, `mentionUsers`
+  permanecem no type pra retrocompat com `FeedScreen`/`GymCirclePreview`,
+  mas não são consumidas. Cleanup do contrato pra Fase 3.4.
+
+**Removido:**
+
+- `apps/web/src/components/gym-circle/PostDetailSheet.tsx` — código morto
+  após o swap pro `CommentsBottomSheet`.
+
+**Validação:**
+
+- `npm run lint` (apps/web): 0 warnings ✓
+- `npm test` (vitest): 30 arquivos, **166/166 testes** passed ✓
+- `npm run build` (apps/web): Turbopack 1.78s + TS 3.1s, 12 páginas ✓
+
+**Fora de escopo (movido pra Fase 3.4 ou futura):**
+
+- **Replies aninhados** — `GymComment` não tem `parentCommentId` no backend.
+  Migration + UI ficam pra sprint dedicada (provavelmente quando carrossel
+  de mídia também for mexer no schema de posts).
+- **Swipe-to-dismiss real** do sheet — visual handle ok, gesto fica pra
+  Sprint 4 quando o app ganhar swipe-back patterns iOS.
+- **Animação de entrada do sheet** — atualmente usa `translate-y` simples
+  com `transition-transform duration-300`. Spring-based fica pra polish.
+- **Cleanup das props deprecadas** do `SocialPostCard` — Fase 3.4.
 
 ### Fase 3.2 entregue (2026-05-22)
 

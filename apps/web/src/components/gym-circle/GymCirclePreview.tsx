@@ -77,8 +77,9 @@ const PostMenuSheet = dynamic(
   () => import("./PostMenuSheet").then((module) => module.PostMenuSheet),
   { ssr: false },
 );
-const PostDetailSheet = dynamic(
-  () => import("./PostDetailSheet").then((module) => module.PostDetailSheet),
+const CommentsBottomSheet = dynamic(
+  () =>
+    import("./CommentsBottomSheet").then((module) => module.CommentsBottomSheet),
   { ssr: false },
 );
 const LikesOverlay = dynamic(
@@ -1059,27 +1060,22 @@ export function GymCirclePreview({
             posts={profileSheetPosts}
             user={profileSheetUser}
           />
-          <PostDetailSheet
+          <CommentsBottomSheet
+            currentUser={social.currentUser}
             currentUserId={social.currentUser.id}
             formatTime={social.formatPostClock}
+            mentionUsers={followedUsers}
             onClose={closePostDetail}
             onCommentPost={social.actions.commentPost}
             onDeleteComment={social.actions.deleteComment}
             onLikeComment={social.actions.likeComment}
-            onLikePost={social.actions.likePost}
-            onOpenLikes={openLikes}
-            onOpenPostMenu={openPostMenu}
-            onSharePostToChat={social.actions.sharePostToChat}
             onSelectUser={(userId) => {
               closePostDetail();
               openProfile(userId);
             }}
-            onToggleFollow={toggleFollowIgnoringResult}
-            mentionUsers={followedUsers}
             open={postDetailId !== null}
             post={postDetailTarget}
             resolveUser={resolveUser}
-            shareTargets={followedUsers}
           />
           <LikesOverlay
             currentUserId={social.currentUser.id}
