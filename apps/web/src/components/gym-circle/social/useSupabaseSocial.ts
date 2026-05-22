@@ -2070,7 +2070,72 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const enrichedAll = useMemo(() => {
-    const statsByUser = new Map(agg.stats.map((s) => [s.user_id, s]));
+    // Sprint 3.5 bug fix: `agg.stats` mistura DUAS fontes:
+    //  1. `currentStatsRes.data` do `user_stats_live` (COMPLETO — todos os
+    //     campos: best_streak, workouts_this_month, active_days_this_year).
+    //  2. Stats PARCIAIS derivados de feed_surface/story_surface via
+    //     `statsRowFromSurface` — esses têm `workouts_this_month: 0` e
+    //     `active_days_this_year: 0` HARDCODED (a view de surface só traz
+    //     `author_current_streak` e `author_badge_active`, sem os contadores
+    //     mensais/anuais).
+    //
+    // `new Map(entries)` aplica "last wins" — se o stats PARCIAL vier depois
+    // do COMPLETO no array, sobrescreve com 0 os campos mensais/anuais.
+    // Sintoma reportado no MyCircleSheet do dudy: "Treinos no mês: 0", "Dias
+    // no ano: 0", "Maior streak: 0d" mesmo o banco tendo 11, 11 e 5.
+    //
+    // Fix: em vez de "last wins", fazer MERGE intelegente pegando o
+    // máximo de cada contador + preferindo valores não-null pra timestamps.
+    const statsByUser = new Map<string, UserStatsRow>();
+    for (const incoming of agg.stats) {
+      const existing = statsByUser.get(incoming.user_id);
+      if (!existing) {
+        statsByUser.set(incoming.user_id, incoming);
+        continue;
+      }
+      // Merge: preserva o valor mais "completo" de cada campo.
+      statsByUser.set(incoming.user_id, {
+        user_id: existing.user_id,
+        current_streak: Math.max(
+          existing.current_streak ?? 0,
+          incoming.current_streak ?? 0,
+        ),
+        best_streak: Math.max(
+          existing.best_streak ?? 0,
+          incoming.best_streak ?? 0,
+        ),
+        workouts_this_month: Math.max(
+          existing.workouts_this_month ?? 0,
+          incoming.workouts_this_month ?? 0,
+        ),
+        active_days_this_year: Math.max(
+          existing.active_days_this_year ?? 0,
+          incoming.active_days_this_year ?? 0,
+        ),
+        last_active_date:
+          incoming.last_active_date ?? existing.last_active_date,
+        badge_is_active_today:
+          existing.badge_is_active_today || incoming.badge_is_active_today,
+        streak_restores_available:
+          incoming.streak_restores_available ??
+          existing.streak_restores_available,
+        last_streak_restore_used_at:
+          incoming.last_streak_restore_used_at ??
+          existing.last_streak_restore_used_at,
+        last_streak_restore_earned_at:
+          incoming.last_streak_restore_earned_at ??
+          existing.last_streak_restore_earned_at,
+        streak_restore_deadline_at:
+          incoming.streak_restore_deadline_at ??
+          existing.streak_restore_deadline_at,
+        streak_restore_missed_date:
+          incoming.streak_restore_missed_date ??
+          existing.streak_restore_missed_date,
+        streak_restore_status:
+          incoming.streak_restore_status ?? existing.streak_restore_status,
+        updated_at: incoming.updated_at ?? existing.updated_at,
+      });
+    }
     const gymsById = new Map(agg.gyms.map((g) => [g.id, g]));
     const userGymsByUser = new Map<string, UserGymRow[]>();
     for (const ug of agg.userGyms) {
