@@ -27,6 +27,7 @@ import type {
   UserStatsRow,
 } from "@gym-circle/core";
 import { simulateHaptic } from "./haptics";
+import { clearImageCache } from "../design-system/imageCache";
 import {
   clearNativeFeelCaches,
   nativeCacheKeys,
@@ -3594,6 +3595,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       async signOut() {
         await PushNotificationsService.unregisterPushToken(services.push);
         clearNativeFeelCaches();
+        // Sprint 2.1: limpa o Set de "imagens já carregadas" pra evitar
+        // que avatares/posts do user A vazem visualmente no primeiro
+        // mount do user B no mesmo device.
+        clearImageCache();
         await services.auth.signOut();
       },
       async updateProfile(input: ProfileEditInput) {

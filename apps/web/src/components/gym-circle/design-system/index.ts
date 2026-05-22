@@ -6,6 +6,7 @@ export * from "./BrandMark";
 export * from "./DiscoveryUserCard";
 export * from "./EmptyState";
 export * from "./FloatingCreatePostButton";
+export * from "./GCImage";
 export * from "./GymCheckInCard";
 export * from "./LatestPostPreview";
 export * from "./MonthlyRecapCard";
