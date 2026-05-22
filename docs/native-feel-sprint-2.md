@@ -204,6 +204,64 @@ Sprint 2 PLANEJADA em 2026-05-22. Sub-fase 2.1 (Foundation) entregue
 no mesmo dia. Próximas 2.2 → 2.6 ficam pra sessões seguintes conforme
 plano acima.
 
+### Fase 2.2 entregue (2026-05-22) — Feed integration
+
+**Commit:** TBD (após validação)
+
+**O que foi feito:**
+
+- **`PinchZoomImage.tsx` ganhou blur + crossfade**:
+  - Nova prop `blurDataUrl?: string | null` — quando passada, vira
+    `background-image: url(...)` no container (cover + center). Sem
+    ela, fallback `backgroundColor: #0c0d0e` (tema dark). NUNCA tela
+    preta vazia.
+  - Trocou `bg-black` (Tailwind class) por `backgroundColor` inline
+    pra permitir override do blur.
+  - State `loaded` (init com `hasImageLoaded(src)`) controla opacity
+    da `<img>`: 0 enquanto decode, 1 quando `onLoad` dispara.
+  - `markImageLoaded(src)` no `handleImageLoad` — marca no cache
+    global pra próximos mounts pularem o fade-in.
+  - useEffect reseta loaded check quando o `src` muda (ex.: edit de
+    post troca a URL).
+  - Transition `opacity 280ms var(--gc-ease-ios, ease-out)` — mesmo
+    timing do GCImage pra consistência visual.
+- **`SocialPostCard.tsx`**: passa `blurDataUrl={post.blurDataUrl}` pro
+  `PinchZoomImage`. Quando o post tiver blur no banco (Sprint 2.4 vai
+  popular), o feed já consome automaticamente.
+- **`FeedScreen.tsx`**: novo useEffect que pré-carrega os primeiros N
+  posts assim que `feedPosts` muda:
+  ```ts
+  const count = getPreloadCount(3); // 3 em wifi, 1 em 2g/saveData
+  const srcs = feedPosts
+    .slice(0, count)
+    .filter((post) => post.mediaType !== "video") // skipa vídeos
+    .map((post) => post.thumbnailUrl ?? post.imageUrl);
+  void preloadImages(srcs, count);
+  ```
+  - Vídeos pulam porque o arquivo é grande — só pre-fetch o poster
+    via `<video poster>` nativo (que já existe).
+  - Thumbnail é preferido (bytes menores) quando o post tem.
+  - Roda imediatamente após mount E sempre que o feed atualizar (novos
+    posts no topo).
+
+**Validação local pendente** — `node_modules` corrompido nesta sessão.
+Vercel build remoto valida TypeScript + bundle. Se quebrar, fix-up
+follow-up.
+
+**Como verificar visualmente (após deploy)**:
+
+1. Limpar cache do navegador / força refresh.
+2. Abrir feed pela primeira vez (frio): primeiras imagens devem
+   aparecer com **fade suave a partir do solid dark** — sem flash
+   preto.
+3. Reabrir feed (quente, mesma sessão): primeiras imagens devem
+   aparecer **instantaneamente sem fade** (cache tracking ativo).
+4. Scroll lento: posts subsequentes ainda usam o lazy do `next/image`
+   — preload só cobre os 3 primeiros.
+
+**Próxima sub-fase (2.3)**: StoryViewer integra GCImage + preserve
+previous frame + preload da próxima story.
+
 ### Fase 2.1 entregue (2026-05-22) — Foundation
 
 **Commit:** TBD (após validação)

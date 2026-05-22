@@ -15,6 +15,10 @@ import {
   SocialPostCard,
   StoryBubbles,
 } from "../design-system";
+import {
+  getPreloadCount,
+  preloadImages,
+} from "../design-system/imageCache";
 import type { EnrichedPost, EnrichedUser, StoryGroup } from "../social/types";
 import {
   shouldShowViewerLocationPrompt,
@@ -97,6 +101,26 @@ export function FeedScreen({
     observer.observe(node);
     return () => observer.disconnect();
   }, [feedHasMore, feedLoadingMore, feedPosts.length, onLoadMoreFeed]);
+
+  // Sprint 2.2: pré-carrega + pré-decodifica as imagens dos primeiros
+  // posts do feed ANTES do user scrollar. `getPreloadCount(3)` ajusta
+  // o número baseado em `navigator.connection` (4G/wifi=3, 3G=1, 2g/
+  // saveData=1, Safari=3 fallback). Usa thumbnail quando disponível —
+  // bytes menores, mesma sensação de prontidão.
+  useEffect(() => {
+    if (typeof window === "undefined" || feedPosts.length === 0) return;
+    const count = getPreloadCount(3);
+    if (count <= 0) return;
+    const srcs = feedPosts
+      .slice(0, count)
+      // Pula vídeos — poster já carrega via `<video poster>` nativo, e
+      // o arquivo do vídeo é grande demais pra pre-fetch agressivo.
+      .filter((post) => (post.mediaType ?? "image") !== "video")
+      .map((post) => post.thumbnailUrl ?? post.imageUrl)
+      .filter((src): src is string => Boolean(src));
+    if (srcs.length === 0) return;
+    void preloadImages(srcs, count);
+  }, [feedPosts]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">

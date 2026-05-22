@@ -317,6 +317,7 @@ export function SocialPostCard({
         ) : (
           <PinchZoomImage
             alt={`Treino de ${post.author.name}`}
+            blurDataUrl={post.blurDataUrl}
             className="w-full"
             priority={post.author.username === "edu.fit"}
             sizes="(max-width: 480px) 100vw, 480px"

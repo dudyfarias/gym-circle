@@ -1,9 +1,10 @@
 "use client";
 
-import { type TouchEvent, useRef, useState } from "react";
+import { type TouchEvent, useEffect, useRef, useState } from "react";
+import { hasImageLoaded, markImageLoaded } from "./imageCache";
 
 /**
- * PinchZoomImage — Sprint 3 / pós-3.4.
+ * PinchZoomImage — Sprint 3 / pós-3.4 (+ Sprint 2.2 crossfade).
  *
  * Antes: `transform: scale(${scale})` puro, sem `transform-origin` dinâmico
  * nem pan. O zoom sempre escalava a partir do centro (default CSS), por isso
@@ -30,6 +31,12 @@ type PinchZoomImageProps = {
   priority?: boolean;
   sizes?: string;
   src: string;
+  /**
+   * Sprint 2.2: base64 data URL pra fundo blur enquanto a imagem
+   * decodifica. Quando ausente, fallback solid `#0c0d0e` (tema dark)
+   * já cobre — nunca tela preta vazia.
+   */
+  blurDataUrl?: string | null;
 };
 
 type PinchState = {
@@ -73,6 +80,7 @@ function clamp(value: number, min: number, max: number) {
 
 export function PinchZoomImage({
   alt,
+  blurDataUrl,
   className = "",
   priority = false,
   src,
@@ -81,9 +89,18 @@ export function PinchZoomImage({
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [gesture, setGesture] = useState<"none" | "pinch" | "pan">("none");
   const [aspectRatio, setAspectRatio] = useState(4 / 5);
+  // Sprint 2.2: se o src já foi visto nesta sessão, pula o fade-in.
+  // Sensação instant ao rever um post (ex.: reabrir feed após sair).
+  const [loaded, setLoaded] = useState(() => hasImageLoaded(src));
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pinchRef = useRef<PinchState | null>(null);
   const panRef = useRef<PanState | null>(null);
+
+  // Quando o src trocar (ex.: edit de post), reseta loaded check.
+  useEffect(() => {
+    if (hasImageLoaded(src)) setLoaded(true);
+    else setLoaded(false);
+  }, [src]);
 
   function getRect() {
     return (
@@ -202,6 +219,13 @@ export function PinchZoomImage({
     setAspectRatio(clamp(width / height, 4 / 5, 1.91));
   }
 
+  function handleImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
+    updateAspectRatio(event.currentTarget);
+    // Sprint 2.2: marca no cache global + dispara crossfade local.
+    markImageLoaded(src);
+    setLoaded(true);
+  }
+
   // touch-action:
   // - durante gesture (pinch/pan): "none" — bloqueia scroll do feed pra que
   //   o WebView não roube o movimento de pan.
@@ -210,11 +234,27 @@ export function PinchZoomImage({
   const touchAction =
     gesture !== "none" || scale > MIN_SCALE ? "none" : "pan-y";
 
+  // Sprint 2.2: fundo do container vira o blur placeholder enquanto
+  // a imagem decode. Quando há blurDataUrl, usa como background-image;
+  // sem ele, o solid #0c0d0e do tema cobre. NUNCA tela preta vazia.
+  const containerStyle: React.CSSProperties = {
+    aspectRatio,
+    touchAction,
+    backgroundColor: "#0c0d0e",
+    ...(blurDataUrl
+      ? {
+          backgroundImage: `url(${blurDataUrl})`,
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+        }
+      : {}),
+  };
+
   return (
     <div
       ref={containerRef}
       className={[
-        "relative w-full overflow-hidden bg-black",
+        "relative w-full overflow-hidden",
         "select-none",
         className,
       ].join(" ")}
@@ -223,7 +263,7 @@ export function PinchZoomImage({
       onTouchEnd={endGesture}
       onTouchMove={moveGesture}
       onTouchStart={startGesture}
-      style={{ aspectRatio, touchAction }}
+      style={containerStyle}
     >
       <div
         className="absolute inset-0 will-change-transform"
@@ -240,9 +280,16 @@ export function PinchZoomImage({
           alt={alt}
           className="h-full w-full object-cover"
           draggable={false}
-          onLoad={(event) => updateAspectRatio(event.currentTarget)}
+          onLoad={handleImageLoad}
           loading={priority ? "eager" : "lazy"}
           src={src}
+          style={{
+            // Sprint 2.2: crossfade — opacity 0 enquanto decode, 1 quando
+            // onLoad dispara. Background do container (blur ou solid)
+            // cobre o gap visual.
+            opacity: loaded ? 1 : 0,
+            transition: "opacity 280ms var(--gc-ease-ios, ease-out)",
+          }}
         />
       </div>
     </div>
