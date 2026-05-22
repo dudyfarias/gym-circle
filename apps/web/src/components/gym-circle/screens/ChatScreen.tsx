@@ -151,6 +151,11 @@ export function ChatScreen({
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
   const threadEndRef = useRef<HTMLDivElement | null>(null);
+  // Sprint 3 — Fase 3.4: ref do container scroll da lista de mensagens.
+  // Necessário pra scroll programático sem usar `scrollIntoView({block:"end"})`,
+  // que em iOS WebView faz o body inteiro pular quando o teclado anima e
+  // causa o sintoma "conversa se mexendo sozinha".
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
 
   const normalizedChatQuery = useMemo(
     () => normalizeChatSearchQuery(chatQuery),
@@ -407,7 +412,15 @@ export function ChatScreen({
 
   useEffect(() => {
     if (!selectedThread) return;
-    threadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    // Scroll manual no container interno (não no body) pra não mexer no
+    // layout quando o teclado iOS anima. requestAnimationFrame garante que
+    // o novo conteúdo já foi pintado antes de medirmos `scrollHeight`.
+    const node = messagesContainerRef.current;
+    if (!node) return;
+    const raf = window.requestAnimationFrame(() => {
+      node.scrollTop = node.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(raf);
   }, [selectedThread, selectedThread?.messages.length]);
 
   function setSelectedUser(userId: string | null) {
@@ -561,6 +574,7 @@ export function ChatScreen({
         onQuickReaction={() => send({ body: "🔥" })}
         onSelectUser={onSelectUser}
         onSubmit={submit}
+        messagesContainerRef={messagesContainerRef}
         sending={sending}
         thread={selectedThread}
         threadEndRef={threadEndRef}
@@ -953,6 +967,7 @@ type ConversationViewProps = {
   draft: string;
   error: string | null;
   fileRef: RefObject<HTMLInputElement | null>;
+  messagesContainerRef: RefObject<HTMLDivElement | null>;
   onBack: () => void;
   onDraftChange: (value: string) => void;
   onMedia: (file: File | undefined) => void | Promise<void>;
@@ -971,6 +986,7 @@ function ConversationView({
   draft,
   error,
   fileRef,
+  messagesContainerRef,
   onBack,
   onDraftChange,
   onMedia,
@@ -984,8 +1000,15 @@ function ConversationView({
 }: ConversationViewProps) {
   const headerUser = thread.user;
   return (
-    <section className="gc-screen-enter flex min-h-screen flex-col px-3 pb-5">
-      <header className="sticky top-0 z-30 -mx-3 flex items-center gap-3 border-b border-white/[0.06] bg-black/82 px-4 pb-3 pt-[calc(var(--gc-safe-top)+14px)] backdrop-blur-2xl">
+    // Sprint 3 — Fase 3.4: refactor anti-teclado-voando.
+    // `h-[100dvh]` (dynamic viewport) shrinka com o teclado iOS 16+ em vez de
+    // ficar fixo em 100vh do viewport original. Combinado com o
+    // `overflow-y-auto` no container interno de mensagens (abaixo) e o form
+    // como last-child do flex column (sem `sticky bottom`), o input fica
+    // naturalmente preso ao fim do flex container e sobe junto com o
+    // teclado — sem hack de cálculo manual.
+    <section className="gc-screen-enter flex h-[100dvh] flex-col px-3">
+      <header className="shrink-0 -mx-3 flex items-center gap-3 border-b border-white/[0.06] bg-black/82 px-4 pb-3 pt-[calc(var(--gc-safe-top)+14px)] backdrop-blur-2xl">
         <button
           aria-label="Voltar"
           className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white"
@@ -1028,7 +1051,10 @@ function ConversationView({
         </button>
       </header>
 
-      <div className="flex-1 space-y-3 px-1 py-5">
+      <div
+        ref={messagesContainerRef}
+        className="flex-1 space-y-3 overflow-y-auto px-1 py-5"
+      >
         {thread.messages.length > 0 ? (
           thread.messages.map((message) => (
             <MessageBubble
@@ -1039,7 +1065,7 @@ function ConversationView({
             />
           ))
         ) : (
-          <div className="grid min-h-[48vh] place-items-center text-center">
+          <div className="grid h-full place-items-center text-center">
             <div>
               <div className="mx-auto grid size-16 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)] shadow-[0_0_28px_rgba(92,232,255,0.16)]">
                 <MessageCircle size={24} />
@@ -1055,7 +1081,7 @@ function ConversationView({
       </div>
 
       <form
-        className="sticky bottom-[calc(var(--gc-safe-bottom)+0.5rem)] z-30 flex items-center gap-2 rounded-[28px] border border-white/[0.08] bg-[#111214]/92 p-2 shadow-[0_18px_54px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
+        className="shrink-0 mt-2 mb-[calc(var(--gc-safe-bottom)+0.5rem)] flex items-center gap-2 rounded-[28px] border border-white/[0.08] bg-[#111214]/92 p-2 shadow-[0_18px_54px_rgba(0,0,0,0.42)] backdrop-blur-2xl"
         onSubmit={onSubmit}
       >
         <IconButton
@@ -1090,7 +1116,9 @@ function ConversationView({
           type="file"
         />
         <input
+          aria-label="Mensagem"
           className="h-10 min-w-0 flex-1 rounded-full bg-white/[0.06] px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+          enterKeyHint="send"
           onChange={(event) => onDraftChange(event.target.value)}
           placeholder="Mensagem..."
           value={draft}

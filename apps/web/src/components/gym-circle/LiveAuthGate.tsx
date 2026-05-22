@@ -82,17 +82,24 @@ export function LiveAuthGate() {
 
           <form className="mt-5 space-y-3" onSubmit={handleSubmit}>
             <input
+              aria-label={mode === "sign-in" ? "Email ou username" : "Email"}
+              autoCapitalize="none"
               autoComplete={mode === "sign-in" ? "username" : "email"}
               className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+              enterKeyHint="next"
+              inputMode={mode === "sign-in" ? "text" : "email"}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={mode === "sign-in" ? "email ou username" : "email"}
+              spellCheck={false}
               type={mode === "sign-in" ? "text" : "email"}
               value={email}
             />
             {mode === "sign-up" ? (
               <input
+                aria-label="Senha"
                 autoComplete="new-password"
                 className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+                enterKeyHint="next"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="senha"
                 type="password"
@@ -101,17 +108,23 @@ export function LiveAuthGate() {
             ) : null}
             {mode === "sign-up" ? (
               <input
+                aria-label="Username"
+                autoCapitalize="none"
                 autoComplete="username"
                 className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+                enterKeyHint="go"
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="username"
+                spellCheck={false}
                 value={username}
               />
             ) : null}
             {mode === "sign-in" ? (
               <input
+                aria-label="Senha"
                 autoComplete="current-password"
                 className="h-12 w-full rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+                enterKeyHint="go"
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="senha"
                 type="password"

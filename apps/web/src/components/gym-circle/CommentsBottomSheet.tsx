@@ -486,6 +486,7 @@ export function CommentsBottomSheet({
           <input
             aria-label="Comentário"
             className="h-11 min-w-0 flex-1 rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
+            enterKeyHint="send"
             onChange={(event) => {
               setDraft(event.target.value);
               setCaretIndex(event.target.selectionStart ?? event.target.value.length);

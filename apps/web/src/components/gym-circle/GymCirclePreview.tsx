@@ -485,6 +485,34 @@ export function GymCirclePreview({
       );
     }
 
+    // Sprint 3 — Fase 3.4: dismiss global do teclado em tap-fora-de-input.
+    // Sintoma reportado: "entra o teclado e não conseguimos tirar da tela".
+    // Causa: no iOS WebView, tap em <button>/<div>/<span> não tira foco do
+    // input ativo automaticamente, então o teclado nativo fica preso.
+    // Solução: ouvir `pointerdown` na raiz e blur o input ativo se o user
+    // tocou em algo que não é editável. Não interfere em buttons (eles já
+    // disparam suas ações antes do blur), nem em sheets (o backdrop fecha
+    // sheet E teclado juntos, comportamento desejado).
+    function handleGlobalPointerDown(event: PointerEvent) {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      // Se tap caiu em (ou dentro de) um editor, mantém o foco.
+      if (target.closest('input, textarea, [contenteditable="true"]')) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (!active) return;
+      const isEditable =
+        active.tagName === "INPUT" ||
+        active.tagName === "TEXTAREA" ||
+        active.getAttribute("contenteditable") === "true";
+      if (isEditable && typeof active.blur === "function") {
+        active.blur();
+      }
+    }
+    document.addEventListener("pointerdown", handleGlobalPointerDown);
+    cleanups.push(() =>
+      document.removeEventListener("pointerdown", handleGlobalPointerDown),
+    );
+
     return () => cleanups.forEach((fn) => fn());
   }, []);
 
