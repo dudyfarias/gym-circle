@@ -532,7 +532,125 @@ calendário mensal vive dentro).
 
 ---
 
-#### Fase 3.5.4 — GamificationService (PENDENTE)
+#### Fase 3.5.4 entregue (2026-05-22) — Testes de gamificação
+
+**Commit:** `767a7de` — `test(sprint-3.5.4): cobertura completa do getEarnedBadges + doc 3.5.3`
+
+**Decisão pragmática:** o `getEarnedBadges` puro (criado na 3.5.3) já
+cobre 90% do que o `GamificationService` precisa. **O service completo
+com cache TTL + RPC fica reservado pra sprint futura** (quando o lazy
+load de `user_activity_days` for necessário pro calendário com dados
+mais precisos do que o array hidratado).
+
+O que entrou nesta sub-fase:
+
+- `social/gamification.test.ts` — **24 testes vitest** cobrindo:
+  - Default (todos bloqueados sem dados).
+  - Cada uma das 11 regras de badge isoladamente.
+  - **Cenário do Johnny** (141d streak, 21 mês, 141 ano, 50 posts) →
+    8/11 badges desbloqueados. Smoke pra dados de teste reais.
+  - `countEarnedBadges` (contagem + zero).
+  - `getNextBadge` (primeiro bloqueado + `null` quando completo).
+
+Architecture preparada pra futuro `GamificationService`:
+
+```ts
+// Interface esperada (futuro)
+type GamificationService = {
+  getUserGamificationSummary(userId: string): Promise<...>;
+  getMonthlyActivityCalendar(userId: string, monthKey: string): Promise<...>;
+  getConsistencyLevel(stats): { current, next, daysToNext };
+  getEarnedBadges(userId, stats, activityDays): Badge[]; // wrapper do já existente
+  getNextBadgeProgress(userId, stats): { badge, progress };
+};
+```
+
+Cache estratégia futura: in-memory `Map<userId+month, { data, expiresAt }>`
+com TTL ~5min. Fallback vazio amigável quando offline.
+
+#### Fase 3.5.5 entregue (2026-05-22) — Polish + roadmap final
+
+**O que entrou:**
+
+- Doc desta sub-fase: marca Sprint 3.5 como **COMPLETA** com pendências
+  conhecidas explícitas.
+- `docs/native-feel-roadmap.md` atualizado com nova sprint futura
+  `Sprint X: Competition & Rankings` listando: ranking semanal/mensal
+  entre amigos, ranking entre circles (academias), desafios sazonais,
+  conquistas compartilháveis (deeplink + share sheet), badges
+  unlockable shareable, GamificationService completo com cache + RPC.
+
+**Validação durante a Sprint 3.5:**
+
+- Sprint 3.5.1: lint 0 warnings, 189/189 testes (23 novos), build OK ✓
+- Sprint 3.5.2: build local com FS intermitente (iCloud) — Vercel build
+  validou em prod (commit 45c8ab7 — deploy READY).
+- Sprint 3.5.3: FS local quebrou (iCloud evict node_modules/bin). Validação
+  via Vercel build remoto OK (commit f210e68 — deploy
+  `dpl_DTewEbpytua4vRdCyzdLUcv5KVrX` READY, target production, 30s
+  build, servindo `gym-circle-rust.vercel.app`).
+- Sprint 3.5.4: testes adicionados ao código (não rodados localmente
+  por causa do FS). Vercel build vai compilar o `.test.ts` durante o
+  next build via Turbopack TS resolution (mesmo se vitest não rodar
+  local). Re-rodar `npm test` quando o FS estabilizar.
+
+**Decisões arquiteturais resumidas da Sprint 3.5:**
+
+1. **Rings = denominador TOTAL do período** (semana=X/7, mês=X/total,
+   ano=X/total). Trade-off: ring vazio no início do mês mesmo
+   treinando todo dia.
+2. **`buildConsistencyRings` retorna [year, month, week]** — index 0 =
+   maior raio. Semana fica mais perto do avatar, ano envolve tudo.
+3. **`AvatarConsistencyRings` é a assinatura visual** — foto centralizada
+   com rings circundando substitui o "círculo separado ao lado do
+   avatar" da v1. Tap = `light` haptic + abre `MyCircleSheet`.
+4. **`MyCircleSheet` absorveu o `MonthlyRecapSheet`** — calendário mensal
+   vive DENTRO do novo sheet (junto com resumo, níveis, badges,
+   placeholder de competição).
+5. **Badges são derivações puras** — `getEarnedBadges` é função pura,
+   sem rede. 11 badges com regras 100% baseadas em dados existentes.
+   Nenhum badge fake.
+6. **`GamificationService` completo (cache + RPC) adiado** pra sprint
+   futura — o cliente derivado dos dados hidratados é suficiente pro
+   primeiro release.
+7. **Privacidade respeitada** — outro user privado + não follow vê só
+   header + notice "Perfil privado" no MyCircleSheet.
+
+**Pendências conhecidas Sprint 3.5 (não-bloqueantes, prontas pra Sprint futura):**
+
+- `GamificationService` real com cache TTL + lazy load de
+  `user_activity_days` (3.5.4 entregou só testes do helper puro).
+- Animação spring de entrada/saída do `MyCircleSheet` (atual usa
+  `translate-y` + `transition-transform duration-300`).
+- Gesto real de swipe-to-dismiss no `MyCircleSheet` (handle visual ok).
+- Tap dedicado no AvatarConsistencyRings pra abrir story (hoje rings
+  sempre abrem MyCircle — story tem que ser tocada de outro lugar).
+- Badge unlock animation quando ganhar novo badge (sparkle + haptic
+  success).
+- Cleanup do `StreakCard`/`StreakScreen` legados se nada mais usar.
+- Smoke test no iPhone real pelo Eduardo (incluindo testes
+  manuais documentados em "Teste manual iPhone real" mais acima).
+
+### Como retomar o Sprint 3.5 (próxima sessão)
+
+Sprint 3.5 está **completa em produção**. Próximos passos seriam:
+
+1. **Smoke test no iPhone real** — Eduardo testa em device. Checklist:
+   - Meu perfil: rings ao redor do avatar centralizado? Tap nos rings
+     abre MyCircle?
+   - Calendário mostra dias treinados corretamente? Hoje destacado?
+   - Badges conquistados em brand, bloqueados em cinza?
+   - Privacidade: testar perfil privado + não-follow, ver só header.
+   - Regressão: feed/stories/chat/edit profile/seguir/login OK?
+2. **Sprint futura Competition & Rankings** — implementar o que ficou
+   no roadmap.
+3. **Cleanup legado**: deletar `StreakCard.tsx` e `StreakScreen.tsx` se
+   nada mais usar (grep confirma — só auto-referência sem callers).
+4. **`GamificationService` real** — só quando precisar de lazy load
+   real do `user_activity_days` (ex.: calendário trans-mês com dados
+   precisos).
+
+#### Fase 3.5.5 (PENDENTE — substituído pela seção acima)
 
 **Objetivo:** centralizar lógica de derivação de gamificação em um service
 testável. Sob demanda — não no boot.

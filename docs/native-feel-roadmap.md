@@ -108,6 +108,54 @@ Detalhes em `docs/native-feel-sprint-3.md`.
 - Reescrita nativa
 - Refactor backend grande
 
+## Sprint Futura: Competition & Rankings
+
+Sprint dedicada a transformar a base de gamificação (Sprint 3.5) em
+**competição saudável + retenção viral**. Atualmente o `MyCircleSheet`
+mostra streak, calendário, níveis e badges individuais. Falta a camada
+social/comparativa.
+
+### Escopo
+
+- **Ranking semanal/mensal entre amigos** — quem treinou mais dias na
+  semana corrente entre quem você segue. UI: lista vertical estilo
+  Strava, com avatar + nome + número de dias + ring colorido.
+- **Ranking entre circles (academias)** — agregado de quem treina na
+  mesma academia. "Sua academia tem 12 ativos esta semana — você está
+  em 3º."
+- **Desafios sazonais** — "Treine 5 dias nesta semana" / "Mantenha
+  streak de 30 dias" / "100 treinos no ano". Backend tem que persistir
+  o desafio + tracking (nova tabela `challenges` + `challenge_progress`).
+- **Conquistas compartilháveis** — badges com share sheet (deeplink +
+  imagem gerada server-side ou via Canvas/SVG). Apple Share Sheet
+  nativo via Capacitor Share plugin.
+- **Badge unlock animation** — sparkle + haptic success quando
+  desbloquear novo badge. Lottie ou animação CSS pura.
+- **`GamificationService` completo** — com cache TTL via sessionStorage
+  + lazy load de `user_activity_days` filtrado por mês pra calendário
+  trans-mês preciso.
+  - Métodos: `getUserGamificationSummary`,
+    `getMonthlyActivityCalendar`, `getConsistencyLevel`,
+    `getEarnedBadges`, `getNextBadgeProgress`.
+  - In-memory `Map<userId+month, { data, expiresAt }>` com TTL ~5min.
+  - Fallback vazio amigável quando offline.
+- **RPC `get_user_gamification_summary(user_id, month_key)`** —
+  agregação no Postgres pra reduzir round-trips quando rankings
+  forem feature pesada.
+
+### Performance
+
+- Rankings carregam sob demanda (não no boot).
+- Lazy chunk pro `RankingSheet` (dynamic import).
+- Realtime sub apenas pra mudanças do próprio user + amigos próximos.
+- Cache curto agressivo (rankings mudam pouco em poucos minutos).
+
+### Fora do escopo desta sprint futura
+
+- Cross-circle (academia vs academia) ranking público.
+- Apostas/desafios em dinheiro.
+- Push notifications de "X subiu no ranking" (vem com push real Sprint 4).
+
 ## Fase 3: App Nativo Completo no Futuro
 
 Objetivo: migrar surfaces críticas para React Native/Expo ou Swift quando o produto provar retenção e escala.
