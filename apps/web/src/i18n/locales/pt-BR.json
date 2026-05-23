@@ -14,7 +14,100 @@
     "yes": "Sim",
     "no": "Não",
     "more": "mais",
-    "less": "menos"
+    "less": "menos",
+    "search": "Buscar",
+    "open": "Abrir",
+    "send": "Enviar",
+    "edit": "Editar",
+    "delete": "Apagar",
+    "share": "Compartilhar",
+    "report": "Denunciar",
+    "block": "Bloquear",
+    "unblock": "Desbloquear",
+    "mute": "Silenciar",
+    "follow": "Seguir",
+    "following": "Seguindo",
+    "followRequested": "Solicitado",
+    "followBack": "Seguir de volta",
+    "requestFollow": "Solicitar para seguir",
+    "message": "Mensagem"
+  },
+  "tabs": {
+    "home": "Início",
+    "chat": "Conversas",
+    "post": "Postar",
+    "map": "Mapa",
+    "profile": "Perfil"
+  },
+  "feed": {
+    "title": "Gym Circle",
+    "loading": "Carregando feed...",
+    "empty": {
+      "title": "Seu feed começa aqui",
+      "body": "Siga pessoas e poste seu primeiro treino pra ver o feed acontecer."
+    },
+    "post": {
+      "comment": "Comentar",
+      "share": "Compartilhar",
+      "like": "Curtir",
+      "unlike": "Descurtir",
+      "openProfile": "Ver perfil de {{name}}",
+      "videoBadge": "Vídeo",
+      "viewComments_one": "Ver 1 comentário",
+      "viewComments_other": "Ver todos os {{count}} comentários",
+      "likedBy": "Curtido por {{name}}",
+      "likedByAndOthers": "Curtido por {{name}} e outras pessoas",
+      "likesCount_one": "1 curtida",
+      "likesCount_other": "{{count}} curtidas",
+      "beFirstToLike": "Seja o primeiro a curtir",
+      "shareTo": "Enviar para",
+      "shareEmpty": "Siga pessoas para enviar treinos por mensagem.",
+      "menuOpenLabel": "Mais opções"
+    },
+    "suggestions": {
+      "title": "Sugestões pra você"
+    }
+  },
+  "comments": {
+    "title": "Comentários",
+    "placeholder": "Adicione um comentário...",
+    "send": "Enviar comentário",
+    "empty": {
+      "title": "Ainda não há nenhum comentário",
+      "detail": "Inicie a conversa com uma mensagem rápida."
+    },
+    "delete": "Apagar comentário",
+    "like": "Curtir comentário",
+    "unlike": "Remover curtida do comentário",
+    "showingOf": "Mostrando {{shown}} de {{total}} comentários",
+    "reactWith": "Reagir com {{emoji}}",
+    "close": "Fechar comentários"
+  },
+  "stories": {
+    "yourStory": "Seu story",
+    "addStory": "Adicionar story",
+    "viewStoryOf": "Ver story de {{name}}",
+    "reply": "Responder...",
+    "noStoriesYet": "Ainda não há stories"
+  },
+  "myCircle": {
+    "title": "Meu Circle",
+    "currentStreak": "Streak atual",
+    "longestStreak": "Maior streak",
+    "monthWorkouts": "Treinos no mês",
+    "yearDays": "Dias no ano",
+    "posts": "Posts",
+    "restores": "Restauradores",
+    "consistency": {
+      "title": "Sua Consistência",
+      "week": "Semana",
+      "month": "Mês",
+      "year": "Ano",
+      "unit": "{{trained}}/{{total}} dias"
+    },
+    "level": "Nível {{level}}",
+    "badgeActive": "Badge aceso hoje",
+    "badgePending": "Pronto para acender"
   },
   "settings": {
     "title": "Configurações",
@@ -66,12 +159,25 @@
     }
   },
   "profile": {
+    "title": "Perfil",
     "menu": {
       "settings": "Configurações",
       "editProfile": "Editar perfil",
       "logout": "Sair",
       "admin": "Admin"
-    }
+    },
+    "stats": {
+      "posts": "Posts",
+      "followers": "Seguidores",
+      "following": "Seguindo"
+    },
+    "private": "Perfil privado",
+    "privateNotice": {
+      "title": "Perfil privado",
+      "body": "Envie uma solicitação para acompanhar este circle por dentro.",
+      "latestPost": "Último treino"
+    },
+    "emptyPosts": "Nenhum treino publicado ainda"
   },
   "orientation": {
     "rotateTitle": "Vire o celular",

@@ -7,6 +7,7 @@ import {
   MapPin,
   MessageCircle,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { BottomTabBar } from "./design-system";
 
 export type ScreenKey = "feed" | "chat" | "post" | "checkin" | "profile";
@@ -19,14 +20,14 @@ type BottomNavProps = {
 };
 
 const baseNavItems = [
-  { key: "feed", label: "Home", icon: House },
-  { key: "chat", label: "Chat", icon: MessageCircle },
-  { key: "post", label: "Câmera", icon: Camera },
-  { key: "checkin", label: "Localização", icon: MapPin },
-  { key: "profile", label: "Perfil", icon: CircleUserRound },
+  { key: "feed", labelKey: "tabs.home", icon: House },
+  { key: "chat", labelKey: "tabs.chat", icon: MessageCircle },
+  { key: "post", labelKey: "tabs.post", icon: Camera },
+  { key: "checkin", labelKey: "tabs.map", icon: MapPin },
+  { key: "profile", labelKey: "tabs.profile", icon: CircleUserRound },
 ] satisfies Array<{
   key: ScreenKey;
-  label: string;
+  labelKey: string;
   icon: typeof House;
 }>;
 
@@ -36,9 +37,13 @@ export function BottomNav({
   onChange,
   unreadMessages = 0,
 }: BottomNavProps) {
-  const navItems = baseNavItems.map((item) =>
-    item.key === "chat" ? { ...item, badge: unreadMessages } : item,
-  );
+  // Sprint 4.4 i18n: labels resolvidos via t() em runtime — re-renderiza
+  // automaticamente quando o user troca idioma no Settings.
+  const { t } = useTranslation();
+  const navItems = baseNavItems.map((item) => {
+    const base = { ...item, label: t(item.labelKey) };
+    return item.key === "chat" ? { ...base, badge: unreadMessages } : base;
+  });
   return (
     <BottomTabBar active={active} hidden={hidden} items={navItems} onChange={onChange} />
   );

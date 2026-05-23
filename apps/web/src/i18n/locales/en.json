@@ -14,7 +14,100 @@
     "yes": "Yes",
     "no": "No",
     "more": "more",
-    "less": "less"
+    "less": "less",
+    "search": "Search",
+    "open": "Open",
+    "send": "Send",
+    "edit": "Edit",
+    "delete": "Delete",
+    "share": "Share",
+    "report": "Report",
+    "block": "Block",
+    "unblock": "Unblock",
+    "mute": "Mute",
+    "follow": "Follow",
+    "following": "Following",
+    "followRequested": "Requested",
+    "followBack": "Follow back",
+    "requestFollow": "Request to follow",
+    "message": "Message"
+  },
+  "tabs": {
+    "home": "Home",
+    "chat": "Chats",
+    "post": "Post",
+    "map": "Map",
+    "profile": "Profile"
+  },
+  "feed": {
+    "title": "Gym Circle",
+    "loading": "Loading feed...",
+    "empty": {
+      "title": "Your feed starts here",
+      "body": "Follow people and post your first workout to see the feed come to life."
+    },
+    "post": {
+      "comment": "Comment",
+      "share": "Share",
+      "like": "Like",
+      "unlike": "Unlike",
+      "openProfile": "View {{name}}'s profile",
+      "videoBadge": "Video",
+      "viewComments_one": "View 1 comment",
+      "viewComments_other": "View all {{count}} comments",
+      "likedBy": "Liked by {{name}}",
+      "likedByAndOthers": "Liked by {{name}} and others",
+      "likesCount_one": "1 like",
+      "likesCount_other": "{{count}} likes",
+      "beFirstToLike": "Be the first to like",
+      "shareTo": "Send to",
+      "shareEmpty": "Follow people to send workouts via message.",
+      "menuOpenLabel": "More options"
+    },
+    "suggestions": {
+      "title": "Suggestions for you"
+    }
+  },
+  "comments": {
+    "title": "Comments",
+    "placeholder": "Add a comment...",
+    "send": "Send comment",
+    "empty": {
+      "title": "No comments yet",
+      "detail": "Start the conversation with a quick message."
+    },
+    "delete": "Delete comment",
+    "like": "Like comment",
+    "unlike": "Remove like from comment",
+    "showingOf": "Showing {{shown}} of {{total}} comments",
+    "reactWith": "React with {{emoji}}",
+    "close": "Close comments"
+  },
+  "stories": {
+    "yourStory": "Your story",
+    "addStory": "Add story",
+    "viewStoryOf": "View {{name}}'s story",
+    "reply": "Reply...",
+    "noStoriesYet": "No stories yet"
+  },
+  "myCircle": {
+    "title": "My Circle",
+    "currentStreak": "Current streak",
+    "longestStreak": "Best streak",
+    "monthWorkouts": "Workouts this month",
+    "yearDays": "Days this year",
+    "posts": "Posts",
+    "restores": "Restores",
+    "consistency": {
+      "title": "Your Consistency",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "unit": "{{trained}}/{{total}} days"
+    },
+    "level": "Level {{level}}",
+    "badgeActive": "Badge active today",
+    "badgePending": "Ready to light up"
   },
   "settings": {
     "title": "Settings",
@@ -66,12 +159,25 @@
     }
   },
   "profile": {
+    "title": "Profile",
     "menu": {
       "settings": "Settings",
       "editProfile": "Edit profile",
       "logout": "Sign out",
       "admin": "Admin"
-    }
+    },
+    "stats": {
+      "posts": "Posts",
+      "followers": "Followers",
+      "following": "Following"
+    },
+    "private": "Private profile",
+    "privateNotice": {
+      "title": "Private profile",
+      "body": "Send a request to follow this circle from the inside.",
+      "latestPost": "Latest workout"
+    },
+    "emptyPosts": "No workouts posted yet"
   },
   "orientation": {
     "rotateTitle": "Rotate your phone",

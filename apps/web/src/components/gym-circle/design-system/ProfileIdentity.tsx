@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import { Flame, Lock, MapPin } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { getStreakLevel } from "../social/streak";
 import type { EnrichedUser } from "../social/types";
 import { AvatarConsistencyRings } from "./AvatarConsistencyRings";
@@ -66,6 +67,7 @@ export function ProfileIdentity({
   ringsSize = 180,
   actions,
 }: ProfileIdentityProps) {
+  const { t } = useTranslation();
   const mainGym = user.gyms[0];
   const level = getStreakLevel(user.currentStreak);
   const hasStreakChip = user.currentStreak > 0 || user.streakLitToday;
@@ -89,7 +91,7 @@ export function ProfileIdentity({
           </h2>
           {user.isPrivate ? (
             <Lock
-              aria-label="Perfil privado"
+              aria-label={t("profile.private")}
               className="shrink-0 text-white/52"
               size={14}
               strokeWidth={2.6}
@@ -144,14 +146,14 @@ export function ProfileIdentity({
 
       {/* Stats: Posts • Seguidores • Seguindo */}
       <div className="mt-4 grid w-full max-w-[320px] grid-cols-3 gap-1">
-        <ProfileStat label="Posts" value={postsCount} />
+        <ProfileStat label={t("profile.stats.posts")} value={postsCount} />
         <ProfileStat
-          label="Seguidores"
+          label={t("profile.stats.followers")}
           onClick={onOpenFollowers}
           value={user.followersCount}
         />
         <ProfileStat
-          label="Seguindo"
+          label={t("profile.stats.following")}
           onClick={onOpenFollowing}
           value={user.followingCount}
         />

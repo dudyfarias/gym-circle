@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
   Heart,
@@ -72,6 +73,7 @@ export function SocialPostCard({
   onOpenLikes,
   inCommentsSheet = false,
 }: SocialPostCardProps) {
+  const { t } = useTranslation();
   // Sprint 3 — Fase 3.4: cleanup final do contrato. As props de comentário
   // (onComment, onDeleteComment, onLikeComment, mentionUsers) foram removidas
   // do type; o sheet em CommentsBottomSheet recebe essas callbacks diretamente
@@ -183,7 +185,7 @@ export function SocialPostCard({
       <div className="flex items-center justify-between gap-3 px-4 py-3.5">
         <div className="flex min-w-0 flex-1 items-center gap-3 text-left">
           <button
-            aria-label={`Ver ${post.author.name}`}
+            aria-label={t("feed.post.openProfile", { name: post.author.name })}
             className="gc-pressable shrink-0"
             onClick={() => onSelectUser?.(post.author.id)}
             type="button"
@@ -278,7 +280,7 @@ export function SocialPostCard({
           {onOpenPostMenu && !inCommentsSheet ? (
             <IconButton
               className="size-11"
-              label="Mais opções"
+              label={t("feed.post.menuOpenLabel")}
               onClick={() => onOpenPostMenu(post.id)}
             >
               <MoreHorizontal size={18} />
@@ -308,7 +310,7 @@ export function SocialPostCard({
           />
         ) : (
           <PinchZoomImage
-            alt={`Treino de ${post.author.name}`}
+            alt={t("feed.post.openProfile", { name: post.author.name })}
             blurDataUrl={post.blurDataUrl}
             className="w-full"
             hqSrc={imageHqUrl}
@@ -326,7 +328,7 @@ export function SocialPostCard({
         {mediaType === "video" ? (
           <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/56 px-2 py-1 text-[10px] font-black text-white/86 backdrop-blur-md">
             <Video size={11} strokeWidth={2.6} />
-            Vídeo
+            {t("feed.post.videoBadge")}
           </div>
         ) : null}
       </div>
@@ -345,7 +347,11 @@ export function SocialPostCard({
                   ? "gc-heart-pop text-[var(--gc-blue)] drop-shadow-[0_0_18px_rgba(48,213,255,0.55)]"
                   : "text-white",
               ].join(" ")}
-              label="Curtir"
+              label={
+                post.likedByCurrentUser
+                  ? t("feed.post.unlike")
+                  : t("feed.post.like")
+              }
               onClick={handleLike}
             >
               <Heart
@@ -357,7 +363,7 @@ export function SocialPostCard({
             {!inCommentsSheet ? (
               <IconButton
                 className="size-11"
-                label="Comentar"
+                label={t("feed.post.comment")}
                 onClick={handleOpenComments}
               >
                 <MessageCircle size={19} strokeWidth={2.4} />
@@ -370,7 +376,7 @@ export function SocialPostCard({
                   shareOpen ? "text-[var(--gc-blue)]" : "",
                 ].join(" ")}
                 disabled={!onShareToChat}
-                label="Compartilhar"
+                label={t("feed.post.share")}
                 onClick={() => setShareOpen((value) => !value)}
               >
                 <Send size={18} strokeWidth={2.4} />
@@ -387,13 +393,15 @@ export function SocialPostCard({
         {shareOpen ? (
           <div className="gc-screen-enter rounded-[24px] border border-white/[0.08] bg-white/[0.045] p-3">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-[13px] font-black text-white">Enviar para</p>
+              <p className="text-[13px] font-black text-white">
+                {t("feed.post.shareTo")}
+              </p>
               <button
                 className="gc-pressable text-[12px] font-black text-white/42"
                 onClick={() => setShareOpen(false)}
                 type="button"
               >
-                Fechar
+                {t("common.close")}
               </button>
             </div>
             {directShareTargets.length > 0 ? (
@@ -447,11 +455,11 @@ export function SocialPostCard({
             Clicável apenas pelo owner (UX existente — apenas o dono vê o sheet
             com lista completa). */}
         {post.likesCount > 0 ? (() => {
+          // Sprint 4.4 i18n: likeSummary já vem traduzido do helper (caller
+          // passa). Fallback usa contagem com plural via i18next.
           const summaryText =
             likeSummary ??
-            `${post.likesCount.toLocaleString("pt-BR")} ${
-              post.likesCount === 1 ? "curtida" : "curtidas"
-            }`;
+            t("feed.post.likesCount", { count: post.likesCount });
           const summaryContent = (
             <>
               {post.likedByPreview.length > 0 ? (
@@ -491,7 +499,7 @@ export function SocialPostCard({
           );
         })() : isPostOwner ? (
           <p className="text-[13px] font-bold text-white/44">
-            Seja o primeiro a curtir
+            {t("feed.post.beFirstToLike")}
           </p>
         ) : null}
 
@@ -521,12 +529,12 @@ export function SocialPostCard({
               <>
                 …{" "}
                 <button
-                  aria-label="Expandir legenda"
+                  aria-label={t("common.more")}
                   className="gc-pressable text-[13px] font-semibold text-white/52"
                   onClick={() => setCaptionExpanded(true)}
                   type="button"
                 >
-                  mais
+                  {t("common.more")}
                 </button>
               </>
             ) : null}
@@ -538,7 +546,7 @@ export function SocialPostCard({
           if (!preview) return null;
           return (
             <button
-              aria-label={`Comentário de ${preview.author.username}: ${preview.body}`}
+              aria-label={`${preview.author.username}: ${preview.body}`}
               className="gc-pressable block w-full text-left text-[14px] font-semibold leading-5 text-white/92"
               onClick={handleOpenComments}
               type="button"
@@ -559,9 +567,7 @@ export function SocialPostCard({
             onClick={handleOpenComments}
             type="button"
           >
-            {commentsCount === 1
-              ? "Ver 1 comentário"
-              : `Ver todos os ${commentsCount.toLocaleString("pt-BR")} comentários`}
+            {t("feed.post.viewComments", { count: commentsCount })}
           </button>
         ) : null}
       </div>

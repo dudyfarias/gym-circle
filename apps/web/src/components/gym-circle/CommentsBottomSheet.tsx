@@ -9,6 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import { Heart, Send, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "./design-system/EmptyState";
 import { SocialPostCard } from "./design-system/SocialPostCard";
@@ -119,6 +120,7 @@ export function CommentsBottomSheet({
   embedPost = true,
   onLikePost,
 }: CommentsBottomSheetProps) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState("");
   const [caretIndex, setCaretIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -269,7 +271,7 @@ export function CommentsBottomSheet({
       ].join(" ")}
     >
       <button
-        aria-label="Fechar comentários"
+        aria-label={t("comments.close")}
         className="absolute inset-0 bg-black/68 backdrop-blur-xl"
         onClick={handleClose}
         tabIndex={open ? 0 : -1}
@@ -292,10 +294,10 @@ export function CommentsBottomSheet({
         <header className="grid grid-cols-[1fr_auto_1fr] items-center px-4 pb-3 pt-1">
           <div />
           <h2 className="text-center text-[15px] font-black text-white">
-            Comentários
+            {t("comments.title")}
           </h2>
           <button
-            aria-label="Fechar"
+            aria-label={t("common.close")}
             className="gc-pressable grid size-9 justify-self-end place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={handleClose}
             type="button"
@@ -330,8 +332,8 @@ export function CommentsBottomSheet({
           {post.commentPreviews.length === 0 ? (
             <div className="grid h-full place-items-center">
               <EmptyState
-                detail="Inicie a conversa com uma mensagem rápida."
-                title="Ainda não há nenhum comentário"
+                detail={t("comments.empty.detail")}
+                title={t("comments.empty.title")}
               />
             </div>
           ) : (
@@ -346,7 +348,7 @@ export function CommentsBottomSheet({
                 const content = (
                   <div className="flex items-start gap-3 px-1 py-1">
                     <button
-                      aria-label={`Ver perfil de ${comment.author.name}`}
+                      aria-label={t("feed.post.openProfile", { name: comment.author.name })}
                       className="gc-pressable shrink-0"
                       onClick={() => onSelectUser?.(comment.author.id)}
                       type="button"
@@ -388,8 +390,8 @@ export function CommentsBottomSheet({
                       <button
                         aria-label={
                           commentLiked
-                            ? "Remover curtida do comentário"
-                            : "Curtir comentário"
+                            ? t("comments.unlike")
+                            : t("comments.like")
                         }
                         className={[
                           "gc-pressable grid min-h-9 min-w-9 place-items-center rounded-full",
@@ -432,7 +434,7 @@ export function CommentsBottomSheet({
                   <SwipeRevealDelete
                     className="rounded-[18px]"
                     contentClassName="rounded-[18px]"
-                    deleteLabel="Apagar comentário"
+                    deleteLabel={t("comments.delete")}
                     key={comment.id}
                     onDelete={() => onDeleteComment(post.id, comment.id)}
                     revealWidth={58}
@@ -443,8 +445,10 @@ export function CommentsBottomSheet({
               })}
               {commentsCount > post.commentPreviews.length ? (
                 <p className="pt-1 text-center text-[12px] font-bold text-white/36">
-                  Mostrando {post.commentPreviews.length} de{" "}
-                  {commentsCount.toLocaleString("pt-BR")} comentários
+                  {t("comments.showingOf", {
+                    shown: post.commentPreviews.length,
+                    total: commentsCount.toLocaleString(),
+                  })}
                 </p>
               ) : null}
             </div>
@@ -457,7 +461,7 @@ export function CommentsBottomSheet({
           <div className="gc-scrollbar flex gap-1 overflow-x-auto px-3 py-2">
             {REACTION_EMOJIS.map((emoji) => (
               <button
-                aria-label={`Reagir com ${emoji}`}
+                aria-label={t("comments.reactWith", { emoji })}
                 className="gc-pressable grid min-h-11 min-w-11 place-items-center rounded-full text-[22px] hover:bg-white/[0.05] disabled:opacity-40"
                 disabled={submitting}
                 key={emoji}
@@ -528,12 +532,12 @@ export function CommentsBottomSheet({
             onClick={updateCaret}
             onFocus={updateCaret}
             onKeyUp={updateCaret}
-            placeholder="Adicione um comentário..."
+            placeholder={t("comments.placeholder")}
             ref={inputRef}
             value={draft}
           />
           <button
-            aria-label="Enviar comentário"
+            aria-label={t("comments.send")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
             disabled={!draft.trim() || submitting}
             type="submit"

@@ -96,7 +96,7 @@ export function ProfileScreen({
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar
-        eyebrow="Gym Circle"
+        eyebrow={t("feed.title")}
         extraAction={
           onOpenSettings ? (
             <IconButton label={t("settings.openLabel")} onClick={onOpenSettings}>
@@ -104,7 +104,7 @@ export function ProfileScreen({
             </IconButton>
           ) : undefined
         }
-        title="Perfil"
+        title={t("profile.title")}
       />
 
       {/* Identidade compartilhada — mesmo componente do ProfileSheet (Sprint 3 pós-3.4) */}
