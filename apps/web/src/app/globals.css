@@ -511,3 +511,43 @@ button {
     display: initial;
   }
 }
+
+/*
+ * Sprint 4.1 — Landscape lock fallback (camada 3).
+ *
+ * iOS Info.plist (camada 1) + Capacitor screen-orientation (camada 2)
+ * cobrem 99% dos casos. Esse fallback CSS captura o 1% restante:
+ *   - Web desktop em janela rotada
+ *   - PWA em browser sem suporte a Screen Orientation API
+ *   - Cenários edge de WebView pre-iOS 16
+ *
+ * Critério: viewport com width > height E pointer coarse (= touch device,
+ * não desktop). O `coarse` exclui desktops com janelas estreitas em modo
+ * "wide" que disparariam landscape por engano.
+ *
+ * UX: overlay full-screen com mensagem instruindo a girar. Não dá pra
+ * fechar — o app só volta quando o user gira. Z-index 100 cobre TODOS
+ * os sheets/modals (max z-index do app é ~85).
+ */
+.gc-landscape-overlay {
+  display: none;
+}
+
+@media (orientation: landscape) and (pointer: coarse) {
+  .gc-landscape-overlay {
+    display: grid;
+    place-items: center;
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: #0a0b0c;
+    color: white;
+    text-align: center;
+    padding: 32px;
+  }
+
+  /* Bloqueia interação com o app por baixo */
+  body > *:not(.gc-landscape-overlay) {
+    pointer-events: none;
+  }
+}

@@ -66,6 +66,16 @@ const config: CapacitorConfig = {
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
+    // Sprint 4.1: trava em portrait. Combinação:
+    //   - iOS: redundante com Info.plist UISupportedInterfaceOrientations
+    //     (esse é o autoritativo no native), mas o plugin garante que o
+    //     WebView interno não tente CSS rotation.
+    //   - Android: AUTORITATIVO — não tem Info.plist equivalente.
+    //   - Web/PWA: usa Screen Orientation API quando suportada.
+    ScreenOrientation: {
+      // No iOS, esse default é aplicado mas a UISupportedInterfaceOrientations
+      // sobrescreve. No Android, esse é o lock real.
+    },
   },
 };
 
