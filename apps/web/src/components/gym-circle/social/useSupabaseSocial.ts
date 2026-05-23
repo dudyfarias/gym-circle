@@ -1518,24 +1518,30 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         logSurfaceFallback("bulk activity days", activityRes.error);
       }
 
+      // Casts via `unknown` necessários: supabase-js v2 com type builder
+      // ativo gera uniões com `GenericStringError[]` no error path. Cast
+      // direto pra shape inline falha o tsc. Pattern espelhado nos
+      // outros casts em `refreshProfilePosts` e linha ~3301.
       const followersByUser = new Map<string, number>();
-      for (const row of (followersRes.data ??
-        []) as Array<{ following_id: string }>) {
+      for (const row of (followersRes.data ?? []) as unknown as Array<{
+        following_id: string;
+      }>) {
         followersByUser.set(
           row.following_id,
           (followersByUser.get(row.following_id) ?? 0) + 1,
         );
       }
       const followingByUser = new Map<string, number>();
-      for (const row of (followingRes.data ??
-        []) as Array<{ follower_id: string }>) {
+      for (const row of (followingRes.data ?? []) as unknown as Array<{
+        follower_id: string;
+      }>) {
         followingByUser.set(
           row.follower_id,
           (followingByUser.get(row.follower_id) ?? 0) + 1,
         );
       }
       const activityByUser = new Map<string, string[]>();
-      for (const row of (activityRes.data ?? []) as Array<{
+      for (const row of (activityRes.data ?? []) as unknown as Array<{
         user_id: string;
         activity_date: string;
       }>) {
@@ -1561,7 +1567,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           activityDates: Array.from(new Set(userActivityDays)),
         };
       }
-      const completeStats = (statsRes.data ?? []) as UserStatsRow[];
+      // Cast através de `unknown` é o pattern correto pra supabase-js
+      // queries multi-row (`.in(...)` sem `.maybeSingle()`): o type
+      // builder gera uma união com `GenericStringError[]` no caso de
+      // erro, e TS recusa cast direto. Mesmo padrão usado em linha ~3292
+      // pro stats batch do refresh de profile.
+      const completeStats = (statsRes.data ?? []) as unknown as UserStatsRow[];
 
       if (!mountedRef.current) return;
       setAgg((current) => ({
@@ -2058,7 +2069,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const profileSurfaceProfiles = profileSurfaceRows
         .map(profileRowFromSurface)
         .filter((profile): profile is ProfileRow => Boolean(profile));
-      const completeProfileStats = profileStatsRes.data as UserStatsRow | null;
+      // Cast defensivo: supabase-js .maybeSingle() retorna tipo unionado
+      // com PostgrestError. Mesmo que TS consiga inferir em alguns casos,
+      // ir via `unknown` evita brechas em mudanças futuras da lib.
+      const completeProfileStats =
+        profileStatsRes.data as unknown as UserStatsRow | null;
       // A row completa do user_stats_live (se veio) entra ANTES das
       // partials do surface — `mergeStatsArrays` faz Math.max nos
       // conflitos, então mesmo se vier depois o complete ganha.
@@ -2080,7 +2095,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       // user_activity_days_select_visible). Se a query falhou ou retornou
       // vazio (perfil privado sem follow), cai pra 0.
       const profileActivityDays = (
-        (profileActivityRes.data ?? []) as Array<{ activity_date: string }>
+        (profileActivityRes.data ?? []) as unknown as Array<{
+          activity_date: string;
+        }>
       ).map((row) => row.activity_date);
       const profileWeekStats =
         profileActivityDays.length > 0
