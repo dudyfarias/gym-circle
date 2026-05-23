@@ -964,7 +964,17 @@ export function GymCirclePreview({
             onLikePost={social.actions.likePost}
             onLoadMoreFeed={social.actions.loadMoreFeed}
             onOpenLikes={openLikes}
-            onOpenPostDetails={social.actions.refreshPostDetails}
+            // Sprint 3.6.6 bug fix: este wire estava errado —
+            // `social.actions.refreshPostDetails` é só uma DATA action
+            // (refetch likes/comments do post), não abre o sheet. O
+            // handler local `openPostDetail` faz `setPostDetailId(postId)`
+            // E chama o refresh em paralelo (linhas 299-305). Sem isso,
+            // clicar em "comentar" no feed só refazia o fetch sem abrir
+            // o `CommentsBottomSheet` — o user reportou "não consegue
+            // comentar em posts de outras pessoas".
+            // Pattern correto: as linhas 883/1128 já usam `openPostDetail`
+            // pro mesmo callback (`onOpenPost`) nos profile sheets.
+            onOpenPostDetails={openPostDetail}
             onOpenPostMenu={openPostMenu}
             onOpenStory={social.actions.openStory}
             onSharePostToChat={social.actions.sharePostToChat}
