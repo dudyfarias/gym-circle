@@ -1234,3 +1234,74 @@ explícito de Math.max.
 `mergeUserStatsRow` pra um util novo `stats-merge.ts` + adicionar testes
 unitários cobrindo: partial atrás de complete, duplicatas no mesmo array,
 null timestamps, OR no badge_is_active_today.
+
+---
+
+### Fase 3.6.2 — Bug fix do 3º ring desaparecido + workoutsThisWeek real
+
+**Sintoma reportado pelo Eduardo (2026-05-23, segundo screenshot):**
+
+> "Os 3 círculos têm que ser de dentro pra fora: círculo de dias treinados
+> na semana, círculo de dias treinados no mês e círculo de dias treinados
+> no ano. Hoje só está aparecendo dois círculos."
+
+**Diagnóstico — bug duplo:**
+
+1. **Dados:** `workoutsThisWeek` estava HARDCODED `0` em 4 lugares do
+   `useSupabaseSocial.ts` (linhas 699, 761, 2274, 2335) com comentário
+   "fallback 0 até hidratação real, sem RPC novo nesta sprint" —
+   pendência da Sprint 3.5.1 que nunca foi resolvida. Resultado: ring de
+   Semana sempre em 0%, sem arc visível.
+
+2. **Visual:** o track dos 3 rings era `rgba(140,251,255,0.075)` — 7.5%
+   de opacidade. Suficiente quando há value preenchendo a maior parte do
+   ring, mas invisível em ring vazio (value=0). Combinado com (1), o
+   ring de Semana ficava 100% invisível.
+
+**Validação via Supabase MCP:**
+
+```sql
+SELECT COUNT(DISTINCT activity_date) AS unique_days_this_week
+FROM user_activity_days
+WHERE user_id = (SELECT user_id FROM profiles WHERE username = 'dudy')
+  AND activity_date >= date_trunc('week', CURRENT_DATE)::date;
+-- Resultado: 5
+```
+
+DB tem 5 dias treinados esta semana pro dudy (Mon→Fri 5/18-5/22). Com o
+fix de dados, ring de Semana deve mostrar 5/7 ≈ 71% — claramente
+visível.
+
+**Fix:**
+
+1. **Derivar `workoutsThisWeek` no enrichedAll (current user only):**
+
+   - Importar `calculateWorkoutStats` de `./streak` (já tinha
+     `buildMonthWorkoutDays`).
+   - No `useMemo enrichedAll`, antes do loop de profiles, criar
+     `myWorkoutStats = calculateWorkoutStats(Array.from(myActivityDates))`
+     quando `myActivityDates.size > 0`.
+   - Trocar `workoutsThisWeek: 0` por
+     `profile.user_id === currentUserId ? myWorkoutStats?.workoutsThisWeek ?? 0 : 0`.
+   - Outros users do feed continuam `0` (limitação conhecida — não temos
+     `user_activity_days` deles sem RPC adicional, pendência futura).
+
+2. **Aumentar track opacity 0.075 → 0.16:**
+
+   - Em `AvatarConsistencyRings.tsx`, dobra o contraste do track sem
+     virar "loud". 0.16 é o ponto onde o eye consegue distinguir 3 rings
+     contra fundo dark mesmo com value=0, sem ferir o premium feel.
+
+**Resultado esperado:**
+
+- Ring de Semana (innermost): 5/7 ≈ 71% — arco brilhante visível
+- Ring de Mês (middle): 11/31 ≈ 35% — continua visível
+- Ring de Ano (outermost): 11/365 ≈ 3% — stub no topo
+- Os 3 tracks visíveis mesmo nos rings com pouco fill
+
+**Limitação conhecida (não corrigida nesta fase):**
+
+`workoutsThisWeek` dos OUTROS users do feed continua 0 — eles teriam o
+mesmo bug visual quando o user abrir o `ProfileSheet` de outro usuário.
+Fix exige RPC novo que carregue `user_activity_days` por user_id, escopo
+do GamificationService planejado pra próxima sprint.

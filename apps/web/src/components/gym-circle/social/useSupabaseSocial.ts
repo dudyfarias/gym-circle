@@ -53,7 +53,7 @@ import {
   filterMutedStories,
   hasUserLikedStory,
 } from "./storyInteractions";
-import { buildMonthWorkoutDays } from "./streak";
+import { buildMonthWorkoutDays, calculateWorkoutStats } from "./streak";
 import type {
   ChatMessage,
   ChatConversation,
@@ -2215,6 +2215,17 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       checkinsCountByUser.set(c.user_id, (checkinsCountByUser.get(c.user_id) ?? 0) + 1);
     }
     const myActivityDates = new Set(agg.myActivityDays.map((d) => d.activity_date));
+    // Sprint 3.6.2: deriva `workoutsThisWeek` do current user diretamente
+    // de `user_activity_days` (Set `myActivityDates`). Sem essa derivação o
+    // ring de Semana do `AvatarConsistencyRings` ficava sempre vazio
+    // (`workoutsThisWeek: 0` hardcoded antes), e o usuário via apenas 2 dos
+    // 3 rings (mês + ano stub). Outros users do feed continuam com 0
+    // porque não temos `user_activity_days` deles sem RPC adicional —
+    // limitação conhecida da Sprint 3.5 pendente pra GamificationService.
+    const myWorkoutStats =
+      myActivityDates.size > 0
+        ? calculateWorkoutStats(Array.from(myActivityDates))
+        : null;
 
     const map = new Map<string, EnrichedUser>();
     for (const profile of agg.profiles) {
@@ -2271,7 +2282,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         currentStreak: stats?.current_streak ?? 0,
         longestStreak: stats?.best_streak ?? 0,
         lastWorkoutDate: stats?.last_active_date ?? "",
-        workoutsThisWeek: 0,
+        // Sprint 3.6.2: derivado de user_activity_days quando for o
+        // current user; 0 pros demais (vide comentário acima de
+        // `myWorkoutStats`).
+        workoutsThisWeek:
+          profile.user_id === currentUserId
+            ? myWorkoutStats?.workoutsThisWeek ?? 0
+            : 0,
         workoutsThisMonth: stats?.workouts_this_month ?? 0,
         activeDaysCount: stats?.active_days_this_year ?? 0,
         streakRestoresAvailable:

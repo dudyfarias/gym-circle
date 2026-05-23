@@ -175,7 +175,11 @@ export function AvatarConsistencyRings({
                 cy={center}
                 fill="none"
                 r={radius}
-                stroke="rgba(140,251,255,0.075)"
+                // Sprint 3.6.2: track de 0.075 era invisível demais quando o
+                // value era 0 (ring de Semana). User reportou só ver 2 dos 3
+                // rings. Subimos pra 0.16 — ainda dark premium, mas garante
+                // que os 3 tracks aparecem mesmo com value=0.
+                stroke="rgba(140,251,255,0.16)"
                 strokeWidth={strokeWidth}
               />
               <circle
