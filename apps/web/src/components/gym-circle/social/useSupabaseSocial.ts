@@ -201,6 +201,18 @@ type ProfileExtras = {
   followingCount: number;
   /** Derivado de user_activity_days desse user (Mon→Sun ISO). */
   workoutsThisWeek: number;
+  /**
+   * Sprint 3.6.5: lista de datas treinadas desse user (formato `YYYY-MM-DD`).
+   * Usada como `workoutDays` no `EnrichedUser` pra alimentar o calendário
+   * mensal do `MyCircleSheet`. Antes era só do current user (`myActivityDates`);
+   * outros users ficavam com `[]` e o calendário deles aparecia vazio.
+   *
+   * Cobertura: últimos ~90 dias no bulk fetch (`refreshUsersExtras`) ou
+   * últimas ~400 entradas no profile dedicado (`refreshProfilePosts`).
+   * Suficiente pro calendário do mês atual + mês anterior; pra navegação
+   * mais antiga, precisaria expandir o lookback (próxima sprint).
+   */
+  activityDates: string[];
 };
 
 const EMPTY: AggregateState = {
@@ -1453,11 +1465,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         new Set(userIds.filter((id) => id && id !== currentUserId)),
       );
       if (uniqueIds.length === 0) return;
-      // 14 dias é o suficiente pra cobrir "esta semana" (Mon→Sun ISO) +
-      // buffer pro caso de TZ shift. Limita o volume de rows retornadas.
+      // Sprint 3.6.5: 90 dias de lookback cobre o calendário do
+      // MyCircleSheet (mês atual + mês anterior + buffer). Antes era 14d
+      // só pro workoutsThisWeek — bug do calendário vazio em perfis de
+      // outros users. Volume: ~30 rows/user típico * N users — leve.
       const today = new Date();
       const lookbackKey = new Date(
-        today.getTime() - 14 * 24 * 60 * 60 * 1000,
+        today.getTime() - 90 * 24 * 60 * 60 * 1000,
       )
         .toISOString()
         .slice(0, 10);
@@ -1541,6 +1555,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           followersCount: followersByUser.get(userId) ?? 0,
           followingCount: followingByUser.get(userId) ?? 0,
           workoutsThisWeek: weekStats?.workoutsThisWeek ?? 0,
+          // Sprint 3.6.5: dates únicos (perfil pode treinar várias vezes
+          // por dia, mas o calendário só precisa do dia). Set dedupa
+          // automaticamente.
+          activityDates: Array.from(new Set(userActivityDays)),
         };
       }
       const completeStats = (statsRes.data ?? []) as UserStatsRow[];
@@ -2073,6 +2091,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followersCount: followersCountRes.count ?? 0,
         followingCount: followingCountRes.count ?? 0,
         workoutsThisWeek: profileWeekStats?.workoutsThisWeek ?? 0,
+        // Sprint 3.6.5: dates únicos pra alimentar o calendário do
+        // MyCircleSheet. profileActivityDays já é uma lista de
+        // activity_date strings via limit 400.
+        activityDates: Array.from(new Set(profileActivityDays)),
       };
 
       if (!mountedRef.current) return;
@@ -2602,7 +2624,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         isFollowing: followStatus === "accepted",
         followStatus,
         isPrivate: profile.is_private ?? false,
-        workoutDays: profile.user_id === currentUserId ? Array.from(myActivityDates) : [],
+        // Sprint 3.6.5: pro current user, vem do myActivityDates (já em
+        // memória completo via refreshHomeSecondary). Pra outros users,
+        // pega do profileExtras (populado pelo bulk refreshUsersExtras ou
+        // refreshProfilePosts on-demand). Sem dados ainda = `[]` =
+        // calendário vazio até hidratação.
+        workoutDays:
+          profile.user_id === currentUserId
+            ? Array.from(myActivityDates)
+            : agg.profileExtras[profile.user_id]?.activityDates ?? [],
         ...getDailyPresenceFromStats(stats),
       };
       map.set(profile.user_id, enriched);

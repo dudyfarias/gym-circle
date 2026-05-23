@@ -1523,3 +1523,90 @@ const refreshUsersExtras = useCallback(async (userIds: string[]) => {
 - Caso usuário scrolle muito rápido, `loadMoreFeed` dispara mais batches
   — debounce não necessário porque o cleanup do hook (`mountedRef`)
   cuida do unmount.
+
+---
+
+### Fase 3.6.5 — Calendário de outros users vazio
+
+**Bug reportado pelo Eduardo (2026-05-23):**
+
+> "Quando eu entro no perfil das outras pessoas, os calendários delas
+> não estão preenchidos."
+
+**Diagnóstico:**
+
+O calendário mensal do `MyCircleSheet` usa `user.workoutDays`
+(linhas 119-122):
+
+```ts
+const monthDays = buildMonthWorkoutDays(
+  user.workoutDays ?? [],
+  formatDateKey(calendarDate),
+);
+```
+
+No `enrichedAll`, `workoutDays` estava scopeado SÓ ao current user:
+
+```ts
+workoutDays: profile.user_id === currentUserId
+  ? Array.from(myActivityDates)
+  : [],
+```
+
+Pra outros users → `[]` → `buildMonthWorkoutDays` recebe array vazio →
+calendário sem dias marcados. A Fase 3.6.4 já buscava `user_activity_days`
+de todos os users visíveis (limit 14 dias), mas só usava pra derivar
+`workoutsThisWeek` — os dates em si eram descartados.
+
+**Fix:**
+
+1. **Estender `ProfileExtras` com `activityDates: string[]`:**
+
+   ```ts
+   type ProfileExtras = {
+     followersCount: number;
+     followingCount: number;
+     workoutsThisWeek: number;
+     activityDates: string[]; // ← NOVO
+   };
+   ```
+
+2. **Aumentar lookback no `refreshUsersExtras` de 14 → 90 dias:**
+
+   Cobre o calendário do mês atual + mês anterior + buffer pra TZ shift.
+   Volume típico: ~30 rows/user × N users — leve.
+
+3. **Armazenar dates no `nextProfileExtras` (ambos os call sites):**
+
+   - `refreshUsersExtras` — bulk: agrupa activityRes por user.
+   - `refreshProfilePosts` — on-demand: já tinha `profileActivityDays`
+     do limit 400 query, só precisava armazenar.
+   - Em ambos, `Array.from(new Set(dates))` dedupa (user pode ter várias
+     entradas/dia se postou múltiplas vezes — calendário só precisa do
+     dia distinto).
+
+4. **Propagar como `workoutDays` no `enrichedAll`:**
+
+   ```ts
+   workoutDays:
+     profile.user_id === currentUserId
+       ? Array.from(myActivityDates)
+       : agg.profileExtras[profile.user_id]?.activityDates ?? [],
+   ```
+
+**Resultado esperado:**
+
+- Abrir MyCircleSheet de qualquer user que treinou nos últimos 90 dias →
+  calendário com dias marcados corretamente.
+- Streak indicators e badges derivados do `workoutDays` também
+  funcionam pra outros users.
+
+**Limitação remanescente:**
+
+- Navegação de calendário pra meses anteriores a ~3 meses atrás cai pra
+  vazio (lookback de 90d). Pra suportar navegação histórica completa,
+  precisaria fetch on-demand quando o user navegar pra mês fora do
+  range. Aceitável — UX raramente vai além de 1-2 meses.
+- Perfis privados sem follow aceito retornam vazio (RLS bloqueia
+  `user_activity_days` desses). Calendário fica vazio — comportamento
+  correto.
