@@ -1159,12 +1159,14 @@ export function GymCirclePreview({
           <CommentsBottomSheet
             currentUser={social.currentUser}
             currentUserId={social.currentUser.id}
+            embedPost
             formatTime={social.formatPostClock}
             mentionUsers={followedUsers}
             onClose={closePostDetail}
             onCommentPost={social.actions.commentPost}
             onDeleteComment={social.actions.deleteComment}
             onLikeComment={social.actions.likeComment}
+            onLikePost={social.actions.likePost}
             onSelectUser={(userId) => {
               closePostDetail();
               openProfile(userId);

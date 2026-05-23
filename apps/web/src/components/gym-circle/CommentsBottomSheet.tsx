@@ -11,6 +11,7 @@ import {
 import { Heart, Send, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "./design-system/EmptyState";
+import { SocialPostCard } from "./design-system/SocialPostCard";
 import { StreakBadge } from "./design-system/StreakBadge";
 import { SwipeRevealDelete } from "./design-system/SwipeRevealDelete";
 import {
@@ -64,6 +65,17 @@ type CommentsBottomSheetProps = {
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   mentionUsers?: EnrichedUser[];
+  /**
+   * Sprint 5 — embebe o `<SocialPostCard>` no topo do scroll, mostrando
+   * imagem + caption + likes summary do post sendo comentado. Default
+   * `true` pra cobrir o caso de abrir o sheet pelo profile (onde o user
+   * não viu o card antes). No feed o user já viu o card scrollando, mas
+   * mostrar embebido também é útil pra contexto sem precisar fechar a
+   * sheet. Pra esconder em algum caso específico, passar `embedPost={false}`.
+   */
+  embedPost?: boolean;
+  /** Sprint 5 — callback do botão de like dentro do post embebido. */
+  onLikePost?: (postId: string) => void;
 };
 
 type MentionMatch = {
@@ -104,6 +116,8 @@ export function CommentsBottomSheet({
   onSelectUser,
   resolveUser,
   mentionUsers = [],
+  embedPost = true,
+  onLikePost,
 }: CommentsBottomSheetProps) {
   const [draft, setDraft] = useState("");
   const [caretIndex, setCaretIndex] = useState(0);
@@ -292,8 +306,27 @@ export function CommentsBottomSheet({
 
         <div className="h-px bg-white/[0.06]" />
 
-        {/* Comments list */}
-        <div className="gc-scrollbar flex-1 overflow-y-auto px-4 py-4">
+        {/* Comments list — Sprint 5: post embebido no topo quando
+            `embedPost` (default true). Resolve o pedido do Eduardo de
+            ver imagem + caption do post junto com os comentários ao
+            abrir do profile (igual Instagram). */}
+        <div className="gc-scrollbar flex-1 overflow-y-auto">
+          {embedPost ? (
+            <div className="border-b border-white/[0.06]">
+              <SocialPostCard
+                currentUserId={currentUserId}
+                formatTime={formatTime}
+                inCommentsSheet
+                onLike={(postId) => {
+                  if (onLikePost) onLikePost(postId);
+                }}
+                onSelectUser={onSelectUser}
+                post={post}
+                resolveUser={resolveUser}
+              />
+            </div>
+          ) : null}
+          <div className="px-4 py-4">
           {post.commentPreviews.length === 0 ? (
             <div className="grid h-full place-items-center">
               <EmptyState
@@ -416,6 +449,7 @@ export function CommentsBottomSheet({
               ) : null}
             </div>
           )}
+          </div>
         </div>
 
         {/* Reactions row */}

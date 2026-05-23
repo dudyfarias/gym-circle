@@ -3,17 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
-  Clock3,
-  Flame,
   Heart,
   Loader2,
-  Lock,
   MapPin,
   MessageCircle,
   MoreHorizontal,
   Send,
-  UserCheck,
-  UserPlus,
   Video,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -25,7 +20,6 @@ import {
 } from "../social/caption";
 import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
-import { formatTrainingStreakText } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { PinchZoomImage } from "./PinchZoomImage";
 import { StreakBadge } from "./StreakBadge";
@@ -39,13 +33,29 @@ type SocialPostCardProps = {
    *  delete de comentário moram no sheet, não no card). */
   onOpenComments?: (postId: string) => void;
   onShareToChat?: (postId: string, receiverId: string) => Promise<void> | void;
-  onToggleFollow: (userId: string) => void;
+  /** Sprint 5: prop ainda aceita pra retrocompat com call sites (FeedScreen
+   *  passa o handler), mas o BOTÃO de seguir foi removido do card.
+   *  Pra seguir, user entra no perfil. Marcado opcional. */
+  onToggleFollow?: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   shareTargets?: EnrichedUser[];
   /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
   onOpenPostMenu?: (postId: string) => void;
   onOpenLikes?: (postId: string) => void;
+  /**
+   * Sprint 5 — quando true, o card é renderizado embebido dentro do
+   * `CommentsBottomSheet` (profile post-open ou tap "Comentar" no feed).
+   * Esconde:
+   *   - O preview do último comentário (a sheet já lista TODOS os
+   *     comentários abaixo).
+   *   - O link "Ver N comentários" (idem).
+   *   - O botão de share/chat (evita sheet aninhado feio).
+   *   - O botão de "3 pontos" / menu contextual (já tem opções no parent).
+   * MANTÉM: imagem, header, like, likes summary, caption. UX igual ao
+   * feed pra contexto + interação básica (like).
+   */
+  inCommentsSheet?: boolean;
 };
 
 export function SocialPostCard({
@@ -55,23 +65,23 @@ export function SocialPostCard({
   onLike,
   onOpenComments,
   onShareToChat,
-  onToggleFollow,
   onSelectUser,
   resolveUser,
   shareTargets = [],
   onOpenPostMenu,
   onOpenLikes,
+  inCommentsSheet = false,
 }: SocialPostCardProps) {
   // Sprint 3 — Fase 3.4: cleanup final do contrato. As props de comentário
   // (onComment, onDeleteComment, onLikeComment, mentionUsers) foram removidas
   // do type; o sheet em CommentsBottomSheet recebe essas callbacks diretamente
-  // de GymCirclePreview.
+  // de GymCirclePreview. Sprint 5: onToggleFollow aceita mas não destructurada
+  // — botão de seguir removido do card.
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoVisible, setVideoVisible] = useState(false);
-  const canFollow = post.author.id !== currentUserId;
   const mediaType = post.mediaType ?? "image";
   // Sprint 3.6 bug fix (image quality):
   // - `imagePreviewUrl` = thumbnail 640px → paint imediato no scroll
@@ -260,41 +270,12 @@ export function SocialPostCard({
             ) : null}
           </div>
         </div>
+        {/* Sprint 5 — Botão de seguir REMOVIDO do card.
+            Pra seguir, user entra no perfil (tap no nome/avatar) — fluxo
+            existente. Decisão de produto do Eduardo: card mais limpo,
+            menos CTAs concorrendo. */}
         <div className="flex items-center gap-2">
-          {canFollow ? (() => {
-            const author = post.author;
-            const status = author.followStatus ?? (author.isFollowing ? "accepted" : "none");
-            let Icon = UserPlus;
-            let title = "Seguir";
-            let cls = "bg-[var(--gc-brand)] text-black";
-            if (status === "accepted") {
-              Icon = UserCheck;
-              title = "Seguindo";
-              cls = "bg-white text-black";
-            } else if (status === "pending") {
-              Icon = Clock3;
-              title = "Solicitação enviada";
-              cls = "border border-white/[0.16] bg-white/[0.05] text-white/72";
-            } else if (author.isPrivate) {
-              Icon = Lock;
-              title = "Solicitar para seguir";
-            }
-            return (
-              <button
-                aria-label={`${title} ${author.name}`}
-                className={[
-                  "gc-pressable grid size-11 place-items-center rounded-full",
-                  cls,
-                ].join(" ")}
-                onClick={() => onToggleFollow(author.id)}
-                title={title}
-                type="button"
-              >
-                <Icon size={17} />
-              </button>
-            );
-          })() : null}
-          {onOpenPostMenu ? (
+          {onOpenPostMenu && !inCommentsSheet ? (
             <IconButton
               className="size-11"
               label="Mais opções"
@@ -336,25 +317,25 @@ export function SocialPostCard({
             src={imagePreviewUrl}
           />
         )}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/84 via-black/18 to-transparent p-4">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/48 px-3 py-2 text-[12px] font-black backdrop-blur-xl">
-            <Flame
-              size={15}
-              className="text-[var(--gc-consistency-daily)]"
-              fill="currentColor"
-            />
-            {formatTrainingStreakText(post.author.name, post.streakAtPost)}
+        {/* Sprint 5 — Streak overlay REMOVIDO. Antes tinha um gradient
+            full-width na imagem com o flame chip "X está há N dias treinando"
+            + Vídeo chip. Era o elemento mais "loud" do card. Movemos o
+            sinal de streak pro StreakBadge xs no header e o badge de vídeo
+            vira chip pequeno no canto. Resultado: imagem limpa, foco no
+            conteúdo (igual Instagram). */}
+        {mediaType === "video" ? (
+          <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/56 px-2 py-1 text-[10px] font-black text-white/86 backdrop-blur-md">
+            <Video size={11} strokeWidth={2.6} />
+            Vídeo
           </div>
-          {mediaType === "video" ? (
-            <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/42 px-3 py-1.5 text-[11px] font-black text-white/72 backdrop-blur-xl">
-              <Video size={13} />
-              Vídeo
-            </div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
 
       <div className="space-y-3 px-4 py-3.5">
+        {/* Sprint 5 — Action row. Quando embebido no CommentsBottomSheet
+            (`inCommentsSheet`), só o Like sobrevive: o botão de comentar
+            seria redundante (já estamos NO sheet), e o share/menu abriria
+            sheet aninhado. */}
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
             <IconButton
@@ -373,24 +354,28 @@ export function SocialPostCard({
                 strokeWidth={post.likedByCurrentUser ? 2.4 : 2.4}
               />
             </IconButton>
-            <IconButton
-              className="size-11"
-              label="Comentar"
-              onClick={handleOpenComments}
-            >
-              <MessageCircle size={19} strokeWidth={2.4} />
-            </IconButton>
-            <IconButton
-              className={[
-                "size-11",
-                shareOpen ? "text-[var(--gc-blue)]" : "",
-              ].join(" ")}
-              disabled={!onShareToChat}
-              label="Compartilhar"
-              onClick={() => setShareOpen((value) => !value)}
-            >
-              <Send size={18} strokeWidth={2.4} />
-            </IconButton>
+            {!inCommentsSheet ? (
+              <IconButton
+                className="size-11"
+                label="Comentar"
+                onClick={handleOpenComments}
+              >
+                <MessageCircle size={19} strokeWidth={2.4} />
+              </IconButton>
+            ) : null}
+            {!inCommentsSheet ? (
+              <IconButton
+                className={[
+                  "size-11",
+                  shareOpen ? "text-[var(--gc-blue)]" : "",
+                ].join(" ")}
+                disabled={!onShareToChat}
+                label="Compartilhar"
+                onClick={() => setShareOpen((value) => !value)}
+              >
+                <Send size={18} strokeWidth={2.4} />
+              </IconButton>
+            ) : null}
           </div>
           {post.workoutType ? (
             <span className="rounded-full bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-white/72">
@@ -510,13 +495,18 @@ export function SocialPostCard({
           </p>
         ) : null}
 
-        {/* Caption inline com botão "mais" se truncada. Sprint 3 — Fase 3.2.
-            Username em bold + texto. Trunca em CAPTION_TRUNCATE_THRESHOLD chars
-            no último espaço pra não cortar palavra. */}
+        {/* Sprint 5 — Typography padronizada Instagram-like:
+            - Caption e comment preview compartilham a MESMA escala
+              (text-[14px] font-semibold leading-5 text-white/92).
+            - Username em font-black + text-white em AMBOS (era inconsistente:
+              o caption username herdava font-semibold enquanto o do comment
+              tinha font-black explícito → comment parecia maior).
+            - Link "Ver N comentários" subtler (white/48) pra ficar abaixo da
+              hierarquia de body text. */}
         {post.caption ? (
-          <p className="text-[14px] font-semibold leading-5 text-white/82">
+          <p className="text-[14px] font-semibold leading-5 text-white/92">
             <button
-              className="gc-pressable text-white"
+              className="gc-pressable font-black text-white"
               onClick={() => onSelectUser?.(post.author.id)}
               type="button"
             >
@@ -532,7 +522,7 @@ export function SocialPostCard({
                 …{" "}
                 <button
                   aria-label="Expandir legenda"
-                  className="gc-pressable text-[13px] font-bold text-white/56"
+                  className="gc-pressable text-[13px] font-semibold text-white/52"
                   onClick={() => setCaptionExpanded(true)}
                   type="button"
                 >
@@ -543,16 +533,13 @@ export function SocialPostCard({
           </p>
         ) : null}
 
-        {/* Preview do último comentário inline acima do link "Ver todos".
-            Estilo Instagram: username em bold + texto. Clique abre o sheet.
-            Sprint 3 — Fase 3.3. */}
-        {post.commentPreviews.length > 0 ? (() => {
+        {!inCommentsSheet && post.commentPreviews.length > 0 ? (() => {
           const preview = post.commentPreviews[post.commentPreviews.length - 1];
           if (!preview) return null;
           return (
             <button
               aria-label={`Comentário de ${preview.author.username}: ${preview.body}`}
-              className="gc-pressable block w-full text-left text-[13px] font-semibold leading-5 text-white/72"
+              className="gc-pressable block w-full text-left text-[14px] font-semibold leading-5 text-white/92"
               onClick={handleOpenComments}
               type="button"
             >
@@ -566,12 +553,9 @@ export function SocialPostCard({
           );
         })() : null}
 
-        {/* Comments preview clicável — abre CommentsBottomSheet.
-            Plural correto ("Ver 1 comentário" vs "Ver todos os N comentários").
-            Sprint 3 — Fase 3.3 (na 3.2 era um toggle inline). */}
-        {commentsCount > 0 ? (
+        {!inCommentsSheet && commentsCount > 0 ? (
           <button
-            className="gc-pressable block text-left text-[13px] font-bold text-white/42"
+            className="gc-pressable block text-left text-[13px] font-semibold text-white/48"
             onClick={handleOpenComments}
             type="button"
           >
