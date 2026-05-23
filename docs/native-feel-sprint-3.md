@@ -1110,3 +1110,127 @@ anteriores que eu não tinha localmente no momento do report:
   hardcoded do parcial.
 
 Nada a fazer nesta sprint 3.6 — os fixes já estão deployados.
+
+---
+
+### Fase 3.6.1 — Bug fix DEFINITIVO do MyCircleSheet zerado
+
+**Reabertura do bug pelo Eduardo (2026-05-23, screenshot anexado):**
+
+MyCircleSheet ainda mostrava `Maior streak: 0d`, `Treinos no mês: 0`,
+`Dias no ano: 0`, e os 3 rings em `0/7`, `0/31`, `0/365` — mesmo após o
+deploy de `ec6c931`. `Streak atual: 5d` e `Posts: 10` vinham corretos.
+
+**Validação prévia via Supabase MCP:** DB confirmado correto pro user
+`dudy`:
+```
+current_streak=5, best_streak=5, workouts_this_month=11,
+active_days_this_year=11
+```
+
+Bug 100% no frontend.
+
+**Causa raiz REAL (não detectada no `ec6c931`):**
+
+O fix anterior colocou o smart merge dentro do `useMemo enrichedAll`, que
+itera sobre `agg.stats`. PROBLEMA: `agg.stats` JÁ chega DEDUPLICADO porque
+6 `setAgg` espalhados pelo arquivo usam `mergeRowsByKey` genérico, que faz
+"last wins" via `Map.set(key, row)`:
+
+```ts
+// mergeRowsByKey (utility genérico)
+function mergeRowsByKey<T>(rows: T[], nextRows: T[], getKey) {
+  const map = new Map<string, T>();
+  for (const row of rows) map.set(getKey(row), row);
+  for (const row of nextRows) map.set(getKey(row), row);  // ← overwrite
+  return Array.from(map.values());
+}
+```
+
+Os 6 call sites de `mergeRowsByKey(current.stats, surfaceStats, ...)`
+permitiam que um row PARCIAL (vindo do feed_surface, com
+`workouts_this_month: 0` hardcoded em `statsRowFromSurface`)
+sobrescrevesse o row COMPLETO (vindo do `user_stats_live`) no estado.
+
+Quando `enrichedAll` rodava, via apenas 1 entry por user_id no
+`agg.stats` — o partial com zeros. O smart merge dentro dele iterava
+sobre 1 entry e não tinha conflito pra resolver. Inocente, mas inerte.
+
+**Fix definitivo:**
+
+Criadas duas funções top-level em `useSupabaseSocial.ts`:
+
+```ts
+function mergeUserStatsRow(existing, incoming): UserStatsRow {
+  return {
+    ...existing,
+    ...incoming,
+    user_id: existing.user_id,
+    current_streak: Math.max(existing.current_streak ?? 0, incoming.current_streak ?? 0),
+    best_streak: Math.max(existing.best_streak ?? 0, incoming.best_streak ?? 0),
+    workouts_this_month: Math.max(existing.workouts_this_month ?? 0, incoming.workouts_this_month ?? 0),
+    active_days_this_year: Math.max(existing.active_days_this_year ?? 0, incoming.active_days_this_year ?? 0),
+    last_active_date: incoming.last_active_date ?? existing.last_active_date,
+    badge_is_active_today: existing.badge_is_active_today || incoming.badge_is_active_today,
+    // ... outros campos com `?? existing` pra preservar valores não-null
+  };
+}
+
+function mergeStatsArrays(current, next): UserStatsRow[] {
+  const map = new Map<string, UserStatsRow>();
+  const upsert = (row) => {
+    const existing = map.get(row.user_id);
+    map.set(row.user_id, existing ? mergeUserStatsRow(existing, row) : row);
+  };
+  for (const row of current) upsert(row);
+  for (const row of next) upsert(row);
+  return Array.from(map.values());
+}
+```
+
+E os 6 call sites foram trocados:
+
+- `refreshHomeCritical` (1267) — `mergeStatsArrays(current.stats, surfaceStats)`
+- Suggestion stats merge (1407) — idem
+- Profile posts secondary (1726) — idem
+- `loadMoreFeed` (1865) — idem
+- Discovery stats merge (2844) — idem
+- Profile join stats merge (2917) — idem
+
+`useMemo enrichedAll` simplificado para usar o mesmo helper como **defense
+in depth** (mesmo que `agg.stats` chegue deduplicado, se algum call site
+futuro voltar a usar `mergeRowsByKey` por engano, o smart merge aqui ainda
+recupera).
+
+**Insight de design:**
+
+O spread `{...existing, ...incoming}` no início de `mergeUserStatsRow`
+garante schema-drift safety — campos novos que apareçam na view
+`user_stats_live` no futuro são preservados automaticamente. Só os
+contadores conhecidos que zeravam (UX-critical) recebem tratamento
+explícito de Math.max.
+
+**Limpeza junto do fix (pedido do Eduardo):**
+
+- Removido `ProfileHeader.tsx` (dead code — substituído por
+  `ProfileIdentity` em sprint anterior, zero consumers).
+- Removido `PostDetailSheet.tsx` (dead code — substituído por
+  `CommentsBottomSheet` mais o `PostScreen` em sprint anterior, zero
+  consumers).
+- Removido `feed-loaded-2026-05-19.png` (artefato).
+- Removido `.playwright-mcp/` (dir lixo).
+
+**Validação:**
+
+`node_modules` local corrompido — validação via Vercel build remoto.
+
+- Smoke manual no iPhone: abrir MyCircleSheet do dudy → confirmar
+  `Maior streak: 5d`, `Treinos no mês: 11`, `Dias no ano: 11`, rings
+  preenchidos.
+- Os 3 rings ao redor do avatar (`AvatarConsistencyRings`) também
+  começam a renderizar com dados corretos (Semana, Mês, Ano).
+
+**Pendência criada (task #9):** exportar `mergeStatsArrays` /
+`mergeUserStatsRow` pra um util novo `stats-merge.ts` + adicionar testes
+unitários cobrindo: partial atrás de complete, duplicatas no mesmo array,
+null timestamps, OR no badge_is_active_today.

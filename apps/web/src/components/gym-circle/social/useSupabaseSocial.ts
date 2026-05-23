@@ -490,6 +490,107 @@ function mergeRowsByKey<T>(rows: T[], nextRows: T[], getKey: (row: T) => string)
   return Array.from(map.values());
 }
 
+/**
+ * Sprint 3.6.1 bug fix — Merge inteligente entre duas `UserStatsRow` do mesmo
+ * `user_id`.
+ *
+ * Contexto: `statsRowFromSurface` e `statsRowFromDiscovery` retornam stats
+ * PARCIAIS com `workouts_this_month: 0` e `active_days_this_year: 0` HARDCODED
+ * — a view de surface não traz esses contadores. O `user_stats_live` retorna
+ * a row COMPLETA. Quando ambos coexistem (ex: o currentUser aparece tanto no
+ * feed surface quanto na query `user_stats_live`), o merge precisa preservar
+ * os MAIORES valores e os timestamps mais recentes — nunca deixar um parcial
+ * com 0 sobrescrever um valor real positivo.
+ *
+ * Esta função era inline dentro do `useMemo enrichedAll`. Movida pra
+ * top-level pra reuso pelo `mergeStatsArrays` (que aplica isso em todos os
+ * 6 `setAgg` que tocam `current.stats`).
+ */
+function mergeUserStatsRow(
+  existing: UserStatsRow,
+  incoming: UserStatsRow,
+): UserStatsRow {
+  return {
+    ...existing,
+    ...incoming,
+    user_id: existing.user_id,
+    // Math.max — partials nunca derrubam um contador real pra 0.
+    current_streak: Math.max(
+      existing.current_streak ?? 0,
+      incoming.current_streak ?? 0,
+    ),
+    best_streak: Math.max(
+      existing.best_streak ?? 0,
+      incoming.best_streak ?? 0,
+    ),
+    workouts_this_month: Math.max(
+      existing.workouts_this_month ?? 0,
+      incoming.workouts_this_month ?? 0,
+    ),
+    active_days_this_year: Math.max(
+      existing.active_days_this_year ?? 0,
+      incoming.active_days_this_year ?? 0,
+    ),
+    // Timestamps/datas: prefere valor não-null. Como partials zeram esses
+    // como null, o existing real sobrevive.
+    last_active_date:
+      incoming.last_active_date ?? existing.last_active_date,
+    badge_is_active_today:
+      existing.badge_is_active_today || incoming.badge_is_active_today,
+    streak_restores_available:
+      incoming.streak_restores_available ??
+      existing.streak_restores_available,
+    last_streak_restore_used_at:
+      incoming.last_streak_restore_used_at ??
+      existing.last_streak_restore_used_at,
+    last_streak_restore_earned_at:
+      incoming.last_streak_restore_earned_at ??
+      existing.last_streak_restore_earned_at,
+    streak_restore_deadline_at:
+      incoming.streak_restore_deadline_at ??
+      existing.streak_restore_deadline_at,
+    streak_restore_missed_date:
+      incoming.streak_restore_missed_date ??
+      existing.streak_restore_missed_date,
+    streak_restore_status:
+      incoming.streak_restore_status ?? existing.streak_restore_status,
+    updated_at: incoming.updated_at ?? existing.updated_at,
+  };
+}
+
+/**
+ * Sprint 3.6.1 bug fix — versão de `mergeRowsByKey` específica pra
+ * `UserStatsRow` que usa `mergeUserStatsRow` no conflito em vez de "last wins".
+ *
+ * Por que isso é crítico: o `mergeRowsByKey` genérico faz Map.set(key, row),
+ * onde o último row sobrescreve o anterior. Pra stats, isso permitia que um
+ * row PARCIAL (vindo de `statsRowFromSurface`, com `workouts_this_month: 0`
+ * hardcoded) sobrescrevesse o row COMPLETO do `user_stats_live`. Resultado
+ * visual: `MyCircleSheet` zerado mesmo com DB tendo `workouts_this_month=11`.
+ *
+ * O fix anterior em `ec6c931` tentou aplicar o merge inteligente dentro do
+ * `useMemo enrichedAll`, mas como `agg.stats` já chega DEDUPLICADO por causa
+ * dos 6 `mergeRowsByKey` espalhados, o merge no useMemo nunca encontra
+ * duplicatas pra mergear — opera em vão. A fix definitivo é trocar
+ * `mergeRowsByKey` por `mergeStatsArrays` em todos os 6 lugares que escrevem
+ * `agg.stats`. Bug confirmado via Supabase MCP: DB tem
+ * `best_streak=5/workouts=11/active_days=11` pro dudy, e o frontend mostrava
+ * 0/0/0 pq o partial do feed surface vinha depois no array.
+ */
+function mergeStatsArrays(
+  current: UserStatsRow[],
+  next: UserStatsRow[],
+): UserStatsRow[] {
+  const map = new Map<string, UserStatsRow>();
+  const upsert = (row: UserStatsRow) => {
+    const existing = map.get(row.user_id);
+    map.set(row.user_id, existing ? mergeUserStatsRow(existing, row) : row);
+  };
+  for (const row of current) upsert(row);
+  for (const row of next) upsert(row);
+  return Array.from(map.values());
+}
+
 function statsRowFromSurface(input: {
   user_id?: string | null;
   author_id?: string | null;
@@ -1264,7 +1365,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       setAgg((current) => ({
         ...current,
         profiles: mergeProfileRows(current.profiles, surfaceProfiles),
-        stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
+        stats: mergeStatsArrays(current.stats, surfaceStats),
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
         storyTrayRows: storySurfaceRows,
@@ -1404,7 +1505,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         setAgg((current) => ({
           ...current,
           profiles: mergeProfileRows(current.profiles, suggestionProfiles),
-          stats: mergeRowsByKey(current.stats, suggestionStats, (stats) => stats.user_id),
+          stats: mergeStatsArrays(current.stats, suggestionStats),
           follows: mergeRowsByKey(
             current.follows,
             suggestionFollows,
@@ -1723,7 +1824,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       setAgg((current) => ({
         ...current,
         profiles: mergeProfileRows(current.profiles, profileSurfaceProfiles),
-        stats: mergeRowsByKey(current.stats, profileSurfaceStats, (stats) => stats.user_id),
+        stats: mergeStatsArrays(current.stats, profileSurfaceStats),
         profileFeedPosts: mergeRowsByKey(
           current.profileFeedPosts,
           profileFeedPosts,
@@ -1862,7 +1963,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       setAgg((current) => ({
         ...current,
         profiles: mergeProfileRows(current.profiles, surfaceProfiles),
-        stats: mergeRowsByKey(current.stats, surfaceStats, (stats) => stats.user_id),
+        stats: mergeStatsArrays(current.stats, surfaceStats),
         feedPosts: mergeRowsByKey(current.feedPosts, feedPosts, (post) => post.id),
         postLikes: [
           ...current.postLikes.filter(
@@ -2071,71 +2172,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const enrichedAll = useMemo(() => {
-    // Sprint 3.5 bug fix: `agg.stats` mistura DUAS fontes:
-    //  1. `currentStatsRes.data` do `user_stats_live` (COMPLETO — todos os
-    //     campos: best_streak, workouts_this_month, active_days_this_year).
-    //  2. Stats PARCIAIS derivados de feed_surface/story_surface via
-    //     `statsRowFromSurface` — esses têm `workouts_this_month: 0` e
-    //     `active_days_this_year: 0` HARDCODED (a view de surface só traz
-    //     `author_current_streak` e `author_badge_active`, sem os contadores
-    //     mensais/anuais).
-    //
-    // `new Map(entries)` aplica "last wins" — se o stats PARCIAL vier depois
-    // do COMPLETO no array, sobrescreve com 0 os campos mensais/anuais.
-    // Sintoma reportado no MyCircleSheet do dudy: "Treinos no mês: 0", "Dias
-    // no ano: 0", "Maior streak: 0d" mesmo o banco tendo 11, 11 e 5.
-    //
-    // Fix: em vez de "last wins", fazer MERGE intelegente pegando o
-    // máximo de cada contador + preferindo valores não-null pra timestamps.
+    // Sprint 3.6.1 bug fix: defense in depth. `agg.stats` chega
+    // DEDUPLICADO via `mergeStatsArrays` em todos os `setAgg` que tocam
+    // stats, então este loop normalmente não vê conflitos. Mas se algum
+    // call site no futuro voltar a usar `mergeRowsByKey` genérico (last
+    // wins) por engano, o smart merge aqui ainda recupera. O Map manda
+    // (chave única = user_id) e `mergeUserStatsRow` resolve conflitos
+    // com Math.max nos contadores, preservando valores reais sobre
+    // partials zerados.
     const statsByUser = new Map<string, UserStatsRow>();
     for (const incoming of agg.stats) {
       const existing = statsByUser.get(incoming.user_id);
-      if (!existing) {
-        statsByUser.set(incoming.user_id, incoming);
-        continue;
-      }
-      // Merge: preserva o valor mais "completo" de cada campo.
-      statsByUser.set(incoming.user_id, {
-        user_id: existing.user_id,
-        current_streak: Math.max(
-          existing.current_streak ?? 0,
-          incoming.current_streak ?? 0,
-        ),
-        best_streak: Math.max(
-          existing.best_streak ?? 0,
-          incoming.best_streak ?? 0,
-        ),
-        workouts_this_month: Math.max(
-          existing.workouts_this_month ?? 0,
-          incoming.workouts_this_month ?? 0,
-        ),
-        active_days_this_year: Math.max(
-          existing.active_days_this_year ?? 0,
-          incoming.active_days_this_year ?? 0,
-        ),
-        last_active_date:
-          incoming.last_active_date ?? existing.last_active_date,
-        badge_is_active_today:
-          existing.badge_is_active_today || incoming.badge_is_active_today,
-        streak_restores_available:
-          incoming.streak_restores_available ??
-          existing.streak_restores_available,
-        last_streak_restore_used_at:
-          incoming.last_streak_restore_used_at ??
-          existing.last_streak_restore_used_at,
-        last_streak_restore_earned_at:
-          incoming.last_streak_restore_earned_at ??
-          existing.last_streak_restore_earned_at,
-        streak_restore_deadline_at:
-          incoming.streak_restore_deadline_at ??
-          existing.streak_restore_deadline_at,
-        streak_restore_missed_date:
-          incoming.streak_restore_missed_date ??
-          existing.streak_restore_missed_date,
-        streak_restore_status:
-          incoming.streak_restore_status ?? existing.streak_restore_status,
-        updated_at: incoming.updated_at ?? existing.updated_at,
-      });
+      statsByUser.set(
+        incoming.user_id,
+        existing ? mergeUserStatsRow(existing, incoming) : incoming,
+      );
     }
     const gymsById = new Map(agg.gyms.map((g) => [g.id, g]));
     const userGymsByUser = new Map<string, UserGymRow[]>();
@@ -2841,7 +2892,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           setAgg((current) => ({
             ...current,
             profiles: mergeProfileRows(current.profiles, profiles),
-            stats: mergeRowsByKey(current.stats, stats, (stat) => stat.user_id),
+            stats: mergeStatsArrays(current.stats, stats),
             follows: mergeRowsByKey(
               current.follows,
               follows,
@@ -2914,7 +2965,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           setAgg((current) => ({
             ...current,
             profiles: mergeProfileRows(current.profiles, profiles),
-            stats: mergeRowsByKey(current.stats, statsRows, (stats) => stats.user_id),
+            stats: mergeStatsArrays(current.stats, statsRows),
             follows: mergeRowsByKey(
               current.follows,
               [...edges, ...myFollowRows],
