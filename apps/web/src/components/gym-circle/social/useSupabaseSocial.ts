@@ -1431,6 +1431,135 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     }
   }, [services, currentUserId]);
 
+  /**
+   * Sprint 3.6.4: bulk-hidrata stats/follows/activity de TODOS os users
+   * passados (geralmente os visíveis no feed/stories/follows/suggestions
+   * do load atual). Faz 4 queries paralelas com `IN (...)` em vez de N
+   * queries por user. RLS filtra automaticamente (`user_activity_days`
+   * só retorna pra perfis públicos ou que o currentUser segue).
+   *
+   * Chamada de `refreshHomeSecondary` (background, não bloqueia o paint
+   * do feed) e `loadMoreFeed` (quando novos users aparecem). Resultado:
+   * todo profile no app — não só o do current user — tem rings reais,
+   * MyCircleSheet com dados certos, e counts de seguidores/seguindo
+   * corretos.
+   *
+   * Filtramos o currentUserId fora porque ele já foi hidratado pelo
+   * `refreshHomeCritical` (que faz a query individual pra ele).
+   */
+  const refreshUsersExtras = useCallback(
+    async (userIds: string[]) => {
+      const uniqueIds = Array.from(
+        new Set(userIds.filter((id) => id && id !== currentUserId)),
+      );
+      if (uniqueIds.length === 0) return;
+      // 14 dias é o suficiente pra cobrir "esta semana" (Mon→Sun ISO) +
+      // buffer pro caso de TZ shift. Limita o volume de rows retornadas.
+      const today = new Date();
+      const lookbackKey = new Date(
+        today.getTime() - 14 * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .slice(0, 10);
+
+      const [statsRes, followersRes, followingRes, activityRes] =
+        await Promise.all([
+          services.client
+            .from("user_stats_live")
+            .select(USER_STATS_COLUMNS)
+            .in("user_id", uniqueIds),
+          // Sem GROUP BY nativo no supabase-js, baixamos as rows e
+          // agregamos client-side. Pro Gym Circle em alpha (poucos users
+          // com followers em massa), volume é trivial; quando virar
+          // problema, criar RPC `get_follow_counts(user_ids[])` ou view
+          // materializada com counts cacheados.
+          services.client
+            .from("follows")
+            .select("following_id")
+            .eq("status", "accepted")
+            .in("following_id", uniqueIds),
+          services.client
+            .from("follows")
+            .select("follower_id")
+            .eq("status", "accepted")
+            .in("follower_id", uniqueIds),
+          services.client
+            .from("user_activity_days")
+            .select("user_id,activity_date")
+            .in("user_id", uniqueIds)
+            .gte("activity_date", lookbackKey),
+        ]);
+
+      // Best-effort: falha em uma query não bloqueia as outras.
+      if (statsRes.error) {
+        logSurfaceFallback("bulk users stats", statsRes.error);
+      }
+      if (followersRes.error) {
+        logSurfaceFallback("bulk followers count", followersRes.error);
+      }
+      if (followingRes.error) {
+        logSurfaceFallback("bulk following count", followingRes.error);
+      }
+      if (activityRes.error) {
+        logSurfaceFallback("bulk activity days", activityRes.error);
+      }
+
+      const followersByUser = new Map<string, number>();
+      for (const row of (followersRes.data ??
+        []) as Array<{ following_id: string }>) {
+        followersByUser.set(
+          row.following_id,
+          (followersByUser.get(row.following_id) ?? 0) + 1,
+        );
+      }
+      const followingByUser = new Map<string, number>();
+      for (const row of (followingRes.data ??
+        []) as Array<{ follower_id: string }>) {
+        followingByUser.set(
+          row.follower_id,
+          (followingByUser.get(row.follower_id) ?? 0) + 1,
+        );
+      }
+      const activityByUser = new Map<string, string[]>();
+      for (const row of (activityRes.data ?? []) as Array<{
+        user_id: string;
+        activity_date: string;
+      }>) {
+        const list = activityByUser.get(row.user_id) ?? [];
+        list.push(row.activity_date);
+        activityByUser.set(row.user_id, list);
+      }
+
+      const nextProfileExtras: Record<string, ProfileExtras> = {};
+      for (const userId of uniqueIds) {
+        const userActivityDays = activityByUser.get(userId) ?? [];
+        const weekStats =
+          userActivityDays.length > 0
+            ? calculateWorkoutStats(userActivityDays)
+            : null;
+        nextProfileExtras[userId] = {
+          followersCount: followersByUser.get(userId) ?? 0,
+          followingCount: followingByUser.get(userId) ?? 0,
+          workoutsThisWeek: weekStats?.workoutsThisWeek ?? 0,
+        };
+      }
+      const completeStats = (statsRes.data ?? []) as UserStatsRow[];
+
+      if (!mountedRef.current) return;
+      setAgg((current) => ({
+        ...current,
+        // Smart merge — completes from user_stats_live mergeam com as
+        // partials do surface preservando Math.max nos contadores.
+        stats: mergeStatsArrays(current.stats, completeStats),
+        profileExtras: {
+          ...current.profileExtras,
+          ...nextProfileExtras,
+        },
+      }));
+    },
+    [currentUserId, services],
+  );
+
   const refreshHomeSecondary = useCallback(
     async (snapshot?: HomeRefreshSnapshot) => {
       const postIds = snapshot?.postIds ?? aggRef.current.feedPosts.map((post) => post.id);
@@ -1563,6 +1692,27 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           myActivityDays: (myActivityRes.data ?? []) as unknown as UserActivityDayRow[],
         }));
 
+        // Sprint 3.6.4: bulk-hidrata stats/follows/activity de TODOS os
+        // users visíveis no feed/stories/suggestions/follows. Sem await
+        // — roda em paralelo com refreshNotifications/refreshUnreadCount
+        // porque é "nice to have" pro paint de cards já corretos no
+        // próximo render, mas não bloqueante.
+        const visibleUserIds = new Set<string>();
+        for (const post of aggRef.current.feedPosts) {
+          visibleUserIds.add(post.user_id);
+        }
+        for (const story of aggRef.current.stories) {
+          visibleUserIds.add(story.user_id);
+        }
+        for (const follow of aggRef.current.follows) {
+          visibleUserIds.add(follow.follower_id);
+          visibleUserIds.add(follow.following_id);
+        }
+        for (const row of suggestionRows) {
+          visibleUserIds.add(row.user_id);
+        }
+        void refreshUsersExtras(Array.from(visibleUserIds));
+
         await refreshNotifications();
         await refreshUnreadMessageCount();
       } catch (err) {
@@ -1573,7 +1723,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         if (mountedRef.current) setSecondaryLoading(false);
       }
     },
-    [services, currentUserId, refreshNotifications, refreshUnreadMessageCount],
+    [
+      services,
+      currentUserId,
+      refreshNotifications,
+      refreshUnreadMessageCount,
+      refreshUsersExtras,
+    ],
   );
 
   const refreshStoryViewerItems = useCallback(
@@ -2076,6 +2232,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ...nextCurrentUserLikes,
         ],
       }));
+
+      // Sprint 3.6.4: hidrata profileExtras dos novos users que apareceram
+      // no batch atual. Sem await — em background.
+      const newUserIds = feedPosts
+        .map((post) => post.user_id)
+        .filter((id): id is string => Boolean(id));
+      if (newUserIds.length > 0) {
+        void refreshUsersExtras(newUserIds);
+      }
     } catch (err) {
       if (process.env.NEXT_PUBLIC_PERF_DEBUG === "true") {
         console.warn("[GymCirclePerf] load more feed failed", err);
@@ -2084,7 +2249,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       if (mountedRef.current) setFeedLoadingMore(false);
       measurePerf("load_more_feed_ms", "load_more_feed_start", "load_more_feed_end");
     }
-  }, [currentUserId, feedHasMore, feedLoadingMore, services.client]);
+  }, [
+    currentUserId,
+    feedHasMore,
+    feedLoadingMore,
+    refreshUsersExtras,
+    services.client,
+  ]);
 
   const scheduleRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {

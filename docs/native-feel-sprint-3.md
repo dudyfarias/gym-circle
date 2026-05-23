@@ -1427,3 +1427,99 @@ Sem necessidade de novo RPC SECURITY DEFINER.
   UX.
 - Próxima sprint pode considerar pré-fetch dos top N users do feed
   quando idle, ou view materializada com counts cacheados.
+
+---
+
+### Fase 3.6.4 — Bulk hydration de TODOS os users visíveis
+
+**Pedido do Eduardo (2026-05-23, quarto report):**
+
+> "Essas correções que fizemos dos círculos e my circle têm que ser
+> aplicado a todos os usuários."
+
+A Fase 3.6.3 hidratava só on-demand quando o user clicava num
+`ProfileSheet`. O user quer ver os dados corretos JÁ na primeira aparição
+(feed cards, story bubbles, suggestions, etc.) — sem precisar abrir cada
+profile pra hidratar.
+
+**Solução — `refreshUsersExtras(userIds[])`:**
+
+Nova função top-level dentro do hook que faz 4 queries paralelas com
+`IN (...)` em vez de N queries individuais:
+
+```ts
+const refreshUsersExtras = useCallback(async (userIds: string[]) => {
+  const uniqueIds = Array.from(
+    new Set(userIds.filter((id) => id && id !== currentUserId)),
+  );
+  if (uniqueIds.length === 0) return;
+
+  const [statsRes, followersRes, followingRes, activityRes] = await Promise.all([
+    services.client.from("user_stats_live").select(USER_STATS_COLUMNS).in("user_id", uniqueIds),
+    services.client.from("follows").select("following_id").eq("status", "accepted").in("following_id", uniqueIds),
+    services.client.from("follows").select("follower_id").eq("status", "accepted").in("follower_id", uniqueIds),
+    services.client.from("user_activity_days").select("user_id,activity_date").in("user_id", uniqueIds).gte("activity_date", lookbackKey),
+  ]);
+  // ... aggregação client-side, mergeStatsArrays, profileExtras update
+});
+```
+
+**Onde é chamada:**
+
+1. **`refreshHomeSecondary`** (background do load inicial) —
+   reúne userIds de `aggRef.current.feedPosts`,
+   `aggRef.current.stories`, `aggRef.current.follows` e
+   `suggestionRows` num `Set`, depois `void refreshUsersExtras(...)`
+   sem await (não bloqueia o paint).
+
+2. **`loadMoreFeed`** (quando user scrolla mais posts) — reúne
+   `feedPosts.map(p => p.user_id)` do batch novo e dispara.
+
+**Filtros:**
+
+- `currentUserId` filtrado fora — já hidratado em `refreshHomeCritical`
+  (query individual). Sem desperdício de banda.
+- Dedup via `new Set`.
+- 14 dias de lookback no `user_activity_days` (suficiente pra
+  "esta semana" + buffer de TZ shift). Limita volume.
+
+**Otimizações conscientes:**
+
+- **Bulk vs N+1**: 4 queries paralelas em vez de N*4. Pra um feed com 30
+  users, isso é 4 round-trips em vez de 120.
+- **Best-effort**: falha em uma query não bloqueia as outras. Logamos
+  via `logSurfaceFallback` se algo der erro (RLS, network).
+- **Sem GROUP BY**: supabase-js não tem GROUP BY direto; baixamos as
+  rows de `follows` e agregamos client-side. Pra Gym Circle em alpha
+  (poucos users com followers em massa), volume é trivial. Quando
+  virar problema (>1k followers/user), criar RPC
+  `get_follow_counts(user_ids[])` ou view materializada.
+
+**RLS confirmadas:**
+
+- `user_stats_live` (via `user_stats`): policy `user_stats_select_all`
+  com `using: true` — qualquer auth user lê.
+- `follows`: `follows_select_all` com `true`.
+- `user_activity_days`: `user_activity_days_select_visible` —
+  `(SELECT auth.uid() = user_id) OR private.can_view_profile_posts(user_id)`.
+  Pra profiles privados não-seguidos, vem vazio — `workoutsThisWeek = 0`
+  silenciosamente, como esperado.
+
+**Resultado esperado pós-deploy:**
+
+- Story bubbles no topo do feed mostram rings de consistência corretos
+  (Semana/Mês/Ano) com dados reais.
+- Suggestion cards no Discovery row têm contadores certos.
+- Profile counters (followers/following) corretos em qualquer lugar
+  do app.
+- MyCircleSheet de outros users tem todos os campos preenchidos sem
+  o user precisar abrir o profile antes.
+
+**Performance:**
+
+- 4 queries paralelas adicionais no background. Rodam DEPOIS do critical
+  load (`refreshHomeSecondary` já não bloqueia paint do feed). Latência
+  típica: ~200-400ms pra batch de 30 users.
+- Caso usuário scrolle muito rápido, `loadMoreFeed` dispara mais batches
+  — debounce não necessário porque o cleanup do hook (`mountedRef`)
+  cuida do unmount.
