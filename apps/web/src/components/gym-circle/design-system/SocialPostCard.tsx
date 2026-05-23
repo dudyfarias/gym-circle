@@ -73,7 +73,18 @@ export function SocialPostCard({
   const [videoVisible, setVideoVisible] = useState(false);
   const canFollow = post.author.id !== currentUserId;
   const mediaType = post.mediaType ?? "image";
+  // Sprint 3.6 bug fix (image quality):
+  // - `imagePreviewUrl` = thumbnail 640px → paint imediato no scroll
+  //   (combinado com blurDataUrl da Sprint 2.2 = transição super suave).
+  // - `imageHqUrl` = imageUrl 1920px → decode em background no
+  //   PinchZoomImage, troca quando pronto. Se não houver thumbnail (posts
+  //   antigos sem pipeline da 2.4), `imageUrl` já é exibido direto e
+  //   `hqSrc` fica `undefined` (no-op).
   const imagePreviewUrl = post.thumbnailUrl ?? post.imageUrl;
+  const imageHqUrl =
+    post.thumbnailUrl && post.imageUrl !== post.thumbnailUrl
+      ? post.imageUrl
+      : undefined;
   const videoPosterUrl = post.posterUrl ?? post.thumbnailUrl ?? undefined;
   const isPostOwner = post.userId === currentUserId;
   const acceptedParticipants = post.acceptedParticipants ?? [];
@@ -319,6 +330,7 @@ export function SocialPostCard({
             alt={`Treino de ${post.author.name}`}
             blurDataUrl={post.blurDataUrl}
             className="w-full"
+            hqSrc={imageHqUrl}
             priority={post.author.username === "edu.fit"}
             sizes="(max-width: 480px) 100vw, 480px"
             src={imagePreviewUrl}

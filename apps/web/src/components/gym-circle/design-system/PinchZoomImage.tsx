@@ -30,6 +30,11 @@ type PinchZoomImageProps = {
   className?: string;
   priority?: boolean;
   sizes?: string;
+  /**
+   * Versão exibida inicialmente. No feed isso é tipicamente o
+   * `thumbnailUrl` (640px) — paint rápido, baixa banda. Pode ser a única
+   * fonte se `hqSrc` não for passado.
+   */
   src: string;
   /**
    * Sprint 2.2: base64 data URL pra fundo blur enquanto a imagem
@@ -37,6 +42,25 @@ type PinchZoomImageProps = {
    * já cobre — nunca tela preta vazia.
    */
   blurDataUrl?: string | null;
+  /**
+   * Sprint 3.6 bug fix: versão de alta resolução (1920px no nosso pipeline
+   * da Sprint 2.4). Quando passada e diferente de `src`, é decodificada em
+   * background via `HTMLImageElement.decode()` (API canônica pra garantir
+   * bitmap no GPU buffer antes da troca) e troca o `<img>` exibido só
+   * depois que o navegador terminou de processar — sem flash, sem layout
+   * shift, sem regredir o crossfade da Sprint 2.2.
+   *
+   * Reportado pelo Eduardo: "A imagem postada ainda ta muito ruim,
+   * precisamos que ela seja carregada no final com a resolução igual de
+   * quando ela é postada." A Sprint 2.2 deu blur + paint suave, mas o
+   * feed nunca chegava na HQ — sempre parava no thumb.
+   *
+   * Decisão: sem crossfade ADICIONAL na troca thumb→HQ. Thumbnail e HQ
+   * vêm do mesmo upload (cropped igual, mesma proporção), então a troca
+   * de buffer GPU é visualmente indistinguível — o user só percebe ganho
+   * de nitidez. Crossfade aqui custaria GPU sem ganho perceptível.
+   */
+  hqSrc?: string;
 };
 
 type PinchState = {
@@ -84,6 +108,7 @@ export function PinchZoomImage({
   className = "",
   priority = false,
   src,
+  hqSrc,
 }: PinchZoomImageProps) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -92,15 +117,52 @@ export function PinchZoomImage({
   // Sprint 2.2: se o src já foi visto nesta sessão, pula o fade-in.
   // Sensação instant ao rever um post (ex.: reabrir feed após sair).
   const [loaded, setLoaded] = useState(() => hasImageLoaded(src));
+  // Sprint 3.6 bug fix: começa exibindo o `src` (thumb 640px → paint
+  // imediato). Quando `hqSrc` (1920px) decodificar em background, faz
+  // upgrade automático sem flash. Cooperativo com o `loaded` da 2.2 —
+  // ambos sobrevivem.
+  const [displayedSrc, setDisplayedSrc] = useState(src);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const pinchRef = useRef<PinchState | null>(null);
   const panRef = useRef<PanState | null>(null);
 
-  // Quando o src trocar (ex.: edit de post), reseta loaded check.
+  // Quando o src trocar (ex.: edit de post), reseta loaded check e
+  // volta a exibir o thumb (recomeça o upgrade pra HQ no próximo effect).
   useEffect(() => {
     if (hasImageLoaded(src)) setLoaded(true);
     else setLoaded(false);
+    setDisplayedSrc(src);
   }, [src]);
+
+  // Sprint 3.6: progressive HQ swap. `Image.decode()` é a API canônica pra
+  // evitar flash — o browser garante que o bitmap está pronto antes da
+  // promessa resolver. Se o user já estava vendo `src` (thumb), a troca
+  // pro `hqSrc` é uma trocada de buffer GPU (mesmo cropped, mesma
+  // proporção, só mais nítido). Sem race condition: `cancelled` flag
+  // cobre o caso do user scrollar pra outro post antes do decode terminar.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!hqSrc || hqSrc === src) return;
+    let cancelled = false;
+    const img = new window.Image();
+    img.decoding = "async";
+    img.src = hqSrc;
+    img
+      .decode()
+      .then(() => {
+        if (cancelled) return;
+        // Adiciona ao cache global pra próximas montagens pularem o thumb.
+        markImageLoaded(hqSrc);
+        setDisplayedSrc(hqSrc);
+      })
+      .catch(() => {
+        // CORS, 404, etc — mantém o thumb. Sem ruído no console porque o
+        // feed continua funcional e o user nem percebe.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [src, hqSrc]);
 
   function getRect() {
     return (
@@ -221,8 +283,10 @@ export function PinchZoomImage({
 
   function handleImageLoad(event: React.SyntheticEvent<HTMLImageElement>) {
     updateAspectRatio(event.currentTarget);
-    // Sprint 2.2: marca no cache global + dispara crossfade local.
-    markImageLoaded(src);
+    // Sprint 2.2: marca no cache global + dispara crossfade local. Usa
+    // `displayedSrc` (não `src`) pra que, quando a HQ rolar via Sprint 3.6,
+    // o cache fique com a chave do que está REALMENTE no DOM.
+    markImageLoaded(displayedSrc);
     setLoaded(true);
   }
 
@@ -282,11 +346,13 @@ export function PinchZoomImage({
           draggable={false}
           onLoad={handleImageLoad}
           loading={priority ? "eager" : "lazy"}
-          src={src}
+          src={displayedSrc}
           style={{
             // Sprint 2.2: crossfade — opacity 0 enquanto decode, 1 quando
             // onLoad dispara. Background do container (blur ou solid)
-            // cobre o gap visual.
+            // cobre o gap visual. Sprint 3.6: `displayedSrc` faz o upgrade
+            // pro 1920px após o thumb (640px) entrar — sem flash porque
+            // `Image.decode()` garante GPU buffer pronto antes da troca.
             opacity: loaded ? 1 : 0,
             transition: "opacity 280ms var(--gc-ease-ios, ease-out)",
           }}

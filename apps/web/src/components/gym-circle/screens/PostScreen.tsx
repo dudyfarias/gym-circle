@@ -521,7 +521,13 @@ export function PostScreen({
             ) : (
               <PinchZoomImage
                 alt="Mídia do treino"
+                blurDataUrl={mediaMeta.blurDataUrl}
                 className="w-full"
+                hqSrc={
+                  mediaMeta.thumbnailUrl && imageUrl !== mediaMeta.thumbnailUrl
+                    ? imageUrl
+                    : undefined
+                }
                 sizes="(max-width: 480px) 100vw, 480px"
                 src={mediaMeta.thumbnailUrl ?? imageUrl}
               />

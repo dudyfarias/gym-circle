@@ -144,7 +144,13 @@ export function EditPostSheet({
             ) : (
               <PinchZoomImage
                 alt="Mídia do post"
+                blurDataUrl={post.blurDataUrl}
                 className="w-full"
+                hqSrc={
+                  post.thumbnailUrl && post.imageUrl !== post.thumbnailUrl
+                    ? post.imageUrl
+                    : undefined
+                }
                 sizes="(max-width: 480px) 100vw, 480px"
                 src={post.thumbnailUrl ?? post.imageUrl}
               />

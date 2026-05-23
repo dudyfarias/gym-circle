@@ -996,3 +996,117 @@ precisaria adivinhar via medição de DOM, frágil em iOS WebView.
 - Microinterações em todos os taps do feed (compartilhar, follow, etc).
 - Auditoria final de acessibilidade.
 - Teste manual no iPhone real.
+
+---
+
+### Fase 3.6 — Bug fix pós-Sprint 3.5 (imagem do feed ainda em baixa res)
+
+**Sintoma reportado pelo Eduardo (2026-05-22):**
+
+> "A imagem postada ainda ta muito ruim, precisamos que ela seja carregada
+> no final com a resolução igual de quando ela é postada."
+
+**Diagnóstico:**
+
+O upload pipeline da Sprint 2.4 já gera duas versões da imagem:
+
+- `imageUrl` → 1920px (HQ — `POST_IMAGE_MAX_EDGE = 1920`, quality 0.88).
+- `thumbnailUrl` → 640px (thumb — `POST_THUMBNAIL_MAX_EDGE = 640`, quality 0.82).
+
+A Sprint 2.2 adicionou `blurDataUrl` + `<img>` crossfade + cache `imageCache`
+no `PinchZoomImage`, fazendo o paint do feed ficar **suave** (sem flash de
+preto). MAS o `src` do `<img>` continuava sendo só o `thumbnailUrl`:
+
+```ts
+// SocialPostCard.tsx — Sprint 2.x
+const imagePreviewUrl = post.thumbnailUrl ?? post.imageUrl;
+<PinchZoomImage src={imagePreviewUrl} ... />
+```
+
+Resultado: o feed sempre exibia a versão 640px. A imagem em 1920px no
+storage nunca era exibida, só servia pra... nada visível. Daí "imagem ruim"
+mesmo após Sprint 2.4 ter melhorado a qualidade do upload.
+
+**Decisão de fix — progressive enhancement no `PinchZoomImage`:**
+
+1. Nova prop `hqSrc?: string`. Quando passada e diferente de `src`:
+   - Cria `new window.Image()` em background.
+   - `img.decoding = "async"` + `img.src = hqSrc`.
+   - Chama `img.decode()` — API canônica pra esperar bitmap no GPU buffer.
+   - Quando a Promise resolve: `markImageLoaded(hqSrc)` no cache global +
+     `setDisplayedSrc(hqSrc)` → o `<img>` no DOM troca pro 1920px.
+2. Estado interno `displayedSrc` começa como `src` (thumb 640px → paint
+   imediato cooperativo com `loaded` da Sprint 2.2). Quando upgrade rola,
+   passa pra `hqSrc` (1920px).
+3. `useEffect` com `cancelled` flag pra cobrir race quando o user scrollar
+   pra outro post antes do decode terminar — sem `setState` em componente
+   desmontado.
+4. Reset de `displayedSrc` quando `src` muda (lista virtualizada re-monta).
+5. `markImageLoaded` no `handleImageLoad` agora usa `displayedSrc` (não
+   mais `src`) — o cache global fica chaveado pelo que está REALMENTE no
+   DOM, então re-mount com HQ não pede crossfade duplicado.
+
+**Decisão consciente — sem crossfade adicional na troca thumb→HQ:**
+
+Thumbnail e HQ vêm do mesmo upload (cropped igual, mesma proporção, mesmas
+características de cor — só diferem em resolução). A troca de buffer GPU
+é visualmente indistinguível: o user só percebe ganho de nitidez. Crossfade
+aqui custaria GPU sem ganho perceptível. (A Sprint 2.2 mantém seu crossfade
+no PRIMEIRO load — esse é o ganho real.)
+
+**Call sites atualizados:**
+
+- `apps/web/src/components/gym-circle/design-system/SocialPostCard.tsx`
+  — adicionada const `imageHqUrl` + prop `hqSrc={imageHqUrl}`. Guarda
+  `post.thumbnailUrl && post.imageUrl !== post.thumbnailUrl` evita decode
+  redundante quando o post não tem thumb (posts antigos, pré-Sprint-2.4).
+- `apps/web/src/components/gym-circle/screens/PostScreen.tsx` (tela de
+  detalhe / criação de post pós-upload). Mesmo padrão. Também adicionei
+  `blurDataUrl={mediaMeta.blurDataUrl}` que estava faltando (provavelmente
+  esquecido na Sprint 2.4 — bug menor descoberto de raspão).
+- `apps/web/src/components/gym-circle/EditPostSheet.tsx` (edição de post
+  existente). Mesmo padrão. Também adicionei `blurDataUrl={post.blurDataUrl}`
+  que faltava aqui também.
+
+**Não regressão garantida:**
+
+- Se `hqSrc` for `undefined` (post sem thumbnail separado, pré-Sprint-2.4)
+  ou igual a `src` — o `useEffect` retorna early. Comportamento volta a
+  ser igual ao da Sprint 2.2: paint do `src` único com crossfade.
+- O `cancelled` flag garante zero side-effects se o componente desmontar.
+- O `.catch(() => undefined)` no `decode()` engole erros silenciosamente
+  (CORS, 404, etc) e mantém o thumb visível — feed continua funcional.
+- A integração com o cache `imageCache` (`markImageLoaded`) é aditiva:
+  re-mount de post cuja HQ já decodificou pula direto pra HQ (graças ao
+  `markImageLoaded(hqSrc)` que persiste em memória).
+
+**Validação:**
+
+`node_modules` local está corrompido — validação remota via Vercel build:
+
+- Build TypeScript deve passar (props novas opcionais, sem mudança de
+  signature breaking).
+- Build Turbopack deve passar.
+- Deploy preview auto-promove pro main.
+- Smoke manual: scrollar feed em 4G simulado → thumb aparece em <300ms,
+  HQ entra em 1-3s. Sem flash.
+- Smoke manual: abrir post detail (PostScreen) → mesma sequência.
+- Smoke manual: edit post sheet → mesma sequência.
+
+**Sobre o Bug 2 reportado junto (rings + my circle zerados):**
+
+Auditoria mostrou que os 2 fixes já estavam em produção em commits
+anteriores que eu não tinha localmente no momento do report:
+
+- `ad5a337` — "rings cheios + foto oval no AvatarConsistencyRings" — fix
+  do CSS custom property `--gc-ring-target` que estava faltando no
+  `<circle>` do AvatarConsistencyRings (a animação `gc-activity-fill`
+  terminava em `var(--gc-ring-target)` undefined → fallback CSS = 0 →
+  ring renderizava cheio sempre).
+- `ec6c931` — "merge intelegente de stats — bug do MyCircleSheet zerado"
+  — `agg.stats` no `useSupabaseSocial` misturava duas fontes (`user_stats_live`
+  COMPLETO + `statsRowFromSurface` PARCIAL) e o `new Map(...)` fazia
+  "last wins" que sobrescrevia o completo com `workouts_this_month=0`
+  hardcoded do parcial.
+
+Nada a fazer nesta sprint 3.6 — os fixes já estão deployados.
