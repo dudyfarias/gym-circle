@@ -178,6 +178,29 @@ type AggregateState = {
   blockedUserIds: string[];
   /** IDs cujos posts no feed eu silenciei. Stories continuam aparecendo. */
   mutedPostUserIds: string[];
+  /**
+   * Sprint 3.6.3: dados "ricos" de profiles que foram VISITADOS via
+   * ProfileSheet. O carregamento inicial (`refreshHomeCritical`) só
+   * consulta `user_stats_live`/`user_activity_days` pro currentUserId e
+   * `follows` envolvendo o currentUserId — então outros users do feed só
+   * têm partial stats (`workouts_this_month=0`/`active_days_this_year=0`
+   * hardcoded em `statsRowFromSurface`) e seus `followersCount` /
+   * `followingCount` derivados do `agg.follows` ficam errados (refletem
+   * apenas conexões com o currentUser). Quando o user abre o
+   * `ProfileSheet` de outro user, `refreshProfilePosts` faz queries
+   * dedicadas e popula este map com os números reais. O `enrichedAll`
+   * prefere esses valores quando existem.
+   */
+  profileExtras: Record<string, ProfileExtras>;
+};
+
+type ProfileExtras = {
+  /** Total real de followers (count em follows WHERE following_id=user). */
+  followersCount: number;
+  /** Total real de following (count em follows WHERE follower_id=user). */
+  followingCount: number;
+  /** Derivado de user_activity_days desse user (Mon→Sun ISO). */
+  workoutsThisWeek: number;
 };
 
 const EMPTY: AggregateState = {
@@ -208,6 +231,7 @@ const EMPTY: AggregateState = {
   suggestedUserIds: [],
   blockedUserIds: [],
   mutedPostUserIds: [],
+  profileExtras: {},
 };
 
 type HomeNativeCache = Pick<
@@ -1793,15 +1817,66 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const refreshProfilePosts = useCallback(
     async (userId: string) => {
       markPerf("profile_posts_start");
-      const profilePostsRes = await services.client.rpc("get_profile_posts", {
-        p_user_id: userId,
-        p_cursor_created_at: null,
-        p_limit: 30,
-      });
+      // Sprint 3.6.3: 5 queries paralelas pra trazer TODOS os dados ricos
+      // do profile visitado. Antes só pegávamos posts; stats/follows/
+      // activity_days do user-alvo nunca eram buscados, então o
+      // `ProfileSheet` mostrava 0 em maior streak, treinos no mês, dias
+      // no ano, seguidores e seguindo — refletindo só conexões com o
+      // currentUser ou hardcoded zeros do `statsRowFromSurface`.
+      const [
+        profilePostsRes,
+        profileStatsRes,
+        followersCountRes,
+        followingCountRes,
+        profileActivityRes,
+      ] = await Promise.all([
+        services.client.rpc("get_profile_posts", {
+          p_user_id: userId,
+          p_cursor_created_at: null,
+          p_limit: 30,
+        }),
+        services.client
+          .from("user_stats_live")
+          .select(USER_STATS_COLUMNS)
+          .eq("user_id", userId)
+          .maybeSingle(),
+        // `head: true, count: 'exact'` pede só o count, sem retornar rows
+        // — leve mesmo pra usuários com milhares de followers.
+        services.client
+          .from("follows")
+          .select("*", { count: "exact", head: true })
+          .eq("following_id", userId)
+          .eq("status", "accepted"),
+        services.client
+          .from("follows")
+          .select("*", { count: "exact", head: true })
+          .eq("follower_id", userId)
+          .eq("status", "accepted"),
+        services.client
+          .from("user_activity_days")
+          .select("activity_date")
+          .eq("user_id", userId)
+          .order("activity_date", { ascending: false })
+          .limit(400),
+      ]);
       if (profilePostsRes.error) {
         logSurfaceFallback("profile posts", profilePostsRes.error);
         measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
         return;
+      }
+      // Os auxiliares não bloqueiam — se falhar (RLS, network), mantemos
+      // o que já estava em agg/profileExtras. Logamos via fallback helper.
+      if (profileStatsRes.error) {
+        logSurfaceFallback("profile stats", profileStatsRes.error);
+      }
+      if (followersCountRes.error) {
+        logSurfaceFallback("profile followers count", followersCountRes.error);
+      }
+      if (followingCountRes.error) {
+        logSurfaceFallback("profile following count", followingCountRes.error);
+      }
+      if (profileActivityRes.error) {
+        logSurfaceFallback("profile activity days", profileActivityRes.error);
       }
 
       const profileSurfaceRows = (profilePostsRes.data ?? []) as SurfacePostRow[];
@@ -1809,9 +1884,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const profileSurfaceProfiles = profileSurfaceRows
         .map(profileRowFromSurface)
         .filter((profile): profile is ProfileRow => Boolean(profile));
-      const profileSurfaceStats = profileSurfaceRows
-        .map(statsRowFromSurface)
-        .filter((stats): stats is UserStatsRow => Boolean(stats));
+      const completeProfileStats = profileStatsRes.data as UserStatsRow | null;
+      // A row completa do user_stats_live (se veio) entra ANTES das
+      // partials do surface — `mergeStatsArrays` faz Math.max nos
+      // conflitos, então mesmo se vier depois o complete ganha.
+      const profileSurfaceStats: UserStatsRow[] = [
+        completeProfileStats,
+        ...profileSurfaceRows.map(statsRowFromSurface),
+      ].filter((stats): stats is UserStatsRow => Boolean(stats));
       const profileCurrentUserLikes: PostLikeRow[] = profileSurfaceRows
         .filter((row) => row.liked_by_me && row.id)
         .map((row) => ({
@@ -1819,6 +1899,25 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           user_id: currentUserId,
           created_at: row.created_at ?? new Date().toISOString(),
         }));
+
+      // Calcula workoutsThisWeek do user-alvo a partir do user_activity_days
+      // dele (já filtrado por RLS — só vem se é o próprio user OU se o
+      // currentUser pode ver os posts dele, ver policy
+      // user_activity_days_select_visible). Se a query falhou ou retornou
+      // vazio (perfil privado sem follow), cai pra 0.
+      const profileActivityDays = (
+        (profileActivityRes.data ?? []) as Array<{ activity_date: string }>
+      ).map((row) => row.activity_date);
+      const profileWeekStats =
+        profileActivityDays.length > 0
+          ? calculateWorkoutStats(profileActivityDays)
+          : null;
+
+      const nextProfileExtras: ProfileExtras = {
+        followersCount: followersCountRes.count ?? 0,
+        followingCount: followingCountRes.count ?? 0,
+        workoutsThisWeek: profileWeekStats?.workoutsThisWeek ?? 0,
+      };
 
       if (!mountedRef.current) return;
       setAgg((current) => ({
@@ -1840,6 +1939,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ),
           ...profileCurrentUserLikes,
         ],
+        profileExtras: {
+          ...current.profileExtras,
+          [userId]: nextProfileExtras,
+        },
       }));
       measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
     },
@@ -2282,13 +2385,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         currentStreak: stats?.current_streak ?? 0,
         longestStreak: stats?.best_streak ?? 0,
         lastWorkoutDate: stats?.last_active_date ?? "",
-        // Sprint 3.6.2: derivado de user_activity_days quando for o
-        // current user; 0 pros demais (vide comentário acima de
-        // `myWorkoutStats`).
+        // Sprint 3.6.2 + 3.6.3:
+        // - current user → derivado de myActivityDates (já carregado em
+        //   refreshHomeCritical).
+        // - outro user já visitado via ProfileSheet → vem de
+        //   profileExtras[user_id] (carregado em refreshProfilePosts).
+        // - outro user nunca visitado → 0 (ring vazio até abrir o perfil).
         workoutsThisWeek:
           profile.user_id === currentUserId
             ? myWorkoutStats?.workoutsThisWeek ?? 0
-            : 0,
+            : agg.profileExtras[profile.user_id]?.workoutsThisWeek ?? 0,
         workoutsThisMonth: stats?.workouts_this_month ?? 0,
         activeDaysCount: stats?.active_days_this_year ?? 0,
         streakRestoresAvailable:
@@ -2305,8 +2411,23 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           profile.user_id === currentUserId ? stats?.streak_restore_status ?? null : null,
         checkInsCount: profile.user_id === currentUserId ? agg.myActivityDays.length : 0,
         achievements: deriveAchievements(stats),
-        followersCount: followersCountByUser.get(profile.user_id) ?? 0,
-        followingCount: followingCountByUser.get(profile.user_id) ?? 0,
+        // Sprint 3.6.3: pra current user, derivamos de agg.follows (que
+        // está completo — refreshHomeCritical busca todas as relações
+        // do currentUser). Pra outros users, agg.follows não tem dado
+        // representativo (só conexões com currentUser), então pegamos
+        // de profileExtras quando disponível (= o user visitou o
+        // ProfileSheet desse user). Fallback 0 enquanto perfil não foi
+        // aberto — momento em que refreshProfilePosts hidrata.
+        followersCount:
+          profile.user_id === currentUserId
+            ? followersCountByUser.get(profile.user_id) ?? 0
+            : agg.profileExtras[profile.user_id]?.followersCount ??
+              (followersCountByUser.get(profile.user_id) ?? 0),
+        followingCount:
+          profile.user_id === currentUserId
+            ? followingCountByUser.get(profile.user_id) ?? 0
+            : agg.profileExtras[profile.user_id]?.followingCount ??
+              (followingCountByUser.get(profile.user_id) ?? 0),
         isFollowing: followStatus === "accepted",
         followStatus,
         isPrivate: profile.is_private ?? false,

@@ -1305,3 +1305,125 @@ visível.
 mesmo bug visual quando o user abrir o `ProfileSheet` de outro usuário.
 Fix exige RPC novo que carregue `user_activity_days` por user_id, escopo
 do GamificationService planejado pra próxima sprint.
+
+---
+
+### Fase 3.6.3 — Bug fix dos profiles de outros users zerados
+
+**Sintoma reportado pelo Eduardo (2026-05-23, terceiro report):**
+
+> "Todos os perfis que eu entro os círculos estão sem os dados e o
+> my circle também estão sem os dados. O número de seguidor e seguindo
+> também está aparecendo errado, parece que o perfil que aparece para
+> usuários que não são o dono do perfil não tem a mesma fonte de dados
+> do perfil próprio."
+
+**Diagnóstico — assimetria de queries entre current vs outros users:**
+
+O `refreshHomeCritical` (load inicial) só busca:
+- `user_stats_live` WHERE `user_id = currentUserId`
+- `follows` WHERE `follower_id = currentUserId OR following_id = currentUserId`
+- `user_activity_days` WHERE `user_id = currentUserId` (em `myActivityDays`)
+
+Pros OUTROS users que aparecem no feed/stories, só temos `statsRowFromSurface(row)`
+— stats PARCIAL com `workouts_this_month: 0` e `active_days_this_year: 0`
+HARDCODED, derivado das colunas `author_*` da view `feed_surface`. E os
+`followersCountByUser` / `followingCountByUser` derivados de `agg.follows`
+refletem apenas conexões com o currentUser — número errado pra qualquer
+outro user.
+
+Quando o user abre o `ProfileSheet` de outro user, `refreshProfilePosts`
+era chamado, mas a função SÓ buscava posts via `get_profile_posts` RPC.
+Não havia query pra `user_stats_live` desse user, nem counts de follows,
+nem `user_activity_days`. Resultado: rings vazios, MyCircleSheet zerado,
+followers/seguindo errados.
+
+**Validação via Supabase RLS:**
+
+Confirmadas as 3 tabelas readable pelo authenticated user:
+- `user_stats_live` → policy `user_stats_select_all` (`true`).
+- `follows` → policy `follows_select_all` (`true`).
+- `user_activity_days` → policy `user_activity_days_select_visible`
+  (próprio user OR `can_view_profile_posts`).
+
+Sem necessidade de novo RPC SECURITY DEFINER.
+
+**Fix:**
+
+1. **Novo campo no AggregateState — `profileExtras`:**
+
+   ```ts
+   profileExtras: Record<string, ProfileExtras>;
+
+   type ProfileExtras = {
+     followersCount: number;
+     followingCount: number;
+     workoutsThisWeek: number;
+   };
+   ```
+
+   Inicializado vazio em `EMPTY`. Populado quando o user abre o
+   `ProfileSheet` de outro user.
+
+2. **`refreshProfilePosts` agora faz 5 queries paralelas:**
+
+   - `get_profile_posts` RPC (existente)
+   - `user_stats_live` WHERE `user_id = userId` (single row, completo)
+   - `follows` count WHERE `following_id = userId AND status = 'accepted'`
+     (com `head: true, count: 'exact'` — leve mesmo pra usuários com
+     milhares de followers)
+   - `follows` count WHERE `follower_id = userId AND status = 'accepted'`
+   - `user_activity_days` WHERE `user_id = userId` (limit 400 — cobre
+     ~13 meses, suficiente pro workoutsThisWeek e qualquer recap recente)
+
+   A row completa do `user_stats_live` entra no `mergeStatsArrays` ANTES
+   das partials — o smart merge garante que os contadores reais não são
+   sobrescritos por 0s do surface.
+
+   `workoutsThisWeek` é derivado via `calculateWorkoutStats` do
+   `activity_date` list.
+
+   Os 4 auxiliares são best-effort: se falhar (RLS, network), logamos
+   via `logSurfaceFallback` mas o load principal de posts não bloqueia.
+
+3. **`enrichedAll` prefere `profileExtras` pros não-current:**
+
+   ```ts
+   workoutsThisWeek:
+     profile.user_id === currentUserId
+       ? myWorkoutStats?.workoutsThisWeek ?? 0
+       : agg.profileExtras[profile.user_id]?.workoutsThisWeek ?? 0,
+
+   followersCount:
+     profile.user_id === currentUserId
+       ? followersCountByUser.get(profile.user_id) ?? 0
+       : agg.profileExtras[profile.user_id]?.followersCount
+         ?? (followersCountByUser.get(profile.user_id) ?? 0),
+
+   followingCount:
+     profile.user_id === currentUserId
+       ? followingCountByUser.get(profile.user_id) ?? 0
+       : agg.profileExtras[profile.user_id]?.followingCount
+         ?? (followingCountByUser.get(profile.user_id) ?? 0),
+   ```
+
+   Pro CURRENT user, agg.follows é completo (refreshHomeCritical busca
+   todas relações com `OR`). Pra OUTROS users, prefere `profileExtras`
+   se já visitamos; fallback no derivado do agg.follows que pelo menos
+   reflete a conexão com currentUser.
+
+**Resultado esperado:**
+
+- Abrir `ProfileSheet` de qualquer user → rings (Semana/Mês/Ano) com
+  dados reais, MyCircleSheet com `Maior streak`/`Treinos no mês`/`Dias
+  no ano` corretos, contagem de seguidores/seguindo exatos.
+- Lista no feed ainda mostra 0/parciais até o ProfileSheet ser aberto
+  (limitação por banda — não vamos pré-carregar todos os user_stats).
+
+**Limitações remanescentes:**
+
+- O perfil "lista" inicial (cards de sugestão, story bubbles) ainda
+  mostra contadores parciais. Aberta a tela rica, hidrata. Aceitável
+  UX.
+- Próxima sprint pode considerar pré-fetch dos top N users do feed
+  quando idle, ou view materializada com counts cacheados.
