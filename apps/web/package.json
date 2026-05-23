@@ -14,7 +14,7 @@
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/keyboard": "^8.0.3",
     "@capacitor/push-notifications": "^8.1.1",
-    "@capacitor/screen-orientation": "^8.0.2",
+    "@capacitor/screen-orientation": "^8.0.1",
     "@gym-circle/core": "*",
     "@supabase/supabase-js": "^2.105.3",
     "lucide-react": "^1.14.0",
