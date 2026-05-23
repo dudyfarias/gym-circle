@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import { getI18nInstance, initializeLocale } from "@/i18n";
 import { lockPortrait } from "./native/OrientationService";
+
+// Sprint 4.2: garante que o i18next está inicializado no client (singleton).
+// O `getI18nInstance()` é idempotente — chamadas subsequentes retornam a
+// mesma instância sem re-init.
+getI18nInstance();
 
 /**
  * AppBootEffects — Sprint 4.1.
@@ -18,10 +25,19 @@ import { lockPortrait } from "./native/OrientationService";
  * Futuro (Sprint 4.2+): inicializar i18n com detecção de idioma.
  */
 export function AppBootEffects() {
+  // Sprint 4.2: react-i18next hook conecta o overlay aos resources i18n.
+  // O `useTranslation` re-renderiza quando `languageChanged` dispara,
+  // então a mensagem segue o idioma escolhido sem precisar refresh.
+  const { t } = useTranslation();
+
   useEffect(() => {
     // Fire-and-forget — lock retorna void mesmo em erro silencioso. Não
     // queremos bloquear o paint do app esperando o lock resolver.
     void lockPortrait();
+    // Sprint 4.2: detecta + aplica o idioma do user no boot.
+    // Prioridade: localStorage > Capacitor Device > navigator.language >
+    // default pt-BR. Ver `LocaleService.ts`.
+    void initializeLocale();
   }, []);
 
   return (
@@ -49,10 +65,9 @@ export function AppBootEffects() {
             <line x1="12" x2="12.01" y1="18" y2="18" />
           </svg>
         </div>
-        <p className="text-[18px] font-black">Vire o celular</p>
+        <p className="text-[18px] font-black">{t("orientation.rotateTitle")}</p>
         <p className="mt-2 text-[14px] font-bold text-white/56">
-          O Gym Circle funciona em modo retrato. Coloque seu celular na
-          vertical pra continuar.
+          {t("orientation.rotateBody")}
         </p>
       </div>
     </div>

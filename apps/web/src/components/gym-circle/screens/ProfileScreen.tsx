@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/IconButton";
 import { ProfileIdentity, ProfilePostsGrid } from "../design-system";
 import type { MonthlyRecap } from "../social/monthlyRecap";
@@ -76,6 +77,7 @@ export function ProfileScreen({
   onUseStreakRestore,
   onDismissProfileCompletionNotice,
 }: ProfileScreenProps) {
+  const { t } = useTranslation();
   const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
   const restoreCountdown = formatRestoreCountdown(currentUser.streakRestoreDeadlineAt);
@@ -97,7 +99,7 @@ export function ProfileScreen({
         eyebrow="Gym Circle"
         extraAction={
           onOpenSettings ? (
-            <IconButton label="Configurações" onClick={onOpenSettings}>
+            <IconButton label={t("settings.openLabel")} onClick={onOpenSettings}>
               <MoreHorizontal size={20} strokeWidth={2.7} />
             </IconButton>
           ) : undefined

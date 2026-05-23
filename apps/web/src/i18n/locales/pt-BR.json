@@ -1,0 +1,80 @@
+{
+  "common": {
+    "close": "Fechar",
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "done": "Concluído",
+    "loading": "Carregando...",
+    "comingSoon": "Em breve",
+    "error": "Algo deu errado",
+    "retry": "Tentar de novo",
+    "ok": "OK",
+    "yes": "Sim",
+    "no": "Não",
+    "more": "mais",
+    "less": "menos"
+  },
+  "settings": {
+    "title": "Configurações",
+    "openLabel": "Abrir configurações",
+    "sections": {
+      "language": {
+        "title": "Idioma",
+        "description": "O idioma do app. Outros usuários sempre verão o conteúdo que você escrever."
+      },
+      "notifications": {
+        "title": "Notificações",
+        "description": "Como o Gym Circle te avisa.",
+        "comingSoon": "Em breve — vamos liberar logo as opções de notificação."
+      },
+      "privacy": {
+        "title": "Privacidade",
+        "description": "Controle quem vê seu conteúdo.",
+        "comingSoon": "Em breve — vamos liberar logo os controles de privacidade."
+      },
+      "account": {
+        "title": "Conta",
+        "description": "Gerencie sua conta.",
+        "comingSoon": "Em breve — alterar e-mail, sair e apagar conta."
+      },
+      "about": {
+        "title": "Sobre",
+        "description": "Versão, termos e suporte.",
+        "comingSoon": "Em breve."
+      }
+    },
+    "language": {
+      "selectLabel": "Escolher idioma",
+      "options": {
+        "ptBR": "Português (Brasil)",
+        "en": "English"
+      },
+      "autoDetected": "Detectado automaticamente do seu celular"
+    },
+    "about": {
+      "privacyPolicy": "Política de Privacidade",
+      "terms": "Termos de Uso",
+      "support": "Suporte / Fale conosco"
+    },
+    "account": {
+      "signOut": "Sair da conta",
+      "suspend": "Suspender conta temporariamente",
+      "delete": "Excluir conta",
+      "legalNote": "Suspender oculta seu perfil até a reativação por email. Excluir é permanente."
+    }
+  },
+  "profile": {
+    "menu": {
+      "settings": "Configurações",
+      "editProfile": "Editar perfil",
+      "logout": "Sair",
+      "admin": "Admin"
+    }
+  },
+  "orientation": {
+    "rotateTitle": "Vire o celular",
+    "rotateBody": "O Gym Circle funciona em modo retrato. Coloque seu celular na vertical pra continuar."
+  }
+}

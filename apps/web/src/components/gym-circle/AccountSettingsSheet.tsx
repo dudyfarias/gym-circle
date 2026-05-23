@@ -2,8 +2,10 @@
 
 import type { ReactNode } from "react";
 import {
+  Check,
   ChevronRight,
   FileText,
+  Globe,
   LogOut,
   Mail,
   PauseCircle,
@@ -11,6 +13,8 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { SUPPORTED_LOCALES, type SupportedLocale, useLocale } from "@/i18n";
 
 type AccountSettingsSheetProps = {
   open: boolean;
@@ -27,6 +31,9 @@ export function AccountSettingsSheet({
   onSignOut,
   onSuspendAccount,
 }: AccountSettingsSheetProps) {
+  // Sprint 4.3: i18n + language picker.
+  const { t } = useTranslation();
+
   if (!open) return null;
 
   return (
@@ -34,25 +41,24 @@ export function AccountSettingsSheet({
       className="fixed inset-0 z-[90] flex items-end justify-center bg-black/68 px-0 backdrop-blur-xl"
       role="dialog"
       aria-modal="true"
-      aria-label="Configurações da conta"
+      aria-label={t("settings.title")}
     >
       <button
-        aria-label="Fechar configurações"
+        aria-label={t("settings.openLabel")}
         className="absolute inset-0 cursor-default"
         onClick={onClose}
         type="button"
       />
-      <div className="relative w-full max-w-[480px] rounded-t-[32px] border border-white/[0.08] bg-[#111113]/96 px-5 pb-[calc(var(--gc-safe-bottom)+18px)] pt-4 shadow-[0_-24px_80px_rgba(0,0,0,0.65)]">
+      <div className="relative w-full max-w-[480px] rounded-t-[32px] border border-white/[0.08] bg-[#111113]/96 px-5 pb-[calc(var(--gc-safe-bottom)+18px)] pt-4 shadow-[0_-24px_80px_rgba(0,0,0,0.65)] max-h-[88dvh] overflow-y-auto">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/18" />
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <p className="text-[18px] font-black text-white">Configurações</p>
-            <p className="mt-0.5 text-[12px] font-bold text-white/44">
-              Conta, privacidade e suporte
+            <p className="text-[18px] font-black text-white">
+              {t("settings.title")}
             </p>
           </div>
           <button
-            aria-label="Fechar"
+            aria-label={t("common.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white/72"
             onClick={onClose}
             type="button"
@@ -61,30 +67,45 @@ export function AccountSettingsSheet({
           </button>
         </div>
 
-        <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
+        {/* Idioma — Sprint 4.3 */}
+        <LanguageSection />
+
+        {/* Notificações + Privacidade — placeholders Sprint 4.5 */}
+        <ComingSoonCard
+          description={t("settings.sections.notifications.description")}
+          title={t("settings.sections.notifications.title")}
+        />
+        <ComingSoonCard
+          description={t("settings.sections.privacy.description")}
+          title={t("settings.sections.privacy.title")}
+        />
+
+        {/* Sobre (links públicos) */}
+        <div className="mt-3 overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
           <SettingsLink href="/privacy" icon={<ShieldCheck size={18} />}>
-            Política de Privacidade
+            {t("settings.about.privacyPolicy")}
           </SettingsLink>
           <SettingsLink href="/terms" icon={<FileText size={18} />}>
-            Termos de Uso
+            {t("settings.about.terms")}
           </SettingsLink>
           <SettingsLink
             href="mailto:suporte@gymcircle.app?subject=Suporte%20Gym%20Circle"
             icon={<Mail size={18} />}
           >
-            Suporte / Fale conosco
+            {t("settings.about.support")}
           </SettingsLink>
         </div>
 
+        {/* Conta — signout / suspend */}
         <div className="mt-3 overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
           {onSignOut ? (
             <SettingsButton icon={<LogOut size={18} />} onClick={onSignOut}>
-              Sair da conta
+              {t("settings.account.signOut")}
             </SettingsButton>
           ) : null}
           {onSuspendAccount ? (
             <SettingsButton icon={<PauseCircle size={18} />} onClick={onSuspendAccount}>
-              Suspender conta temporariamente
+              {t("settings.account.suspend")}
             </SettingsButton>
           ) : null}
         </div>
@@ -96,15 +117,122 @@ export function AccountSettingsSheet({
               icon={<Trash2 size={18} />}
               onClick={onDeleteAccount}
             >
-              Excluir conta
+              {t("settings.account.delete")}
             </SettingsButton>
           </div>
         ) : null}
 
         <p className="mt-4 px-2 text-center text-[11px] font-bold leading-4 text-white/34">
-          Suspender oculta seu perfil até a reativação por email. Excluir é permanente.
+          {t("settings.account.legalNote")}
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Sprint 4.3 — Language picker.
+ *
+ * Segmented control PT/EN. Tap em uma das opções dispara `setLocale` que
+ * persiste em localStorage + atualiza i18next. Re-renderiza o app inteiro
+ * porque `useTranslation` hooks subscrevem no `languageChanged` event.
+ *
+ * UX decision: NÃO mostro um Dialog/Picker separado. O segmented control
+ * inline é mais leve, mais Apple-like, e dado que só temos 2 idiomas, não
+ * justifica overhead de modal. Quando crescer pra 3+ idiomas (ES, FR...),
+ * trocar pra um picker dropdown.
+ */
+function LanguageSection() {
+  const { t } = useTranslation();
+  const { locale, setLocale } = useLocale();
+
+  return (
+    <div className="mb-3">
+      <SectionHeader icon={<Globe size={16} />} title={t("settings.sections.language.title")} />
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
+        <div className="flex gap-2 p-2" role="radiogroup" aria-label={t("settings.language.selectLabel")}>
+          {SUPPORTED_LOCALES.map((option) => (
+            <LanguageOption
+              active={locale === option}
+              key={option}
+              label={t(`settings.language.options.${optionKey(option)}`)}
+              onSelect={() => void setLocale(option)}
+              value={option}
+            />
+          ))}
+        </div>
+        <p className="border-t border-white/[0.06] px-4 py-3 text-[12px] font-semibold text-white/44">
+          {t("settings.sections.language.description")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function optionKey(locale: SupportedLocale): string {
+  // Mapeia o code BCP-47 pra key JSON (camelCase). "pt-BR" → "ptBR".
+  // Necessário porque JSON keys com hífen ficam estranhas (`options."pt-BR"`).
+  if (locale === "pt-BR") return "ptBR";
+  return locale;
+}
+
+function LanguageOption({
+  active,
+  label,
+  onSelect,
+  value,
+}: {
+  active: boolean;
+  label: string;
+  onSelect: () => void;
+  value: SupportedLocale;
+}) {
+  return (
+    <button
+      aria-checked={active}
+      className={[
+        "gc-pressable flex flex-1 items-center justify-center gap-1.5 rounded-[16px] px-3 py-2.5 text-[13px] font-black",
+        active
+          ? "bg-[var(--gc-brand)] text-black"
+          : "bg-white/[0.04] text-white/72",
+      ].join(" ")}
+      onClick={onSelect}
+      role="radio"
+      type="button"
+      value={value}
+    >
+      {active ? <Check size={14} strokeWidth={3} /> : null}
+      <span className="truncate">{label}</span>
+    </button>
+  );
+}
+
+function ComingSoonCard({ description, title }: { description: string; title: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="mb-3">
+      <SectionHeader title={title} />
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045] px-4 py-4">
+        <p className="text-[13px] font-semibold text-white/72">{description}</p>
+        <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-[var(--gc-brand)]">
+          {t("common.comingSoon")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({ icon, title }: { icon?: ReactNode; title: string }) {
+  return (
+    <div className="mb-2 flex items-center gap-2 px-1">
+      {icon ? (
+        <span className="grid size-6 place-items-center rounded-full bg-white/[0.06] text-white/56">
+          {icon}
+        </span>
+      ) : null}
+      <p className="text-[12px] font-black uppercase tracking-wider text-white/52">
+        {title}
+      </p>
     </div>
   );
 }

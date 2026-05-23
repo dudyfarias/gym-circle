@@ -11,16 +11,20 @@
   "dependencies": {
     "@capacitor/camera": "^8.2.0",
     "@capacitor/core": "^8.3.4",
+    "@capacitor/device": "^8.0.2",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/keyboard": "^8.0.3",
     "@capacitor/push-notifications": "^8.1.1",
     "@capacitor/screen-orientation": "^8.0.1",
     "@gym-circle/core": "*",
     "@supabase/supabase-js": "^2.105.3",
+    "i18next": "^26.2.0",
+    "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^1.14.0",
     "next": "^16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "react-i18next": "^17.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
