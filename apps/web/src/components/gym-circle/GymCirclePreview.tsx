@@ -1284,15 +1284,19 @@ export function GymCirclePreview({
                   }
                 : undefined
             }
-            onTogglePrivate={
-              social.actions.updateProfile
-                ? async (next) => {
-                    // Sprint 4.5: wire direto pra updateProfile com
-                    // patch parcial { isPrivate }. RLS já respeita o flag.
-                    await social.actions.updateProfile({ isPrivate: next });
-                  }
-                : undefined
-            }
+            onTogglePrivate={(() => {
+              // Sprint 4.5: TS narrowing perde dentro da async callback,
+              // então capturamos a ref local após o check. updateProfile
+              // ficar undefined depois é impossível no runtime (binding é
+              // estável durante a vida do componente), mas TS é conservador.
+              const updateProfile = social.actions.updateProfile;
+              if (!updateProfile) return undefined;
+              return async (next: boolean) => {
+                // Sprint 4.5: wire direto pra updateProfile com patch
+                // parcial { isPrivate }. RLS já respeita o flag.
+                await updateProfile({ isPrivate: next });
+              };
+            })()}
             onTogglePush={async (next) => {
               // Sprint 4.5: toggle de push notifications. Persiste em
               // localStorage + chama service nativo:
