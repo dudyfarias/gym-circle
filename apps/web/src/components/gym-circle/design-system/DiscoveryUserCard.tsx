@@ -1,4 +1,5 @@
 import { Clock3, Lock, Plus, UserCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedUser } from "../social/types";
 import { StreakBadge } from "./StreakBadge";
@@ -10,45 +11,52 @@ type DiscoveryUserCardProps = {
 };
 
 /**
- * Frase social contextual baseada em sinais REAIS já presentes no
- * `EnrichedUser`. Decisões intencionais:
+ * Sprint 4.4: refatorado pra retornar i18n KEY (não string). O componente
+ * resolve com `t()` mantendo o array reativo a mudanças de idioma. Goal
+ * do user fica raw porque é texto de input livre — não pode ser
+ * traduzido. Quando há goal, retornamos `{ raw: goal }`.
  *
- * - Nunca menciona academia (decisão de produto da Sprint 3 — feed precisa
- *   parecer rede social, não diretório de academias).
- * - Não inventa dados: usa só streak, streakLitToday, longestStreak, sports,
- *   followStatus, goal. Distância e amigos em comum não são acessíveis nesse
- *   componente, então não aparecem aqui (a contextualização precisaria de
- *   props extras que viriam do FeedScreen, e dependeriam de viewerLocation +
- *   intersection de follows — escopo futuro).
+ * Decisões intencionais preservadas:
+ * - Nunca menciona academia (feed precisa parecer rede social).
+ * - Não inventa dados — só usa sinais reais do EnrichedUser.
  * - Prioridade do mais social pro mais neutro (primeiro match wins).
  */
-function getSuggestionContext(user: EnrichedUser): string {
-  if (user.followStatus === "accepted") return "Vocês já se seguem";
-  if (user.streakLitToday) return "Treinou hoje";
-  if (user.currentStreak >= 14) return "Treina forte ultimamente";
-  if (user.currentStreak >= 7) return "Treina frequentemente";
-  if (user.longestStreak >= 30) return "Streak consistente";
-  if (user.workoutsThisMonth >= 12) return "Treina toda semana";
-  if (user.sports?.includes("Corrida")) return "Também corre";
-  if (user.sports?.includes("Musculação")) return "Treina musculação";
-  if (user.goal && user.goal.trim().length > 0) return user.goal;
-  return "Sugerido pra você";
+type SuggestionContext = { key?: string; raw?: string };
+
+function getSuggestionContext(user: EnrichedUser): SuggestionContext {
+  if (user.followStatus === "accepted") return { key: "discovery.context.alreadyFollowing" };
+  if (user.streakLitToday) return { key: "discovery.context.trainedToday" };
+  if (user.currentStreak >= 14) return { key: "discovery.context.trainsHard" };
+  if (user.currentStreak >= 7) return { key: "discovery.context.trainsOften" };
+  if (user.longestStreak >= 30) return { key: "discovery.context.consistentStreak" };
+  if (user.workoutsThisMonth >= 12) return { key: "discovery.context.trainsWeekly" };
+  if (user.sports?.includes("Corrida")) return { key: "discovery.context.alsoRuns" };
+  if (user.sports?.includes("Musculação")) return { key: "discovery.context.trainsMuscles" };
+  if (user.goal && user.goal.trim().length > 0) return { raw: user.goal };
+  return { key: "discovery.context.suggestedForYou" };
 }
 
-function followIconState(user: EnrichedUser) {
+type FollowIconState = {
+  Icon: typeof UserCheck;
+  ariaKey: "discovery.actions.following" | "discovery.actions.requestSent" | "discovery.actions.requestFollow" | "discovery.actions.follow";
+  titleKey: "common.following" | "common.followRequested" | "common.requestFollow" | "common.follow";
+  classes: string;
+};
+
+function followIconState(user: EnrichedUser): FollowIconState {
   switch (user.followStatus) {
     case "accepted":
       return {
         Icon: UserCheck,
-        title: "Seguindo",
-        ariaLabel: `Seguindo ${user.name}`,
+        ariaKey: "discovery.actions.following",
+        titleKey: "common.following",
         classes: "bg-white text-black",
       };
     case "pending":
       return {
         Icon: Clock3,
-        title: "Solicitação enviada",
-        ariaLabel: `Solicitação enviada para ${user.name}`,
+        ariaKey: "discovery.actions.requestSent",
+        titleKey: "common.followRequested",
         classes: "border border-white/[0.16] bg-white/[0.05] text-white/72",
       };
     case "none":
@@ -56,15 +64,15 @@ function followIconState(user: EnrichedUser) {
       return user.isPrivate
         ? {
             Icon: Lock,
-            title: "Solicitar para seguir",
-            ariaLabel: `Solicitar para seguir ${user.name}`,
+            ariaKey: "discovery.actions.requestFollow",
+            titleKey: "common.requestFollow",
             classes:
               "bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.22)]",
           }
         : {
             Icon: Plus,
-            title: "Seguir",
-            ariaLabel: `Seguir ${user.name}`,
+            ariaKey: "discovery.actions.follow",
+            titleKey: "common.follow",
             classes:
               "bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.22)]",
           };
@@ -76,13 +84,15 @@ export function DiscoveryUserCard({
   onToggleFollow,
   onSelectUser,
 }: DiscoveryUserCardProps) {
+  const { t, i18n } = useTranslation();
   const cta = followIconState(user);
-  const context = getSuggestionContext(user);
+  const ctx = getSuggestionContext(user);
+  const context = ctx.raw ?? (ctx.key ? t(ctx.key) : "");
   return (
     <div className="gc-ios-sheet gc-pressable min-w-[220px] rounded-[28px] p-4">
       <div className="flex items-start justify-between gap-4">
         <button
-          aria-label={`Ver perfil de ${user.name}`}
+          aria-label={t("discovery.actions.openProfile", { name: user.name })}
           className="gc-pressable shrink-0"
           onClick={() => onSelectUser?.(user.id)}
           type="button"
@@ -94,10 +104,10 @@ export function DiscoveryUserCard({
           />
         </button>
         <button
-          aria-label={cta.ariaLabel}
+          aria-label={t(cta.ariaKey, { name: user.name })}
           className={["gc-pressable grid size-11 place-items-center rounded-full", cta.classes].join(" ")}
           onClick={() => onToggleFollow(user.id)}
-          title={cta.title}
+          title={t(cta.titleKey)}
           type="button"
         >
           <cta.Icon size={17} />
@@ -122,7 +132,7 @@ export function DiscoveryUserCard({
           streak={user.currentStreak}
         />
         <span className="text-[12px] font-black text-white/36">
-          {user.followersCount.toLocaleString("pt-BR")}
+          {user.followersCount.toLocaleString(i18n.language)}
         </span>
       </div>
     </div>

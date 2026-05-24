@@ -43,8 +43,9 @@
     "title": "Gym Circle",
     "loading": "Loading feed...",
     "empty": {
-      "title": "Your feed starts here",
-      "body": "Follow people and post your first workout to see the feed come to life."
+      "title": "Your feed is quiet",
+      "body": "When your circle posts workouts, they'll show up here with streaks, likes, and comments.",
+      "action": "Post your first workout"
     },
     "post": {
       "comment": "Comment",
@@ -66,6 +67,26 @@
     },
     "suggestions": {
       "title": "Suggestions for you"
+    }
+  },
+  "discovery": {
+    "context": {
+      "alreadyFollowing": "You follow each other",
+      "trainedToday": "Trained today",
+      "trainsHard": "Training hard lately",
+      "trainsOften": "Trains often",
+      "consistentStreak": "Consistent streak",
+      "trainsWeekly": "Trains every week",
+      "alsoRuns": "Also runs",
+      "trainsMuscles": "Lifts",
+      "suggestedForYou": "Suggested for you"
+    },
+    "actions": {
+      "openProfile": "View {{name}}'s profile",
+      "follow": "Follow {{name}}",
+      "following": "Following {{name}}",
+      "requestSent": "Follow request sent to {{name}}",
+      "requestFollow": "Request to follow {{name}}"
     }
   },
   "comments": {
@@ -92,6 +113,8 @@
   },
   "myCircle": {
     "title": "My Circle",
+    "titleOther": "{{name}}'s Circle",
+    "closeLabel": "Close My Circle",
     "currentStreak": "Current streak",
     "longestStreak": "Best streak",
     "monthWorkouts": "Workouts this month",
@@ -107,7 +130,37 @@
     },
     "level": "Level {{level}}",
     "badgeActive": "Badge active today",
-    "badgePending": "Ready to light up"
+    "badgePending": "Ready to light up",
+    "calendar": {
+      "title": "Calendar",
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "trained": "Day {{day}} trained",
+      "notTrained": "Day {{day}} not trained"
+    },
+    "levels": {
+      "title": "Levels",
+      "youAreHere": "you're here",
+      "range": "{{min}}–{{max}} days",
+      "rangeOpen": "{{min}}+ days",
+      "names": {
+        "iniciante": "Beginner",
+        "consistente": "Consistent",
+        "elite": "Elite",
+        "lendario": "Legendary"
+      }
+    },
+    "badges": {
+      "title": "Badges",
+      "earned": "earned",
+      "locked": "locked",
+      "nextHint": "Almost there for {{name}}",
+      "count": "{{earned}}/{{total}}"
+    },
+    "competition": {
+      "title": "Competition",
+      "description": "Weekly, monthly, and yearly rankings coming soon."
+    }
   },
   "settings": {
     "title": "Settings",
@@ -174,7 +227,9 @@
     "private": "Private profile",
     "privateNotice": {
       "title": "Private profile",
+      "restrictedTitle": "Restricted content",
       "body": "Send a request to follow this circle from the inside.",
+      "restrictedBody": "You don't have access to this content yet.",
       "latestPost": "Latest workout"
     },
     "emptyPosts": "No workouts posted yet"

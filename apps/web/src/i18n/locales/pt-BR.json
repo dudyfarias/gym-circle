@@ -43,8 +43,9 @@
     "title": "Gym Circle",
     "loading": "Carregando feed...",
     "empty": {
-      "title": "Seu feed começa aqui",
-      "body": "Siga pessoas e poste seu primeiro treino pra ver o feed acontecer."
+      "title": "Seu feed está quieto",
+      "body": "Quando seu circle publicar treinos, eles aparecem aqui com streak, curtidas e comentários.",
+      "action": "Postar primeiro treino"
     },
     "post": {
       "comment": "Comentar",
@@ -65,7 +66,27 @@
       "menuOpenLabel": "Mais opções"
     },
     "suggestions": {
-      "title": "Sugestões pra você"
+      "title": "Sugestões de amizade"
+    }
+  },
+  "discovery": {
+    "context": {
+      "alreadyFollowing": "Vocês já se seguem",
+      "trainedToday": "Treinou hoje",
+      "trainsHard": "Treina forte ultimamente",
+      "trainsOften": "Treina frequentemente",
+      "consistentStreak": "Streak consistente",
+      "trainsWeekly": "Treina toda semana",
+      "alsoRuns": "Também corre",
+      "trainsMuscles": "Treina musculação",
+      "suggestedForYou": "Sugerido pra você"
+    },
+    "actions": {
+      "openProfile": "Ver perfil de {{name}}",
+      "follow": "Seguir {{name}}",
+      "following": "Seguindo {{name}}",
+      "requestSent": "Solicitação enviada para {{name}}",
+      "requestFollow": "Solicitar para seguir {{name}}"
     }
   },
   "comments": {
@@ -92,6 +113,8 @@
   },
   "myCircle": {
     "title": "Meu Circle",
+    "titleOther": "Circle de {{name}}",
+    "closeLabel": "Fechar Meu Circle",
     "currentStreak": "Streak atual",
     "longestStreak": "Maior streak",
     "monthWorkouts": "Treinos no mês",
@@ -107,7 +130,37 @@
     },
     "level": "Nível {{level}}",
     "badgeActive": "Badge aceso hoje",
-    "badgePending": "Pronto para acender"
+    "badgePending": "Pronto para acender",
+    "calendar": {
+      "title": "Calendário",
+      "previousMonth": "Mês anterior",
+      "nextMonth": "Próximo mês",
+      "trained": "Dia {{day}} treinou",
+      "notTrained": "Dia {{day}} sem treino"
+    },
+    "levels": {
+      "title": "Níveis",
+      "youAreHere": "você está aqui",
+      "range": "{{min}}–{{max}} dias",
+      "rangeOpen": "{{min}}+ dias",
+      "names": {
+        "iniciante": "Iniciante",
+        "consistente": "Consistente",
+        "elite": "Elite",
+        "lendario": "Lendário"
+      }
+    },
+    "badges": {
+      "title": "Badges",
+      "earned": "conquistada",
+      "locked": "bloqueada",
+      "nextHint": "Falta pouco pra {{name}}",
+      "count": "{{earned}}/{{total}}"
+    },
+    "competition": {
+      "title": "Competição",
+      "description": "Ranking semanal, mensal e anual em breve."
+    }
   },
   "settings": {
     "title": "Configurações",
@@ -174,7 +227,9 @@
     "private": "Perfil privado",
     "privateNotice": {
       "title": "Perfil privado",
+      "restrictedTitle": "Conteúdo restrito",
       "body": "Envie uma solicitação para acompanhar este circle por dentro.",
+      "restrictedBody": "Você ainda não tem acesso a este conteúdo.",
       "latestPost": "Último treino"
     },
     "emptyPosts": "Nenhum treino publicado ainda"

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import type { StoryGroup } from "../social/types";
 import { StreakBadge } from "./StreakBadge";
@@ -10,6 +11,7 @@ type StoryBubblesProps = {
 };
 
 export function StoryBubbles({ stories, onOpenStory }: StoryBubblesProps) {
+  const { t } = useTranslation();
   return (
     <div
       className="gc-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 py-4"
@@ -17,6 +19,7 @@ export function StoryBubbles({ stories, onOpenStory }: StoryBubblesProps) {
     >
       {stories.map((group) => (
         <button
+          aria-label={t("stories.viewStoryOf", { name: group.author.name })}
           className="gc-pressable w-[70px] shrink-0 text-center"
           key={group.id}
           onClick={() => onOpenStory(group.id)}

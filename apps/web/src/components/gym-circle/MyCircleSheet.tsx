@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock, Trophy, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   AvatarConsistencyRings,
   StreakBadge,
@@ -75,6 +76,7 @@ export function MyCircleSheet({
   onClose,
   onOpenStory,
 }: MyCircleSheetProps) {
+  const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
   const today = useMemo(() => new Date(), []);
   const todayKey = useMemo(() => formatDateKey(today), [today]);
@@ -153,7 +155,9 @@ export function MyCircleSheet({
     });
   }
 
-  const monthLabel = new Intl.DateTimeFormat("pt-BR", {
+  // Sprint 4.4 i18n: Intl.DateTimeFormat usa o locale do i18next pra
+  // renderizar nomes de mês em PT-BR ("maio") ou EN ("May").
+  const monthLabel = new Intl.DateTimeFormat(i18n.language, {
     month: "long",
     year: "numeric",
   }).format(calendarDate);
@@ -167,7 +171,7 @@ export function MyCircleSheet({
       ].join(" ")}
     >
       <button
-        aria-label="Fechar Meu Circle"
+        aria-label={t("myCircle.closeLabel")}
         className="absolute inset-0 bg-black/68 backdrop-blur-xl"
         onClick={handleClose}
         tabIndex={open ? 0 : -1}
@@ -190,10 +194,14 @@ export function MyCircleSheet({
         <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center px-5 pb-3 pt-1">
           <div />
           <h2 className="text-center text-[15px] font-black text-white">
-            {isOwn ? "Meu Circle" : `Circle de ${user.name.split(" ")[0] ?? user.username}`}
+            {isOwn
+              ? t("myCircle.title")
+              : t("myCircle.titleOther", {
+                  name: user.name.split(" ")[0] ?? user.username,
+                })}
           </h2>
           <button
-            aria-label="Fechar"
+            aria-label={t("common.close")}
             className="gc-pressable grid size-9 justify-self-end place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={handleClose}
             type="button"
@@ -218,7 +226,7 @@ export function MyCircleSheet({
               <h3 className="text-[20px] font-black leading-tight">{user.name}</h3>
               {user.isPrivate ? (
                 <Lock
-                  aria-label="Perfil privado"
+                  aria-label={t("profile.private")}
                   className="shrink-0 text-white/52"
                   size={14}
                   strokeWidth={2.6}
@@ -242,49 +250,60 @@ export function MyCircleSheet({
               <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
                 <Lock size={20} strokeWidth={2.4} />
               </div>
-              <p className="text-[15px] font-black text-white">Perfil privado</p>
+              <p className="text-[15px] font-black text-white">
+                {t("profile.privateNotice.title")}
+              </p>
               <p className="mt-2 text-[12px] font-bold text-white/56">
-                Detalhes de gamificação só ficam visíveis para quem segue.
+                {t("profile.privateNotice.body")}
               </p>
             </section>
           ) : (
             <>
               {/* B. Resumo principal — grid 2x3 */}
               <section className="mt-8 grid grid-cols-2 gap-2">
-                <SummaryCard label="Streak atual" value={`${user.currentStreak}d`} />
-                <SummaryCard label="Maior streak" value={`${user.longestStreak}d`} />
-                <SummaryCard label="Treinos no mês" value={user.workoutsThisMonth.toLocaleString("pt-BR")} />
-                <SummaryCard label="Dias no ano" value={user.activeDaysCount.toLocaleString("pt-BR")} />
-                <SummaryCard label="Posts" value={posts.length.toLocaleString("pt-BR")} />
+                <SummaryCard label={t("myCircle.currentStreak")} value={`${user.currentStreak}d`} />
+                <SummaryCard label={t("myCircle.longestStreak")} value={`${user.longestStreak}d`} />
+                <SummaryCard label={t("myCircle.monthWorkouts")} value={user.workoutsThisMonth.toLocaleString()} />
+                <SummaryCard label={t("myCircle.yearDays")} value={user.activeDaysCount.toLocaleString()} />
+                <SummaryCard label={t("myCircle.posts")} value={posts.length.toLocaleString()} />
                 <SummaryCard
-                  label="Restauradores"
-                  value={(user.streakRestoresAvailable ?? 0).toLocaleString("pt-BR")}
+                  label={t("myCircle.restores")}
+                  value={(user.streakRestoresAvailable ?? 0).toLocaleString()}
                 />
               </section>
 
               {/* C. Explicação dos rings */}
               <section className="mt-8">
                 <h4 className="mb-3 text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
-                  Sua consistência
+                  {t("myCircle.consistency.title")}
                 </h4>
                 <div className="space-y-3 rounded-[20px] bg-white/[0.035] p-4">
                   <RingProgressRow
                     color="var(--gc-consistency-week, var(--gc-consistency-daily))"
-                    label="Semana"
+                    label={t("myCircle.consistency.week")}
                     progressPct={progress.week}
-                    value={`${consistencyInput.workoutsThisWeek}/7 dias`}
+                    value={t("myCircle.consistency.unit", {
+                      trained: consistencyInput.workoutsThisWeek,
+                      total: 7,
+                    })}
                   />
                   <RingProgressRow
                     color="var(--gc-consistency-month)"
-                    label="Mês"
+                    label={t("myCircle.consistency.month")}
                     progressPct={progress.month}
-                    value={`${consistencyInput.workoutsThisMonth}/${getTotalDaysInMonth(today)} dias`}
+                    value={t("myCircle.consistency.unit", {
+                      trained: consistencyInput.workoutsThisMonth,
+                      total: getTotalDaysInMonth(today),
+                    })}
                   />
                   <RingProgressRow
                     color="var(--gc-consistency-year)"
-                    label="Ano"
+                    label={t("myCircle.consistency.year")}
                     progressPct={progress.year}
-                    value={`${consistencyInput.workoutsThisYear}/${getTotalDaysInYear(today)} dias`}
+                    value={t("myCircle.consistency.unit", {
+                      trained: consistencyInput.workoutsThisYear,
+                      total: getTotalDaysInYear(today),
+                    })}
                   />
                 </div>
               </section>
@@ -293,11 +312,11 @@ export function MyCircleSheet({
               <section className="mt-8">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
-                    Calendário
+                    {t("myCircle.calendar.title")}
                   </h4>
                   <div className="flex items-center gap-2">
                     <button
-                      aria-label="Mês anterior"
+                      aria-label={t("myCircle.calendar.previousMonth")}
                       className="gc-pressable grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/72"
                       onClick={goPrevMonth}
                       type="button"
@@ -308,7 +327,7 @@ export function MyCircleSheet({
                       {monthLabel}
                     </span>
                     <button
-                      aria-label="Próximo mês"
+                      aria-label={t("myCircle.calendar.nextMonth")}
                       className="gc-pressable grid size-9 place-items-center rounded-full bg-white/[0.06] text-white/72"
                       onClick={goNextMonth}
                       type="button"
@@ -340,8 +359,8 @@ export function MyCircleSheet({
                         <div
                           aria-label={
                             trained
-                              ? `Dia ${day} treinou`
-                              : `Dia ${day} sem treino`
+                              ? t("myCircle.calendar.trained", { day })
+                              : t("myCircle.calendar.notTrained", { day })
                           }
                           className={[
                             "relative grid aspect-square place-items-center rounded-[10px] text-[11px] font-black transition-colors",
@@ -365,7 +384,7 @@ export function MyCircleSheet({
               {/* E. Níveis */}
               <section className="mt-8">
                 <h4 className="mb-3 text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
-                  Níveis de consistência
+                  {t("myCircle.levels.title")}
                 </h4>
                 <div className="space-y-2 rounded-[20px] bg-white/[0.035] p-3">
                   {allLevels.map((lv) => {
@@ -394,13 +413,18 @@ export function MyCircleSheet({
                                   : "bg-white/24",
                             ].join(" ")}
                           />
-                          <span className="text-[14px] font-black">{lv.label}</span>
+                          <span className="text-[14px] font-black">
+                            {t(`myCircle.levels.names.${lv.id}`)}
+                          </span>
                         </div>
                         <span className="text-[11px] font-bold opacity-72">
                           {lv.nextLevelAt
-                            ? `${lv.minDays}–${lv.nextLevelAt - 1} dias`
-                            : `${lv.minDays}+ dias`}
-                          {isCurrent ? " · você está aqui" : ""}
+                            ? t("myCircle.levels.range", {
+                                min: lv.minDays,
+                                max: lv.nextLevelAt - 1,
+                              })
+                            : t("myCircle.levels.rangeOpen", { min: lv.minDays })}
+                          {isCurrent ? ` · ${t("myCircle.levels.youAreHere")}` : ""}
                         </span>
                       </div>
                     );
@@ -412,10 +436,13 @@ export function MyCircleSheet({
               <section className="mt-8">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
-                    Badges
+                    {t("myCircle.badges.title")}
                   </h4>
                   <span className="text-[11px] font-black text-white/52">
-                    {earnedCount}/{badges.length}
+                    {t("myCircle.badges.count", {
+                      earned: earnedCount,
+                      total: badges.length,
+                    })}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 rounded-[20px] bg-white/[0.035] p-3 sm:grid-cols-4">
@@ -425,7 +452,7 @@ export function MyCircleSheet({
                 </div>
                 {nextBadge ? (
                   <p className="mt-3 text-center text-[11px] font-bold text-white/52">
-                    Falta pouco pra <span className="font-black text-white">{nextBadge.label}</span>{" "}
+                    {t("myCircle.badges.nextHint", { name: nextBadge.label })}{" "}
                     — {nextBadge.description.toLowerCase()}
                   </p>
                 ) : null}
@@ -434,9 +461,11 @@ export function MyCircleSheet({
               {/* G. Competição (placeholder) */}
               <section className="mt-8 rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] p-5 text-center">
                 <Trophy className="mx-auto text-white/32" size={28} strokeWidth={2} />
-                <p className="mt-3 text-[14px] font-black text-white">Competição em breve</p>
+                <p className="mt-3 text-[14px] font-black text-white">
+                  {t("myCircle.competition.title")} · {t("common.comingSoon")}
+                </p>
                 <p className="mt-1.5 text-[12px] font-bold text-white/52">
-                  Ranking semanal, desafios e comparação com amigos chegam na próxima sprint.
+                  {t("myCircle.competition.description")}
                 </p>
               </section>
             </>
@@ -489,7 +518,7 @@ function RingProgressRow({
 function BadgeChip({ badge }: { badge: ReturnType<typeof getEarnedBadges>[number] }) {
   return (
     <div
-      aria-label={`${badge.label} — ${badge.earned ? "conquistada" : "bloqueada"}`}
+      aria-label={`${badge.label} — ${badge.earned ? t("myCircle.badges.earned") : t("myCircle.badges.locked")}`}
       className={[
         "flex aspect-square flex-col items-center justify-center gap-1 rounded-[14px] p-2 text-center transition-colors",
         badge.earned

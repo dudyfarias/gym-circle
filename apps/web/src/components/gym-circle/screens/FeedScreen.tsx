@@ -9,6 +9,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   DiscoveryUserCard,
   EmptyState,
@@ -85,6 +86,7 @@ export function FeedScreen({
   feedLoadingMore = false,
   onLoadMoreFeed,
 }: FeedScreenProps) {
+  const { t } = useTranslation();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -157,7 +159,7 @@ export function FeedScreen({
               {post === feedPosts[1] && suggestedUsers.length > 0 ? (
                 <section className="mt-5">
                   <div className="mb-3 flex items-center">
-                    <h3 className="text-[17px] font-black">Sugestões de amizade</h3>
+                    <h3 className="text-[17px] font-black">{t("feed.suggestions.title")}</h3>
                   </div>
                   <div className="gc-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5">
                     {suggestedUsers.slice(0, 5).map((user) => (
@@ -189,11 +191,11 @@ export function FeedScreen({
               onClick={onCreatePost}
               type="button"
             >
-              Postar primeiro treino
+              {t("feed.empty.action")}
             </button>
           }
-          detail="Quando seu circle publicar treinos, eles aparecem aqui com streak, curtidas e comentários."
-          title="Seu feed está quieto"
+          detail={t("feed.empty.body")}
+          title={t("feed.empty.title")}
         />
       )}
     </section>

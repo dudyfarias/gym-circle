@@ -12,6 +12,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import {
   LatestPostPreview,
   ProfileIdentity,
@@ -60,7 +61,8 @@ type ProfileSheetProps = {
 };
 
 type FollowCtaState = {
-  label: string;
+  /** i18n key — resolvido com `t()` no consumer pra reagir a mudança de idioma. */
+  labelKey: "common.following" | "common.followRequested" | "common.requestFollow" | "common.follow";
   tone: "brand" | "white" | "muted";
   Icon: typeof UserPlus;
 };
@@ -68,14 +70,14 @@ type FollowCtaState = {
 function getFollowCta(user: EnrichedUser): FollowCtaState {
   switch (user.followStatus) {
     case "accepted":
-      return { label: "Seguindo", tone: "white", Icon: UserCheck };
+      return { labelKey: "common.following", tone: "white", Icon: UserCheck };
     case "pending":
-      return { label: "Solicitação enviada", tone: "muted", Icon: Clock3 };
+      return { labelKey: "common.followRequested", tone: "muted", Icon: Clock3 };
     case "none":
     default:
       return user.isPrivate
-        ? { label: "Solicitar para seguir", tone: "brand", Icon: Lock }
-        : { label: "Seguir", tone: "brand", Icon: UserPlus };
+        ? { labelKey: "common.requestFollow", tone: "brand", Icon: Lock }
+        : { labelKey: "common.follow", tone: "brand", Icon: UserPlus };
   }
 }
 
@@ -97,6 +99,7 @@ export function ProfileSheet({
   storyViewed,
   onOpenStory,
 }: ProfileSheetProps) {
+  const { t } = useTranslation();
   if (!open || !user) return null;
 
   const isMe = user.id === currentUserId;
@@ -115,7 +118,7 @@ export function ProfileSheet({
             @{user.username}
           </p>
           <button
-            aria-label="Fechar perfil"
+            aria-label={t("common.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={onClose}
             type="button"
@@ -150,7 +153,7 @@ export function ProfileSheet({
                     type="button"
                   >
                     <cta.Icon className="shrink-0" size={16} />
-                    <span className="truncate">{cta.label}</span>
+                    <span className="truncate">{t(cta.labelKey)}</span>
                   </button>
                   <button
                     className="gc-pressable flex h-11 min-w-0 items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.06] px-3 text-[13px] font-black text-white"
@@ -158,10 +161,10 @@ export function ProfileSheet({
                     type="button"
                   >
                     <MessageCircle className="shrink-0" size={16} />
-                    <span className="truncate">Mensagem</span>
+                    <span className="truncate">{t("common.message")}</span>
                   </button>
                   <button
-                    aria-label="Denunciar usuário"
+                    aria-label={t("common.report")}
                     className="gc-pressable grid size-11 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/62"
                     onClick={() => onReportUser?.(user.id)}
                     type="button"
@@ -169,7 +172,7 @@ export function ProfileSheet({
                     <Flag size={16} />
                   </button>
                   <button
-                    aria-label="Bloquear usuário"
+                    aria-label={t("common.block")}
                     className="gc-pressable grid size-11 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-[var(--gc-pink)]"
                     onClick={() => onBlockUser?.(user.id)}
                     type="button"
@@ -196,7 +199,7 @@ export function ProfileSheet({
                 </div>
               ) : null}
               <ProfilePostsGrid
-                emptyTitle="Nenhum treino publicado ainda"
+                emptyTitle={t("profile.emptyPosts")}
                 onOpenPost={onOpenPost}
                 posts={posts}
               />
@@ -221,18 +224,21 @@ function PrivateLockedNotice({
   latestPost: EnrichedPost | undefined;
   userIsPrivate: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-5 text-center">
       <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
         <Lock size={20} strokeWidth={2.4} />
       </div>
       <p className="text-[16px] font-black text-white">
-        {userIsPrivate ? "Perfil privado" : "Conteúdo restrito"}
+        {userIsPrivate
+          ? t("profile.privateNotice.title")
+          : t("profile.privateNotice.restrictedTitle")}
       </p>
       <p className="mt-2 text-[13px] font-bold text-white/56">
         {userIsPrivate
-          ? "Envie uma solicitação para acompanhar este circle por dentro."
-          : "Você ainda não tem acesso a este conteúdo."}
+          ? t("profile.privateNotice.body")
+          : t("profile.privateNotice.restrictedBody")}
       </p>
       {latestPost ? (
         <div className="relative mx-auto mt-4 aspect-square w-full max-w-[220px] overflow-hidden rounded-[20px] border border-white/[0.08]">
@@ -244,7 +250,7 @@ function PrivateLockedNotice({
             />
           ) : (
             <Image
-              alt="Último treino"
+              alt={t("profile.privateNotice.latestPost")}
               className="object-cover"
               fill
               sizes="220px"
@@ -257,7 +263,7 @@ function PrivateLockedNotice({
             </span>
           ) : null}
           <div className="absolute bottom-2 left-2 rounded-full bg-black/64 px-2 py-1 text-[10px] font-black text-white/82 backdrop-blur-md">
-            Último treino
+            {t("profile.privateNotice.latestPost")}
           </div>
         </div>
       ) : null}
