@@ -516,6 +516,9 @@ function RingProgressRow({
 }
 
 function BadgeChip({ badge }: { badge: ReturnType<typeof getEarnedBadges>[number] }) {
+  // Sprint 4.4 i18n: subcomponente precisa do seu próprio useTranslation
+  // hook — escopo de `t` do parent function não vaza aqui.
+  const { t } = useTranslation();
   return (
     <div
       aria-label={`${badge.label} — ${badge.earned ? t("myCircle.badges.earned") : t("myCircle.badges.locked")}`}
