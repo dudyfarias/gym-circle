@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { type TouchEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useGymCircleServices } from "@gym-circle/core/hooks";
 import {
   calculateDistanceKm,
   formatDistanceKm,
@@ -130,6 +131,9 @@ export function GymCirclePreview({
   onUploadChatImage,
   onUploadAvatar,
 }: GymCirclePreviewProps) {
+  // Sprint 4.5: services.push é o PushService de core/hooks, usado pelo
+  // toggle de push notifications no AccountSettingsSheet.
+  const services = useGymCircleServices();
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
@@ -140,6 +144,16 @@ export function GymCirclePreview({
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Sprint 4.5: estado do toggle de push notifications (localStorage-backed
+  // pra sobreviver entre sessões sem precisar de schema change no DB).
+  const [pushEnabled, setPushEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.localStorage.getItem("gc-push-enabled") === "true";
+    } catch {
+      return false;
+    }
+  });
   const [monthlyRecapOpen, setMonthlyRecapOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
@@ -1244,6 +1258,7 @@ export function GymCirclePreview({
           />
           <AdminPanelSheet onClose={closeAdmin} open={adminOpen} />
           <AccountSettingsSheet
+            isPrivate={social.currentUser.isPrivate}
             onClose={() => setSettingsOpen(false)}
             onDeleteAccount={
               social.actions.requestAccountDeletion
@@ -1269,7 +1284,59 @@ export function GymCirclePreview({
                   }
                 : undefined
             }
+            onTogglePrivate={
+              social.actions.updateProfile
+                ? async (next) => {
+                    // Sprint 4.5: wire direto pra updateProfile com
+                    // patch parcial { isPrivate }. RLS já respeita o flag.
+                    await social.actions.updateProfile({ isPrivate: next });
+                  }
+                : undefined
+            }
+            onTogglePush={async (next) => {
+              // Sprint 4.5: toggle de push notifications. Persiste em
+              // localStorage + chama service nativo:
+              //   ON  → requestPushPermission (prompt iOS + register token)
+              //   OFF → unregisterPushToken (revoga no backend)
+              // Se permission for negada pelo user, retornamos o estado
+              // anterior pra UI refletir a realidade.
+              const { PushNotificationsService } = await import(
+                "./native/PushNotificationsService"
+              );
+              if (next) {
+                try {
+                  const result =
+                    await PushNotificationsService.requestPushPermission(
+                      social.currentUser.id,
+                      services.push,
+                    );
+                  if (result.status === "registered") {
+                    setPushEnabled(true);
+                    try {
+                      window.localStorage.setItem("gc-push-enabled", "true");
+                    } catch {
+                      /* localStorage indisponível — silencioso */
+                    }
+                  } else {
+                    setPushEnabled(false);
+                  }
+                } catch {
+                  setPushEnabled(false);
+                }
+              } else {
+                await PushNotificationsService.unregisterPushToken(
+                  services.push,
+                );
+                setPushEnabled(false);
+                try {
+                  window.localStorage.setItem("gc-push-enabled", "false");
+                } catch {
+                  /* idem */
+                }
+              }
+            }}
             open={settingsOpen}
+            pushEnabled={pushEnabled}
           />
           <PostMenuSheet
             isOwner={Boolean(canManageOwnPost && postMenuTarget?.userId === social.currentUser.id)}

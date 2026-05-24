@@ -173,12 +173,20 @@
       "notifications": {
         "title": "Notificações",
         "description": "Como o Gym Circle te avisa.",
-        "comingSoon": "Em breve — vamos liberar logo as opções de notificação."
+        "push": {
+          "title": "Notificações push",
+          "description": "Receba avisos de likes, comentários e novos seguidores no seu celular.",
+          "enabling": "Pedindo permissão...",
+          "denied": "Permissão negada. Reative nas Configurações do iOS."
+        }
       },
       "privacy": {
         "title": "Privacidade",
         "description": "Controle quem vê seu conteúdo.",
-        "comingSoon": "Em breve — vamos liberar logo os controles de privacidade."
+        "privateAccount": {
+          "title": "Conta privada",
+          "description": "Apenas pessoas que você aprovar veem seus treinos, stories e My Circle. Quem já segue continua tendo acesso."
+        }
       },
       "account": {
         "title": "Conta",

@@ -1,11 +1,13 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
+  Bell,
   Check,
   ChevronRight,
   FileText,
   Globe,
+  Lock,
   LogOut,
   Mail,
   PauseCircle,
@@ -22,6 +24,20 @@ type AccountSettingsSheetProps = {
   onDeleteAccount?: () => void;
   onSignOut?: () => void;
   onSuspendAccount?: () => void;
+  /**
+   * Sprint 4.5: toggle de conta privada. Estado atual vem de
+   * `isPrivate`; ao clicar, parent decide se persiste no DB
+   * (via updateProfile) e devolve via `isPrivate` updated.
+   */
+  isPrivate?: boolean;
+  onTogglePrivate?: (next: boolean) => void | Promise<void>;
+  /**
+   * Sprint 4.5: toggle de push notifications. Estado vem do parent
+   * (que lê de localStorage). `onTogglePush(next)` lida com
+   * requestPermission (true) / revoke token (false).
+   */
+  pushEnabled?: boolean;
+  onTogglePush?: (next: boolean) => void | Promise<void>;
 };
 
 export function AccountSettingsSheet({
@@ -30,6 +46,10 @@ export function AccountSettingsSheet({
   onDeleteAccount,
   onSignOut,
   onSuspendAccount,
+  isPrivate,
+  onTogglePrivate,
+  pushEnabled,
+  onTogglePush,
 }: AccountSettingsSheetProps) {
   // Sprint 4.3: i18n + language picker.
   const { t } = useTranslation();
@@ -70,15 +90,21 @@ export function AccountSettingsSheet({
         {/* Idioma — Sprint 4.3 */}
         <LanguageSection />
 
-        {/* Notificações + Privacidade — placeholders Sprint 4.5 */}
-        <ComingSoonCard
-          description={t("settings.sections.notifications.description")}
-          title={t("settings.sections.notifications.title")}
-        />
-        <ComingSoonCard
-          description={t("settings.sections.privacy.description")}
-          title={t("settings.sections.privacy.title")}
-        />
+        {/* Notificações — Sprint 4.5 */}
+        {onTogglePush ? (
+          <NotificationsSection
+            enabled={pushEnabled ?? false}
+            onToggle={onTogglePush}
+          />
+        ) : null}
+
+        {/* Privacidade — Sprint 4.5 */}
+        {onTogglePrivate ? (
+          <PrivacySection
+            isPrivate={isPrivate ?? false}
+            onToggle={onTogglePrivate}
+          />
+        ) : null}
 
         {/* Sobre (links públicos) */}
         <div className="mt-3 overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
@@ -207,18 +233,160 @@ function LanguageOption({
   );
 }
 
-function ComingSoonCard({ description, title }: { description: string; title: string }) {
+/**
+ * Sprint 4.5 — Push notifications toggle.
+ *
+ * Single switch row. `enabled` é controlado pelo parent (localStorage-backed
+ * em GymCirclePreview). Tap dispara:
+ *   - ON → PushNotificationsService.requestPushPermission → iOS permission
+ *     prompt → token storage. Se user nega, parent reverte o toggle.
+ *   - OFF → PushNotificationsService.unregisterPushToken → revoga token
+ *     no backend e limpa localStorage.
+ *
+ * Estado `pending` (local) cobre o gap entre tap e a Promise resolver —
+ * impede tap duplo e mostra opacity reduzida.
+ */
+function NotificationsSection({
+  enabled,
+  onToggle,
+}: {
+  enabled: boolean;
+  onToggle: (next: boolean) => void | Promise<void>;
+}) {
   const { t } = useTranslation();
+  const [pending, setPending] = useState(false);
+
+  async function handleToggle() {
+    if (pending) return;
+    setPending(true);
+    try {
+      await onToggle(!enabled);
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="mb-3">
-      <SectionHeader title={title} />
-      <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045] px-4 py-4">
-        <p className="text-[13px] font-semibold text-white/72">{description}</p>
-        <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-[var(--gc-brand)]">
-          {t("common.comingSoon")}
-        </p>
+      <SectionHeader
+        icon={<Bell size={14} />}
+        title={t("settings.sections.notifications.title")}
+      />
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
+        <ToggleRow
+          checked={enabled}
+          description={t("settings.sections.notifications.push.description")}
+          loading={pending}
+          loadingLabel={t("settings.sections.notifications.push.enabling")}
+          onToggle={handleToggle}
+          title={t("settings.sections.notifications.push.title")}
+        />
       </div>
     </div>
+  );
+}
+
+/**
+ * Sprint 4.5 — Privacy toggle (conta privada).
+ *
+ * Wire direto pra `social.actions.updateProfile({ isPrivate })` via parent.
+ * O backend já tem `profiles.is_private` column + RLS rules que respeitam
+ * — quando ON, posts/stories só ficam visíveis pra approved followers.
+ */
+function PrivacySection({
+  isPrivate,
+  onToggle,
+}: {
+  isPrivate: boolean;
+  onToggle: (next: boolean) => void | Promise<void>;
+}) {
+  const { t } = useTranslation();
+  const [pending, setPending] = useState(false);
+
+  async function handleToggle() {
+    if (pending) return;
+    setPending(true);
+    try {
+      await onToggle(!isPrivate);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="mb-3">
+      <SectionHeader
+        icon={<Lock size={14} />}
+        title={t("settings.sections.privacy.title")}
+      />
+      <div className="overflow-hidden rounded-[24px] border border-white/[0.08] bg-white/[0.045]">
+        <ToggleRow
+          checked={isPrivate}
+          description={t("settings.sections.privacy.privateAccount.description")}
+          loading={pending}
+          onToggle={handleToggle}
+          title={t("settings.sections.privacy.privateAccount.title")}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Sprint 4.5 — Toggle row reutilizável.
+ *
+ * iOS-style switch (não nativo — input ficaria fora do dark UI). Track
+ * verde claro quando ON, cinza translúcido quando OFF. Knob slide via
+ * translate-x transition 200ms.
+ */
+function ToggleRow({
+  checked,
+  description,
+  loading = false,
+  loadingLabel,
+  onToggle,
+  title,
+}: {
+  checked: boolean;
+  description: string;
+  loading?: boolean;
+  loadingLabel?: string;
+  onToggle: () => void;
+  title: string;
+}) {
+  return (
+    <button
+      aria-checked={checked}
+      className={[
+        "gc-pressable flex w-full items-start gap-3 px-4 py-4 text-left",
+        loading ? "opacity-50" : "",
+      ].join(" ")}
+      disabled={loading}
+      onClick={onToggle}
+      role="switch"
+      type="button"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-black text-white">{title}</p>
+        <p className="mt-1 text-[12px] font-semibold leading-4 text-white/52">
+          {loading && loadingLabel ? loadingLabel : description}
+        </p>
+      </div>
+      <span
+        aria-hidden="true"
+        className={[
+          "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200",
+          checked ? "bg-[var(--gc-brand)]" : "bg-white/[0.12]",
+        ].join(" ")}
+      >
+        <span
+          className={[
+            "inline-block size-5 rounded-full bg-white shadow-md transition-transform duration-200",
+            checked ? "translate-x-6" : "translate-x-1",
+          ].join(" ")}
+        />
+      </span>
+    </button>
   );
 }
 
