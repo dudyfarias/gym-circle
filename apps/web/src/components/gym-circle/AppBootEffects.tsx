@@ -2,27 +2,24 @@
 
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { getI18nInstance, initializeLocale } from "@/i18n";
 import { lockPortrait } from "./native/OrientationService";
 
-// Sprint 4.2: garante que o i18next está inicializado no client (singleton).
-// O `getI18nInstance()` é idempotente — chamadas subsequentes retornam a
-// mesma instância sem re-init.
-getI18nInstance();
-
 /**
- * AppBootEffects — Sprint 4.1.
+ * AppBootEffects — Sprint 4.1 + 4.7 hotfix.
  *
- * Container client-side pra side-effects e overlays globais que precisam
- * ficar próximos do root.
+ * Container client-side pra side-effects e overlays globais.
  *
  * Atualmente:
  *   - Lock de orientação portrait (`lockPortrait` do OrientationService).
  *   - Landscape overlay (CSS-driven via `.gc-landscape-overlay` em
- *     globals.css). Render em todas as rotas; visível só quando a media
- *     query `(orientation: landscape) and (pointer: coarse)` casa.
+ *     globals.css).
  *
- * Futuro (Sprint 4.2+): inicializar i18n com detecção de idioma.
+ * Sprint 4.7 hotfix: a inicialização do i18n (singleton + locale detect)
+ * foi MOVIDA pro `<I18nClientProvider>` no root layout, pra garantir que
+ * roda ANTES de qualquer client component render. Antes era aqui, mas
+ * tinha race condition: outros componentes podiam render com `useTranslation`
+ * antes do `getI18nInstance()` top-level rodar (timing depende da ordem
+ * de evaluation de módulos no Turbopack).
  */
 export function AppBootEffects() {
   // Sprint 4.2: react-i18next hook conecta o overlay aos resources i18n.
@@ -34,10 +31,7 @@ export function AppBootEffects() {
     // Fire-and-forget — lock retorna void mesmo em erro silencioso. Não
     // queremos bloquear o paint do app esperando o lock resolver.
     void lockPortrait();
-    // Sprint 4.2: detecta + aplica o idioma do user no boot.
-    // Prioridade: localStorage > Capacitor Device > navigator.language >
-    // default pt-BR. Ver `LocaleService.ts`.
-    void initializeLocale();
+    // i18n init agora rola no I18nClientProvider (Sprint 4.7 hotfix).
   }, []);
 
   return (

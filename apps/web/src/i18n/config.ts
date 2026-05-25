@@ -52,11 +52,29 @@ export function getI18nInstance() {
     },
     react: {
       useSuspense: false,
+      // Sprint 4.7 hotfix: bindI18n EXPLÍCITO pra garantir que useTranslation
+      // subscribe ao languageChanged event. O default oficial é
+      // "languageChanged" mas há relatos de que passar `react: { useSuspense:
+      // false }` SOZINHO pode interferir com o merge dos defaults em alguns
+      // bundlers — explicitar elimina essa ambiguidade.
+      bindI18n: "languageChanged loaded",
+      bindI18nStore: "",
     },
     returnNull: false,
     // Pra debug local — ativa com NEXT_PUBLIC_I18N_DEBUG=true
     debug: process.env.NEXT_PUBLIC_I18N_DEBUG === "true",
   });
   initialized.current = true;
+
+  // Sprint 4.7 hotfix: expor i18next no window pra debug em produção.
+  // Permite inspecionar via console:
+  //   window.i18next.language          → locale atual
+  //   window.i18next.options.react     → config react
+  //   window.i18next.changeLanguage("en")  → force change pra testar
+  // Sem custo de bundle/perf — só uma referência adicional.
+  if (typeof window !== "undefined") {
+    (window as unknown as { i18next?: typeof i18next }).i18next = i18next;
+  }
+
   return i18next;
 }

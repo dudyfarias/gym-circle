@@ -11,3 +11,4 @@ export {
   resolveInitialLocale,
 } from "./LocaleService";
 export { useLocale } from "./useLocale";
+export { I18nClientProvider } from "./I18nClientProvider";

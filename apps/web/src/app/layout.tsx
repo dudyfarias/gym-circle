@@ -4,6 +4,9 @@ import { SupabaseClientProvider } from "@/lib/supabase/SupabaseClientProvider";
 import { readSupabaseEnv } from "@/lib/supabase/env";
 // Sprint 4.1: boot-time side effects (orientation lock, futuro i18n init).
 import { AppBootEffects } from "@/components/gym-circle/AppBootEffects";
+// Sprint 4.7 hotfix: provider de i18n no root (resolve bug de re-render
+// inconsistente em troca de idioma).
+import { I18nClientProvider } from "@/i18n";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://gym-circle-rust.vercel.app"),
@@ -56,12 +59,14 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="h-full antialiased">
       <body className="min-h-full bg-black text-white">
-        <AppBootEffects />
-        {env ? (
-          <SupabaseClientProvider env={env}>{children}</SupabaseClientProvider>
-        ) : (
-          children
-        )}
+        <I18nClientProvider>
+          <AppBootEffects />
+          {env ? (
+            <SupabaseClientProvider env={env}>{children}</SupabaseClientProvider>
+          ) : (
+            children
+          )}
+        </I18nClientProvider>
       </body>
     </html>
   );
