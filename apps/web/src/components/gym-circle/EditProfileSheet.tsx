@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Camera, Check, Lock, Unlock, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import {
   GymSearchSheet,
@@ -27,7 +28,16 @@ type EditProfileSheetProps = {
   gyms?: GymLocationOption[];
 };
 
+// IDs em PT-BR são source-of-truth (persistidos no DB).
+// O lookup abaixo só traduz o LABEL visual — IDs nunca mudam.
 const preferredTimeOptions = ["Manhã", "Almoço", "Tarde", "Noite", "Madrugada"];
+const TIME_ID_TO_KEY: Record<string, string> = {
+  "Manhã": "morning",
+  "Almoço": "lunch",
+  "Tarde": "afternoon",
+  "Noite": "evening",
+  "Madrugada": "dawn",
+};
 
 function findMainGymId(user: EnrichedUser, gyms: GymLocationOption[]) {
   return user.mainGymId ?? gyms.find((gym) => user.gyms.includes(gym.name))?.id ?? "";
@@ -42,6 +52,7 @@ export function EditProfileSheet({
   onCatalogPlace,
   gyms = [],
 }: EditProfileSheetProps) {
+  const { t } = useTranslation();
   const [displayName, setDisplayName] = useState(currentUser.name);
   const [username, setUsername] = useState(currentUser.username);
   const [bio, setBio] = useState(currentUser.bio ?? "");
@@ -92,7 +103,7 @@ export function EditProfileSheet({
       const url = await onUploadAvatar(file);
       setAvatarUrl(url);
     } catch (err) {
-      setError((err as Error).message ?? "falha no upload");
+      setError((err as Error).message ?? t("editProfile.avatar.uploadFailed"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -106,7 +117,7 @@ export function EditProfileSheet({
     try {
       const cleanedUsername = username.trim().toLowerCase().replace(/[^a-z0-9_.]/g, "");
       if (cleanedUsername.length < 3) {
-        throw new Error("username precisa ter pelo menos 3 caracteres válidos");
+        throw new Error(t("editProfile.fields.username.errorTooShort"));
       }
       await onSave({
         displayName: displayName.trim(),
@@ -139,12 +150,12 @@ export function EditProfileSheet({
     }
 
     if (!onCatalogPlace) {
-      setGymSearchError("Não foi possível cadastrar academia agora.");
+      setGymSearchError(t("editProfile.fields.gym.errorCantCatalog"));
       return;
     }
 
     if (typeof candidate.latitude !== "number" || typeof candidate.longitude !== "number") {
-      setGymSearchError("Para cadastrar academia, a localização dela é obrigatória.");
+      setGymSearchError(t("editProfile.fields.gym.errorLocationRequired"));
       return;
     }
 
@@ -161,7 +172,7 @@ export function EditProfileSheet({
       setGymSearchOpen(false);
     } catch (err) {
       setGymSearchError(
-        err instanceof Error ? err.message : "Não foi possível cadastrar academia.",
+        err instanceof Error ? err.message : t("editProfile.fields.gym.errorCatalogFailed"),
       );
     }
   }
@@ -186,9 +197,9 @@ export function EditProfileSheet({
     <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
-          <p className="text-[17px] font-black">Editar perfil</p>
+          <p className="text-[17px] font-black">{t("editProfile.title")}</p>
           <button
-            aria-label="Fechar"
+            aria-label={t("editProfile.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={onClose}
             type="button"
@@ -202,7 +213,7 @@ export function EditProfileSheet({
             <div className="relative">
               {avatarUrl ? (
                 <div className="relative size-20 overflow-hidden rounded-full">
-                  <Image alt="Avatar" className="object-cover" fill sizes="80px" src={avatarUrl} />
+                  <Image alt={t("editProfile.avatar.alt")} className="object-cover" fill sizes="80px" src={avatarUrl} />
                 </div>
               ) : (
                 <Avatar
@@ -214,7 +225,7 @@ export function EditProfileSheet({
               )}
               {onUploadAvatar ? (
                 <button
-                  aria-label="Trocar avatar"
+                  aria-label={t("editProfile.avatar.change")}
                   className="gc-pressable absolute -bottom-1 -right-1 grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black shadow-[0_0_22px_rgba(92,232,255,0.3)] disabled:opacity-50"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
@@ -232,11 +243,11 @@ export function EditProfileSheet({
               ) : null}
             </div>
             <div className="text-[12px] font-bold text-white/52">
-              {uploading ? "Enviando avatar..." : "Toque na câmera para trocar a foto."}
+              {uploading ? t("editProfile.avatar.uploading") : t("editProfile.avatar.hint")}
             </div>
           </div>
 
-          <FormField label="Nome">
+          <FormField label={t("editProfile.fields.name.label")}>
             <input
               className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
               maxLength={60}
@@ -245,7 +256,7 @@ export function EditProfileSheet({
             />
           </FormField>
 
-          <FormField label="Username (@)" hint="só letras, números, _ e .">
+          <FormField label={t("editProfile.fields.username.label")} hint={t("editProfile.fields.username.hint")}>
             <div className="flex h-12 items-center rounded-[16px] border border-white/[0.08] bg-black/40 px-4">
               <span className="text-[15px] font-bold text-white/42">@</span>
               <input
@@ -257,27 +268,27 @@ export function EditProfileSheet({
             </div>
           </FormField>
 
-          <FormField label="Bio">
+          <FormField label={t("editProfile.fields.bio.label")}>
             <textarea
               className="min-h-20 w-full resize-none rounded-[16px] border border-white/[0.08] bg-black/40 px-4 py-3 text-[15px] font-semibold text-white outline-none"
               maxLength={200}
               onChange={(e) => setBio(e.target.value)}
-              placeholder="Sobre você"
+              placeholder={t("editProfile.fields.bio.placeholder")}
               value={bio}
             />
           </FormField>
 
-          <FormField label="Foco">
+          <FormField label={t("editProfile.fields.goal.label")}>
             <input
               className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
               maxLength={60}
               onChange={(e) => setFitnessGoal(e.target.value)}
-              placeholder="Ex: Hipertrofia, Corrida 10K, Consistência"
+              placeholder={t("editProfile.fields.goal.placeholder")}
               value={fitnessGoal}
             />
           </FormField>
 
-          <FormField label="Academia" hint="opcional">
+          <FormField label={t("editProfile.fields.gym.label")} hint={t("editProfile.fields.gym.hint")}>
             <button
               className="gc-pressable flex min-h-12 w-full items-center justify-between gap-3 rounded-[16px] border border-white/[0.08] bg-black/40 px-4 py-3 text-left"
               onClick={() => {
@@ -288,18 +299,18 @@ export function EditProfileSheet({
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[15px] font-black text-white">
-                  {selectedGym?.name ?? "Escolher academia"}
+                  {selectedGym?.name ?? t("editProfile.fields.gym.choose")}
                 </span>
                 <span className="mt-0.5 block truncate text-[12px] font-bold text-white/42">
                   {selectedGym
                     ? [selectedGym.address, selectedGym.city, selectedGym.state]
                         .filter(Boolean)
-                        .join(" · ") || "Academia cadastrada"
-                    : "Buscar por nome ou usar localização atual"}
+                        .join(" · ") || t("editProfile.fields.gym.registered")
+                    : t("editProfile.fields.gym.searchHint")}
                 </span>
               </span>
               <span className="rounded-full bg-[var(--gc-brand)]/14 px-3 py-1 text-[11px] font-black text-[var(--gc-brand)]">
-                Buscar
+                {t("editProfile.fields.gym.searchCta")}
               </span>
             </button>
             {mainGymId ? (
@@ -308,7 +319,7 @@ export function EditProfileSheet({
                 onClick={() => setMainGymId("")}
                 type="button"
               >
-                Remover academia principal
+                {t("editProfile.fields.gym.remove")}
               </button>
             ) : null}
             {gymSearchError ? (
@@ -318,10 +329,14 @@ export function EditProfileSheet({
             ) : null}
           </FormField>
 
-          <FormField label="Horários de treino" hint="opcional">
+          <FormField label={t("editProfile.fields.preferredTimes.label")} hint={t("editProfile.fields.preferredTimes.hint")}>
             <div className="flex flex-wrap gap-2">
               {preferredTimeOptions.map((time) => {
                 const active = preferredTimes.includes(time);
+                const optionKey = TIME_ID_TO_KEY[time];
+                const label = optionKey
+                  ? t(`editProfile.fields.preferredTimes.options.${optionKey}`)
+                  : time;
                 return (
                   <button
                     aria-pressed={active}
@@ -335,29 +350,33 @@ export function EditProfileSheet({
                     onClick={() => togglePreferredTime(time)}
                     type="button"
                   >
-                    {time}
+                    {label}
                   </button>
                 );
               })}
             </div>
           </FormField>
 
-          <FormField label="Instagram">
+          <FormField label={t("editProfile.fields.instagram.label")}>
             <div className="flex h-12 items-center rounded-[16px] border border-white/[0.08] bg-black/40 px-4">
               <span className="text-[15px] font-bold text-white/42">@</span>
               <input
                 className="h-full flex-1 bg-transparent text-[15px] font-bold text-white outline-none"
                 maxLength={30}
                 onChange={(e) => setInstagramUsername(e.target.value)}
-                placeholder="seu.usuario"
+                placeholder={t("editProfile.fields.instagram.placeholder")}
                 value={instagramUsername}
               />
             </div>
           </FormField>
 
           <FormField
-            hint={calculatedAge ? `${calculatedAge} anos` : "idade automática"}
-            label="Nascimento"
+            hint={
+              calculatedAge
+                ? t("editProfile.fields.birthDate.ageHint", { age: calculatedAge })
+                : t("editProfile.fields.birthDate.autoHint")
+            }
+            label={t("editProfile.fields.birthDate.label")}
           >
             <input
               className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
@@ -368,12 +387,12 @@ export function EditProfileSheet({
             />
           </FormField>
 
-          <FormField label="Esportes" hint="separe por vírgula">
+          <FormField label={t("editProfile.fields.sports.label")} hint={t("editProfile.fields.sports.hint")}>
             <input
               className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
               maxLength={140}
               onChange={(e) => setSportsInput(e.target.value)}
-              placeholder="Musculação, Corrida, Pilates"
+              placeholder={t("editProfile.fields.sports.placeholder")}
               value={sportsInput}
             />
           </FormField>
@@ -399,12 +418,12 @@ export function EditProfileSheet({
             </span>
             <span className="flex-1">
               <span className={["block text-[14px] font-black", isPrivate ? "text-white" : "text-white/82"].join(" ")}>
-                {isPrivate ? "Perfil privado" : "Perfil público"}
+                {isPrivate ? t("editProfile.fields.privacy.private") : t("editProfile.fields.privacy.public")}
               </span>
               <span className="mt-0.5 block text-[12px] font-bold leading-snug text-white/52">
                 {isPrivate
-                  ? "Quem quiser te seguir vai precisar enviar uma solicitação. Só seguidores aprovados veem seus posts."
-                  : "Qualquer pessoa pode te seguir e ver a foto do seu último treino."}
+                  ? t("editProfile.fields.privacy.privateBody")
+                  : t("editProfile.fields.privacy.publicBody")}
               </span>
             </span>
             <span
@@ -434,7 +453,7 @@ export function EditProfileSheet({
             type="button"
           >
             <Check size={17} strokeWidth={2.8} />
-            {saving ? "Salvando..." : "Salvar alterações"}
+            {saving ? t("editProfile.save.saving") : t("editProfile.save.submit")}
           </button>
         </div>
       </div>
@@ -443,7 +462,7 @@ export function EditProfileSheet({
         onSelect={handleSelectGym}
         open={gymSearchOpen}
         registeredGyms={selectableGyms}
-        title="Escolher academia"
+        title={t("editProfile.fields.gym.choose")}
       />
     </div>
   );

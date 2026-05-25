@@ -245,5 +245,200 @@
   "orientation": {
     "rotateTitle": "Rotate your phone",
     "rotateBody": "Gym Circle works in portrait mode. Turn your phone upright to continue."
+  },
+  "topbar": {
+    "searchLabel": "Search users",
+    "notificationsLabel": "Notifications"
+  },
+  "auth": {
+    "title": {
+      "signIn": "Sign in",
+      "signUp": "Create account",
+      "forgotPassword": "Reset password"
+    },
+    "subtitle": {
+      "signIn": "Sign in and jump straight into the feed.",
+      "signUp": "Quick signup: email, password, username. The rest can wait.",
+      "forgotPassword": "Enter your registered email to receive a reset link."
+    },
+    "field": {
+      "email": "email",
+      "emailOrUsername": "email or username",
+      "password": "password",
+      "username": "username",
+      "emailAriaLabel": "Email",
+      "emailOrUsernameAriaLabel": "Email or username",
+      "passwordAriaLabel": "Password",
+      "usernameAriaLabel": "Username"
+    },
+    "cta": {
+      "submitting": "Please wait...",
+      "signIn": "Sign in",
+      "signUp": "Create account",
+      "forgotPassword": "Send email"
+    },
+    "toggle": {
+      "haveAccount": "I already have an account",
+      "noAccount": "I don't have an account",
+      "forgotPassword": "I forgot my password",
+      "backToSignIn": "Back to sign in"
+    },
+    "errors": {
+      "usernameTooShort": "Username must be at least 3 characters.",
+      "generic": "Couldn't complete. Try again."
+    },
+    "feedback": {
+      "resetSent": "We sent you a password reset email. Open the link to confirm.",
+      "signupSession": "Account created. Entering the feed...",
+      "signupConfirm": "Account created. If the app doesn't open now, confirm your email."
+    }
+  },
+  "editProfile": {
+    "title": "Edit profile",
+    "close": "Close",
+    "avatar": {
+      "alt": "Avatar",
+      "change": "Change avatar",
+      "uploading": "Uploading avatar...",
+      "hint": "Tap the camera to change your photo.",
+      "uploadFailed": "upload failed"
+    },
+    "fields": {
+      "name": {
+        "label": "Name"
+      },
+      "username": {
+        "label": "Username (@)",
+        "hint": "letters, numbers, _ and . only",
+        "errorTooShort": "username must be at least 3 valid characters"
+      },
+      "bio": {
+        "label": "Bio",
+        "placeholder": "About you"
+      },
+      "goal": {
+        "label": "Focus",
+        "placeholder": "e.g. Hypertrophy, 10K running, Consistency"
+      },
+      "gym": {
+        "label": "Gym",
+        "hint": "optional",
+        "choose": "Choose gym",
+        "registered": "Registered gym",
+        "searchHint": "Search by name or use current location",
+        "searchCta": "Search",
+        "remove": "Remove main gym",
+        "errorCantCatalog": "Couldn't register gym right now.",
+        "errorLocationRequired": "To register a gym, its location is required.",
+        "errorCatalogFailed": "Couldn't register gym."
+      },
+      "preferredTimes": {
+        "label": "Workout times",
+        "hint": "optional",
+        "options": {
+          "morning": "Morning",
+          "lunch": "Lunch",
+          "afternoon": "Afternoon",
+          "evening": "Evening",
+          "dawn": "Dawn"
+        }
+      },
+      "instagram": {
+        "label": "Instagram",
+        "placeholder": "your.username"
+      },
+      "birthDate": {
+        "label": "Birth date",
+        "ageHint": "{{age}} years",
+        "autoHint": "auto-calculated age"
+      },
+      "sports": {
+        "label": "Sports",
+        "hint": "separate with commas",
+        "placeholder": "Lifting, Running, Pilates"
+      },
+      "privacy": {
+        "private": "Private profile",
+        "public": "Public profile",
+        "privateBody": "People who want to follow you must send a request. Only approved followers see your posts.",
+        "publicBody": "Anyone can follow you and see the photo of your latest workout."
+      }
+    },
+    "save": {
+      "saving": "Saving...",
+      "submit": "Save changes"
+    }
+  },
+  "onboarding": {
+    "header": {
+      "alphaBadge": "Closed alpha"
+    },
+    "errors": {
+      "generic": "Couldn't continue.",
+      "nameRequired": "Enter your name.",
+      "usernameTooShort": "Username must be at least 3 characters.",
+      "goalRequired": "Choose a fitness goal.",
+      "gymRequired": "Pick or register a gym.",
+      "fileTypeRequired": "Choose a workout photo or video.",
+      "uploadFailed": "Upload failed.",
+      "postMediaRequired": "Add the photo or video of your first workout."
+    },
+    "primaryBusy": "Please wait...",
+    "defaultCaption": "First workout on Gym Circle.",
+    "goals": {
+      "consistencia": "Build consistency",
+      "hipertrofia": "Hypertrophy",
+      "emagrecimento": "Fat loss",
+      "performance": "Performance",
+      "saude": "Health & energy",
+      "voltar": "Back to routine"
+    },
+    "step0": {
+      "eyebrow": "Safety",
+      "title": "Before you enter",
+      "detail": "You're joining a closed alpha. Bugs may happen, and we'll use usage data to improve the app.",
+      "termsLink": "Terms of use",
+      "privacyLink": "Privacy policy",
+      "cta": "Accept and continue"
+    },
+    "step1": {
+      "eyebrow": "Profile",
+      "title": "Your fitness résumé",
+      "detail": "Your profile is public by default and shows your consistency to the circle.",
+      "namePlaceholder": "Name",
+      "usernamePlaceholder": "@username",
+      "cta": "Save profile"
+    },
+    "step2": {
+      "eyebrow": "Gym",
+      "title": "Where do you train?",
+      "detail": "This helps Gym Circle suggest people near you.",
+      "localFallback": "Local",
+      "registerPlaceholder": "Register gym or location",
+      "cta": "Set gym"
+    },
+    "step3": {
+      "eyebrow": "Circle",
+      "title": "Follow a few people",
+      "detail": "Your feed comes alive when you follow people from the community.",
+      "followingCta": "Following",
+      "followCta": "Follow",
+      "cta": "Continue"
+    },
+    "step4": {
+      "eyebrow": "First workout",
+      "title": "Light your badge",
+      "detail": "Post your first workout with a photo or video. Feed + story in under 10 seconds.",
+      "imageAlt": "First workout",
+      "addMediaLabel": "Add photo or video",
+      "captionPlaceholder": "Caption",
+      "cta": "Post first workout"
+    },
+    "step5": {
+      "eyebrow": "Done",
+      "title": "Your Gym Circle is alive",
+      "detail": "Now the main loop is simple: open, see the feed, post, light the badge, come back tomorrow.",
+      "cta": "Enter the app"
+    }
   }
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Bell, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/IconButton";
 import { BrandMark } from "./design-system";
 import { useSearchSheet } from "./SearchSheetContext";
@@ -14,6 +15,7 @@ type TopBarProps = {
 };
 
 export function TopBar({ eyebrow, title, extraAction, hidden = false }: TopBarProps) {
+  const { t } = useTranslation();
   const { openSearch, openNotifications, unreadNotifications } = useSearchSheet();
 
   return (
@@ -41,11 +43,11 @@ export function TopBar({ eyebrow, title, extraAction, hidden = false }: TopBarPr
           </div>
         </div>
         <div className="flex shrink-0 gap-2">
-          <IconButton label="Buscar usuários" onClick={openSearch}>
+          <IconButton label={t("topbar.searchLabel")} onClick={openSearch}>
             <Search size={19} strokeWidth={2.4} />
           </IconButton>
           <div className="relative">
-            <IconButton label="Notificações" onClick={openNotifications}>
+            <IconButton label={t("topbar.notificationsLabel")} onClick={openNotifications}>
               <Bell size={19} strokeWidth={2.4} />
             </IconButton>
             {unreadNotifications > 0 ? (

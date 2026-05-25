@@ -245,5 +245,200 @@
   "orientation": {
     "rotateTitle": "Vire o celular",
     "rotateBody": "O Gym Circle funciona em modo retrato. Coloque seu celular na vertical pra continuar."
+  },
+  "topbar": {
+    "searchLabel": "Buscar usuários",
+    "notificationsLabel": "Notificações"
+  },
+  "auth": {
+    "title": {
+      "signIn": "Entrar",
+      "signUp": "Criar conta",
+      "forgotPassword": "Recuperar senha"
+    },
+    "subtitle": {
+      "signIn": "Entre e vá direto para o feed.",
+      "signUp": "Cadastro rápido: email, senha e username. O resto fica para depois.",
+      "forgotPassword": "Digite seu email cadastrado para receber o link de alteração."
+    },
+    "field": {
+      "email": "email",
+      "emailOrUsername": "email ou username",
+      "password": "senha",
+      "username": "username",
+      "emailAriaLabel": "Email",
+      "emailOrUsernameAriaLabel": "Email ou username",
+      "passwordAriaLabel": "Senha",
+      "usernameAriaLabel": "Username"
+    },
+    "cta": {
+      "submitting": "Aguarde...",
+      "signIn": "Entrar",
+      "signUp": "Criar conta",
+      "forgotPassword": "Enviar email"
+    },
+    "toggle": {
+      "haveAccount": "Já tenho conta",
+      "noAccount": "Não tenho conta",
+      "forgotPassword": "Esqueci minha senha",
+      "backToSignIn": "Voltar para entrar"
+    },
+    "errors": {
+      "usernameTooShort": "Username precisa ter pelo menos 3 caracteres.",
+      "generic": "Não foi possível concluir. Tente novamente."
+    },
+    "feedback": {
+      "resetSent": "Enviamos um email para alterar sua senha. Abra o link para confirmar.",
+      "signupSession": "Conta criada. Entrando no feed...",
+      "signupConfirm": "Conta criada. Se o app não abrir agora, confirme seu email."
+    }
+  },
+  "editProfile": {
+    "title": "Editar perfil",
+    "close": "Fechar",
+    "avatar": {
+      "alt": "Avatar",
+      "change": "Trocar avatar",
+      "uploading": "Enviando avatar...",
+      "hint": "Toque na câmera para trocar a foto.",
+      "uploadFailed": "falha no upload"
+    },
+    "fields": {
+      "name": {
+        "label": "Nome"
+      },
+      "username": {
+        "label": "Username (@)",
+        "hint": "só letras, números, _ e .",
+        "errorTooShort": "username precisa ter pelo menos 3 caracteres válidos"
+      },
+      "bio": {
+        "label": "Bio",
+        "placeholder": "Sobre você"
+      },
+      "goal": {
+        "label": "Foco",
+        "placeholder": "Ex: Hipertrofia, Corrida 10K, Consistência"
+      },
+      "gym": {
+        "label": "Academia",
+        "hint": "opcional",
+        "choose": "Escolher academia",
+        "registered": "Academia cadastrada",
+        "searchHint": "Buscar por nome ou usar localização atual",
+        "searchCta": "Buscar",
+        "remove": "Remover academia principal",
+        "errorCantCatalog": "Não foi possível cadastrar academia agora.",
+        "errorLocationRequired": "Para cadastrar academia, a localização dela é obrigatória.",
+        "errorCatalogFailed": "Não foi possível cadastrar academia."
+      },
+      "preferredTimes": {
+        "label": "Horários de treino",
+        "hint": "opcional",
+        "options": {
+          "morning": "Manhã",
+          "lunch": "Almoço",
+          "afternoon": "Tarde",
+          "evening": "Noite",
+          "dawn": "Madrugada"
+        }
+      },
+      "instagram": {
+        "label": "Instagram",
+        "placeholder": "seu.usuario"
+      },
+      "birthDate": {
+        "label": "Nascimento",
+        "ageHint": "{{age}} anos",
+        "autoHint": "idade automática"
+      },
+      "sports": {
+        "label": "Esportes",
+        "hint": "separe por vírgula",
+        "placeholder": "Musculação, Corrida, Pilates"
+      },
+      "privacy": {
+        "private": "Perfil privado",
+        "public": "Perfil público",
+        "privateBody": "Quem quiser te seguir vai precisar enviar uma solicitação. Só seguidores aprovados veem seus posts.",
+        "publicBody": "Qualquer pessoa pode te seguir e ver a foto do seu último treino."
+      }
+    },
+    "save": {
+      "saving": "Salvando...",
+      "submit": "Salvar alterações"
+    }
+  },
+  "onboarding": {
+    "header": {
+      "alphaBadge": "Alpha fechada"
+    },
+    "errors": {
+      "generic": "Não foi possível continuar.",
+      "nameRequired": "Coloque seu nome.",
+      "usernameTooShort": "Username precisa ter pelo menos 3 caracteres.",
+      "goalRequired": "Escolha um objetivo fitness.",
+      "gymRequired": "Escolha ou cadastre uma academia.",
+      "fileTypeRequired": "Escolha uma foto ou vídeo do treino.",
+      "uploadFailed": "Upload falhou.",
+      "postMediaRequired": "Adicione a foto ou vídeo do primeiro treino."
+    },
+    "primaryBusy": "Aguarde...",
+    "defaultCaption": "Primeiro treino no Gym Circle.",
+    "goals": {
+      "consistencia": "Ganhar consistência",
+      "hipertrofia": "Hipertrofia",
+      "emagrecimento": "Emagrecimento",
+      "performance": "Performance",
+      "saude": "Saúde e energia",
+      "voltar": "Voltar à rotina"
+    },
+    "step0": {
+      "eyebrow": "Segurança",
+      "title": "Antes de entrar",
+      "detail": "Você está participando de uma alpha fechada. Podem acontecer erros, e vamos usar dados de uso para melhorar o app.",
+      "termsLink": "Termos de uso",
+      "privacyLink": "Política de privacidade",
+      "cta": "Aceitar e continuar"
+    },
+    "step1": {
+      "eyebrow": "Perfil",
+      "title": "Seu currículo fitness",
+      "detail": "O perfil é público por padrão e mostra sua consistência para o circle.",
+      "namePlaceholder": "Nome",
+      "usernamePlaceholder": "@username",
+      "cta": "Salvar perfil"
+    },
+    "step2": {
+      "eyebrow": "Academia",
+      "title": "Onde você treina?",
+      "detail": "Isso ajuda o Gym Circle a sugerir pessoas perto de você.",
+      "localFallback": "Local",
+      "registerPlaceholder": "Cadastrar academia ou local",
+      "cta": "Definir academia"
+    },
+    "step3": {
+      "eyebrow": "Circle",
+      "title": "Siga algumas pessoas",
+      "detail": "Seu feed fica vivo quando você acompanha gente da comunidade.",
+      "followingCta": "Seguindo",
+      "followCta": "Seguir",
+      "cta": "Continuar"
+    },
+    "step4": {
+      "eyebrow": "Primeiro treino",
+      "title": "Acenda seu badge",
+      "detail": "Poste seu primeiro treino com foto ou vídeo. Feed + story em menos de 10 segundos.",
+      "imageAlt": "Primeiro treino",
+      "addMediaLabel": "Adicionar foto ou vídeo",
+      "captionPlaceholder": "Legenda",
+      "cta": "Postar primeiro treino"
+    },
+    "step5": {
+      "eyebrow": "Pronto",
+      "title": "Seu Gym Circle está vivo",
+      "detail": "Agora o loop principal é simples: abrir, ver o feed, postar, acender o badge e voltar amanhã.",
+      "cta": "Entrar no app"
+    }
   }
 }
