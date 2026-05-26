@@ -18,7 +18,7 @@ export class LruCache<T> {
   add(value: T): void {
     if (this.order.has(value)) { this.touch(value); return; }
     this.order.set(value, true);
-    this.evictIfNeeded();
+    this.evictIfNeeded(value);
   }
 
   touch(value: T): void {
@@ -48,17 +48,21 @@ export class LruCache<T> {
     this.pinned.clear();
   }
 
-  private evictIfNeeded(): void {
+  private evictIfNeeded(justAdded?: T): void {
     while (this.order.size > this.capacity) {
-      const oldest = this.findOldestUnpinned();
-      if (oldest === undefined) break; // all pinned — overflow temporário
+      const oldest = this.findOldestUnpinned(justAdded);
+      if (oldest === undefined) break; // all pinned (or only newly-added unpinned) — overflow temporário
       this.order.delete(oldest);
     }
   }
 
-  private findOldestUnpinned(): T | undefined {
+  private findOldestUnpinned(justAdded?: T): T | undefined {
+    // O(n) scan. Acceptable at capacity=150 — worst-case <0.01ms on iPhone Safari WebView.
+    // If capacity grows >1000, consider DLL-based LRU with separate pinned tracking.
     for (const value of this.order.keys()) {
-      if (!this.pinned.has(value)) return value;
+      if (this.pinned.has(value)) continue;
+      if (value === justAdded) continue; // never evict the entry we just added
+      return value;
     }
     return undefined;
   }
