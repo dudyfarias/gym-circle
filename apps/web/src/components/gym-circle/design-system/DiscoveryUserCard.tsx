@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Clock3, Lock, Plus, UserCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
@@ -79,7 +80,7 @@ function followIconState(user: EnrichedUser): FollowIconState {
   }
 }
 
-export function DiscoveryUserCard({
+function DiscoveryUserCardComponent({
   user,
   onToggleFollow,
   onSelectUser,
@@ -138,3 +139,10 @@ export function DiscoveryUserCard({
     </div>
   );
 }
+
+/**
+ * Sprint 2.5: memo no card de sugestão. Renderizado em row scrollável
+ * com até 5 items no feed; mudanças no feed (likes, follows) re-renderizam
+ * o FeedScreen inteiro mas as sugestões em si raramente mudam.
+ */
+export const DiscoveryUserCard = memo(DiscoveryUserCardComponent);

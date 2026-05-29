@@ -41,6 +41,9 @@ type NotificationsSheetProps = {
   onRejectStoryTag?: (storyId: string) => void | Promise<void>;
 };
 
+type TagDecision = "accepted" | "rejected";
+type TagDecisionOverrides = Record<string, TagDecision>;
+
 const KIND_ICON = {
   like: Heart,
   comment: MessageCircle,
@@ -59,7 +62,7 @@ const KIND_LABEL = {
   mention: "mencionou você",
   follow_request: "quer te seguir",
   story_like: "curtiu seu story",
-  post_tag: "marcou você em um treino",
+  post_tag: "marcou você em um post",
   story_tag: "marcou você em um story",
 } satisfies Record<SocialBellNotificationKind, string>;
 
@@ -112,6 +115,10 @@ export function NotificationsSheet({
   const [followBackOverrides, setFollowBackOverrides] = useState<
     Record<string, FollowStatus>
   >({});
+  const [tagActionBusyId, setTagActionBusyId] = useState<string | null>(null);
+  const [tagDecisionOverrides, setTagDecisionOverrides] = useState<TagDecisionOverrides>(
+    {},
+  );
 
   const followBack = useCallback(
     async (userId: string) => {
@@ -130,16 +137,167 @@ export function NotificationsSheet({
     [onFollowBack],
   );
 
+  const hydrateTagDecisions = useCallback(
+    async (list: NotificationRow[]) => {
+      const postIds = Array.from(
+        new Set(
+          list
+            .filter(
+              (notification) =>
+                normalizeNotificationKind(notification.kind) === "post_tag" &&
+                Boolean(notification.post_id),
+            )
+            .map((notification) => notification.post_id as string),
+        ),
+      );
+      const storyIds = Array.from(
+        new Set(
+          list
+            .filter(
+              (notification) =>
+                normalizeNotificationKind(notification.kind) === "story_tag" &&
+                Boolean(notification.story_id),
+            )
+            .map((notification) => notification.story_id as string),
+        ),
+      );
+
+      const [postResult, storyResult] = await Promise.all([
+        postIds.length > 0
+          ? services.client
+              .from("post_participants")
+              .select("post_id,status")
+              .eq("tagged_user_id", currentUserId)
+              .in("post_id", postIds)
+          : Promise.resolve({ data: [], error: null }),
+        storyIds.length > 0
+          ? services.client
+              .from("story_participants")
+              .select("story_id,status")
+              .eq("tagged_user_id", currentUserId)
+              .in("story_id", storyIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (postResult.error || storyResult.error) {
+        return { decisions: {} as TagDecisionOverrides, items: list };
+      }
+
+      const postStatusById = new Map(
+        ((postResult.data ?? []) as Array<{ post_id: string; status: string | null }>).map(
+          (row) => [row.post_id, row.status],
+        ),
+      );
+      const storyStatusById = new Map(
+        ((storyResult.data ?? []) as Array<{ story_id: string; status: string | null }>).map(
+          (row) => [row.story_id, row.status],
+        ),
+      );
+      const decisions: TagDecisionOverrides = {};
+      const items = list.filter((notification) => {
+        const kind = normalizeNotificationKind(notification.kind);
+        if (kind === "post_tag" && notification.post_id) {
+          const status = postStatusById.get(notification.post_id);
+          if (!status) return false;
+          if (status === "rejected") return false;
+          if (status === "accepted") decisions[notification.id] = "accepted";
+        }
+        if (kind === "story_tag" && notification.story_id) {
+          const status = storyStatusById.get(notification.story_id);
+          if (!status) return false;
+          if (status === "rejected") return false;
+          if (status === "accepted") decisions[notification.id] = "accepted";
+        }
+        return true;
+      });
+
+      return { decisions, items };
+    },
+    [currentUserId, services.client],
+  );
+
   const refresh = useCallback(async () => {
     if (!open) return;
     setLoading(true);
     try {
       const list = await services.notifications.listForUser(currentUserId);
-      setItems(list);
+      const { decisions, items: visibleItems } = await hydrateTagDecisions(list);
+      setTagDecisionOverrides(decisions);
+      setItems(visibleItems);
     } finally {
       setLoading(false);
     }
-  }, [services, currentUserId, open]);
+  }, [currentUserId, hydrateTagDecisions, open, services.notifications]);
+
+  const acceptPostTag = useCallback(
+    async (notification: NotificationRow) => {
+      if (!notification.post_id || !onAcceptPostTag) return;
+      setTagActionBusyId(notification.id);
+      try {
+        await onAcceptPostTag(notification.post_id);
+        setTagDecisionOverrides((current) => ({
+          ...current,
+          [notification.id]: "accepted",
+        }));
+      } finally {
+        setTagActionBusyId(null);
+      }
+    },
+    [onAcceptPostTag],
+  );
+
+  const rejectPostTag = useCallback(
+    async (notification: NotificationRow) => {
+      if (!notification.post_id || !onRejectPostTag) return;
+      setTagActionBusyId(notification.id);
+      try {
+        await onRejectPostTag(notification.post_id);
+        setTagDecisionOverrides((current) => ({
+          ...current,
+          [notification.id]: "rejected",
+        }));
+        setItems((current) => current.filter((item) => item.id !== notification.id));
+      } finally {
+        setTagActionBusyId(null);
+      }
+    },
+    [onRejectPostTag],
+  );
+
+  const acceptStoryTag = useCallback(
+    async (notification: NotificationRow) => {
+      if (!notification.story_id || !onAcceptStoryTag) return;
+      setTagActionBusyId(notification.id);
+      try {
+        await onAcceptStoryTag(notification.story_id);
+        setTagDecisionOverrides((current) => ({
+          ...current,
+          [notification.id]: "accepted",
+        }));
+      } finally {
+        setTagActionBusyId(null);
+      }
+    },
+    [onAcceptStoryTag],
+  );
+
+  const rejectStoryTag = useCallback(
+    async (notification: NotificationRow) => {
+      if (!notification.story_id || !onRejectStoryTag) return;
+      setTagActionBusyId(notification.id);
+      try {
+        await onRejectStoryTag(notification.story_id);
+        setTagDecisionOverrides((current) => ({
+          ...current,
+          [notification.id]: "rejected",
+        }));
+        setItems((current) => current.filter((item) => item.id !== notification.id));
+      } finally {
+        setTagActionBusyId(null);
+      }
+    },
+    [onRejectStoryTag],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -229,10 +387,12 @@ export function NotificationsSheet({
                   followBackOverrides={followBackOverrides}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
-                  onAcceptPostTag={onAcceptPostTag}
-                  onRejectPostTag={onRejectPostTag}
-                  onAcceptStoryTag={onAcceptStoryTag}
-                  onRejectStoryTag={onRejectStoryTag}
+                  onAcceptPostTag={acceptPostTag}
+                  onRejectPostTag={rejectPostTag}
+                  onAcceptStoryTag={acceptStoryTag}
+                  onRejectStoryTag={rejectStoryTag}
+                  tagActionBusyId={tagActionBusyId}
+                  tagDecisionOverrides={tagDecisionOverrides}
                 />
               ) : null}
               {grouped.earlier.length > 0 ? (
@@ -247,10 +407,12 @@ export function NotificationsSheet({
                   followBackOverrides={followBackOverrides}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
-                  onAcceptPostTag={onAcceptPostTag}
-                  onRejectPostTag={onRejectPostTag}
-                  onAcceptStoryTag={onAcceptStoryTag}
-                  onRejectStoryTag={onRejectStoryTag}
+                  onAcceptPostTag={acceptPostTag}
+                  onRejectPostTag={rejectPostTag}
+                  onAcceptStoryTag={acceptStoryTag}
+                  onRejectStoryTag={rejectStoryTag}
+                  tagActionBusyId={tagActionBusyId}
+                  tagDecisionOverrides={tagDecisionOverrides}
                 />
               ) : null}
             </>
@@ -276,6 +438,8 @@ function Section({
   onRejectPostTag,
   onAcceptStoryTag,
   onRejectStoryTag,
+  tagActionBusyId,
+  tagDecisionOverrides,
 }: {
   title: string;
   items: NotificationRow[];
@@ -287,10 +451,12 @@ function Section({
   followBackOverrides?: Record<string, FollowStatus>;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
-  onAcceptPostTag?: (postId: string) => void | Promise<void>;
-  onRejectPostTag?: (postId: string) => void | Promise<void>;
-  onAcceptStoryTag?: (storyId: string) => void | Promise<void>;
-  onRejectStoryTag?: (storyId: string) => void | Promise<void>;
+  onAcceptPostTag?: (notification: NotificationRow) => void | Promise<void>;
+  onRejectPostTag?: (notification: NotificationRow) => void | Promise<void>;
+  onAcceptStoryTag?: (notification: NotificationRow) => void | Promise<void>;
+  onRejectStoryTag?: (notification: NotificationRow) => void | Promise<void>;
+  tagActionBusyId?: string | null;
+  tagDecisionOverrides?: TagDecisionOverrides;
 }) {
   return (
     <div className="mb-4">
@@ -307,6 +473,22 @@ function Section({
           const isFollowNotification = kind === "follow";
           const isPostTag = kind === "post_tag" && Boolean(n.post_id);
           const isStoryTag = kind === "story_tag" && Boolean(n.story_id);
+          const tagDecision = tagDecisionOverrides?.[n.id];
+          const tagActionBusy = tagActionBusyId === n.id;
+          const showPostTagActions = Boolean(
+            isPostTag &&
+              tagDecision !== "accepted" &&
+              tagDecision !== "rejected" &&
+              onAcceptPostTag &&
+              onRejectPostTag,
+          );
+          const showStoryTagActions = Boolean(
+            isStoryTag &&
+              tagDecision !== "accepted" &&
+              tagDecision !== "rejected" &&
+              onAcceptStoryTag &&
+              onRejectStoryTag,
+          );
           const followBackState = actor
             ? getFollowCtaState({
                 isFollowBackContext: true,
@@ -432,19 +614,31 @@ function Section({
                 <p className="text-[11px] font-bold text-white/40">Solicitação aceita.</p>
               ) : null}
 
-              {isPostTag && onAcceptPostTag && onRejectPostTag ? (
+              {isPostTag && tagDecision === "accepted" ? (
+                <p className="text-[11px] font-bold text-[var(--gc-brand)]/80">
+                  Marcação aceita. Esse post já aparece no seu perfil.
+                </p>
+              ) : null}
+
+              {showPostTagActions ? (
                 <div className="flex gap-2">
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-black"
-                    onClick={() => n.post_id && onAcceptPostTag(n.post_id)}
+                    disabled={tagActionBusy}
+                    onClick={() => void onAcceptPostTag?.(n)}
                     type="button"
                   >
-                    <Check size={14} strokeWidth={2.8} />
-                    Aceitar treino
+                    {tagActionBusy ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <Check size={14} strokeWidth={2.8} />
+                    )}
+                    Aceitar post
                   </button>
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
-                    onClick={() => n.post_id && onRejectPostTag(n.post_id)}
+                    disabled={tagActionBusy}
+                    onClick={() => void onRejectPostTag?.(n)}
                     type="button"
                   >
                     Recusar
@@ -452,19 +646,31 @@ function Section({
                 </div>
               ) : null}
 
-              {isStoryTag && onAcceptStoryTag && onRejectStoryTag ? (
+              {isStoryTag && tagDecision === "accepted" ? (
+                <p className="text-[11px] font-bold text-[var(--gc-brand)]/80">
+                  Marcação aceita. Esse story já aparece no seu perfil.
+                </p>
+              ) : null}
+
+              {showStoryTagActions ? (
                 <div className="flex gap-2">
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-black"
-                    onClick={() => n.story_id && onAcceptStoryTag(n.story_id)}
+                    disabled={tagActionBusy}
+                    onClick={() => void onAcceptStoryTag?.(n)}
                     type="button"
                   >
-                    <Check size={14} strokeWidth={2.8} />
+                    {tagActionBusy ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <Check size={14} strokeWidth={2.8} />
+                    )}
                     Aceitar story
                   </button>
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
-                    onClick={() => n.story_id && onRejectStoryTag(n.story_id)}
+                    disabled={tagActionBusy}
+                    onClick={() => void onRejectStoryTag?.(n)}
                     type="button"
                   >
                     Recusar

@@ -272,7 +272,7 @@ export function CommentsBottomSheet({
     >
       <button
         aria-label={t("comments.close")}
-        className="absolute inset-0 bg-black/68 backdrop-blur-xl"
+        className="absolute inset-0 bg-black/94 backdrop-blur-xl"
         onClick={handleClose}
         tabIndex={open ? 0 : -1}
         type="button"

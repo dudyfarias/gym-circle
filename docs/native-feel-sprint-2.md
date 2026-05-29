@@ -200,9 +200,89 @@ Sprint 2.1 entregue (este commit). Próximas:
 
 ## Estado
 
-Sprint 2 PLANEJADA em 2026-05-22. Sub-fase 2.1 (Foundation) entregue
-no mesmo dia. Próximas 2.2 → 2.6 ficam pra sessões seguintes conforme
-plano acima.
+Sprint 2 PLANEJADA e **COMPLETA em 2026-05-22**. Todas as 6 sub-fases
+entregues no mesmo dia + 1 bug fix de stories sem relação direta com
+mídia mas reportado durante a sprint.
+
+| Sub-fase | Commit | Deploy |
+| --- | --- | --- |
+| 2.1 Foundation | `9d4361a` | LIVE |
+| 2.2 Feed integration | `e9401be` | LIVE |
+| 2.3 Stories preload + crossfade | `e5e82fb` | LIVE |
+| 2.4 Upload pipeline | `5c6357b` | LIVE |
+| Story bug fix (reabrir + apagar ring) | `0459036` | LIVE |
+| 2.5 Performance audit (memo) | TBD | TBD |
+| 2.6 Polish + docs final | este commit | TBD |
+
+### Fase 2.6 entregue (2026-05-22) — Polish + docs final
+
+**O que entrou:**
+
+- Consolidação desta doc com todas as sub-fases marcadas + commits.
+- Status final da sprint marcado como completa.
+- Pendências futuras documentadas (smoke iPhone, métricas reais via
+  Sentry/Vercel Analytics).
+
+**Sprint 2 — resumo total dos ganhos UX:**
+
+1. **Flash preto eliminado** no feed e nas stories — fundo blur do
+   container (`blurDataUrl` ou solid dark) cobre o decode da mídia HQ.
+   Crossfade 280ms ease-iOS no `<img>` quando termina.
+2. **Sensação instant em re-aberturas** — `imageCache` global rastreia
+   srcs já decodificados nesta sessão. Reabrir feed/stories renderiza
+   sem fade-in (cache tracking).
+3. **Preload connection-aware** — primeiros 3 posts do feed em
+   wifi/4g, 1 em 2g/saveData. Próxima story sempre preloaded ao abrir
+   uma. Sem saturar 4G fraco.
+4. **Upload com qualidade premium** — JPEG 0.88 max edge 1920px
+   (Retina Pro Max). Posters HQ. blurDataUrl 10x10 ~500 bytes
+   gerado client-side via canvas durante upload. Posts novos
+   automaticamente alimentam o blur pipeline.
+5. **Logout limpo** — `clearImageCache()` no signOut evita vazamento
+   visual entre users no mesmo device.
+
+**Métricas instrumentadas (sem dashboard ainda)**:
+
+- `blur_generation_ms` — quanto demora pra gerar blurDataUrl no upload.
+- `image_upload_ms` — tempo total de upload incluindo variants.
+- `thumbnail_generation_ms` — tempo de gerar thumbnail.
+
+Pra ver no console: setar `NEXT_PUBLIC_PERF_DEBUG=true`.
+
+### Fase 2.5 entregue (2026-05-22) — Performance audit (memoization)
+
+**Commit:** TBD (este)
+
+**O que foi feito:**
+
+- **`SocialPostCard` agora é `React.memo`**:
+  - Renderizado N vezes no feed (20-50 posts). Cada um carrega
+    `<PinchZoomImage>` com decode, `<MentionText>` parser, video
+    observer, vários `useMemo`. Sem memo, qualquer re-render do
+    `FeedScreen` (chega novo post, scroll state, viewer location
+    update) refaz tudo.
+  - Shallow compare default. `post` object só muda quando like/comment
+    count mudam (imutabilidade do reducer); callbacks vêm do
+    `GymCirclePreview` já via `useCallback`; `currentUserId` e
+    `formatTime` são primitivos/referencialmente estáveis.
+  - Padrão: `function SocialPostCardComponent(...)` privada +
+    `export const SocialPostCard = memo(SocialPostCardComponent)`.
+- **`DiscoveryUserCard` também é `React.memo`** — row de sugestões
+  renderiza 5 cards. Sugestões raramente mudam mas o `FeedScreen`
+  re-renderiza com frequência (likes, scroll, etc).
+
+**Pendências de performance (não bloqueantes)**:
+
+- **Virtualização do feed** (react-window/react-virtual) — só vale se
+  feed crescer pra 100+ posts em scroll infinito. Atual paginação por
+  windows de 30 é OK por enquanto.
+- **Profile com React DevTools Profiler** — medir re-render reduction
+  real após memo. Idealmente via Sentry Performance.
+- **`useCallback` audit em `GymCirclePreview`** — os callbacks que vão
+  pro `FeedScreen` aparentemente já são estáveis (hook social usa
+  `useCallback`), mas valeria confirmar com Profiler.
+
+### Fase 2.4 entregue (2026-05-22) — Upload pipeline polish
 
 ### Fase 2.4 entregue (2026-05-22) — Upload pipeline polish
 

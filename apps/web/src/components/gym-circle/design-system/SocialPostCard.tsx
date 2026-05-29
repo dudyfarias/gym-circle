@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
@@ -59,7 +59,7 @@ type SocialPostCardProps = {
   inCommentsSheet?: boolean;
 };
 
-export function SocialPostCard({
+function SocialPostCardComponent({
   post,
   currentUserId,
   formatTime,
@@ -574,3 +574,24 @@ export function SocialPostCard({
     </article>
   );
 }
+
+/**
+ * Sprint 2.5: `React.memo` com shallow compare default.
+ *
+ * Justificativa: `SocialPostCard` é renderizado N vezes no feed
+ * (potencialmente 20-50 posts). Cada um carrega `<PinchZoomImage>` com
+ * decode, `<MentionText>` parser, vídeo observer, vários `useMemo`.
+ * Sem memo, qualquer re-render do `FeedScreen` (ex.: chega novo post,
+ * scroll state muda, viewer location update) refaz tudo.
+ *
+ * Shallow compare cobre o caso comum: `post` object só muda quando o
+ * conteúdo real muda (like, comment count, etc. — graças à imutabilidade
+ * do reducer). Callbacks vêm do `GymCirclePreview` já estáveis via
+ * `useCallback`. Props como `currentUserId` e `formatTime` são
+ * referencialmente estáveis.
+ *
+ * Trade-off: se algum caller passar callback inline (closure nova a
+ * cada render), o memo fica ineficaz mas não dá bug. Próxima audit
+ * vale verificar com React DevTools Profiler.
+ */
+export const SocialPostCard = memo(SocialPostCardComponent);
