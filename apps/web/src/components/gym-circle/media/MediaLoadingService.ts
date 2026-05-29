@@ -7,7 +7,7 @@
  * cancelPreload) vêm nas tasks A4-A5.
  */
 
-import { preloadImage, preloadImages, hasImageLoaded } from "../design-system/imageCache";
+import { preloadImage, preloadImages, hasImageLoaded, cancelPreload as cancelPreloadImage } from "../design-system/imageCache";
 
 export type MediaSurface = "feed" | "story" | "grid" | "preview";
 
@@ -79,9 +79,18 @@ async function preloadStorySequence(items: MediaItem[]): Promise<void> {
   await preloadImages(urls, 2);
 }
 
+/**
+ * Cancela preload pending. Best-effort (browser pode já ter baixado bytes).
+ */
+function cancelPreload(url: string): void {
+  if (!url) return;
+  cancelPreloadImage(url);
+}
+
 export const MediaLoadingService = {
   getBestMediaUrl,
   getBlurPlaceholder,
   warmMedia,
   preloadStorySequence,
+  cancelPreload,
 };

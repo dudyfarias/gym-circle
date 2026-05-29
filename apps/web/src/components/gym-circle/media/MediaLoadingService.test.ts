@@ -9,6 +9,7 @@ vi.mock("../design-system/imageCache", () => ({
   preloadImage: vi.fn(() => Promise.resolve()),
   preloadImages: vi.fn(() => Promise.resolve()),
   hasImageLoaded: vi.fn(() => false),
+  cancelPreload: vi.fn(),
 }));
 
 describe("MediaLoadingService.getBestMediaUrl", () => {
@@ -105,5 +106,21 @@ describe("MediaLoadingService.preloadStorySequence", () => {
       { imageUrl: undefined },
     ]);
     expect(preloadImages).not.toHaveBeenCalled();
+  });
+});
+
+describe("MediaLoadingService.cancelPreload", () => {
+  it("delega para cancelPreload do imageCache", async () => {
+    const { cancelPreload } = await import("../design-system/imageCache");
+    vi.mocked(cancelPreload).mockClear();
+    MediaLoadingService.cancelPreload("https://example.com/cancel.jpg");
+    expect(cancelPreload).toHaveBeenCalledWith("https://example.com/cancel.jpg");
+  });
+
+  it("retorna early em url vazia (NÃO chama imageCache.cancelPreload)", async () => {
+    const { cancelPreload } = await import("../design-system/imageCache");
+    vi.mocked(cancelPreload).mockClear();
+    MediaLoadingService.cancelPreload("");
+    expect(cancelPreload).not.toHaveBeenCalled();
   });
 });

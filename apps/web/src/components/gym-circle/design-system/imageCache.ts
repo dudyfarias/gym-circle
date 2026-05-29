@@ -130,6 +130,15 @@ export async function preloadImages(
   await Promise.all(workers);
 }
 
+/**
+ * Sprint 1 v1.1.1: cancela um preload pending. Best-effort — o navegador
+ * pode já ter baixado os bytes, mas eliminamos a Promise do tracking pra
+ * que callers possam fazer cleanup.
+ */
+export function cancelPreload(src: string): void {
+  pendingPreloads.delete(src);
+}
+
 type ConnectionLike = {
   effectiveType?: string;
   saveData?: boolean;
