@@ -7,6 +7,8 @@
  * cancelPreload) vêm nas tasks A4-A5.
  */
 
+import { preloadImage, preloadImages, hasImageLoaded } from "../design-system/imageCache";
+
 export type MediaSurface = "feed" | "story" | "grid" | "preview";
 
 export type MediaItem = {
@@ -52,7 +54,34 @@ function getBlurPlaceholder(item: Pick<MediaItem, "blurDataUrl" | "thumbnailUrl"
   return FALLBACK_COLOR;
 }
 
+/**
+ * Pre-warm uma URL: dispara preloadImage SEM await. Use quando você quer
+ * começar download mas não bloquear flow atual.
+ */
+async function warmMedia(url: string): Promise<void> {
+  if (!url) return;
+  if (hasImageLoaded(url)) return;
+  // Fire-and-forget — preloadImage já é idempotente + best-effort.
+  void preloadImage(url).catch(() => {
+    /* preload nunca quebra a app */
+  });
+}
+
+/**
+ * Pre-decode uma sequência de stories. Cada item vira getBestMediaUrl
+ * (surface=story) antes de preload. Concurrency 2 pra não saturar rede em cellular.
+ */
+async function preloadStorySequence(items: MediaItem[]): Promise<void> {
+  const urls = items
+    .map((item) => getBestMediaUrl(item, "story"))
+    .filter(Boolean);
+  if (urls.length === 0) return;
+  await preloadImages(urls, 2);
+}
+
 export const MediaLoadingService = {
   getBestMediaUrl,
   getBlurPlaceholder,
+  warmMedia,
+  preloadStorySequence,
 };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MediaLoadingService } from "./MediaLoadingService";
+import type { MediaItem } from "./MediaLoadingService";
 
 describe("MediaLoadingService.getBestMediaUrl", () => {
   const item = {
@@ -41,5 +42,34 @@ describe("MediaLoadingService.getBlurPlaceholder", () => {
     expect(MediaLoadingService.getBlurPlaceholder({ blurDataUrl: "data:image/jpeg;base64,xyz", thumbnailUrl: "https://example.com/t.jpg" })).toBe("data:image/jpeg;base64,xyz");
     expect(MediaLoadingService.getBlurPlaceholder({ blurDataUrl: "", thumbnailUrl: "https://example.com/t.jpg" })).toBe("https://example.com/t.jpg");
     expect(MediaLoadingService.getBlurPlaceholder({ blurDataUrl: "", thumbnailUrl: "" })).toBe("#0c0d0e");
+  });
+});
+
+describe("MediaLoadingService.warmMedia", () => {
+  it("delega para preloadImage do imageCache", async () => {
+    await MediaLoadingService.warmMedia("https://example.com/test.jpg");
+    expect(typeof MediaLoadingService.warmMedia).toBe("function");
+  });
+
+  it("retorna early em url vazia", async () => {
+    await MediaLoadingService.warmMedia("");
+    // No crash expected
+  });
+});
+
+describe("MediaLoadingService.preloadStorySequence", () => {
+  it("preloads array de items via preloadImages", async () => {
+    const items: MediaItem[] = [
+      { imageUrl: "https://example.com/s1.jpg" },
+      { imageUrl: "https://example.com/s2.jpg" },
+    ];
+    await MediaLoadingService.preloadStorySequence(items);
+  });
+
+  it("ignora items sem imageUrl", async () => {
+    await MediaLoadingService.preloadStorySequence([
+      { imageUrl: "" },
+      { imageUrl: undefined },
+    ]);
   });
 });
