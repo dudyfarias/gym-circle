@@ -1,6 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MediaLoadingService } from "./MediaLoadingService";
 import type { MediaItem } from "./MediaLoadingService";
+
+// Sprint 1 v1.1.1 A4: mocks pra verificar delegation real ao imageCache.
+// Sem isso, tests de warmMedia/preloadStorySequence passariam mesmo se
+// as funções fossem no-ops — não validariam o contrato.
+vi.mock("../design-system/imageCache", () => ({
+  preloadImage: vi.fn(() => Promise.resolve()),
+  preloadImages: vi.fn(() => Promise.resolve()),
+  hasImageLoaded: vi.fn(() => false),
+}));
 
 describe("MediaLoadingService.getBestMediaUrl", () => {
   const item = {
@@ -46,30 +55,55 @@ describe("MediaLoadingService.getBlurPlaceholder", () => {
 });
 
 describe("MediaLoadingService.warmMedia", () => {
-  it("delega para preloadImage do imageCache", async () => {
+  it("delega para preloadImage com a url correta", async () => {
+    const { preloadImage } = await import("../design-system/imageCache");
+    vi.mocked(preloadImage).mockClear();
     await MediaLoadingService.warmMedia("https://example.com/test.jpg");
-    expect(typeof MediaLoadingService.warmMedia).toBe("function");
+    // Fire-and-forget: dá um tick pra microtask resolver
+    await new Promise((r) => setTimeout(r, 0));
+    expect(preloadImage).toHaveBeenCalledWith("https://example.com/test.jpg");
   });
 
-  it("retorna early em url vazia", async () => {
+  it("retorna early em url vazia (NÃO chama preloadImage)", async () => {
+    const { preloadImage } = await import("../design-system/imageCache");
+    vi.mocked(preloadImage).mockClear();
     await MediaLoadingService.warmMedia("");
-    // No crash expected
+    await new Promise((r) => setTimeout(r, 0));
+    expect(preloadImage).not.toHaveBeenCalled();
+  });
+
+  it("skip se hasImageLoaded retorna true", async () => {
+    const { preloadImage, hasImageLoaded } = await import("../design-system/imageCache");
+    vi.mocked(preloadImage).mockClear();
+    vi.mocked(hasImageLoaded).mockReturnValueOnce(true);
+    await MediaLoadingService.warmMedia("https://example.com/cached.jpg");
+    await new Promise((r) => setTimeout(r, 0));
+    expect(preloadImage).not.toHaveBeenCalled();
   });
 });
 
 describe("MediaLoadingService.preloadStorySequence", () => {
-  it("preloads array de items via preloadImages", async () => {
+  it("chama preloadImages com URLs mapeadas + concurrency 2", async () => {
+    const { preloadImages } = await import("../design-system/imageCache");
+    vi.mocked(preloadImages).mockClear();
     const items: MediaItem[] = [
       { imageUrl: "https://example.com/s1.jpg" },
       { imageUrl: "https://example.com/s2.jpg" },
     ];
     await MediaLoadingService.preloadStorySequence(items);
+    expect(preloadImages).toHaveBeenCalledWith(
+      ["https://example.com/s1.jpg", "https://example.com/s2.jpg"],
+      2,
+    );
   });
 
-  it("ignora items sem imageUrl", async () => {
+  it("ignora items sem imageUrl (não chama preloadImages se array vazio)", async () => {
+    const { preloadImages } = await import("../design-system/imageCache");
+    vi.mocked(preloadImages).mockClear();
     await MediaLoadingService.preloadStorySequence([
       { imageUrl: "" },
       { imageUrl: undefined },
     ]);
+    expect(preloadImages).not.toHaveBeenCalled();
   });
 });
