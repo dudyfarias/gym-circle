@@ -22,7 +22,11 @@
  * é OK — primeiro mount ainda vai dar fade-in suave (não preto).
  */
 
-const loadedSources = new Set<string>();
+import { LruCache } from "../media/lruCache";
+
+const LOADED_CAPACITY = 150;
+
+const loadedSources = new LruCache<string>(LOADED_CAPACITY);
 const pendingPreloads = new Map<string, Promise<void>>();
 
 /**
@@ -32,6 +36,20 @@ const pendingPreloads = new Map<string, Promise<void>>();
 export function markImageLoaded(src: string): void {
   if (!src) return;
   loadedSources.add(src);
+}
+
+/**
+ * Sprint 1 v1.1.1: protege src de eviction LRU enquanto está visible.
+ * Caller deve unpinSource quando o componente desmontar ou trocar src.
+ */
+export function pinSource(src: string): void {
+  if (!src) return;
+  loadedSources.pin(src);
+}
+
+export function unpinSource(src: string): void {
+  if (!src) return;
+  loadedSources.unpin(src);
 }
 
 /**
@@ -159,5 +177,5 @@ export function clearImageCache(): void {
  * Tamanho atual do cache (uso debug + métricas).
  */
 export function getCacheSize(): number {
-  return loadedSources.size;
+  return loadedSources.size();
 }

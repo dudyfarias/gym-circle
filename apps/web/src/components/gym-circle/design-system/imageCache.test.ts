@@ -5,8 +5,10 @@ import {
   getPreloadCount,
   hasImageLoaded,
   markImageLoaded,
+  pinSource,
   preloadImage,
   preloadImages,
+  unpinSource,
 } from "./imageCache";
 
 describe("imageCache — Sprint 2.1", () => {
@@ -198,6 +200,48 @@ describe("imageCache — Sprint 2.1", () => {
         connection: { effectiveType: "4g" },
       });
       expect(getPreloadCount(0)).toBe(0);
+    });
+  });
+
+  describe("imageCache LRU integration", () => {
+    it("evicts oldest when capacity exceeded", () => {
+      clearImageCache();
+      for (let i = 0; i < 155; i++) {
+        markImageLoaded(`https://example.com/${i}.jpg`);
+      }
+      expect(hasImageLoaded("https://example.com/0.jpg")).toBe(false);
+      expect(hasImageLoaded("https://example.com/4.jpg")).toBe(false);
+      expect(hasImageLoaded("https://example.com/5.jpg")).toBe(true);
+      expect(hasImageLoaded("https://example.com/154.jpg")).toBe(true);
+    });
+
+    it("pinSource protege from eviction", () => {
+      clearImageCache();
+      markImageLoaded("https://example.com/pinned.jpg");
+      pinSource("https://example.com/pinned.jpg");
+      for (let i = 0; i < 160; i++) {
+        markImageLoaded(`https://example.com/${i}.jpg`);
+      }
+      expect(hasImageLoaded("https://example.com/pinned.jpg")).toBe(true);
+    });
+
+    it("unpinSource permite eviction normal", () => {
+      clearImageCache();
+      markImageLoaded("https://example.com/temp.jpg");
+      pinSource("https://example.com/temp.jpg");
+      unpinSource("https://example.com/temp.jpg");
+      for (let i = 0; i < 160; i++) {
+        markImageLoaded(`https://example.com/${i}.jpg`);
+      }
+      expect(hasImageLoaded("https://example.com/temp.jpg")).toBe(false);
+    });
+
+    it("getCacheSize cap em capacity", () => {
+      clearImageCache();
+      for (let i = 0; i < 200; i++) {
+        markImageLoaded(`https://example.com/${i}.jpg`);
+      }
+      expect(getCacheSize()).toBe(150);
     });
   });
 });
