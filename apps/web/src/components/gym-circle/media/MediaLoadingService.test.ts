@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MediaLoadingService } from "./MediaLoadingService";
 import type { MediaItem } from "./MediaLoadingService";
 
@@ -11,6 +11,14 @@ vi.mock("../design-system/imageCache", () => ({
   hasImageLoaded: vi.fn(() => false),
   cancelPreload: vi.fn(),
 }));
+
+// Sprint 1 v1.1.1 A6 fix: reset garantido antes de CADA teste. O
+// mockClear() por-teste vazava call-count entre os 2 testes síncronos de
+// cancelPreload (o segundo via 1 call do primeiro). clearAllMocks num
+// beforeEach é o ponto único de isolamento — robusto e canônico.
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("MediaLoadingService.getBestMediaUrl", () => {
   const item = {

@@ -94,3 +94,14 @@ export const MediaLoadingService = {
   preloadStorySequence,
   cancelPreload,
 };
+
+// Sprint 1 v1.1.1 A6: expor pra debug em produção via console.
+//   window.gc.media.getBestMediaUrl(post, "feed")
+//   window.gc.media.warmMedia("https://...")
+//   window.gc.media.cancelPreload("https://...")
+// Sem custo de bundle/perf — só referência adicional.
+if (typeof window !== "undefined") {
+  const w = window as unknown as { gc?: { media?: typeof MediaLoadingService } };
+  if (!w.gc) w.gc = {};
+  w.gc.media = MediaLoadingService;
+}
