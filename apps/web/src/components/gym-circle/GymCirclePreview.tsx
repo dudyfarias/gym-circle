@@ -1097,8 +1097,8 @@ export function GymCirclePreview({
           ) : null}
           <StoryViewer
             currentUserId={social.currentUser.id}
-            hasNext={Boolean(nextStoryId)}
-            hasPrevious={Boolean(previousStoryId)}
+            hasNext={hasNextStoryOrAuthor}
+            hasPrevious={hasPrevStoryOrAuthor}
             onClose={social.actions.closeStory}
             onDeleteStory={social.actions.deleteStory}
             onLikeStory={social.actions.likeStory}
