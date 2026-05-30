@@ -21,6 +21,7 @@ function user(input: Partial<EnrichedUser> & Pick<EnrichedUser, "id" | "username
     currentStreak: input.currentStreak ?? 0,
     longestStreak: 0,
     lastWorkoutDate: "",
+    workoutsThisWeek: 0,
     workoutsThisMonth: 0,
     activeDaysCount: 0,
     streakRestoresAvailable: 0,

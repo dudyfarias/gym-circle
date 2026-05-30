@@ -3996,9 +3996,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             (participant) => participant.conversation_id !== conversationId,
           ),
         }));
-        await services.messages.deleteConversationByIdForMe(conversationId);
-        showFeedback("success", "Conversa apagada");
-        await refreshChat();
+        try {
+          await services.messages.deleteConversationByIdForMe(conversationId);
+          showFeedback("success", "Conversa apagada");
+          await refreshChat();
+        } catch (err) {
+          await refreshChat().catch(() => undefined);
+          throw err;
+        }
       },
       async createGroupConversation(input) {
         const conversationId = await services.messages.createGroup({

@@ -15,8 +15,8 @@ describe("Gym Circle auth interface", () => {
   });
 
   it("keeps email/password and password reset visible", () => {
-    expect(authGateSource).toContain("email ou username");
-    expect(authGateSource).toContain("senha");
-    expect(authGateSource).toContain("Esqueci minha senha");
+    expect(authGateSource).toContain("auth.field.emailOrUsername");
+    expect(authGateSource).toContain("auth.field.password");
+    expect(authGateSource).toContain("auth.toggle.forgotPassword");
   });
 });

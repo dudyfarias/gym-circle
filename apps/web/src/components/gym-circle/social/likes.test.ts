@@ -8,9 +8,6 @@ import type { EnrichedUser } from "./types";
 
 function createUser(input: Partial<EnrichedUser> & Pick<EnrichedUser, "id" | "username">) {
   return {
-    id: input.id,
-    name: input.name ?? input.username,
-    username: input.username,
     accent: "#30D5FF",
     avatarUrl: null,
     bio: "",
@@ -21,8 +18,10 @@ function createUser(input: Partial<EnrichedUser> & Pick<EnrichedUser, "id" | "us
     currentStreak: 4,
     longestStreak: 7,
     lastWorkoutDate: "2026-05-13",
+    workoutsThisWeek: 2,
     workoutsThisMonth: 5,
     activeDaysCount: 18,
+    streakRestoresAvailable: 0,
     checkInsCount: 2,
     achievements: [],
     followersCount: 0,
@@ -34,6 +33,9 @@ function createUser(input: Partial<EnrichedUser> & Pick<EnrichedUser, "id" | "us
     streakLitToday: true,
     streakPresenceSource: "feed-photo",
     ...input,
+    id: input.id,
+    name: input.name ?? input.username,
+    username: input.username,
   } satisfies EnrichedUser;
 }
 

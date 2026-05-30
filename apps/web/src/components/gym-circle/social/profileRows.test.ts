@@ -122,4 +122,35 @@ describe("profile row merging", () => {
     expect(merged.is_private).toBe(true);
     expect(merged.profile_completion_notice_dismissed).toBe(true);
   });
+
+  it("never lets null or empty preview fields clear full profile data", () => {
+    const full = fullProfile({
+      user_id: "user-1",
+      avatar_url: "https://cdn.example/avatar-full.jpg",
+      bio: "Bio historica",
+      fitness_goal: "Forca",
+      instagram_username: "dudy.fit",
+      birth_date: "1998-02-12",
+      sports: ["Musculacao"],
+      main_gym_id: "gym-old",
+      preferred_training_times: ["Noite"],
+    });
+    const preview = profileRowFromSurface({
+      user_id: "user-1",
+      username: "dudy",
+      display_name: "Dudy",
+      avatar_url: null,
+    })!;
+
+    const [merged] = mergeProfileRows([full], [preview]);
+
+    expect(merged.avatar_url).toBe("https://cdn.example/avatar-full.jpg");
+    expect(merged.bio).toBe("Bio historica");
+    expect(merged.fitness_goal).toBe("Forca");
+    expect(merged.instagram_username).toBe("dudy.fit");
+    expect(merged.birth_date).toBe("1998-02-12");
+    expect(merged.sports).toEqual(["Musculacao"]);
+    expect(merged.main_gym_id).toBe("gym-old");
+    expect(merged.preferred_training_times).toEqual(["Noite"]);
+  });
 });

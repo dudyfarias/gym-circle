@@ -50,13 +50,17 @@ export function hasImageLoaded(src: string): boolean {
  * Promise. Já-loaded skip imediato.
  */
 export function preloadImage(src: string): Promise<void> {
-  if (!src || typeof window === "undefined") return Promise.resolve();
+  const ImageCtor =
+    typeof window !== "undefined"
+      ? window.Image
+      : (globalThis as typeof globalThis & { Image?: typeof Image }).Image;
+  if (!src || !ImageCtor) return Promise.resolve();
   if (loadedSources.has(src)) return Promise.resolve();
   const existing = pendingPreloads.get(src);
   if (existing) return existing;
 
   const promise = new Promise<void>((resolve) => {
-    const img = new window.Image();
+    const img = new ImageCtor();
     img.decoding = "async";
     img.src = src;
 
