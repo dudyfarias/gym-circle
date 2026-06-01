@@ -1,9 +1,24 @@
 # Gym Circle 1.1.1 — Sprint 1 — Ultra Smooth Feed
 
-**Status:** Spec
-**Data:** 2026-05-26
+**Status:** Em progresso — Phase A 100% live · B1 live · B2-B4 + C pendentes
+**Data spec:** 2026-05-26
+**Última atualização:** 2026-05-30
 **Owner:** Eduardo Farias
 **Pre-reqs:** Sprint 4.7 hotfix (i18n) live em produção (commit `1b5d749`)
+
+**Snapshot rápido (2026-05-30):**
+
+| Phase | Status | Commits | Vercel |
+|---|---|---|---|
+| A — Foundation (LRU + MediaLoadingService) | ✅ Live | `e78c34f` `6966964` `ce48d34` `4dc6c9b` `ff67648` `a515b31` `0903b0e` `4457ddb` | READY (`dpl_CKqg…`) |
+| B1 — Stories cross-author (Instagram-like) | ✅ Live | `09ef246` | READY (auto) |
+| B2 — Remove `key=` + pre-decode no StoryViewer | ⏳ Pendente | — | — |
+| B4 — Smoke iPhone manual | ⏳ Pendente | — | — |
+| C1 — Top-3 preload no FeedScreen | ⏳ Pendente | — | — |
+| C2 — Métricas debug `[gc-metrics]` | ⏳ Pendente | — | — |
+| C3 — Smoke iPhone final | ⏳ Pendente | — | — |
+
+Detalhes por phase no STATUS doc: `docs/STATUS-2026-05-30.md`.
 
 ---
 
@@ -115,46 +130,44 @@ disparar download.
 
 ## Checklist
 
-### Phase A — Foundation
+### Phase A — Foundation ✅ COMPLETO + LIVE
 
-- [ ] **planejado** — Criar `lruCache.ts` com Map-based LRU + capacity 150
-- [ ] **planejado** — Adicionar LRU ao `imageCache.ts` (manter API)
-- [ ] **planejado** — Criar `MediaLoadingService.ts` wrapper
-- [ ] **planejado** — Implementar `warmMedia(url)` (pre-decode sem await)
-- [ ] **planejado** — Implementar `cancelPreload(url)` (AbortController)
-- [ ] **planejado** — Implementar `preloadStorySequence(items)` (queue serial)
-- [ ] **planejado** — Implementar `getBestMediaUrl(item, surface)` lookup
-- [ ] **planejado** — Implementar `getBlurPlaceholder(item)` priority chain
-- [ ] **planejado** — Expose `window.gc.media` em prod (debug)
-- [ ] **planejado** — Unit tests `MediaLoadingService.test.ts`
-- [ ] **planejado** — Unit tests `lruCache.test.ts`
-- [ ] **implementado**
-- [ ] **validado** — Vercel build verde
-- [ ] **pendente**
+- [x] Criar `lruCache.ts` com Map-based LRU + capacity 150 (commit `e78c34f`)
+- [x] Self-evict bug fix + tests adicionais — descoberto pelo all-pinned overflow test (commit `6966964`)
+- [x] Adicionar LRU ao `imageCache.ts` mantendo API existente (commit `ce48d34`)
+- [x] Criar `MediaLoadingService.ts` wrapper (commit `4dc6c9b`)
+- [x] Implementar `getBestMediaUrl(item, surface)` matrix por surface (commit `4dc6c9b`)
+- [x] Implementar `getBlurPlaceholder(item)` priority chain (commit `4dc6c9b`)
+- [x] Implementar `warmMedia(url)` fire-and-forget (commit `ff67648`)
+- [x] Implementar `preloadStorySequence(items)` concurrency 2 (commit `ff67648`)
+- [x] Implementar `cancelPreload(url)` no imageCache + service (commit `0903b0e`)
+- [x] Mocks de delegation pra warm/preload com `vi.mock` + asserts (commit `a515b31`)
+- [x] Expose `window.gc.media` em prod (debug) (commit `4457ddb`)
+- [x] Fix de isolamento de teste: `beforeEach(vi.clearAllMocks)` ao invés de mockClear() por-teste (commit `4457ddb`)
+- [x] Unit tests `lruCache.test.ts` — 9/9 passando
+- [x] Unit tests `MediaLoadingService.test.ts` — 14/14 passando
+- [x] **Validado**: Vercel build verde no `dpl_CKqg6xTHjunZHFwMbHBEe93HcJun` (commit `4457ddb`, READY)
 
-### Phase B — Stories contínuos
+### Phase B — Stories contínuos (parcial: B1 ✅ · B2-B4 ⏳)
 
-- [ ] **planejado** — Criar `useStoryQueue.ts` hook
-- [ ] **planejado** — Implementar `openAuthor`, `nextStory`, `previousStory`, `nextAuthor`, `previousAuthor`
-- [ ] **planejado** — Implementar `preloadUpcoming` (2 next + first do próximo autor)
-- [ ] **planejado** — Remover `key={props.story.id}` do `StoryViewer`
-- [ ] **planejado** — Adoptar `useStoryQueue` no parent (`GymCirclePreview`)
-- [ ] **planejado** — Pre-decode antes de swap (não trocar `src` até resolver)
-- [ ] **planejado** — Manter frame anterior visível durante decode
-- [ ] **planejado** — Unit tests `useStoryQueue.test.ts`
-- [ ] **implementado**
-- [ ] **validado** — iPhone manual: stories sequência contínua entre autores
-- [ ] **pendente**
+- [x] **B1** — Stories cross-author Instagram-like in-place no `GymCirclePreview` (commit `09ef246`)
+  - Estratégia adaptada: o código real tem `StoryGroup{id,author,stories}` + `social.storyGroups` + `social.actions.openStory(storyId)` que auto-resolve o grupo. NÃO precisa de hook novo — estende `openNextStory`/`openPreviousStory` + `hasNext`/`hasPrevious` pra cruzar fronteira de grupo via `storyGroups[idx ± 1]`.
+  - `openNextStory`: próximo no autor → senão primeiro do próximo autor → senão `closeStory()` (fim absoluto).
+  - `openPreviousStory`: anterior no autor → senão último do autor anterior.
+- [ ] **B2** — Remover `key={props.story.id}` do `StoryViewer` + pre-decode antes de swap (zero flash entre stories). Risco alto: mexe em componente ao vivo crítico.
+- [ ] **B4** — Validar Phase B no iPhone manual: stories sequência contínua + sem flash preto entre transições.
 
-### Phase C — Feed polish
+### Phase C — Feed polish ⏳ pendente
 
-- [ ] **planejado** — `FeedScreen.useEffect` → preload top-3 no mount
-- [ ] **planejado** — Verificar `SocialPostCard` usa `GCImage` (se não, migrar)
-- [ ] **planejado** — Instrumentar métricas debug (`console.log [gc-metrics]`)
-- [ ] **planejado** — Documentar métricas no doc da sprint
-- [ ] **implementado**
-- [ ] **validado** — iPhone manual: feed first paint sem preto
-- [ ] **pendente**
+- [ ] **C1** — `FeedScreen.useEffect` → `MediaLoadingService.preloadStorySequence(top3)` no mount.
+- [ ] Verificar `SocialPostCard` usa `PinchZoomImage` (já confirmado — usa `hqSrc` da Sprint 3.6). NÃO precisa migrar pra GCImage.
+- [ ] **C2** — Instrumentar métricas debug (`console.log [gc-metrics]`): `feed_first_paint_ms`, `story_transition_ms`.
+- [ ] **C3** — Validar no iPhone manual: feed first paint sem preto.
+
+### Notas de divergência do plano original
+
+- **Plano original B1-B3 assumia `useStoryQueue` hook + tipo `EnrichedStoryGroup`.** Nem existem no codebase (tipo real é `StoryGroup`). Adaptação foi feita in-place no `GymCirclePreview` — mais cirúrgico, zero código novo de hook. Task B3 (wire) foi absorvida em B1 porque o "wire" é a própria mudança no parent.
+- **Phase A descobriu 1 bug real**: o LRU evictava o próprio valor recém-adicionado quando todos os outros estavam pinned. Achado pelo teste de all-pinned overflow (escrito durante o code review da A1). Fix via `justAdded` parameter no `findOldestUnpinned`.
 
 ---
 

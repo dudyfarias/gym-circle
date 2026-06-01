@@ -18,7 +18,7 @@
 
 Goal: criar wrapper formal sobre `imageCache.ts` + adicionar LRU eviction com pin-protect. Zero breaking change na API existente.
 
-### Task A1: LRU cache module (foundation)
+### Task A1: LRU cache module (foundation) ✅ DONE — commits `e78c34f` + `6966964` (fix self-evict)
 
 **Files:**
 - Create: `apps/web/src/components/gym-circle/media/lruCache.ts`
@@ -209,7 +209,7 @@ git commit -m "feat(sprint-1-v1.1.1-A1): LRU cache com pin-protect"
 
 ---
 
-### Task A2: Adicionar LRU ao imageCache.ts
+### Task A2: Adicionar LRU ao imageCache.ts ✅ DONE — commit `ce48d34`
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/design-system/imageCache.ts`
@@ -356,7 +356,7 @@ git commit -m "feat(sprint-1-v1.1.1-A2): imageCache adopta LRU + pin-protect"
 
 ---
 
-### Task A3: MediaLoadingService — getBestMediaUrl
+### Task A3: MediaLoadingService — getBestMediaUrl ✅ DONE — commit `4dc6c9b`
 
 **Files:**
 - Create: `apps/web/src/components/gym-circle/media/MediaLoadingService.ts`
@@ -550,7 +550,7 @@ git commit -m "feat(sprint-1-v1.1.1-A3): MediaLoadingService getBestMediaUrl + g
 
 ---
 
-### Task A4: MediaLoadingService — warmMedia + preloadStorySequence
+### Task A4: MediaLoadingService — warmMedia + preloadStorySequence ✅ DONE — commits `ff67648` + `a515b31` (mocks de delegation)
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/media/MediaLoadingService.ts`
@@ -676,7 +676,7 @@ git commit -m "feat(sprint-1-v1.1.1-A4): MediaLoadingService warmMedia + preload
 
 ---
 
-### Task A5: MediaLoadingService — cancelPreload
+### Task A5: MediaLoadingService — cancelPreload ✅ DONE — commit `0903b0e`
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/media/MediaLoadingService.ts`
@@ -754,7 +754,7 @@ git commit -m "feat(sprint-1-v1.1.1-A5): MediaLoadingService cancelPreload"
 
 ---
 
-### Task A6: Expor window.gc.media (debug)
+### Task A6: Expor window.gc.media (debug) ✅ DONE — commit `4457ddb` (+ fix isolamento de teste com `beforeEach(vi.clearAllMocks)`)
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/media/MediaLoadingService.ts`
@@ -795,7 +795,7 @@ User pusha — Vercel build deve passar verde.
 
 ---
 
-### Task A7: Validar Phase A no Vercel
+### Task A7: Validar Phase A no Vercel ✅ DONE — deploy `dpl_CKqg6xTHjunZHFwMbHBEe93HcJun` (commit `4457ddb`) state READY
 
 - [ ] **Step 1: Aguardar Vercel build**
 
@@ -824,7 +824,11 @@ Phase A live. Continuar pra Phase B.
 
 Goal: stories funcionam em fluxo contínuo entre autores (Instagram-like). Remover `key={story.id}` do StoryViewer (causa do flash preto entre stories). Pre-decode antes de swap.
 
-### Task B1: useStoryQueue hook — interface + tests
+### Task B1: useStoryQueue hook — interface + tests ✅ DONE (adaptado) — commit `09ef246`
+
+**Divergência do plano original:** o código real NÃO precisa de `useStoryQueue`. Já existem `StoryGroup{id,author,stories}` + `social.storyGroups` + `social.actions.openStory(storyId)` que auto-resolve grupo a partir de qualquer story. A solução foi in-place no `GymCirclePreview`: estender `openNextStory`/`openPreviousStory` + `hasNext`/`hasPrevious` pra cruzar fronteira de autor via `storyGroups[idx ± 1]`. Sem hook novo, sem tipos novos, sem testes novos (lógica é trivial e visualmente testável no iPhone).
+
+B3 (wire) foi absorvido em B1 porque o "wire" é a própria mudança no parent.
 
 **Files:**
 - Create: `apps/web/src/components/gym-circle/social/useStoryQueue.ts`
@@ -1100,7 +1104,9 @@ git commit -m "feat(sprint-1-v1.1.1-B1): useStoryQueue hook cross-author"
 
 ---
 
-### Task B2: Remover key={story.id} do StoryViewer + pre-decode swap
+### Task B2: Remover key={story.id} do StoryViewer + pre-decode swap ⏳ PENDENTE
+
+Risco alto: mexe em componente ao vivo. Vai exigir reset manual de state interno (replyDraft, menuOpen, shareOpen, heartBurst, mediaLoaded) quando `story.id` mudar — o `key=` atual cuida disso de graça via remount. Sem o `key=` precisamos um `useEffect([story.id])` que limpe esses states.
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/design-system/StoryViewer.tsx`
@@ -1179,7 +1185,9 @@ git commit -m "fix(sprint-1-v1.1.1-B2): viewer persistente (sem key=) + pre-deco
 
 ---
 
-### Task B3: Wire useStoryQueue no GymCirclePreview
+### Task B3: Wire useStoryQueue no GymCirclePreview ✅ ABSORVIDA por B1
+
+Veja nota em B1 — a implementação in-place já é o próprio wire.
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/GymCirclePreview.tsx`
@@ -1267,7 +1275,7 @@ User pusha. Vercel build deve passar verde.
 
 ---
 
-### Task B4: Validar Phase B no Vercel + iPhone
+### Task B4: Validar Phase B no Vercel + iPhone ⏳ PENDENTE (B1 já live; aguardando smoke)
 
 - [ ] **Step 1: Verificar Vercel build READY**
 
@@ -1292,7 +1300,7 @@ Se ele aprovar comportamento, marcar Phase B completed e seguir pra Phase C.
 
 Goal: eliminar flash preto no feed first paint. Top-3 posts preloaded no mount. Métricas debug em console.
 
-### Task C1: Top-3 preload no FeedScreen mount
+### Task C1: Top-3 preload no FeedScreen mount ⏳ PENDENTE
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/screens/FeedScreen.tsx`
@@ -1346,7 +1354,7 @@ git commit -m "feat(sprint-1-v1.1.1-C1): FeedScreen top-3 preload no mount"
 
 ---
 
-### Task C2: Métricas debug [gc-metrics]
+### Task C2: Métricas debug [gc-metrics] ⏳ PENDENTE
 
 **Files:**
 - Modify: `apps/web/src/components/gym-circle/screens/FeedScreen.tsx`
@@ -1422,7 +1430,7 @@ git push origin main
 
 ---
 
-### Task C3: Validar Phase C completa + smoke iPhone
+### Task C3: Validar Phase C completa + smoke iPhone ⏳ PENDENTE
 
 - [ ] **Step 1: Vercel build verde**
 
