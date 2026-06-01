@@ -808,6 +808,26 @@ export function GymCirclePreview({
     () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, -1),
     [selectedStoryId, selectedStorySequence],
   );
+  // Sprint 1 v1.1.1 B1 (re-fix): índice do autor atual + flags cross-author
+  // pra navegação contínua estilo Instagram. O commit 09ef246 referenciou
+  // estas vars no JSX (`hasNext={hasNextStoryOrAuthor}`) mas o Edit das
+  // definições falhou silenciosamente — TS quebrou no build. Adicionando
+  // aqui agora.
+  const currentGroupIndex = useMemo(() => {
+    const groupId = social.selectedStoryGroup?.id ?? null;
+    if (!groupId) return -1;
+    return storyGroups.findIndex((group) => group.id === groupId);
+  }, [social.selectedStoryGroup?.id, storyGroups]);
+  const hasNextStoryOrAuthor = useMemo(
+    () =>
+      Boolean(nextStoryId) ||
+      (currentGroupIndex >= 0 && currentGroupIndex < storyGroups.length - 1),
+    [currentGroupIndex, nextStoryId, storyGroups.length],
+  );
+  const hasPrevStoryOrAuthor = useMemo(
+    () => Boolean(previousStoryId) || currentGroupIndex > 0,
+    [currentGroupIndex, previousStoryId],
+  );
 
   // Sprint 2.3: pré-carrega + pré-decodifica a mídia da PRÓXIMA story
   // assim que o user abre uma. Quando avançar (swipe/tap), a próxima já
@@ -842,13 +862,51 @@ export function GymCirclePreview({
     },
     [social.actions],
   );
-  const openNextStory = useCallback(
-    () => openStoryById(nextStoryId),
-    [nextStoryId, openStoryById],
-  );
+  // Sprint 1 v1.1.1 B1: navegação cross-author Instagram-like.
+  // openNextStory: próximo no autor atual → senão primeiro do próximo
+  // autor → senão closeStory() (fim absoluto da fila).
+  // openPreviousStory: anterior no autor atual → senão último do autor
+  // anterior. Sem hook novo — usa social.actions.openStory(id) que já
+  // auto-resolve o grupo a partir do storyId.
+  const openNextStory = useCallback(() => {
+    if (nextStoryId) {
+      openStoryById(nextStoryId);
+      return;
+    }
+    const nextGroup =
+      currentGroupIndex >= 0 ? storyGroups[currentGroupIndex + 1] : undefined;
+    const firstOfNext = nextGroup?.stories[0];
+    if (firstOfNext) {
+      social.actions.openStory(firstOfNext.id);
+      return;
+    }
+    social.actions.closeStory();
+  }, [
+    currentGroupIndex,
+    nextStoryId,
+    openStoryById,
+    social.actions,
+    storyGroups,
+  ]);
   const openPreviousStory = useCallback(() => {
-    if (previousStoryId) openStoryById(previousStoryId);
-  }, [openStoryById, previousStoryId]);
+    if (previousStoryId) {
+      openStoryById(previousStoryId);
+      return;
+    }
+    const prevGroup =
+      currentGroupIndex > 0 ? storyGroups[currentGroupIndex - 1] : undefined;
+    const lastOfPrev =
+      prevGroup?.stories[prevGroup.stories.length - 1];
+    if (lastOfPrev) {
+      social.actions.openStory(lastOfPrev.id);
+    }
+  }, [
+    currentGroupIndex,
+    openStoryById,
+    previousStoryId,
+    social.actions,
+    storyGroups,
+  ]);
 
   useEffect(() => {
     const urls = [
@@ -1173,14 +1231,12 @@ export function GymCirclePreview({
           <CommentsBottomSheet
             currentUser={social.currentUser}
             currentUserId={social.currentUser.id}
-            embedPost
             formatTime={social.formatPostClock}
             mentionUsers={followedUsers}
             onClose={closePostDetail}
             onCommentPost={social.actions.commentPost}
             onDeleteComment={social.actions.deleteComment}
             onLikeComment={social.actions.likeComment}
-            onLikePost={social.actions.likePost}
             onSelectUser={(userId) => {
               closePostDetail();
               openProfile(userId);

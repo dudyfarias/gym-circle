@@ -12,7 +12,6 @@ import { Heart, Send, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "./design-system/EmptyState";
-import { SocialPostCard } from "./design-system/SocialPostCard";
 import { StreakBadge } from "./design-system/StreakBadge";
 import { SwipeRevealDelete } from "./design-system/SwipeRevealDelete";
 import {
@@ -66,17 +65,6 @@ type CommentsBottomSheetProps = {
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   mentionUsers?: EnrichedUser[];
-  /**
-   * Sprint 5 — embebe o `<SocialPostCard>` no topo do scroll, mostrando
-   * imagem + caption + likes summary do post sendo comentado. Default
-   * `true` pra cobrir o caso de abrir o sheet pelo profile (onde o user
-   * não viu o card antes). No feed o user já viu o card scrollando, mas
-   * mostrar embebido também é útil pra contexto sem precisar fechar a
-   * sheet. Pra esconder em algum caso específico, passar `embedPost={false}`.
-   */
-  embedPost?: boolean;
-  /** Sprint 5 — callback do botão de like dentro do post embebido. */
-  onLikePost?: (postId: string) => void;
 };
 
 type MentionMatch = {
@@ -117,8 +105,6 @@ export function CommentsBottomSheet({
   onSelectUser,
   resolveUser,
   mentionUsers = [],
-  embedPost = true,
-  onLikePost,
 }: CommentsBottomSheetProps) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
@@ -308,26 +294,36 @@ export function CommentsBottomSheet({
 
         <div className="h-px bg-white/[0.06]" />
 
-        {/* Comments list — Sprint 5: post embebido no topo quando
-            `embedPost` (default true). Resolve o pedido do Eduardo de
-            ver imagem + caption do post junto com os comentários ao
-            abrir do profile (igual Instagram). */}
+        {/* Comments list — Sprint 1 stabilization: superfície dedicada a
+            comentários. Mantém só contexto textual leve; mídia/card do feed
+            não entra aqui pra evitar re-render pesado e falta de espaço. */}
         <div className="gc-scrollbar flex-1 overflow-y-auto">
-          {embedPost ? (
-            <div className="border-b border-white/[0.06]">
-              <SocialPostCard
-                currentUserId={currentUserId}
-                formatTime={formatTime}
-                inCommentsSheet
-                onLike={(postId) => {
-                  if (onLikePost) onLikePost(postId);
-                }}
-                onSelectUser={onSelectUser}
-                post={post}
-                resolveUser={resolveUser}
+          <div className="border-b border-white/[0.06] px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Avatar
+                accent={post.author.accent}
+                name={post.author.name}
+                size="sm"
+                src={post.author.avatarUrl ?? undefined}
               />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-black text-white">
+                  @{post.author.username}
+                </p>
+                <p className="truncate text-[12px] font-semibold text-white/46">
+                  {formatTime(post.createdAt)}
+                </p>
+              </div>
+              <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/52">
+                {commentsCount.toLocaleString()} comentários
+              </span>
             </div>
-          ) : null}
+            {post.caption ? (
+              <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-5 text-white/72">
+                {post.caption}
+              </p>
+            ) : null}
+          </div>
           <div className="px-4 py-4">
           {post.commentPreviews.length === 0 ? (
             <div className="grid h-full place-items-center">

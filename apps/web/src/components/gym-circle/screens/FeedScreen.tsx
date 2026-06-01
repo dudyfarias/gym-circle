@@ -18,8 +18,11 @@ import {
 } from "../design-system";
 import {
   getPreloadCount,
+  pinSource,
   preloadImages,
+  unpinSource,
 } from "../design-system/imageCache";
+import { MediaLoadingService } from "../media/MediaLoadingService";
 import type { EnrichedPost, EnrichedUser, StoryGroup } from "../social/types";
 import {
   shouldShowViewerLocationPrompt,
@@ -104,24 +107,65 @@ export function FeedScreen({
     return () => observer.disconnect();
   }, [feedHasMore, feedLoadingMore, feedPosts.length, onLoadMoreFeed]);
 
-  // Sprint 2.2: pré-carrega + pré-decodifica as imagens dos primeiros
-  // posts do feed ANTES do user scrollar. `getPreloadCount(3)` ajusta
-  // o número baseado em `navigator.connection` (4G/wifi=3, 3G=1, 2g/
-  // saveData=1, Safari=3 fallback). Usa thumbnail quando disponível —
-  // bytes menores, mesma sensação de prontidão.
+  // Sprint 1 v1.1.1 C1+C2: top-N preload com pin-protect + métricas.
+  //
+  // Estende o preload original da Sprint 2.2 com 2 ganhos:
+  //
+  // 1. **pin-protect** via `pinSource()` — protege os top-N da eviction
+  //    do LRU da Phase A. Sem isso, scroll longe + voltar ao topo
+  //    poderia re-decodar imagens que acabamos de cachear.
+  // 2. **Métrica `feed_first_paint_ms`** — log `[gc-metrics]` cronometra
+  //    do mount do efeito até o primeiro decode resolver. Debug-only
+  //    (sem backend nesta sprint).
+  //
+  // `MediaLoadingService.getBestMediaUrl(post, "feed")` escolhe HQ
+  // (imageUrl 1920px) > thumbnail. Damos prioridade pro HQ porque é
+  // o que o user VAI ver — o thumb só serve como blur placeholder.
+  // `getPreloadCount(3)` continua adapting por connection.
   useEffect(() => {
     if (typeof window === "undefined" || feedPosts.length === 0) return;
     const count = getPreloadCount(3);
     if (count <= 0) return;
-    const srcs = feedPosts
+    const topN = feedPosts
       .slice(0, count)
-      // Pula vídeos — poster já carrega via `<video poster>` nativo, e
-      // o arquivo do vídeo é grande demais pra pre-fetch agressivo.
-      .filter((post) => (post.mediaType ?? "image") !== "video")
-      .map((post) => post.thumbnailUrl ?? post.imageUrl)
+      // Pula vídeos — poster já carrega via `<video poster>` nativo,
+      // e o arquivo do vídeo é grande demais pra pre-fetch agressivo.
+      .filter((post) => (post.mediaType ?? "image") !== "video");
+    const srcs = topN
+      .map((post) =>
+        MediaLoadingService.getBestMediaUrl(
+          {
+            imageUrl: post.imageUrl,
+            thumbnailUrl: post.thumbnailUrl ?? undefined,
+            blurDataUrl: post.blurDataUrl ?? undefined,
+          },
+          "feed",
+        ),
+      )
       .filter((src): src is string => Boolean(src));
     if (srcs.length === 0) return;
-    void preloadImages(srcs, count);
+
+    // Pin antes do preload — garante que a LRU não evict esses URLs
+    // mesmo se outras imagens entrarem em volume durante o scroll.
+    for (const src of srcs) pinSource(src);
+
+    const startedAt = performance.now();
+    let firstPaintLogged = false;
+    void preloadImages(srcs, count).then(() => {
+      if (firstPaintLogged) return;
+      firstPaintLogged = true;
+      // Métrica debug: tempo total até todos os top-N decodificarem.
+      // Em produção essa linha vira no-op se o console for filtrado.
+      const elapsed = Math.round(performance.now() - startedAt);
+      // eslint-disable-next-line no-console
+      console.log(`[gc-metrics] feed_first_paint_ms=${elapsed} count=${srcs.length}`);
+    });
+
+    // Cleanup: quando os top-N mudarem (novo feed após refresh ou load
+    // more reordenar), unpin os anteriores antes de pin dos novos.
+    return () => {
+      for (const src of srcs) unpinSource(src);
+    };
   }, [feedPosts]);
 
   return (
