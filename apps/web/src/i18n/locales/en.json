@@ -450,6 +450,271 @@
       "locationSaveFailed": "Couldn't save the location."
     }
   },
+  "postMenu": {
+    "close": "Close",
+    "cancel": "Cancel",
+    "owner": {
+      "edit": "Edit caption and type",
+      "delete": "Delete post"
+    },
+    "viewer": {
+      "mute": "Mute user",
+      "report": "Report post",
+      "block": "Block user"
+    }
+  },
+  "editPost": {
+    "title": "Edit post",
+    "close": "Close",
+    "media": {
+      "alt": "Post media",
+      "locked": "Media can't be changed — delete and post again if needed."
+    },
+    "caption": {
+      "label": "Caption",
+      "placeholder": "How was the workout?"
+    },
+    "workoutType": {
+      "label": "Workout type",
+      "options": {
+        "none": "No type",
+        "strength": "Strength",
+        "run": "Run",
+        "bike": "Bike",
+        "functional": "Functional",
+        "cardio": "Cardio",
+        "mobility": "Mobility"
+      }
+    },
+    "tagFriends": {
+      "label": "Tag friends",
+      "hint": "Sends a request. It only counts for streak after they accept.",
+      "accepted": "@{{username}} accepted",
+      "pending": "@{{username}} pending",
+      "searchPlaceholder": "Search by username...",
+      "empty": "No users found."
+    },
+    "save": {
+      "saving": "Saving...",
+      "submit": "Save changes"
+    },
+    "errors": {
+      "saveFailed": "Failed to save"
+    }
+  },
+  "chat": {
+    "topBar": {
+      "eyebrow": "Circle",
+      "title": "Messages"
+    },
+    "search": {
+      "placeholder": "Search @username",
+      "message": "Message"
+    },
+    "sections": {
+      "friends": "Friends",
+      "following": "following",
+      "results": "Results",
+      "conversations": "Conversations"
+    },
+    "preview": {
+      "empty": "Start the conversation",
+      "storyReply": "Replied to a story",
+      "storyShare": "Shared a story",
+      "video": "Video sent",
+      "photo": "Photo sent",
+      "message": "Message"
+    },
+    "status": {
+      "trainedToday": "trained today",
+      "pending": "hasn't lit the circle yet"
+    },
+    "group": {
+      "defaultName": "Gym Circle Group",
+      "new": "New group",
+      "namePlaceholder": "Group name",
+      "searchingUsers": "Searching users...",
+      "searchHint": "Search by @username to add people.",
+      "avatarAlt": "Group"
+    },
+    "empty": {
+      "searchingTitle": "Searching...",
+      "searchingDetail": "Looking up profiles by username.",
+      "noSearchResultsTitle": "No users found",
+      "noSearchResultsDetail": "To start a conversation, you need to know the @username.",
+      "noConversationsTitle": "No conversations yet",
+      "noConversationsDetail": "Search an @username or create a group to plan a workout.",
+      "newConversation": "New conversation"
+    },
+    "conversation": {
+      "groupTag": "group",
+      "youPrefix": "You: ",
+      "deleteAria": "Delete conversation {{name}}"
+    },
+    "thread": {
+      "back": "Back",
+      "groupPeople_one": "{{count}} person in the group",
+      "groupPeople_other": "{{count}} people in the group",
+      "emptyTitle": "Start the conversation",
+      "emptyDetail": "Send a message or media to plan a workout.",
+      "openCamera": "Open camera",
+      "sendMedia": "Send photo or video",
+      "messageAria": "Message",
+      "messagePlaceholder": "Message...",
+      "sendMessage": "Send message",
+      "sendReaction": "Send reaction"
+    },
+    "message": {
+      "storyReplyAlt": "Story reply",
+      "storyShareAlt": "Shared story",
+      "storyReply": "Story reply",
+      "storyShare": "Shared story",
+      "mediaAlt": "Media sent in chat"
+    },
+    "errors": {
+      "searchFailed": "Failed to search users",
+      "createGroupFailed": "Failed to create group",
+      "deleteConversationFailed": "Failed to delete conversation",
+      "sendFailed": "Failed to send",
+      "mediaType": "Send a photo or video.",
+      "sendMediaFailed": "Failed to send media"
+    }
+  },
+  "storyViewer": {
+    "actions": {
+      "options": "Story options",
+      "close": "Close story",
+      "like": "Like story",
+      "share": "Share story"
+    },
+    "kind": {
+      "checkin": "Check-in",
+      "workout": "Workout"
+    },
+    "share": {
+      "nativeTitle": "{{name}}'s story",
+      "nativeText": "See @{{username}}'s story on Gym Circle",
+      "title": "Share",
+      "system": "System",
+      "copy": "Copy",
+      "copied": "Copied"
+    },
+    "reply": {
+      "placeholder": "Send message...",
+      "submit": "Reply to story"
+    },
+    "ownerSummary": "Your story · {{likes}}",
+    "likes_one": "{{count}} like",
+    "likes_other": "{{count}} likes",
+    "menu": {
+      "delete": "Delete story",
+      "report": "Report story",
+      "mute": "Mute user",
+      "unfollow": "Unfollow",
+      "cancel": "Cancel"
+    }
+  },
+  "checkIn": {
+    "topBar": {
+      "eyebrow": "Check-in",
+      "title": "Check-in"
+    },
+    "time": {
+      "yesterday": "Yesterday",
+      "daysAgo": "{{count}}d ago"
+    },
+    "errors": {
+      "locationRequired": "A location is required to register a gym."
+    },
+    "feedback": {
+      "confirmed": "Check-in confirmed at {{gymName}}"
+    },
+    "actions": {
+      "confirming": "Confirming...",
+      "imHere": "I'm here",
+      "trainingHere": "I'm training here"
+    },
+    "search": {
+      "sheetTitle": "Choose gym"
+    },
+    "lastGym": {
+      "eyebrow": "Your latest gym",
+      "detailsAria": "View gym details"
+    },
+    "empty": {
+      "title": "Where are you training?",
+      "detail": "Tag the place to see who else is here and check in.",
+      "searchCta": "Search gym or place"
+    },
+    "nearby": {
+      "title": "Places near you",
+      "search": "Search →",
+      "loading": "Searching nearby places...",
+      "empty": "No mapped places nearby.",
+      "register": "Register this place →"
+    },
+    "distance": {
+      "here": "here"
+    },
+    "friendsAtGym": {
+      "title": "Friends at {{gymName}}"
+    },
+    "selected": {
+      "changePlace": "Change place",
+      "peopleTitle": "Who trained here",
+      "emptyToday": "No posts from here today. Be the first.",
+      "emptyWeek": "No posts from here in the last 7 days.",
+      "recentPosts": "Recent posts from this place"
+    },
+    "filters": {
+      "today": "Today",
+      "week": "This week"
+    },
+    "postThumb": {
+      "defaultType": "Workout",
+      "aria": "{{type}} post"
+    }
+  },
+  "streakScreen": {
+    "topBar": {
+      "eyebrow": "Consistency",
+      "title": "Streak"
+    },
+    "stats": {
+      "longest": {
+        "label": "Best streak",
+        "detail": "Your record"
+      },
+      "month": {
+        "label": "Monthly workouts",
+        "detail": "With photo"
+      },
+      "activeDays": {
+        "label": "Active days",
+        "detail": "History"
+      },
+      "checkins": {
+        "label": "Check-ins",
+        "detail": "Social"
+      }
+    },
+    "levels": {
+      "title": "Levels",
+      "publicStatus": "public status",
+      "minDays": "{{count}}+ days",
+      "names": {
+        "iniciante": "Beginner",
+        "consistente": "Consistent",
+        "elite": "Elite",
+        "lendario": "Legendary"
+      }
+    },
+    "month": {
+      "title": "{{month}}",
+      "workouts_one": "{{count}} workout",
+      "workouts_other": "{{count}} workouts"
+    }
+  },
   "onboarding": {
     "header": {
       "alphaBadge": "Closed alpha"

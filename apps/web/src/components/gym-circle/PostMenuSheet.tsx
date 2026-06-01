@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Ban, Flag, Pencil, Trash2, VolumeX } from "lucide-react";
 
 type PostMenuSheetProps = {
@@ -29,6 +30,8 @@ export function PostMenuSheet({
   onBlock,
   onMute,
 }: PostMenuSheetProps) {
+  const { t } = useTranslation();
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
@@ -43,7 +46,7 @@ export function PostMenuSheet({
   return (
     <div className="absolute inset-0 z-[80] flex flex-col justify-end bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+1rem)] pt-[calc(var(--gc-safe-top)+5rem)] backdrop-blur-md">
       <button
-        aria-label="Fechar"
+        aria-label={t("postMenu.close")}
         className="absolute inset-0 cursor-default"
         onClick={onClose}
         type="button"
@@ -58,7 +61,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <Pencil size={17} strokeWidth={2.6} />
-                Editar legenda e tipo
+                {t("postMenu.owner.edit")}
               </button>
               <button
                 className="gc-pressable flex h-14 w-full items-center justify-center gap-2 text-[15px] font-black text-[var(--gc-pink)]"
@@ -66,7 +69,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <Trash2 size={17} strokeWidth={2.6} />
-                Apagar post
+                {t("postMenu.owner.delete")}
               </button>
             </>
           ) : (
@@ -77,7 +80,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <VolumeX size={17} strokeWidth={2.6} />
-                Silenciar usuário
+                {t("postMenu.viewer.mute")}
               </button>
               <button
                 className="gc-pressable flex h-14 w-full items-center justify-center gap-2 border-b border-white/[0.06] text-[15px] font-black text-white"
@@ -85,7 +88,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <Flag size={17} strokeWidth={2.6} />
-                Denunciar post
+                {t("postMenu.viewer.report")}
               </button>
               <button
                 className="gc-pressable flex h-14 w-full items-center justify-center gap-2 text-[15px] font-black text-[var(--gc-pink)]"
@@ -93,7 +96,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <Ban size={17} strokeWidth={2.6} />
-                Bloquear usuário
+                {t("postMenu.viewer.block")}
               </button>
             </>
           )}
@@ -103,7 +106,7 @@ export function PostMenuSheet({
           onClick={onClose}
           type="button"
         >
-          Cancelar
+          {t("postMenu.cancel")}
         </button>
       </div>
     </div>

@@ -450,6 +450,271 @@
       "locationSaveFailed": "Não foi possível salvar o local."
     }
   },
+  "postMenu": {
+    "close": "Fechar",
+    "cancel": "Cancelar",
+    "owner": {
+      "edit": "Editar legenda e tipo",
+      "delete": "Apagar post"
+    },
+    "viewer": {
+      "mute": "Silenciar usuário",
+      "report": "Denunciar post",
+      "block": "Bloquear usuário"
+    }
+  },
+  "editPost": {
+    "title": "Editar post",
+    "close": "Fechar",
+    "media": {
+      "alt": "Mídia do post",
+      "locked": "A mídia não pode ser trocada — apague e poste novamente se precisar."
+    },
+    "caption": {
+      "label": "Legenda",
+      "placeholder": "Como foi o treino?"
+    },
+    "workoutType": {
+      "label": "Tipo de treino",
+      "options": {
+        "none": "Sem tipo",
+        "strength": "Musculação",
+        "run": "Corrida",
+        "bike": "Bike",
+        "functional": "Funcional",
+        "cardio": "Cardio",
+        "mobility": "Mobilidade"
+      }
+    },
+    "tagFriends": {
+      "label": "Marcar amigos",
+      "hint": "Envia uma solicitação. Só conta streak depois do aceite.",
+      "accepted": "@{{username}} aceitou",
+      "pending": "@{{username}} pendente",
+      "searchPlaceholder": "Buscar por username...",
+      "empty": "Nenhum usuário encontrado."
+    },
+    "save": {
+      "saving": "Salvando...",
+      "submit": "Salvar alterações"
+    },
+    "errors": {
+      "saveFailed": "Falha ao salvar"
+    }
+  },
+  "chat": {
+    "topBar": {
+      "eyebrow": "Circle",
+      "title": "Mensagens"
+    },
+    "search": {
+      "placeholder": "Buscar @username",
+      "message": "Mensagem"
+    },
+    "sections": {
+      "friends": "Amigos",
+      "following": "seguindo",
+      "results": "Resultados",
+      "conversations": "Conversas"
+    },
+    "preview": {
+      "empty": "Comece a conversa",
+      "storyReply": "Respondeu ao story",
+      "storyShare": "Compartilhou um story",
+      "video": "Vídeo enviado",
+      "photo": "Foto enviada",
+      "message": "Mensagem"
+    },
+    "status": {
+      "trainedToday": "treinou hoje",
+      "pending": "ainda não acendeu o círculo"
+    },
+    "group": {
+      "defaultName": "Grupo Gym Circle",
+      "new": "Novo grupo",
+      "namePlaceholder": "Nome do grupo",
+      "searchingUsers": "Buscando usuários...",
+      "searchHint": "Busque por @username para adicionar pessoas.",
+      "avatarAlt": "Grupo"
+    },
+    "empty": {
+      "searchingTitle": "Buscando...",
+      "searchingDetail": "Procurando perfis pelo username.",
+      "noSearchResultsTitle": "Nenhum usuário encontrado",
+      "noSearchResultsDetail": "Para começar uma conversa, você precisa saber o @username.",
+      "noConversationsTitle": "Nenhuma conversa ainda",
+      "noConversationsDetail": "Busque um @username ou crie um grupo para combinar treino.",
+      "newConversation": "Nova conversa"
+    },
+    "conversation": {
+      "groupTag": "grupo",
+      "youPrefix": "Você: ",
+      "deleteAria": "Apagar conversa {{name}}"
+    },
+    "thread": {
+      "back": "Voltar",
+      "groupPeople_one": "{{count}} pessoa no grupo",
+      "groupPeople_other": "{{count}} pessoas no grupo",
+      "emptyTitle": "Comece a conversa",
+      "emptyDetail": "Envie uma mensagem ou mídia para combinar treino.",
+      "openCamera": "Abrir câmera",
+      "sendMedia": "Enviar foto ou vídeo",
+      "messageAria": "Mensagem",
+      "messagePlaceholder": "Mensagem...",
+      "sendMessage": "Enviar mensagem",
+      "sendReaction": "Enviar reação"
+    },
+    "message": {
+      "storyReplyAlt": "Story respondido",
+      "storyShareAlt": "Story compartilhado",
+      "storyReply": "Resposta ao story",
+      "storyShare": "Story compartilhado",
+      "mediaAlt": "Mídia enviada no chat"
+    },
+    "errors": {
+      "searchFailed": "Falha ao buscar usuários",
+      "createGroupFailed": "Falha ao criar grupo",
+      "deleteConversationFailed": "Falha ao apagar conversa",
+      "sendFailed": "Falha ao enviar",
+      "mediaType": "Envie uma foto ou vídeo.",
+      "sendMediaFailed": "Falha ao enviar mídia"
+    }
+  },
+  "storyViewer": {
+    "actions": {
+      "options": "Opções do story",
+      "close": "Fechar story",
+      "like": "Curtir story",
+      "share": "Compartilhar story"
+    },
+    "kind": {
+      "checkin": "Check-in",
+      "workout": "Treino"
+    },
+    "share": {
+      "nativeTitle": "Story de {{name}}",
+      "nativeText": "Veja o story de @{{username}} no Gym Circle",
+      "title": "Compartilhar",
+      "system": "Sistema",
+      "copy": "Copiar",
+      "copied": "Copiado"
+    },
+    "reply": {
+      "placeholder": "Enviar mensagem...",
+      "submit": "Responder story"
+    },
+    "ownerSummary": "Seu story · {{likes}}",
+    "likes_one": "{{count}} curtida",
+    "likes_other": "{{count}} curtidas",
+    "menu": {
+      "delete": "Apagar story",
+      "report": "Denunciar story",
+      "mute": "Silenciar usuário",
+      "unfollow": "Deixar de seguir",
+      "cancel": "Cancelar"
+    }
+  },
+  "checkIn": {
+    "topBar": {
+      "eyebrow": "Check-in",
+      "title": "Check-in"
+    },
+    "time": {
+      "yesterday": "Ontem",
+      "daysAgo": "{{count}}d atrás"
+    },
+    "errors": {
+      "locationRequired": "Para cadastrar academia, a localização dela é obrigatória."
+    },
+    "feedback": {
+      "confirmed": "Check-in confirmado em {{gymName}}"
+    },
+    "actions": {
+      "confirming": "Confirmando...",
+      "imHere": "Estou aqui",
+      "trainingHere": "Estou treinando aqui"
+    },
+    "search": {
+      "sheetTitle": "Escolher academia"
+    },
+    "lastGym": {
+      "eyebrow": "Sua última academia",
+      "detailsAria": "Ver detalhes da academia"
+    },
+    "empty": {
+      "title": "Onde você tá treinando?",
+      "detail": "Marque o lugar pra ver quem mais tá aqui e fazer check-in.",
+      "searchCta": "Buscar academia ou lugar"
+    },
+    "nearby": {
+      "title": "Lugares perto de você",
+      "search": "Buscar →",
+      "loading": "Buscando lugares no entorno...",
+      "empty": "Sem lugares mapeados no seu entorno.",
+      "register": "Cadastrar este lugar →"
+    },
+    "distance": {
+      "here": "aqui"
+    },
+    "friendsAtGym": {
+      "title": "Amigos em {{gymName}}"
+    },
+    "selected": {
+      "changePlace": "Trocar de lugar",
+      "peopleTitle": "Quem treinou aqui",
+      "emptyToday": "Nenhum post daqui hoje. Seja o primeiro.",
+      "emptyWeek": "Nenhum post daqui nos últimos 7 dias.",
+      "recentPosts": "Posts recentes do lugar"
+    },
+    "filters": {
+      "today": "Hoje",
+      "week": "Esta semana"
+    },
+    "postThumb": {
+      "defaultType": "Treino",
+      "aria": "Post de {{type}}"
+    }
+  },
+  "streakScreen": {
+    "topBar": {
+      "eyebrow": "Consistência",
+      "title": "Streak"
+    },
+    "stats": {
+      "longest": {
+        "label": "Maior streak",
+        "detail": "Seu recorde"
+      },
+      "month": {
+        "label": "Treinos mês",
+        "detail": "Com foto"
+      },
+      "activeDays": {
+        "label": "Dias ativos",
+        "detail": "Histórico"
+      },
+      "checkins": {
+        "label": "Check-ins",
+        "detail": "Social"
+      }
+    },
+    "levels": {
+      "title": "Níveis",
+      "publicStatus": "status público",
+      "minDays": "{{count}}+ dias",
+      "names": {
+        "iniciante": "Iniciante",
+        "consistente": "Consistente",
+        "elite": "Elite",
+        "lendario": "Lendário"
+      }
+    },
+    "month": {
+      "title": "{{month}}",
+      "workouts_one": "{{count}} treino",
+      "workouts_other": "{{count}} treinos"
+    }
+  },
   "onboarding": {
     "header": {
       "alphaBadge": "Alpha fechada"

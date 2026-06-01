@@ -12,6 +12,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Copy,
   Flag,
@@ -27,7 +28,6 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedStory, EnrichedUser } from "../social/types";
-import { formatStoryLikesCount } from "../social/likes";
 import { formatStoryAge } from "../social/storyInteractions";
 import { hasImageLoaded, markImageLoaded } from "./imageCache";
 import { StreakBadge } from "./StreakBadge";
@@ -84,6 +84,7 @@ function StoryViewerContent({
   hasNext = false,
   hasPrevious = false,
 }: ActiveStoryViewerProps) {
+  const { t } = useTranslation();
   const touchStartXRef = useRef<number | null>(null);
   const touchStartYRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
@@ -224,14 +225,14 @@ function StoryViewerContent({
     if (!story || !storyUrl) return;
     if (navigator.share) {
       await navigator.share({
-        title: `Story de ${story.author.name}`,
-        text: `Veja o story de @${story.author.username} no Gym Circle`,
+        title: t("storyViewer.share.nativeTitle", { name: story.author.name }),
+        text: t("storyViewer.share.nativeText", { username: story.author.username }),
         url: storyUrl,
       });
       return;
     }
     await copyStoryLink();
-  }, [copyStoryLink, story, storyUrl]);
+  }, [copyStoryLink, story, storyUrl, t]);
 
   const shareToUser = useCallback(
     async (userId: string) => {
@@ -386,7 +387,7 @@ function StoryViewerContent({
 
           <div className="flex shrink-0 items-center gap-2" data-gc-story-control>
             <button
-              aria-label="Opções do story"
+              aria-label={t("storyViewer.actions.options")}
               className="gc-pressable grid size-11 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
               onClick={(event) => {
                 event.stopPropagation();
@@ -398,7 +399,7 @@ function StoryViewerContent({
               <MoreHorizontal size={19} />
             </button>
             <button
-              aria-label="Fechar story"
+              aria-label={t("storyViewer.actions.close")}
               className="gc-pressable grid size-11 place-items-center rounded-full bg-black/46 text-white backdrop-blur-xl"
               onClick={(event) => {
                 event.stopPropagation();
@@ -425,7 +426,7 @@ function StoryViewerContent({
         <div className="relative z-10 mt-auto space-y-4 p-5 pb-5">
           <div>
             <p className="text-[13px] font-black uppercase text-white/48">
-              {story.kind === "checkin" ? "Check-in" : "Treino"}
+              {story.kind === "checkin" ? t("storyViewer.kind.checkin") : t("storyViewer.kind.workout")}
             </p>
             <h2 className="mt-1 text-[30px] font-black leading-tight">{story.title}</h2>
           </div>
@@ -437,7 +438,7 @@ function StoryViewerContent({
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[12px] font-black uppercase text-white/44">
-                  Compartilhar
+                  {t("storyViewer.share.title")}
                 </p>
                 <button
                   className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.08] text-white/72"
@@ -473,8 +474,8 @@ function StoryViewerContent({
                 </div>
               ) : null}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <StoryActionButton icon={<Share2 size={16} />} label="Sistema" onClick={nativeShare} />
-                <StoryActionButton icon={<Copy size={16} />} label={copied ? "Copiado" : "Copiar"} onClick={copyStoryLink} />
+                <StoryActionButton icon={<Share2 size={16} />} label={t("storyViewer.share.system")} onClick={nativeShare} />
+                <StoryActionButton icon={<Copy size={16} />} label={copied ? t("storyViewer.share.copied") : t("storyViewer.share.copy")} onClick={copyStoryLink} />
               </div>
             </div>
           ) : null}
@@ -485,7 +486,9 @@ function StoryViewerContent({
           >
             {isOwner ? (
               <div className="flex h-12 items-center rounded-full border border-white/[0.1] bg-black/38 px-4 text-[13px] font-black text-white/64 backdrop-blur-2xl">
-                Seu story · {formatStoryLikesCount(story.likesCount)}
+                {t("storyViewer.ownerSummary", {
+                  likes: t("storyViewer.likes", { count: Math.max(0, story.likesCount) }),
+                })}
               </div>
             ) : (
               <form
@@ -498,12 +501,12 @@ function StoryViewerContent({
                   onBlur={() => setInputFocused(false)}
                   onChange={(event) => setReplyDraft(event.target.value)}
                   onFocus={() => setInputFocused(true)}
-                  placeholder="Enviar mensagem..."
+                  placeholder={t("storyViewer.reply.placeholder")}
                   value={replyDraft}
                 />
                 {replyDraft.trim() ? (
                   <button
-                    aria-label="Responder story"
+                    aria-label={t("storyViewer.reply.submit")}
                     className="gc-pressable grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
                     disabled={sendingReply}
                     type="submit"
@@ -514,7 +517,7 @@ function StoryViewerContent({
               </form>
             )}
             <button
-              aria-label="Curtir story"
+              aria-label={t("storyViewer.actions.like")}
               className={[
                 "gc-pressable grid size-12 place-items-center rounded-full border backdrop-blur-2xl disabled:opacity-60",
                 story.likedByCurrentUser
@@ -536,7 +539,7 @@ function StoryViewerContent({
               )}
             </button>
             <button
-              aria-label="Compartilhar story"
+              aria-label={t("storyViewer.actions.share")}
               className="gc-pressable grid size-12 place-items-center rounded-full border border-white/[0.1] bg-black/38 text-white backdrop-blur-2xl"
               onClick={() => {
                 setShareOpen((value) => !value);
@@ -568,6 +571,8 @@ function StoryOptionsMenu({
   onReport: () => void | Promise<void>;
   onUnfollow: () => void | Promise<void>;
 }) {
+  const { t } = useTranslation();
+
   return (
     <div
       className="absolute right-4 top-[88px] z-30 w-[224px] overflow-hidden rounded-[26px] border border-white/[0.1] bg-[#151719]/92 p-1 shadow-[0_24px_70px_rgba(0,0,0,0.52)] backdrop-blur-2xl"
@@ -577,17 +582,17 @@ function StoryOptionsMenu({
         <MenuButton
           danger
           icon={<Trash2 size={16} />}
-          label="Apagar story"
+          label={t("storyViewer.menu.delete")}
           onClick={onDelete}
         />
       ) : (
         <>
-          <MenuButton icon={<Flag size={16} />} label="Denunciar story" onClick={onReport} />
-          <MenuButton icon={<VolumeX size={16} />} label="Silenciar usuário" onClick={onMute} />
-          <MenuButton icon={<UserMinus size={16} />} label="Deixar de seguir" onClick={onUnfollow} />
+          <MenuButton icon={<Flag size={16} />} label={t("storyViewer.menu.report")} onClick={onReport} />
+          <MenuButton icon={<VolumeX size={16} />} label={t("storyViewer.menu.mute")} onClick={onMute} />
+          <MenuButton icon={<UserMinus size={16} />} label={t("storyViewer.menu.unfollow")} onClick={onUnfollow} />
         </>
       )}
-      <MenuButton icon={<X size={16} />} label="Cancelar" onClick={onCancel} />
+      <MenuButton icon={<X size={16} />} label={t("storyViewer.menu.cancel")} onClick={onCancel} />
     </div>
   );
 }
