@@ -369,6 +369,87 @@
       "submit": "Save changes"
     }
   },
+  "postScreen": {
+    "topBar": {
+      "eyebrow": "Workout post",
+      "title": "Post"
+    },
+    "media": {
+      "alt": "Workout media",
+      "changeMedia": "Change media",
+      "emptyTitle": "Add a workout photo or video",
+      "uploading": "Uploading...",
+      "takePhoto": "Take photo",
+      "chooseGallery": "Choose from gallery"
+    },
+    "caption": {
+      "ariaLabel": "Post caption",
+      "placeholder": "How was the workout?"
+    },
+    "moreOptions": "More options",
+    "workoutType": {
+      "label": "Workout type",
+      "customPlaceholder": "Workout name",
+      "options": {
+        "none": "No type",
+        "strength": "Strength",
+        "run": "Run",
+        "bike": "Bike",
+        "functional": "Functional",
+        "cardio": "Cardio",
+        "mobility": "Mobility",
+        "other": "Other"
+      }
+    },
+    "tagFriends": {
+      "label": "Tag friends",
+      "searchPlaceholder": "Search by @username",
+      "empty": "No users found.",
+      "pendingHint": "The tag only counts for streak after they accept it."
+    },
+    "location": {
+      "label": "Location",
+      "sheetTitle": "Choose location",
+      "searchPlaceholder": "Search gym, park, place...",
+      "selected": "Selected",
+      "remove": "Remove location",
+      "currentName": "Current location",
+      "gymMetaFallback": "Only the name will show on the post.",
+      "currentMeta": "Your post only shows an approximate location."
+    },
+    "destinations": {
+      "label": "Where to post",
+      "feed": "Feed",
+      "story": "Story (24h)",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "toggleFeedAria": "{{action}} Feed",
+      "toggleStoryAria": "{{action}} Story"
+    },
+    "publish": {
+      "publishing": "Posting...",
+      "submit": "Post",
+      "submitFeed": "Post to feed",
+      "submitStory": "Post story",
+      "chooseDestination": "Choose a destination",
+      "hintBoth": "Goes to feed and story (24h)",
+      "hintFeed": "Feed only",
+      "hintStory": "Story only (expires in 24h)",
+      "hintEmpty": "Choose a destination in More options"
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "mediaType": "Choose a photo or video.",
+      "mediaRequired": "Choose a photo or video to post.",
+      "destinationRequired": "Choose at least one destination: feed or story.",
+      "gymRequired": "Choose a registered gym or remove the location.",
+      "gpsRequired": "Allow GPS, try again, or remove the location before posting.",
+      "uploadFailed": "Upload failed: {{message}}",
+      "locationCatalogUnavailable": "Couldn't register the location right now.",
+      "locationRequired": "A location is required to register a gym.",
+      "locationSaveFailed": "Couldn't save the location."
+    }
+  },
   "onboarding": {
     "header": {
       "alphaBadge": "Closed alpha"

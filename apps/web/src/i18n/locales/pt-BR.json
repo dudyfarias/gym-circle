@@ -369,6 +369,87 @@
       "submit": "Salvar alterações"
     }
   },
+  "postScreen": {
+    "topBar": {
+      "eyebrow": "Post de treino",
+      "title": "Publicar"
+    },
+    "media": {
+      "alt": "Mídia do treino",
+      "changeMedia": "Trocar mídia",
+      "emptyTitle": "Adicione uma foto ou vídeo do treino",
+      "uploading": "Enviando...",
+      "takePhoto": "Tirar foto",
+      "chooseGallery": "Escolher da galeria"
+    },
+    "caption": {
+      "ariaLabel": "Legenda do post",
+      "placeholder": "Como foi o treino?"
+    },
+    "moreOptions": "Mais opções",
+    "workoutType": {
+      "label": "Tipo de treino",
+      "customPlaceholder": "Nome do treino",
+      "options": {
+        "none": "Sem tipo",
+        "strength": "Musculação",
+        "run": "Corrida",
+        "bike": "Bike",
+        "functional": "Funcional",
+        "cardio": "Cardio",
+        "mobility": "Mobilidade",
+        "other": "Outro"
+      }
+    },
+    "tagFriends": {
+      "label": "Marcar amigos",
+      "searchPlaceholder": "Buscar por @username",
+      "empty": "Nenhum usuário encontrado.",
+      "pendingHint": "A marcação só conta streak depois que a pessoa aceitar."
+    },
+    "location": {
+      "label": "Local",
+      "sheetTitle": "Escolher local",
+      "searchPlaceholder": "Buscar academia, parque, lugar...",
+      "selected": "Selecionado",
+      "remove": "Remover localização",
+      "currentName": "Localização atual",
+      "gymMetaFallback": "Vai mostrar só o nome no post.",
+      "currentMeta": "Seu post mostra apenas uma localização aproximada."
+    },
+    "destinations": {
+      "label": "Onde postar",
+      "feed": "Feed",
+      "story": "Story (24h)",
+      "activate": "Ativar",
+      "deactivate": "Desativar",
+      "toggleFeedAria": "{{action}} Feed",
+      "toggleStoryAria": "{{action}} Story"
+    },
+    "publish": {
+      "publishing": "Publicando...",
+      "submit": "Publicar",
+      "submitFeed": "Publicar no feed",
+      "submitStory": "Publicar story",
+      "chooseDestination": "Escolha um destino",
+      "hintBoth": "Vai pro feed e pro story (24h)",
+      "hintFeed": "Só no feed",
+      "hintStory": "Só no story (some em 24h)",
+      "hintEmpty": "Escolha um destino em Mais opções"
+    },
+    "errors": {
+      "generic": "Algo saiu errado. Tente de novo.",
+      "mediaType": "Escolha uma foto ou vídeo.",
+      "mediaRequired": "Escolha uma foto ou vídeo para publicar.",
+      "destinationRequired": "Escolha pelo menos um destino: feed ou story.",
+      "gymRequired": "Escolha uma academia cadastrada ou remova a localização.",
+      "gpsRequired": "Permita o GPS, tente de novo ou remova a localização antes de postar.",
+      "uploadFailed": "Upload falhou: {{message}}",
+      "locationCatalogUnavailable": "Não foi possível cadastrar local agora.",
+      "locationRequired": "Para cadastrar academia, a localização dela é obrigatória.",
+      "locationSaveFailed": "Não foi possível salvar o local."
+    }
+  },
   "onboarding": {
     "header": {
       "alphaBadge": "Alpha fechada"
