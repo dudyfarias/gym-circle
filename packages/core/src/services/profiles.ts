@@ -73,6 +73,43 @@ export function profileService(client: GymCircleClient) {
       if (error) throw error;
       return data ?? [];
     },
+
+    /**
+     * Sprint 5.5a — Salva a escolha de capa do recap mensal.
+     *
+     * Atualiza apenas a key {monthKey} dentro do JSONB `monthly_recap_covers`.
+     * Quando `postId` é null, remove a key (volta pro auto-pick).
+     * Implementação client-side: lê → mutate → write. Atomic via RPC seria
+     * mais correto contra race conditions, mas o user só edita seu próprio
+     * profile + raramente — risco é desprezível.
+     */
+    async setMonthlyRecapCover(
+      userId: string,
+      monthKey: string,
+      postId: string | null,
+    ): Promise<void> {
+      const { data: current, error: readError } = await client
+        .from("profiles")
+        .select("monthly_recap_covers")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (readError) throw readError;
+
+      const currentMap =
+        (current?.monthly_recap_covers as Record<string, string> | null) ?? {};
+      const nextMap: Record<string, string> = { ...currentMap };
+      if (postId) {
+        nextMap[monthKey] = postId;
+      } else {
+        delete nextMap[monthKey];
+      }
+
+      const { error: writeError } = await client
+        .from("profiles")
+        .update({ monthly_recap_covers: nextMap })
+        .eq("user_id", userId);
+      if (writeError) throw writeError;
+    },
   };
 }
 

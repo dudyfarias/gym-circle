@@ -26,6 +26,18 @@ import type {
   UserGymRow,
   UserStatsRow,
 } from "@gym-circle/core";
+
+/**
+ * Sprint 5.5a — Type assertion local pra coluna nova `monthly_recap_covers`
+ * em profiles. O `ProfileRow` resolvido via @gym-circle/core (symlink pra
+ * pacote do repo principal) pode estar atrasado em relação à worktree.
+ * Quando o repo principal eventualmente puxar essa migration, o cast
+ * vira redundante mas continua válido.
+ */
+type ProfileRowWithRecapCovers = ProfileRow & {
+  monthly_recap_covers?: Record<string, string> | null;
+};
+
 import { simulateHaptic } from "./haptics";
 import { clearImageCache } from "../design-system/imageCache";
 import {
@@ -385,6 +397,7 @@ const PROFILE_COLUMNS = [
   "sports",
   "onboarding_completed_at",
   "profile_completion_notice_dismissed",
+  "monthly_recap_covers",
   "alpha_terms_accepted_at",
   "privacy_policy_accepted_at",
   "account_status",
@@ -777,6 +790,8 @@ function enrichedUserFromProfileRow(
     onboardingCompletedAt: profile.onboarding_completed_at ?? null,
     profileCompletionNoticeDismissed:
       profile.profile_completion_notice_dismissed ?? false,
+    monthlyRecapCovers:
+      (profile as ProfileRowWithRecapCovers).monthly_recap_covers ?? undefined,
     alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
     privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
     accountStatus: profile.account_status ?? "active",
@@ -1192,6 +1207,8 @@ export type SupabaseSocialActions = {
   sendReactivationEmail: () => Promise<void>;
   useStreakRestore?: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  /** Sprint 5.5a — Salva qual post o user escolheu como capa do recap mensal. */
+  setMonthlyRecapCover: (monthKey: string, postId: string | null) => Promise<void>;
   refreshChat: () => Promise<void>;
   refreshPostDetails: (postId: string) => Promise<void>;
   refreshProfilePosts: (userId: string) => Promise<void>;
@@ -2582,6 +2599,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         onboardingCompletedAt: profile.onboarding_completed_at ?? null,
         profileCompletionNoticeDismissed:
           profile.profile_completion_notice_dismissed ?? false,
+        monthlyRecapCovers:
+          (profile as ProfileRowWithRecapCovers).monthly_recap_covers ?? undefined,
         alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
         privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
         accountStatus,
@@ -4161,6 +4180,26 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         await services.onboarding.markComplete();
         await refresh();
         showFeedback("success", "Perfil pronto para alpha");
+      },
+      /**
+       * Sprint 5.5a — salva a foto escolhida como capa do recap mensal.
+       * `monthKey` no formato 'YYYY-MM'. `postId` null → remove a escolha
+       * (volta pro auto-pick). Refresh full pra rehydrate
+       * `currentUser.monthlyRecapCovers` no estado.
+       */
+      async setMonthlyRecapCover(monthKey: string, postId: string | null) {
+        // Symlink quirk: services.profiles type lags behind worktree.
+        // Cast pra interface mínima necessária mantém o call seguro
+        // (método existe em runtime).
+        const profilesExt = services.profiles as typeof services.profiles & {
+          setMonthlyRecapCover: (
+            userId: string,
+            monthKey: string,
+            postId: string | null,
+          ) => Promise<void>;
+        };
+        await profilesExt.setMonthlyRecapCover(currentUserId, monthKey, postId);
+        await refresh();
       },
       refreshChat,
       refreshPostDetails,

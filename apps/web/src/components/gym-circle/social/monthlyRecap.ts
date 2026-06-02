@@ -172,7 +172,18 @@ export function buildMonthlyRecap({
   }
   const trainedDays = trainedDaySet.size;
   const trainedDaysUnit = getTrainedDaysUnit(trainedDays);
+
+  // Sprint 5.5a — Cover priorização:
+  // 1. Override user-picked via monthlyRecapCovers[monthKey] (DB JSONB)
+  // 2. Primeiro post de imagem do mês (fallback auto)
+  // 3. Primeiro post qualquer (fallback final)
+  // 4. null (mês sem posts)
+  const userOverridePostId = user.monthlyRecapCovers?.[monthKey] ?? null;
+  const userOverridePost = userOverridePostId
+    ? monthPosts.find((post) => post.id === userOverridePostId)
+    : null;
   const coverImageUrl =
+    userOverridePost?.imageUrl ??
     monthPosts.find((post) => post.mediaType === "image")?.imageUrl ??
     monthPosts[0]?.imageUrl ??
     null;

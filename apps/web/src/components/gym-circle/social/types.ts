@@ -56,6 +56,12 @@ export type GymUser = {
   followStatus: FollowStatus;
   isPrivate: boolean;
   workoutDays: string[];
+  /**
+   * Sprint 5.5a — Capa do recap mensal escolhida pelo user.
+   * Shape: { "YYYY-MM": "post_uuid", ... }. Quando key ausente, builder
+   * cai pro auto-pick. Map vazio (default DB) e undefined são equivalentes.
+   */
+  monthlyRecapCovers?: Record<string, string>;
 };
 
 export type StreakPresenceSource = "feed-photo" | "fitness-story" | "none";
