@@ -64,7 +64,13 @@ export function StoryViewer(props: StoryViewerProps) {
     return null;
   }
 
-  return <StoryViewerContent key={props.story.id} {...props} story={props.story} />;
+  // Sprint 1 v1.1.1 B2: sem key={story.id} pro StoryViewerContent.
+  // Antes forçava re-mount a cada story change, destruindo o <img> e
+  // re-decodificando do zero — causava flicker visível entre stories
+  // cross-author. Agora mantemos o DOM e usamos useEffect lá dentro
+  // pra resetar state local + pre-decode swap (decode JS antes do
+  // src trocar visualmente).
+  return <StoryViewerContent {...props} story={props.story} />;
 }
 
 function StoryViewerContent({
@@ -103,6 +109,49 @@ function StoryViewerContent({
   const [mediaLoaded, setMediaLoaded] = useState(() =>
     hasImageLoaded(story.imageUrl),
   );
+
+  // Sprint 1 v1.1.1 B2: sem re-mount entre stories → state local
+  // persiste por default. Resetamos manualmente o que precisa zerar
+  // quando a story muda (replyDraft, menus abertos, flags transitórias).
+  // `mediaLoaded` segue cache da sessão (hasImageLoaded).
+  useEffect(() => {
+    setReplyDraft("");
+    setSendingReply(false);
+    setLiking(false);
+    setHeartBurst(false);
+    setMenuOpen(false);
+    setShareOpen(false);
+    setSharingToUserId(null);
+    setCopied(false);
+    setInputFocused(false);
+    setMediaLoaded(hasImageLoaded(story.imageUrl));
+  }, [story.id, story.imageUrl]);
+
+  // Sprint 1 v1.1.1 B2: pre-decode swap. Decode JS via HTMLImageElement.decode()
+  // ANTES de marcar mediaLoaded — quando o <Image> do Next pinta com a nova src,
+  // ela já está pronta no cache do browser, swap visual é instantâneo (sem flash).
+  // Skippa se mediaType === 'video' (video tem fluxo próprio via poster).
+  useEffect(() => {
+    if (!story.imageUrl || story.mediaType === "video") return;
+    if (hasImageLoaded(story.imageUrl)) return;
+    let cancelled = false;
+    const img = new window.Image();
+    img.src = story.imageUrl;
+    img
+      .decode()
+      .then(() => {
+        if (cancelled) return;
+        markImageLoaded(story.imageUrl);
+        setMediaLoaded(true);
+      })
+      .catch(() => {
+        // Decode falhou (CORS, formato exótico). onLoad do <Image>
+        // ainda vai disparar com o fallback comum — sem regredir UX.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [story.imageUrl, story.mediaType]);
 
   const isOwner = Boolean(story && currentUserId === story.userId);
   const isInteracting =
