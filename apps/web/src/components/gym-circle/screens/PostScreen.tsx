@@ -17,6 +17,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type {
   CreateWorkoutPostInput,
   EnrichedUser,
@@ -59,25 +60,23 @@ type WorkoutMediaUploadResult = {
   blurDataUrl?: string | null;
 };
 
-const workoutTypes = [
-  { label: "Sem tipo", value: "" },
-  { label: "Musculação", value: "Musculação" },
-  { label: "Corrida", value: "Corrida" },
-  { label: "Bike", value: "Bike" },
-  { label: "Funcional", value: "Funcional" },
-  { label: "Cardio", value: "Cardio" },
-  { label: "Mobilidade", value: "Mobilidade" },
-  { label: "Outro", value: "Outro" },
+// IDs em PT-BR (valor) são source-of-truth — persistidos no DB como
+// `workout_type`. O lookup abaixo só traduz o LABEL visual.
+const workoutTypes: ReadonlyArray<{ key: string; value: string }> = [
+  { key: "none", value: "" },
+  { key: "musculacao", value: "Musculação" },
+  { key: "corrida", value: "Corrida" },
+  { key: "bike", value: "Bike" },
+  { key: "funcional", value: "Funcional" },
+  { key: "cardio", value: "Cardio" },
+  { key: "mobilidade", value: "Mobilidade" },
+  { key: "outro", value: "Outro" },
 ];
 
 type SelectableLocationSource = Exclude<PostLocationSource, "custom">;
 
 function getMediaType(file: File): PostMediaType {
   return file.type.startsWith("video/") ? "video" : "image";
-}
-
-function getErrorMessage(err: unknown) {
-  return err instanceof Error ? err.message : "Algo saiu errado. Tente de novo.";
 }
 
 function getGymMeta(gym: GymLocationOption): string {
@@ -106,6 +105,9 @@ export function PostScreen({
   recentLocations = [],
   taggableUsers = [],
 }: PostScreenProps) {
+  const { t } = useTranslation();
+  const getErrorMessage = (err: unknown) =>
+    err instanceof Error ? err.message : t("postScreen.publish.errors.generic");
   const [caption, setCaption] = useState("");
   // Academias catalogadas durante essa sessão de post (via search sheet) —
   // se juntam às `gyms` recebidas via prop pra que o select reconheça.
@@ -224,7 +226,7 @@ export function PostScreen({
     if (locationMode === "current" && coordinates) {
       return {
         source: "current" as const,
-        name: locationName.trim() || "Localização atual",
+        name: locationName.trim() || t("postScreen.location.currentDefault"),
         gymId: null,
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
@@ -255,17 +257,17 @@ export function PostScreen({
 
   const selectedLocationMeta = useMemo(() => {
     if (locationMode === "gym" && selectedGym) {
-      return getGymMeta(selectedGym) || "Vai mostrar só o nome no post.";
+      return getGymMeta(selectedGym) || t("postScreen.location.gymMetaFallback");
     }
     if (locationMode === "current" && coordinates) {
-      return "Seu post mostra apenas uma localização aproximada.";
+      return t("postScreen.location.currentNote");
     }
     return "";
-  }, [coordinates, locationMode, selectedGym]);
+  }, [coordinates, locationMode, selectedGym, t]);
 
   async function uploadSelectedFile(file: File) {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-      setUploadError("Escolha uma foto ou vídeo.");
+      setUploadError(t("postScreen.publish.errors.uploadInvalidType"));
       return;
     }
 
@@ -355,7 +357,7 @@ export function PostScreen({
           latitude: place.latitude,
           longitude: place.longitude,
         });
-        setLocationName(place.name || "Localização atual");
+        setLocationName(place.name || t("postScreen.location.currentDefault"));
         setSearchOpen(false);
         return;
       }
@@ -371,12 +373,12 @@ export function PostScreen({
       }
 
       if (!onCatalogPlace) {
-        setSearchError("Não foi possível cadastrar local agora.");
+        setSearchError(t("postScreen.location.errors.cantCatalog"));
         return;
       }
 
       if (typeof place.latitude !== "number" || typeof place.longitude !== "number") {
-        setSearchError("Para cadastrar academia, a localização dela é obrigatória.");
+        setSearchError(t("postScreen.location.errors.needsCoordinates"));
         return;
       }
 
@@ -396,7 +398,9 @@ export function PostScreen({
       setSearchOpen(false);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Não foi possível salvar o local.";
+        err instanceof Error
+          ? err.message
+          : t("postScreen.location.errors.saveFailed");
       setSearchError(message);
     } finally {
       setCataloging(false);
@@ -407,22 +411,22 @@ export function PostScreen({
     if (publishing) return;
 
     if (!imageUrl.trim()) {
-      setPublishError("Escolha uma foto ou vídeo para publicar.");
+      setPublishError(t("postScreen.publish.errors.needsMedia"));
       return;
     }
 
     if (!postToFeed && !postToStory) {
-      setPublishError("Escolha pelo menos um destino: feed ou story.");
+      setPublishError(t("postScreen.publish.errors.needsDestination"));
       return;
     }
 
     if (locationMode === "gym" && !selectedGym) {
-      setPublishError("Escolha uma academia cadastrada ou remova a localização.");
+      setPublishError(t("postScreen.publish.errors.needsGym"));
       return;
     }
 
     if (locationMode === "current" && !coordinates) {
-      setPublishError("Permita o GPS, tente de novo ou remova a localização antes de postar.");
+      setPublishError(t("postScreen.publish.errors.needsCurrentLocation"));
       return;
     }
 
@@ -468,23 +472,26 @@ export function PostScreen({
     !publishing;
 
   const publishLabel = useMemo(() => {
-    if (publishing) return "Publicando...";
-    if (postToFeed && postToStory) return "Publicar";
-    if (postToFeed) return "Publicar no feed";
-    if (postToStory) return "Publicar story";
-    return "Escolha um destino";
-  }, [postToFeed, postToStory, publishing]);
+    if (publishing) return t("postScreen.publish.publishing");
+    if (postToFeed && postToStory) return t("postScreen.publish.ctaBoth");
+    if (postToFeed) return t("postScreen.publish.ctaFeed");
+    if (postToStory) return t("postScreen.publish.ctaStory");
+    return t("postScreen.publish.ctaNoDestination");
+  }, [postToFeed, postToStory, publishing, t]);
 
   const destinationHint = useMemo(() => {
-    if (postToFeed && postToStory) return "Vai pro feed e pro story (24h)";
-    if (postToFeed) return "Só no feed";
-    if (postToStory) return "Só no story (some em 24h)";
-    return "Escolha um destino em Mais opções";
-  }, [postToFeed, postToStory]);
+    if (postToFeed && postToStory) return t("postScreen.destinations.hintBoth");
+    if (postToFeed) return t("postScreen.destinations.hintFeed");
+    if (postToStory) return t("postScreen.destinations.hintStory");
+    return t("postScreen.destinations.hintNone");
+  }, [postToFeed, postToStory, t]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Post de treino" title="Publicar" />
+      <TopBar
+        eyebrow={t("postScreen.topBar.eyebrow")}
+        title={t("postScreen.topBar.title")}
+      />
 
       {/* Inputs invisíveis pra câmera e galeria */}
       <input
@@ -520,7 +527,7 @@ export function PostScreen({
               />
             ) : (
               <PinchZoomImage
-                alt="Mídia do treino"
+                alt={t("postScreen.media.alt")}
                 blurDataUrl={mediaMeta.blurDataUrl}
                 className="w-full"
                 hqSrc={
@@ -533,7 +540,7 @@ export function PostScreen({
               />
             )}
             <button
-              aria-label="Trocar mídia"
+              aria-label={t("postScreen.media.swapAria")}
               className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
               onClick={openNativeGallery}
               type="button"
@@ -548,7 +555,7 @@ export function PostScreen({
             <Camera size={26} strokeWidth={2.2} />
           </div>
           <p className="text-center text-[14px] font-bold text-white/56">
-            Adicione uma foto ou vídeo do treino
+            {t("postScreen.media.emptyHint")}
           </p>
           <div className="flex w-full max-w-[260px] flex-col gap-2">
             <button
@@ -558,7 +565,7 @@ export function PostScreen({
               type="button"
             >
               <Camera size={16} strokeWidth={2.5} />
-              {uploading ? "Enviando..." : "Tirar foto"}
+              {uploading ? t("postScreen.media.uploading") : t("postScreen.media.takePhoto")}
             </button>
             <button
               className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[14px] font-bold text-white disabled:opacity-55"
@@ -567,7 +574,7 @@ export function PostScreen({
               type="button"
             >
               <Upload size={16} strokeWidth={2.4} />
-              Escolher da galeria
+              {t("postScreen.media.pickGallery")}
             </button>
           </div>
         </div>
@@ -575,7 +582,7 @@ export function PostScreen({
 
       {uploadError ? (
         <p className="mt-3 text-[12px] font-bold text-[var(--gc-pink)]">
-          Upload falhou: {uploadError}
+          {t("postScreen.media.uploadFailed", { message: uploadError })}
         </p>
       ) : null}
 
@@ -583,16 +590,16 @@ export function PostScreen({
       {imageUrl ? (
         <>
           <textarea
-            aria-label="Legenda do post"
+            aria-label={t("postScreen.caption.aria")}
             className="mt-4 min-h-[88px] w-full resize-none bg-transparent text-[16px] font-medium leading-6 text-white outline-none placeholder:text-white/32"
             onChange={(event) => setCaption(event.target.value)}
-            placeholder="Como foi o treino?"
+            placeholder={t("postScreen.caption.placeholder")}
             value={caption}
           />
 
           <details className="group mt-2 rounded-[18px] border border-white/[0.06] open:bg-white/[0.02]">
             <summary className="gc-pressable flex cursor-pointer list-none items-center justify-between px-4 py-3 text-[13px] font-bold text-white/68 [&::-webkit-details-marker]:hidden">
-              <span>Mais opções</span>
+              <span>{t("postScreen.moreOptions")}</span>
               <ChevronDown
                 className="transition-transform group-open:rotate-180"
                 size={16}
@@ -602,7 +609,7 @@ export function PostScreen({
             <div className="space-y-4 px-4 pb-4">
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
-                  Tipo de treino
+                  {t("postScreen.workoutType.label")}
                 </p>
                 <select
                   className="mt-2 h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
@@ -610,8 +617,8 @@ export function PostScreen({
                   value={workoutType}
                 >
                   {workoutTypes.map((type) => (
-                    <option className="bg-black" key={type.value || "none"} value={type.value}>
-                      {type.label}
+                    <option className="bg-black" key={type.key} value={type.value}>
+                      {t(`postScreen.workoutType.options.${type.key}`)}
                     </option>
                   ))}
                 </select>
@@ -619,7 +626,7 @@ export function PostScreen({
                   <input
                     className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
                     onChange={(event) => setCustomWorkoutType(event.target.value)}
-                    placeholder="Nome do treino"
+                    placeholder={t("postScreen.workoutType.customPlaceholder")}
                     value={customWorkoutType}
                   />
                 ) : null}
@@ -627,7 +634,7 @@ export function PostScreen({
 
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
-                  Marcar amigos
+                  {t("postScreen.tagFriends.label")}
                 </p>
                 {selectedTaggedUsers.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -657,7 +664,7 @@ export function PostScreen({
                   <input
                     className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] pl-9 pr-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
                     onChange={(event) => setFriendQuery(event.target.value)}
-                    placeholder="Buscar por @username"
+                    placeholder={t("postScreen.tagFriends.searchPlaceholder")}
                     value={friendQuery}
                   />
                 </div>
@@ -680,19 +687,19 @@ export function PostScreen({
                   </div>
                 ) : friendQuery.trim().length >= 2 ? (
                   <p className="mt-2 px-1 text-[11px] font-bold text-white/36">
-                    Nenhum usuário encontrado.
+                    {t("postScreen.tagFriends.empty")}
                   </p>
                 ) : null}
                 {selectedTaggedUsers.length > 0 ? (
                   <p className="mt-2 px-1 text-[11px] font-bold leading-4 text-white/38">
-                    A marcação só conta streak depois que a pessoa aceitar.
+                    {t("postScreen.tagFriends.streakNote")}
                   </p>
                 ) : null}
               </div>
 
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
-                  Local
+                  {t("postScreen.location.label")}
                 </p>
                 <button
                   className="gc-pressable mt-2 flex min-h-11 w-full items-center gap-3 rounded-[14px] border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-left text-[14px] font-bold text-white"
@@ -706,7 +713,7 @@ export function PostScreen({
                   <Search className="shrink-0 text-white/52" size={15} strokeWidth={2.4} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">
-                      {selectedLocationLabel || "Buscar academia, parque, lugar..."}
+                      {selectedLocationLabel || t("postScreen.location.searchPlaceholder")}
                     </span>
                     {selectedLocationMeta ? (
                       <span className="mt-0.5 block truncate text-[11px] font-bold text-white/42">
@@ -716,7 +723,7 @@ export function PostScreen({
                   </span>
                   {selectedLocationLabel ? (
                     <span className="shrink-0 rounded-full bg-[var(--gc-brand)]/14 px-2 py-0.5 text-[10px] font-black text-[var(--gc-brand)]">
-                      Selecionado
+                      {t("postScreen.location.selectedBadge")}
                     </span>
                   ) : null}
                 </button>
@@ -726,7 +733,7 @@ export function PostScreen({
                     onClick={removeLocation}
                     type="button"
                   >
-                    Remover localização
+                    {t("postScreen.location.remove")}
                   </button>
                 ) : null}
                 {searchError ? (
@@ -739,17 +746,17 @@ export function PostScreen({
 
               <div>
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
-                  Onde postar
+                  {t("postScreen.destinations.label")}
                 </p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <DestinationToggle
                     active={postToFeed}
-                    label="Feed"
+                    label={t("postScreen.destinations.feed")}
                     onToggle={() => setPostToFeed((value) => !value)}
                   />
                   <DestinationToggle
                     active={postToStory}
-                    label="Story (24h)"
+                    label={t("postScreen.destinations.story")}
                     onToggle={() => setPostToStory((value) => !value)}
                   />
                 </div>
@@ -785,7 +792,7 @@ export function PostScreen({
         registeredGyms={searchableGyms}
         onSelect={handleCatalogPlace}
         open={searchOpen}
-        title="Escolher local"
+        title={t("postScreen.location.sheetTitle")}
       />
     </section>
   );
@@ -802,9 +809,15 @@ type DestinationToggleProps = {
  * e o destinationHint embaixo do publicar resume o estado.
  */
 function DestinationToggle({ active, label, onToggle }: DestinationToggleProps) {
+  const { t } = useTranslation();
   return (
     <button
-      aria-label={`${active ? "Desativar" : "Ativar"} ${label}`}
+      aria-label={t(
+        active
+          ? "postScreen.destinations.toggleAriaActive"
+          : "postScreen.destinations.toggleAriaInactive",
+        { label },
+      )}
       aria-pressed={active}
       className={[
         "gc-pressable flex h-11 items-center justify-center gap-2 rounded-full text-[13px] font-black",

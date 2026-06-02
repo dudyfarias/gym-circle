@@ -440,5 +440,86 @@
       "detail": "Now the main loop is simple: open, see the feed, post, light the badge, come back tomorrow.",
       "cta": "Enter the app"
     }
+  },
+  "postScreen": {
+    "topBar": {
+      "eyebrow": "Workout post",
+      "title": "Publish"
+    },
+    "media": {
+      "swapAria": "Swap media",
+      "alt": "Workout media",
+      "emptyHint": "Add a photo or video of the workout",
+      "takePhoto": "Take photo",
+      "pickGallery": "Pick from gallery",
+      "uploading": "Uploading...",
+      "uploadFailed": "Upload failed: {{message}}"
+    },
+    "caption": {
+      "placeholder": "How was the workout?",
+      "aria": "Post caption"
+    },
+    "moreOptions": "More options",
+    "workoutType": {
+      "label": "Workout type",
+      "customPlaceholder": "Workout name",
+      "options": {
+        "none": "No type",
+        "musculacao": "Lifting",
+        "corrida": "Running",
+        "bike": "Cycling",
+        "funcional": "Functional",
+        "cardio": "Cardio",
+        "mobilidade": "Mobility",
+        "outro": "Other"
+      }
+    },
+    "tagFriends": {
+      "label": "Tag friends",
+      "searchPlaceholder": "Search by @username",
+      "empty": "No users found.",
+      "streakNote": "The tag only counts toward streak after the person accepts."
+    },
+    "location": {
+      "label": "Location",
+      "searchPlaceholder": "Search gym, park, place...",
+      "selectedBadge": "Selected",
+      "remove": "Remove location",
+      "currentDefault": "Current location",
+      "gymMetaFallback": "Only the name will be shown on the post.",
+      "currentNote": "Your post only shows an approximate location.",
+      "sheetTitle": "Choose location",
+      "errors": {
+        "cantCatalog": "Couldn't register location right now.",
+        "needsCoordinates": "To register a gym, its location is required.",
+        "saveFailed": "Couldn't save the location."
+      }
+    },
+    "destinations": {
+      "label": "Where to post",
+      "feed": "Feed",
+      "story": "Story (24h)",
+      "toggleAriaActive": "Disable {{label}}",
+      "toggleAriaInactive": "Enable {{label}}",
+      "hintBoth": "Goes to feed and to story (24h)",
+      "hintFeed": "Feed only",
+      "hintStory": "Story only (disappears in 24h)",
+      "hintNone": "Pick a destination in More options"
+    },
+    "publish": {
+      "publishing": "Publishing...",
+      "ctaBoth": "Publish",
+      "ctaFeed": "Publish to feed",
+      "ctaStory": "Publish story",
+      "ctaNoDestination": "Pick a destination",
+      "errors": {
+        "needsMedia": "Pick a photo or video to publish.",
+        "needsDestination": "Pick at least one destination: feed or story.",
+        "needsGym": "Pick a registered gym or remove the location.",
+        "needsCurrentLocation": "Allow GPS, try again, or remove the location before posting.",
+        "generic": "Something went wrong. Try again.",
+        "uploadInvalidType": "Pick a photo or video."
+      }
+    }
   }
 }

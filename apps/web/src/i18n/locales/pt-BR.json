@@ -440,5 +440,86 @@
       "detail": "Agora o loop principal é simples: abrir, ver o feed, postar, acender o badge e voltar amanhã.",
       "cta": "Entrar no app"
     }
+  },
+  "postScreen": {
+    "topBar": {
+      "eyebrow": "Post de treino",
+      "title": "Publicar"
+    },
+    "media": {
+      "swapAria": "Trocar mídia",
+      "alt": "Mídia do treino",
+      "emptyHint": "Adicione uma foto ou vídeo do treino",
+      "takePhoto": "Tirar foto",
+      "pickGallery": "Escolher da galeria",
+      "uploading": "Enviando...",
+      "uploadFailed": "Upload falhou: {{message}}"
+    },
+    "caption": {
+      "placeholder": "Como foi o treino?",
+      "aria": "Legenda do post"
+    },
+    "moreOptions": "Mais opções",
+    "workoutType": {
+      "label": "Tipo de treino",
+      "customPlaceholder": "Nome do treino",
+      "options": {
+        "none": "Sem tipo",
+        "musculacao": "Musculação",
+        "corrida": "Corrida",
+        "bike": "Bike",
+        "funcional": "Funcional",
+        "cardio": "Cardio",
+        "mobilidade": "Mobilidade",
+        "outro": "Outro"
+      }
+    },
+    "tagFriends": {
+      "label": "Marcar amigos",
+      "searchPlaceholder": "Buscar por @username",
+      "empty": "Nenhum usuário encontrado.",
+      "streakNote": "A marcação só conta streak depois que a pessoa aceitar."
+    },
+    "location": {
+      "label": "Local",
+      "searchPlaceholder": "Buscar academia, parque, lugar...",
+      "selectedBadge": "Selecionado",
+      "remove": "Remover localização",
+      "currentDefault": "Localização atual",
+      "gymMetaFallback": "Vai mostrar só o nome no post.",
+      "currentNote": "Seu post mostra apenas uma localização aproximada.",
+      "sheetTitle": "Escolher local",
+      "errors": {
+        "cantCatalog": "Não foi possível cadastrar local agora.",
+        "needsCoordinates": "Para cadastrar academia, a localização dela é obrigatória.",
+        "saveFailed": "Não foi possível salvar o local."
+      }
+    },
+    "destinations": {
+      "label": "Onde postar",
+      "feed": "Feed",
+      "story": "Story (24h)",
+      "toggleAriaActive": "Desativar {{label}}",
+      "toggleAriaInactive": "Ativar {{label}}",
+      "hintBoth": "Vai pro feed e pro story (24h)",
+      "hintFeed": "Só no feed",
+      "hintStory": "Só no story (some em 24h)",
+      "hintNone": "Escolha um destino em Mais opções"
+    },
+    "publish": {
+      "publishing": "Publicando...",
+      "ctaBoth": "Publicar",
+      "ctaFeed": "Publicar no feed",
+      "ctaStory": "Publicar story",
+      "ctaNoDestination": "Escolha um destino",
+      "errors": {
+        "needsMedia": "Escolha uma foto ou vídeo para publicar.",
+        "needsDestination": "Escolha pelo menos um destino: feed ou story.",
+        "needsGym": "Escolha uma academia cadastrada ou remova a localização.",
+        "needsCurrentLocation": "Permita o GPS, tente de novo ou remova a localização antes de postar.",
+        "generic": "Algo saiu errado. Tente de novo.",
+        "uploadInvalidType": "Escolha uma foto ou vídeo."
+      }
+    }
   }
 }
