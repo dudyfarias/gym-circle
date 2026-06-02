@@ -170,7 +170,11 @@ export function FeedScreen({
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Gym Circle" hidden={headerHidden} title="Hoje" />
+      <TopBar
+        eyebrow={t("feedScreen.topBar.eyebrow")}
+        hidden={headerHidden}
+        title={t("feedScreen.topBar.title")}
+      />
       <StoryBubbles onOpenStory={onOpenStory} stories={stories} />
       <DistancePermissionCard
         error={viewerLocationError}
@@ -222,7 +226,7 @@ export function FeedScreen({
           <div ref={loadMoreRef} className="min-h-6 py-2 text-center">
             {feedLoadingMore ? (
               <span className="inline-flex items-center rounded-full bg-white/[0.05] px-3 py-2 text-[12px] font-black text-white/44">
-                Carregando mais...
+                {t("feedScreen.loadingMore")}
               </span>
             ) : null}
           </div>
@@ -247,8 +251,9 @@ export function FeedScreen({
 }
 
 function FeedSkeleton() {
+  const { t } = useTranslation();
   return (
-    <div className="space-y-5" aria-label="Carregando feed">
+    <div className="space-y-5" aria-label={t("feedScreen.skeletonAria")}>
       {Array.from({ length: 3 }).map((_, index) => (
         <article
           className="overflow-hidden rounded-[32px] border border-white/[0.08] bg-[#0c0d0e]"
@@ -289,6 +294,7 @@ function DistancePermissionCard({
   onRequest,
   status,
 }: DistancePermissionCardProps) {
+  const { t } = useTranslation();
   if (!onRequest || !shouldShowViewerLocationPrompt(status, hasDistancePosts)) {
     return null;
   }
@@ -306,12 +312,12 @@ function DistancePermissionCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="text-[14px] font-black text-white">
-              Ver distância aproximada
+              {t("feedScreen.distance.title")}
             </p>
             <ShieldCheck size={14} className="text-white/36" />
           </div>
           <p className="mt-1 text-[12px] font-bold leading-4 text-white/46">
-            Mostramos só km aproximado. Suas coordenadas não aparecem no feed.
+            {t("feedScreen.distance.hint")}
           </p>
           {error ? (
             <p className="mt-2 text-[12px] font-bold text-[var(--gc-pink)]">
@@ -321,7 +327,7 @@ function DistancePermissionCard({
         </div>
         {onDismiss ? (
           <button
-            aria-label="Ocultar localização"
+            aria-label={t("feedScreen.distance.dismissAria")}
             className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/46"
             onClick={onDismiss}
             type="button"
@@ -341,7 +347,9 @@ function DistancePermissionCard({
         ) : (
           <Sparkles size={15} />
         )}
-        {isRequesting ? "Localizando..." : "Permitir localização"}
+        {isRequesting
+          ? t("feedScreen.distance.locating")
+          : t("feedScreen.distance.cta")}
       </button>
     </section>
   );

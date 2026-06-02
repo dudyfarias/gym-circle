@@ -636,6 +636,21 @@
       "closeAria": "Close following list"
     }
   },
+  "feedScreen": {
+    "topBar": {
+      "eyebrow": "Gym Circle",
+      "title": "Today"
+    },
+    "loadingMore": "Loading more...",
+    "skeletonAria": "Loading feed",
+    "distance": {
+      "title": "Show approximate distance",
+      "hint": "We only show approximate km. Your coordinates don't appear in the feed.",
+      "dismissAria": "Hide location",
+      "locating": "Locating...",
+      "cta": "Allow location"
+    }
+  },
   "userSearch": {
     "placeholder": "Search @username",
     "clearAria": "Clear",
