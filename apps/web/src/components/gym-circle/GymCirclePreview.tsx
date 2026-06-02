@@ -67,6 +67,10 @@ const MonthlyRecapSheet = dynamic(
   () => import("./MonthlyRecapSheet").then((module) => module.MonthlyRecapSheet),
   { ssr: false },
 );
+const BadgesSheet = dynamic(
+  () => import("./BadgesSheet").then((module) => module.BadgesSheet),
+  { ssr: false },
+);
 const NotificationsSheet = dynamic(
   () => import("./NotificationsSheet").then((module) => module.NotificationsSheet),
   { ssr: false },
@@ -140,6 +144,11 @@ export function GymCirclePreview({
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
   // outro user via tap nos rings do ProfileIdentity. Guardamos o id.
   const [myCircleUserId, setMyCircleUserId] = useState<string | null>(null);
+  // Sprint 5.4 — controla o BadgesSheet (página dedicada).
+  // Aberto via tap em "Ver todos →" no MyCircleSheet ou em qualquer
+  // badge do grid. Não tem dependência de userId — sempre mostra os
+  // badges do user dono do MyCircle atualmente aberto.
+  const [badgesSheetOpen, setBadgesSheetOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -286,6 +295,8 @@ export function GymCirclePreview({
     setMyCircleUserId(userId);
   }, []);
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
+  const openBadges = useCallback(() => setBadgesSheetOpen(true), []);
+  const closeBadges = useCallback(() => setBadgesSheetOpen(false), []);
   const openChatWithUser = useCallback((userId: string) => {
     setProfileOpenId(null);
     setChatTargetUserId(userId);
@@ -1220,6 +1231,7 @@ export function GymCirclePreview({
               myCircleUser?.id === social.currentUser.id ? monthlyRecap : null
             }
             onClose={closeMyCircle}
+            onOpenBadges={openBadges}
             onOpenMonthlyRecap={
               myCircleUser?.id === social.currentUser.id
                 ? () => setMonthlyRecapOpen(true)
@@ -1232,6 +1244,12 @@ export function GymCirclePreview({
                 ? currentUserStoryGroup?.viewed ?? false
                 : profileSheetStoryGroup?.viewed ?? false
             }
+            user={myCircleUser}
+          />
+          <BadgesSheet
+            onClose={closeBadges}
+            open={badgesSheetOpen}
+            posts={myCircleUserPosts}
             user={myCircleUser}
           />
           <CommentsBottomSheet

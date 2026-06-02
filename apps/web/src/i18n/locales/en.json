@@ -809,6 +809,26 @@
       "unfollow": "Unfollow"
     }
   },
+  "badgesSheet": {
+    "title": "Badges",
+    "closeAria": "Close badges",
+    "hero": "{{earned}} of {{total}} earned",
+    "filter": {
+      "all": "All",
+      "earned": "Earned",
+      "next": "Up next",
+      "secret": "Secret"
+    },
+    "empty": {
+      "all": "Nothing here yet.",
+      "earned": "You haven't earned any badges yet.",
+      "next": "All caught up! Keep training and more will come.",
+      "secret": "No secret badges revealed yet."
+    },
+    "progress": "{{current}}/{{target}}",
+    "secretMystery": "Secret badge",
+    "secretHint": "Figure out how to unlock"
+  },
   "monthlyRecap": {
     "title": "Monthly recap",
     "eyebrow": "Instagram ready",

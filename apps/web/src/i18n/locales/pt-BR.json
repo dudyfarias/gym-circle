@@ -809,6 +809,26 @@
       "unfollow": "Deixar de seguir"
     }
   },
+  "badgesSheet": {
+    "title": "Badges",
+    "closeAria": "Fechar badges",
+    "hero": "{{earned}} de {{total}} conquistadas",
+    "filter": {
+      "all": "Todos",
+      "earned": "Conquistadas",
+      "next": "Próximas",
+      "secret": "Secretas"
+    },
+    "empty": {
+      "all": "Nada por aqui ainda.",
+      "earned": "Você ainda não conquistou nenhuma badge.",
+      "next": "Tudo conquistado! Continue treinando que vêm mais.",
+      "secret": "Nenhuma badge secreta revelada ainda."
+    },
+    "progress": "{{current}}/{{target}}",
+    "secretMystery": "Badge secreta",
+    "secretHint": "Descubra como desbloquear"
+  },
   "monthlyRecap": {
     "title": "Resumo do mês",
     "eyebrow": "Pronto para Instagram",

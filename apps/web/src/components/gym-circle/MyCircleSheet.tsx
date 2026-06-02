@@ -74,6 +74,12 @@ type MyCircleSheetProps = {
    */
   monthlyRecap?: MonthlyRecap | null;
   onOpenMonthlyRecap?: () => void;
+  /**
+   * Sprint 5.4 — abre o BadgesSheet (página dedicada). Wire-up no
+   * GymCirclePreview. Quando ausente, o MyCircle não mostra o botão
+   * "Ver todos →" nem torna os badges clicáveis.
+   */
+  onOpenBadges?: () => void;
 };
 
 export function MyCircleSheet({
@@ -87,6 +93,7 @@ export function MyCircleSheet({
   onOpenStory,
   monthlyRecap,
   onOpenMonthlyRecap,
+  onOpenBadges,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -482,23 +489,50 @@ export function MyCircleSheet({
                 </div>
               </section>
 
-              {/* F. Badges */}
+              {/* F. Badges — header com tap "Ver todos →" abre BadgesSheet
+                  (Sprint 5.4). Cada badge no grid também é tappable quando
+                  onOpenBadges é fornecido, dando ao user 2 caminhos pra
+                  explorar detalhes. */}
               <section className="mt-8">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
                     {t("myCircle.badges.title")}
                   </h4>
-                  <span className="text-[11px] font-black text-white/52">
-                    {t("myCircle.badges.count", {
-                      earned: earnedCount,
-                      total: badges.length,
-                    })}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-black text-white/52">
+                      {t("myCircle.badges.count", {
+                        earned: earnedCount,
+                        total: badges.length,
+                      })}
+                    </span>
+                    {onOpenBadges ? (
+                      <button
+                        aria-label={t("badgesSheet.title")}
+                        className="gc-pressable text-[11px] font-black text-[var(--gc-brand)]"
+                        onClick={onOpenBadges}
+                        type="button"
+                      >
+                        {t("common.more")} →
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2 rounded-[20px] bg-white/[0.035] p-3 sm:grid-cols-4">
-                  {badges.map((badge) => (
-                    <BadgeChip badge={badge} key={badge.id} />
-                  ))}
+                  {badges.map((badge) =>
+                    onOpenBadges ? (
+                      <button
+                        aria-label={badge.label}
+                        className="gc-pressable contents"
+                        key={badge.id}
+                        onClick={onOpenBadges}
+                        type="button"
+                      >
+                        <BadgeChip badge={badge} />
+                      </button>
+                    ) : (
+                      <BadgeChip badge={badge} key={badge.id} />
+                    ),
+                  )}
                 </div>
                 {nextBadge ? (
                   <p className="mt-3 text-center text-[11px] font-bold text-white/52">
