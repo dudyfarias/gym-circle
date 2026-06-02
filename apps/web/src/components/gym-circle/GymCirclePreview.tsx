@@ -953,8 +953,6 @@ export function GymCirclePreview({
             onToggleFollow={toggleFollowIgnoringResult}
             posts={currentUserPosts}
             onOpenPost={openPostDetail}
-            monthlyRecap={monthlyRecap}
-            onOpenMonthlyRecap={() => setMonthlyRecapOpen(true)}
             onOpenMyCircle={() => openMyCircle(social.currentUser.id)}
             onUseStreakRestore={social.actions.useStreakRestore}
             onDismissProfileCompletionNotice={
@@ -1218,7 +1216,15 @@ export function GymCirclePreview({
                 : Boolean(profileSheetStoryGroup)
             }
             isOwn={myCircleUser?.id === social.currentUser.id}
+            monthlyRecap={
+              myCircleUser?.id === social.currentUser.id ? monthlyRecap : null
+            }
             onClose={closeMyCircle}
+            onOpenMonthlyRecap={
+              myCircleUser?.id === social.currentUser.id
+                ? () => setMonthlyRecapOpen(true)
+                : undefined
+            }
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
             storyViewed={

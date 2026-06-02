@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Download, Share2, X } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BrandMark } from "./design-system";
 import type { MonthlyRecap } from "./social/monthlyRecap";
 import type { EnrichedUser } from "./social/types";
@@ -14,19 +15,22 @@ type MonthlyRecapSheetProps = {
   onClose: () => void;
 };
 
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
 export function MonthlyRecapSheet({
   open,
   recap,
   user,
   onClose,
 }: MonthlyRecapSheetProps) {
+  const { t } = useTranslation();
   const [sharing, setSharing] = useState(false);
 
   const shareRecap = useCallback(async () => {
     if (!recap.isAvailable || sharing) return;
     setSharing(true);
     try {
-      const file = await createRecapShareFile(recap, user);
+      const file = await createRecapShareFile(recap, user, t);
       if (
         typeof navigator !== "undefined" &&
         "share" in navigator &&
@@ -35,8 +39,8 @@ export function MonthlyRecapSheet({
       ) {
         await navigator.share({
           files: [file],
-          text: `Meu mês no Gym Circle: ${recap.trainedDaysLabel} treinando.`,
-          title: "Gym Circle Recap",
+          text: t("monthlyRecap.share.text", { value: recap.trainedDaysLabel }),
+          title: t("monthlyRecap.share.title"),
         });
         return;
       }
@@ -50,7 +54,7 @@ export function MonthlyRecapSheet({
     } finally {
       setSharing(false);
     }
-  }, [recap, sharing, user]);
+  }, [recap, sharing, t, user]);
 
   if (!open) return null;
 
@@ -60,12 +64,12 @@ export function MonthlyRecapSheet({
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white/36">
-              Pronto para Instagram
+              {t("monthlyRecap.eyebrow")}
             </p>
-            <h2 className="text-[19px] font-black">Resumo do mês</h2>
+            <h2 className="text-[19px] font-black">{t("monthlyRecap.title")}</h2>
           </div>
           <button
-            aria-label="Fechar resumo"
+            aria-label={t("monthlyRecap.closeAria")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={onClose}
             type="button"
@@ -77,7 +81,7 @@ export function MonthlyRecapSheet({
         <div className="gc-scrollbar flex-1 overflow-y-auto px-4 py-5">
           <RecapPoster recap={recap} user={user} />
           <p className="mx-auto mt-4 max-w-[310px] text-center text-[12px] font-bold leading-5 text-white/42">
-            O arquivo sai em formato vertical para story ou post. No iPhone, use Compartilhar e escolha Instagram.
+            {t("monthlyRecap.hint")}
           </p>
         </div>
 
@@ -89,10 +93,12 @@ export function MonthlyRecapSheet({
             type="button"
           >
             <Share2 size={16} strokeWidth={2.7} />
-            {sharing ? "Gerando..." : "Compartilhar"}
+            {sharing
+              ? t("monthlyRecap.share.generating")
+              : t("monthlyRecap.share.cta")}
           </button>
           <button
-            aria-label="Baixar imagem"
+            aria-label={t("monthlyRecap.share.downloadAria")}
             className="gc-pressable grid size-12 place-items-center rounded-full border border-white/[0.1] bg-white/[0.05] text-white"
             disabled={sharing}
             onClick={shareRecap}
@@ -107,11 +113,12 @@ export function MonthlyRecapSheet({
 }
 
 function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser }) {
+  const { t } = useTranslation();
   return (
     <article className="relative mx-auto aspect-[4/5] w-full max-w-[360px] overflow-hidden rounded-[34px] border border-white/[0.08] bg-black shadow-[0_24px_80px_rgba(0,0,0,0.52)]">
       {recap.coverImageUrl ? (
         <Image
-          alt="Treino do mês"
+          alt={t("monthlyRecap.poster.alt")}
           className="object-cover opacity-70"
           fill
           sizes="360px"
@@ -132,26 +139,36 @@ function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser 
 
         <div className="mt-auto">
           <p className="text-[12px] font-black uppercase tracking-[0.18em] text-white/48">
-            Gym Circle Recap
+            {t("monthlyRecap.poster.brandTitle")}
           </p>
           <h3 className="mt-2 text-[50px] font-black capitalize leading-none text-white">
             {recap.shortMonthLabel}
           </h3>
           <div className="mt-5 rounded-[28px] border border-white/[0.1] bg-black/46 p-4 backdrop-blur-2xl">
-            <p className="text-[13px] font-bold text-white/52">Você treinou</p>
+            <p className="text-[13px] font-bold text-white/52">
+              {t("monthlyRecap.poster.trainedLabel")}
+            </p>
             <p className="mt-1 text-[58px] font-black leading-none text-[var(--gc-brand)]">
               {recap.trainedDays}
             </p>
             <p className="mt-1 text-[15px] font-black text-white">
-              {recap.trainedDaysUnit} neste mês
+              {recap.trainedDaysUnit} {t("monthlyRecap.poster.trainedInMonth")}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <PosterStat label="Mais treinado" value={recap.topWorkoutType} />
-              <PosterStat label="Lugar" value={recap.topLocation} />
+              <PosterStat
+                label={t("monthlyRecap.poster.topWorkoutLabel")}
+                value={recap.topWorkoutType}
+              />
+              <PosterStat
+                label={t("monthlyRecap.poster.topLocationLabel")}
+                value={recap.topLocation}
+              />
             </div>
           </div>
           <div className="mt-4 flex items-end justify-between gap-3">
-            <p className="text-[13px] font-black text-white/74">Train together.</p>
+            <p className="text-[13px] font-black text-white/74">
+              {t("monthlyRecap.poster.tagline")}
+            </p>
             <div className="rounded-full bg-black/42 px-2.5 py-1 text-[10px] font-black text-white/72 backdrop-blur-xl">
               @{user.username}
             </div>
@@ -169,10 +186,11 @@ function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser 
  * X dias" em destaque.
  */
 function RecapRings({ week, month, year }: { week: number; month: number; year: number }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-[18px] bg-black/42 p-2 backdrop-blur-xl">
       <svg
-        aria-label={`Consistência: ${year}% no ano, ${month}% no mês, ${week}% na semana`}
+        aria-label={t("monthlyRecap.poster.ringsAria", { year, month, week })}
         height={68}
         role="img"
         viewBox="0 0 84 84"
@@ -238,21 +256,25 @@ function PosterStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-async function createRecapShareFile(recap: MonthlyRecap, user: EnrichedUser): Promise<File> {
+async function createRecapShareFile(
+  recap: MonthlyRecap,
+  user: EnrichedUser,
+  t: TFn,
+): Promise<File> {
   const canvas = document.createElement("canvas");
   canvas.width = 1080;
   canvas.height = 1350;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas indisponível");
+  if (!ctx) throw new Error(t("monthlyRecap.errors.canvasUnavailable"));
 
   drawRecapBackground(ctx, recap);
   await drawCoverImage(ctx, recap.coverImageUrl);
-  drawRecapText(ctx, recap, user);
+  drawRecapText(ctx, recap, user, t);
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => {
       if (value) resolve(value);
-      else reject(new Error("Não foi possível gerar a imagem"));
+      else reject(new Error(t("monthlyRecap.errors.generateImage")));
     }, "image/png");
   });
   return new File([blob], `gym-circle-${user.username}-${recap.monthKey}.png`, {
@@ -302,10 +324,15 @@ async function drawCoverImage(ctx: CanvasRenderingContext2D, url: string | null)
   }
 }
 
-function drawRecapText(ctx: CanvasRenderingContext2D, recap: MonthlyRecap, user: EnrichedUser) {
+function drawRecapText(
+  ctx: CanvasRenderingContext2D,
+  recap: MonthlyRecap,
+  user: EnrichedUser,
+  t: TFn,
+) {
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "900 42px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText("GYM CIRCLE", 72, 104);
+  ctx.fillText(t("monthlyRecap.canvas.brandTitle"), 72, 104);
 
   // Anéis no canto superior direito (espelha o RecapPoster JSX).
   drawRecapRings(ctx, {
@@ -321,21 +348,37 @@ function drawRecapText(ctx: CanvasRenderingContext2D, recap: MonthlyRecap, user:
   ctx.fillText(capitalize(recap.shortMonthLabel), 72, 770);
   ctx.font = "800 36px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.62)";
-  ctx.fillText("Você treinou", 72, 850);
+  ctx.fillText(t("monthlyRecap.poster.trainedLabel"), 72, 850);
 
   ctx.fillStyle = "#8CFBFF";
   ctx.font = "900 176px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
   ctx.fillText(String(recap.trainedDays), 72, 1010);
   ctx.fillStyle = "#FFFFFF";
   ctx.font = "900 46px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(`${recap.trainedDaysUnit} neste mês`, 72, 1070);
+  ctx.fillText(
+    `${recap.trainedDaysUnit} ${t("monthlyRecap.poster.trainedInMonth")}`,
+    72,
+    1070,
+  );
 
-  drawCanvasStat(ctx, "Mais treinado", recap.topWorkoutType, 72, 1168);
-  drawCanvasStat(ctx, "Lugar", recap.topLocation, 560, 1168);
+  drawCanvasStat(
+    ctx,
+    t("monthlyRecap.poster.topWorkoutLabel"),
+    recap.topWorkoutType,
+    72,
+    1168,
+  );
+  drawCanvasStat(
+    ctx,
+    t("monthlyRecap.poster.topLocationLabel"),
+    recap.topLocation,
+    560,
+    1168,
+  );
 
   ctx.fillStyle = "rgba(255,255,255,0.76)";
   ctx.font = "900 34px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText("Train together.", 72, 1290);
+  ctx.fillText(t("monthlyRecap.poster.tagline"), 72, 1290);
 
   // @username no canto inferior direito — discreto, balanceando "Train together"
   drawUsernameBadge(ctx, user.username, 1008, 1290);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock, Trophy, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Share2, Trophy, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   AvatarConsistencyRings,
@@ -13,6 +13,7 @@ import {
   getEarnedBadges,
   getNextBadge,
 } from "./social/gamification";
+import type { MonthlyRecap } from "./social/monthlyRecap";
 import {
   buildMonthWorkoutDays,
   formatDateKey,
@@ -64,6 +65,14 @@ type MyCircleSheetProps = {
   storyViewed?: boolean;
   onClose: () => void;
   onOpenStory?: () => void;
+  /**
+   * Sprint 5.1 — Monthly Recap entrou no hub MyCircle. Quando `isOwn` for
+   * true E `monthlyRecap` for fornecido, mostramos um botão "Compartilhar
+   * resumo" entre as seções Badges e Competição. Em perfil de outros users
+   * o botão fica oculto (recap é um asset social do próprio user).
+   */
+  monthlyRecap?: MonthlyRecap | null;
+  onOpenMonthlyRecap?: () => void;
 };
 
 export function MyCircleSheet({
@@ -75,6 +84,8 @@ export function MyCircleSheet({
   storyViewed = false,
   onClose,
   onOpenStory,
+  monthlyRecap,
+  onOpenMonthlyRecap,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -457,6 +468,39 @@ export function MyCircleSheet({
                   </p>
                 ) : null}
               </section>
+
+              {/* H. Monthly Recap — Sprint 5.1.
+                  Botão social que abre o MonthlyRecapSheet pra compartilhar o
+                  resumo mensal no Instagram. Aparece só pro próprio user
+                  (`isOwn`) e quando o recap foi computado (`monthlyRecap` not
+                  null). Lib de geração de imagem fica no sheet aberto, não aqui. */}
+              {isOwn && monthlyRecap && onOpenMonthlyRecap ? (
+                <section className="mt-8">
+                  <button
+                    aria-label={t("myCircle.recap.cta", {
+                      month: monthlyRecap.shortMonthLabel,
+                    })}
+                    className="gc-pressable flex w-full items-center gap-3 rounded-[20px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(48,213,255,0.08),rgba(255,255,255,0.02)_50%,transparent)] p-4 text-left"
+                    onClick={onOpenMonthlyRecap}
+                    type="button"
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+                      <Share2 size={18} strokeWidth={2.4} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-black text-white">
+                        {t("myCircle.recap.cta", {
+                          month: monthlyRecap.shortMonthLabel,
+                        })}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[12px] font-bold text-white/52">
+                        {t("myCircle.recap.hint")}
+                      </span>
+                    </span>
+                    <span className="text-[18px] font-black text-white/42">→</span>
+                  </button>
+                </section>
+              ) : null}
 
               {/* G. Competição (placeholder) */}
               <section className="mt-8 rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] p-5 text-center">

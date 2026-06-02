@@ -160,6 +160,11 @@
       "nextHint": "Almost there for {{name}}",
       "count": "{{earned}}/{{total}}"
     },
+    "recap": {
+      "cta": "Share {{month}} recap",
+      "ctaShort": "Share recap",
+      "hint": "You choose the cover photo"
+    },
     "competition": {
       "title": "Competition",
       "description": "Weekly, monthly, and yearly rankings coming soon."
@@ -243,7 +248,23 @@
       "restrictedBody": "You don't have access to this content yet.",
       "latestPost": "Latest workout"
     },
-    "emptyPosts": "No workouts posted yet"
+    "emptyPosts": "No workouts posted yet",
+    "emptyPostsTitle": "Your workouts will show up here",
+    "editProfileAction": "Edit profile",
+    "adminAria": "Admin",
+    "completionNotice": {
+      "title": "Profile {{percentage}}% complete",
+      "fallback": "Keep filling it in",
+      "cta": "Complete",
+      "closeAria": "Dismiss profile completion notice"
+    },
+    "streakRestore": {
+      "title": "Restore streak?",
+      "body": "Use 1 restore to save yesterday's missed day.",
+      "cta": "Restore",
+      "countdownHours": "{{count}}h left",
+      "countdownMinutes": "{{count}}min left"
+    }
   },
   "orientation": {
     "rotateTitle": "Rotate your phone",
@@ -784,6 +805,36 @@
       "reportStory": "Report story",
       "muteUser": "Mute user",
       "unfollow": "Unfollow"
+    }
+  },
+  "monthlyRecap": {
+    "title": "Monthly recap",
+    "eyebrow": "Instagram ready",
+    "closeAria": "Close recap",
+    "hint": "The file is vertical, ready for stories or posts. On iPhone, use Share and pick Instagram.",
+    "share": {
+      "cta": "Share",
+      "generating": "Generating...",
+      "downloadAria": "Download image",
+      "title": "Gym Circle Recap",
+      "text": "My month on Gym Circle: {{value}} training."
+    },
+    "errors": {
+      "canvasUnavailable": "Canvas unavailable",
+      "generateImage": "Couldn't generate the image"
+    },
+    "poster": {
+      "alt": "Workout of the month",
+      "brandTitle": "Gym Circle Recap",
+      "trainedLabel": "You trained",
+      "trainedInMonth": "this month",
+      "topWorkoutLabel": "Most trained",
+      "topLocationLabel": "Place",
+      "tagline": "Train together.",
+      "ringsAria": "Consistency: {{year}}% year, {{month}}% month, {{week}}% week"
+    },
+    "canvas": {
+      "brandTitle": "GYM CIRCLE"
     }
   }
 }

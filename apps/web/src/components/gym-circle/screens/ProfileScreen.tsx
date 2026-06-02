@@ -2,7 +2,6 @@
 
 import {
   Clock,
-  Flame,
   LifeBuoy,
   MoreHorizontal,
   Pencil,
@@ -12,12 +11,10 @@ import {
 import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/IconButton";
 import { ProfileIdentity, ProfilePostsGrid } from "../design-system";
-import type { MonthlyRecap } from "../social/monthlyRecap";
 import {
   calculateProfileCompletion,
   shouldShowProfileCompletionNotice,
 } from "../social/profile";
-import { getStreakLevel } from "../social/streak";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { TopBar } from "../TopBar";
 
@@ -26,7 +23,8 @@ type ProfileScreenProps = {
   posts: EnrichedPost[];
   /**
    * Reservado pra futura aba "Streak" — não usado na visão refatorada
-   * (calendário detalhado vive no MonthlyRecapSheet, aberto via botão).
+   * (calendário detalhado vive no MyCircleSheet/MonthlyRecapSheet, abertos
+   * via botões do hub MyCircle, não mais via Streak compacto inline).
    */
   monthDays: Array<{ day: number; dateKey: string; trained: boolean }>;
   /**
@@ -44,8 +42,6 @@ type ProfileScreenProps = {
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
-  monthlyRecap: MonthlyRecap;
-  onOpenMonthlyRecap?: () => void;
   /** Sprint 3.5.3: abre o `MyCircleSheet` (gamificação rica). */
   onOpenMyCircle?: () => void;
   onOpenPost?: (postId: string) => void;
@@ -56,8 +52,11 @@ type ProfileScreenProps = {
 /**
  * Perfil estilo Instagram/Threads: identidade compacta no topo, posts em
  * grid sendo o protagonista. Sem ActivityCircle gigante, sem 4 widgets de
- * métrica em grid 2x2, sem calendário de 30 dias inline. O detalhamento
- * mensal continua acessível via MonthlyRecapSheet (botão de streak).
+ * métrica em grid 2x2, sem calendário de 30 dias inline.
+ *
+ * Sprint 5.1 (Progress + Gamification): removido o botão "Streak compacto"
+ * inline. O detalhamento mensal e o Monthly Recap agora vivem no hub
+ * MyCircle (botão dentro do MyCircleSheet) — fonte única.
  */
 export function ProfileScreen({
   currentUser,
@@ -70,17 +69,17 @@ export function ProfileScreen({
   hasStory,
   storyViewed,
   onOpenStory,
-  monthlyRecap,
-  onOpenMonthlyRecap,
   onOpenMyCircle,
   onOpenPost,
   onUseStreakRestore,
   onDismissProfileCompletionNotice,
 }: ProfileScreenProps) {
   const { t } = useTranslation();
-  const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
-  const restoreCountdown = formatRestoreCountdown(currentUser.streakRestoreDeadlineAt);
+  const restoreCountdown = formatRestoreCountdown(
+    currentUser.streakRestoreDeadlineAt,
+    t,
+  );
   const canRestoreStreak = Boolean(
     onUseStreakRestore &&
       currentUser.streakRestoreStatus === "available" &&
@@ -128,12 +127,12 @@ export function ProfileScreen({
                     type="button"
                   >
                     <Pencil size={14} strokeWidth={2.6} />
-                    Editar perfil
+                    {t("profile.editProfileAction")}
                   </button>
                 ) : null}
                 {onOpenAdmin ? (
                   <button
-                    aria-label="Admin"
+                    aria-label={t("profile.adminAria")}
                     className="gc-pressable grid size-11 place-items-center rounded-[12px] bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
                     onClick={onOpenAdmin}
                     type="button"
@@ -151,7 +150,7 @@ export function ProfileScreen({
         <section className="relative mt-3 rounded-[16px] border border-white/[0.08] bg-white/[0.04] p-3 pr-12">
           {onDismissProfileCompletionNotice ? (
             <button
-              aria-label="Fechar aviso de completar perfil"
+              aria-label={t("profile.completionNotice.closeAria")}
               className="gc-pressable absolute right-2 top-2 grid size-11 place-items-center rounded-full bg-white/[0.05] text-white/48 transition hover:text-white"
               onClick={() => void onDismissProfileCompletionNotice()}
               type="button"
@@ -166,10 +165,12 @@ export function ProfileScreen({
           >
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-black text-white">
-                Perfil {profileCompletion.percentage}% completo
+                {t("profile.completionNotice.title", {
+                  percentage: profileCompletion.percentage,
+                })}
               </p>
               <p className="mt-0.5 truncate text-[11px] font-bold text-white/46">
-                {nextCompletionItem?.label ?? "Continue preenchendo"}
+                {nextCompletionItem?.label ?? t("profile.completionNotice.fallback")}
               </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
                 <div
@@ -179,47 +180,16 @@ export function ProfileScreen({
               </div>
             </div>
             <span className="grid h-8 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] px-3 text-[11px] font-black text-black">
-              Completar
+              {t("profile.completionNotice.cta")}
             </span>
           </button>
         </section>
       ) : null}
 
-      {/* Streak compacto — uma linha, abre o sheet detalhado ao tocar */}
-      <button
-        className="gc-pressable mt-3 flex w-full items-center justify-between gap-3 rounded-[14px] bg-white/[0.04] px-4 py-3 text-left disabled:opacity-100"
-        disabled={!onOpenMonthlyRecap}
-        onClick={onOpenMonthlyRecap}
-        type="button"
-      >
-        <div className="flex items-center gap-2">
-          <Flame
-            className={
-              currentUser.streakLitToday ? "text-[var(--gc-brand)]" : "text-white/52"
-            }
-            size={16}
-            strokeWidth={2.4}
-          />
-          <span className="text-[14px] font-black text-white">
-            {currentUser.currentStreak}d
-          </span>
-          <span className="text-white/30">·</span>
-          <span className="text-[13px] font-bold text-white/72">
-            {currentLevel.label}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/62">
-            <LifeBuoy size={12} strokeWidth={2.5} />
-            {currentUser.streakRestoresAvailable}
-          </span>
-          {onOpenMonthlyRecap ? (
-            <span className="text-[12px] font-bold text-white/42">
-              {monthlyRecap.shortMonthLabel} →
-            </span>
-          ) : null}
-        </div>
-      </button>
+      {/* Sprint 5.1 — removido o botão "Streak compacto" inline.
+          Streak detalhado + Monthly Recap agora vivem no hub MyCircleSheet
+          (acesso pelo tap nos AvatarConsistencyRings do ProfileIdentity).
+          Fonte única → reduz duplicação de UI e clarifica hierarquia. */}
 
       {canRestoreStreak ? (
         <div className="mt-3 rounded-[18px] border border-[var(--gc-brand)]/20 bg-[var(--gc-brand)]/[0.07] p-4 shadow-[0_18px_55px_rgba(48,213,255,0.08)]">
@@ -229,10 +199,10 @@ export function ProfileScreen({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-black text-white">
-                Restaurar streak?
+                {t("profile.streakRestore.title")}
               </p>
               <p className="mt-1 text-[12px] font-bold leading-4 text-white/58">
-                Use 1 restaurador para proteger o dia que passou.
+                {t("profile.streakRestore.body")}
               </p>
               <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-black/24 px-2.5 py-1 text-[11px] font-black text-[var(--gc-brand)]">
                 <Clock size={12} strokeWidth={2.4} />
@@ -244,7 +214,7 @@ export function ProfileScreen({
               onClick={onUseStreakRestore}
               type="button"
             >
-              Restaurar
+              {t("profile.streakRestore.cta")}
             </button>
           </div>
         </div>
@@ -252,7 +222,7 @@ export function ProfileScreen({
 
       {/* Posts grid — protagonista */}
       <ProfilePostsGrid
-        emptyTitle="Seus treinos vão aparecer aqui"
+        emptyTitle={t("profile.emptyPostsTitle")}
         onOpenPost={onOpenPost}
         posts={posts}
       />
@@ -260,14 +230,20 @@ export function ProfileScreen({
   );
 }
 
-function formatRestoreCountdown(deadlineAt?: string | null) {
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+function formatRestoreCountdown(
+  deadlineAt: string | null | undefined,
+  t: TFn,
+): string | null {
   if (!deadlineAt) return null;
   const diff = new Date(deadlineAt).getTime() - Date.now();
   if (diff <= 0) return null;
   const hours = Math.floor(diff / 3600000);
   const minutes = Math.max(1, Math.ceil((diff % 3600000) / 60000));
-  if (hours <= 0) return `Restam ${minutes}min`;
-  return `Restam ${hours}h`;
+  if (hours <= 0)
+    return t("profile.streakRestore.countdownMinutes", { count: minutes });
+  return t("profile.streakRestore.countdownHours", { count: hours });
 }
 
 // ProfileStat, PostsGrid e PostThumb migraram pros componentes compartilhados
