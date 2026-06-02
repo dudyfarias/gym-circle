@@ -809,6 +809,17 @@
       "unfollow": "Deixar de seguir"
     }
   },
+  "recapCoverPicker": {
+    "title": "Escolher capa",
+    "subtitle": "Foto do mês de {{month}}",
+    "closeAria": "Fechar seletor de capa",
+    "empty": "Você ainda não tem posts neste mês.",
+    "useAuto": "Usar foto automática",
+    "useThis": "Usar como capa",
+    "saving": "Salvando...",
+    "errorSave": "Não foi possível salvar a escolha.",
+    "selectedBadge": "Selecionada"
+  },
   "badgesSheet": {
     "title": "Badges",
     "closeAria": "Fechar badges",

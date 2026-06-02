@@ -809,6 +809,17 @@
       "unfollow": "Unfollow"
     }
   },
+  "recapCoverPicker": {
+    "title": "Choose cover",
+    "subtitle": "Photo for {{month}}",
+    "closeAria": "Close cover picker",
+    "empty": "You haven't posted this month yet.",
+    "useAuto": "Use auto photo",
+    "useThis": "Use as cover",
+    "saving": "Saving...",
+    "errorSave": "Couldn't save your choice.",
+    "selectedBadge": "Selected"
+  },
   "badgesSheet": {
     "title": "Badges",
     "closeAria": "Close badges",

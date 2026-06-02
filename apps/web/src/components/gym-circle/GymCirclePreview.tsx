@@ -71,6 +71,13 @@ const BadgesSheet = dynamic(
   () => import("./BadgesSheet").then((module) => module.BadgesSheet),
   { ssr: false },
 );
+const RecapCoverPickerSheet = dynamic(
+  () =>
+    import("./RecapCoverPickerSheet").then(
+      (module) => module.RecapCoverPickerSheet,
+    ),
+  { ssr: false },
+);
 const NotificationsSheet = dynamic(
   () => import("./NotificationsSheet").then((module) => module.NotificationsSheet),
   { ssr: false },
@@ -149,6 +156,10 @@ export function GymCirclePreview({
   // badge do grid. Não tem dependência de userId — sempre mostra os
   // badges do user dono do MyCircle atualmente aberto.
   const [badgesSheetOpen, setBadgesSheetOpen] = useState(false);
+  // Sprint 5.5b — picker pra escolher a foto de capa do recap mensal.
+  // Abre via botão "Trocar foto" dentro do MonthlyRecapSheet. Quando user
+  // escolhe um post, social.actions.setMonthlyRecapCover persiste em DB.
+  const [recapCoverPickerOpen, setRecapCoverPickerOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -297,6 +308,14 @@ export function GymCirclePreview({
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   const openBadges = useCallback(() => setBadgesSheetOpen(true), []);
   const closeBadges = useCallback(() => setBadgesSheetOpen(false), []);
+  const openRecapCoverPicker = useCallback(
+    () => setRecapCoverPickerOpen(true),
+    [],
+  );
+  const closeRecapCoverPicker = useCallback(
+    () => setRecapCoverPickerOpen(false),
+    [],
+  );
   const openChatWithUser = useCallback((userId: string) => {
     setProfileOpenId(null);
     setChatTargetUserId(userId);
@@ -1304,9 +1323,28 @@ export function GymCirclePreview({
           />
           <MonthlyRecapSheet
             onClose={() => setMonthlyRecapOpen(false)}
+            onOpenCoverPicker={openRecapCoverPicker}
             open={monthlyRecapOpen}
             recap={monthlyRecap}
             user={social.currentUser}
+          />
+          <RecapCoverPickerSheet
+            monthLabel={monthlyRecap.monthLabel}
+            monthPosts={currentUserPosts.filter((post) =>
+              post.workoutDate.startsWith(monthlyRecap.monthKey),
+            )}
+            onClose={closeRecapCoverPicker}
+            onSelect={async (postId) => {
+              await social.actions.setMonthlyRecapCover?.(
+                monthlyRecap.monthKey,
+                postId,
+              );
+            }}
+            open={recapCoverPickerOpen}
+            selectedPostId={
+              social.currentUser.monthlyRecapCovers?.[monthlyRecap.monthKey] ??
+              null
+            }
           />
           {social.actions.updateProfile ? (
             <EditProfileSheet

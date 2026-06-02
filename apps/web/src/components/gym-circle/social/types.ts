@@ -323,6 +323,8 @@ export type SocialActions = {
   signOut?: () => Promise<void>;
   updateProfile?: (input: ProfileEditInput) => Promise<void>;
   dismissProfileCompletionNotice?: () => Promise<void>;
+  /** Sprint 5.5a — salva foto de capa do recap mensal por monthKey. */
+  setMonthlyRecapCover?: (monthKey: string, postId: string | null) => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;

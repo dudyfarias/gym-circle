@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Download, Share2, X } from "lucide-react";
+import { Camera, Download, Share2, X } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BrandMark } from "./design-system";
@@ -13,6 +13,13 @@ type MonthlyRecapSheetProps = {
   recap: MonthlyRecap;
   user: EnrichedUser;
   onClose: () => void;
+  /**
+   * Sprint 5.5b — quando fornecido, mostra um botão "Trocar foto" abaixo
+   * do poster que abre o RecapCoverPickerSheet. Parent (GymCirclePreview)
+   * gerencia o state do picker. Sem isso, o recap continua funcional
+   * mas sem user-pick UI (compat com smoke tests anteriores).
+   */
+  onOpenCoverPicker?: () => void;
 };
 
 type TFn = (key: string, options?: Record<string, unknown>) => string;
@@ -22,6 +29,7 @@ export function MonthlyRecapSheet({
   recap,
   user,
   onClose,
+  onOpenCoverPicker,
 }: MonthlyRecapSheetProps) {
   const { t } = useTranslation();
   const [sharing, setSharing] = useState(false);
@@ -80,6 +88,16 @@ export function MonthlyRecapSheet({
 
         <div className="gc-scrollbar flex-1 overflow-y-auto px-4 py-5">
           <RecapPoster recap={recap} user={user} />
+          {onOpenCoverPicker ? (
+            <button
+              className="gc-pressable mx-auto mt-4 flex h-10 items-center gap-2 rounded-full bg-white/[0.06] px-4 text-[12px] font-black text-white/82 hover:bg-white/[0.1]"
+              onClick={onOpenCoverPicker}
+              type="button"
+            >
+              <Camera size={14} strokeWidth={2.4} />
+              {t("recapCoverPicker.title")}
+            </button>
+          ) : null}
           <p className="mx-auto mt-4 max-w-[310px] text-center text-[12px] font-bold leading-5 text-white/42">
             {t("monthlyRecap.hint")}
           </p>
