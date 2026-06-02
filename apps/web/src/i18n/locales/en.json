@@ -600,5 +600,12 @@
       "send": "Failed to send",
       "sendMedia": "Failed to send media"
     }
+  },
+  "postMenu": {
+    "editCaption": "Edit caption and type",
+    "deletePost": "Delete post",
+    "muteUser": "Mute user",
+    "reportPost": "Report post",
+    "blockUser": "Block user"
   }
 }

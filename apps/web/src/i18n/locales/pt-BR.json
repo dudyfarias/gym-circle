@@ -600,5 +600,12 @@
       "send": "Falha ao enviar",
       "sendMedia": "Falha ao enviar mídia"
     }
+  },
+  "postMenu": {
+    "editCaption": "Editar legenda e tipo",
+    "deletePost": "Apagar post",
+    "muteUser": "Silenciar usuário",
+    "reportPost": "Denunciar post",
+    "blockUser": "Bloquear usuário"
   }
 }
