@@ -1,0 +1,65 @@
+name: GymCircleNative
+
+options:
+  bundleIdPrefix: com.gymcircle
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift.git
+    from: "2.0.0"
+
+targets:
+  GymCircleNative:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Sources/GymCircleNativeFoundation
+      - path: Sources/GymCircleNativeApp
+    dependencies:
+      - package: Supabase
+        product: Supabase
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: Gym Circle Native
+        CFBundleShortVersionString: "1.1"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: ""
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+        NSCameraUsageDescription: O Gym Circle nativo usara a camera para posts e stories em uma sprint futura.
+        NSPhotoLibraryUsageDescription: O Gym Circle nativo usara a galeria para selecionar midias em uma sprint futura.
+        NSMicrophoneUsageDescription: O Gym Circle nativo usara o microfone para videos em uma sprint futura.
+        NSLocationWhenInUseUsageDescription: O Gym Circle nativo usara localizacao para lugares e academias em uma sprint futura.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev
+        PRODUCT_NAME: GymCircleNative
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+        ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: "NO"
+      configs:
+        Debug:
+          CODE_SIGNING_ALLOWED: "NO"
+        Release:
+          CODE_SIGNING_ALLOWED: "NO"
+schemes:
+  GymCircleNative:
+    build:
+      targets:
+        GymCircleNative: all
+    run:
+      config: Debug
+    archive:
+      config: Release
