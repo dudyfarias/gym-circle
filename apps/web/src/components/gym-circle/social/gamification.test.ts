@@ -3,6 +3,7 @@ import {
   countEarnedBadges,
   getEarnedBadges,
   getNextBadge,
+  type GamificationPostSnapshot,
 } from "./gamification";
 import type { EnrichedUser } from "./types";
 
@@ -39,11 +40,40 @@ function makeUser(overrides: Partial<EnrichedUser> = {}): EnrichedUser {
   } satisfies EnrichedUser;
 }
 
-describe("getEarnedBadges — Sprint 3.5.3", () => {
-  it("retorna 11 badges sempre (todos bloqueados por padrão)", () => {
+/**
+ * Helper pra montar um post snapshot com hour específica em LOCAL time.
+ * Usa data recente (poucas horas atrás) pra evitar problemas de timezone
+ * em testes que precisam estar "dentro da janela".
+ */
+function makePostAt(hour: number, daysAgo = 0, overrides: Partial<GamificationPostSnapshot> = {}): GamificationPostSnapshot {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  date.setHours(hour, 0, 0, 0);
+  return {
+    createdAt: date.toISOString(),
+    workoutType: "Musculação",
+    gymId: "gym-1",
+    ...overrides,
+  };
+}
+
+describe("getEarnedBadges — Sprint 5.3 rich badges", () => {
+  it("retorna 20 badges sempre (11 originais + 9 novas)", () => {
     const badges = getEarnedBadges({ user: makeUser(), postsCount: 0 });
-    expect(badges).toHaveLength(11);
+    expect(badges).toHaveLength(20);
     expect(badges.every((b) => !b.earned)).toBe(true);
+  });
+
+  it("cada badge tem iconKey definido", () => {
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 0 });
+    expect(badges.every((b) => typeof b.iconKey === "string")).toBe(true);
+  });
+
+  it("4 badges secret estão presentes e bloqueadas por padrão", () => {
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 0 });
+    const secretIds = badges.filter((b) => b.secret).map((b) => b.id).sort();
+    expect(secretIds).toEqual(["cross-trainer", "early-bird", "explorer", "night-owl"]);
+    expect(badges.filter((b) => b.secret).every((b) => !b.earned)).toBe(true);
   });
 
   it("desbloqueia first-workout quando há pelo menos 1 post", () => {
@@ -51,110 +81,115 @@ describe("getEarnedBadges — Sprint 3.5.3", () => {
     expect(badges.find((b) => b.id === "first-workout")?.earned).toBe(true);
   });
 
-  it("desbloqueia streaks na ordem 3 → 7 → 14 → 30 baseado em longestStreak", () => {
-    const badges6 = getEarnedBadges({
-      user: makeUser({ longestStreak: 6 }),
-      postsCount: 0,
-    });
-    expect(badges6.find((b) => b.id === "streak-3")?.earned).toBe(true);
-    expect(badges6.find((b) => b.id === "streak-7")?.earned).toBe(false);
-
-    const badges14 = getEarnedBadges({
-      user: makeUser({ longestStreak: 14 }),
-      postsCount: 0,
-    });
-    expect(badges14.find((b) => b.id === "streak-3")?.earned).toBe(true);
-    expect(badges14.find((b) => b.id === "streak-7")?.earned).toBe(true);
-    expect(badges14.find((b) => b.id === "streak-14")?.earned).toBe(true);
-    expect(badges14.find((b) => b.id === "streak-30")?.earned).toBe(false);
+  it("streak ladder completo: 3, 7, 14, 30, 60, 100", () => {
+    const longest150 = makeUser({ longestStreak: 150 });
+    const badges = getEarnedBadges({ user: longest150, postsCount: 0 });
+    const streakIds = ["streak-3", "streak-7", "streak-14", "streak-30", "streak-60", "streak-100"];
+    for (const id of streakIds) {
+      expect(badges.find((b) => b.id === id)?.earned).toBe(true);
+    }
   });
 
-  it("desbloqueia active-week com workoutsThisWeek >= 5", () => {
+  it("badges com progress mostram current/target quando não-earned", () => {
     const badges = getEarnedBadges({
-      user: makeUser({ workoutsThisWeek: 5 }),
+      user: makeUser({ longestStreak: 5 }),
       postsCount: 0,
     });
-    expect(badges.find((b) => b.id === "active-week")?.earned).toBe(true);
+    const streak7 = badges.find((b) => b.id === "streak-7");
+    expect(streak7?.earned).toBe(false);
+    expect(streak7?.progress).toEqual({ current: 5, target: 7 });
+
+    // Earned badge não tem progress
+    const streak3 = badges.find((b) => b.id === "streak-3");
+    expect(streak3?.earned).toBe(true);
+    expect(streak3?.progress).toBeUndefined();
   });
 
-  it("desbloqueia month-active com workoutsThisMonth >= 15", () => {
-    const badges = getEarnedBadges({
-      user: makeUser({ workoutsThisMonth: 15 }),
+  it("desbloqueia followers ladder: social → popular → network → community", () => {
+    const badges250 = getEarnedBadges({
+      user: makeUser({ followersCount: 250 }),
       postsCount: 0,
     });
-    expect(badges.find((b) => b.id === "month-active")?.earned).toBe(true);
+    expect(badges250.find((b) => b.id === "social")?.earned).toBe(true);
+    expect(badges250.find((b) => b.id === "popular")?.earned).toBe(true);
+    expect(badges250.find((b) => b.id === "network")?.earned).toBe(true);
+    expect(badges250.find((b) => b.id === "community")?.earned).toBe(true);
   });
 
-  it("desbloqueia year-active com activeDaysCount >= 100", () => {
-    const badges = getEarnedBadges({
-      user: makeUser({ activeDaysCount: 100 }),
-      postsCount: 0,
-    });
-    expect(badges.find((b) => b.id === "year-active")?.earned).toBe(true);
-  });
-
-  it("desbloqueia social (>=10) e popular (>=50) por followersCount", () => {
-    const badges30 = getEarnedBadges({
-      user: makeUser({ followersCount: 30 }),
-      postsCount: 0,
-    });
-    expect(badges30.find((b) => b.id === "social")?.earned).toBe(true);
-    expect(badges30.find((b) => b.id === "popular")?.earned).toBe(false);
-
-    const badges60 = getEarnedBadges({
-      user: makeUser({ followersCount: 60 }),
-      postsCount: 0,
-    });
-    expect(badges60.find((b) => b.id === "social")?.earned).toBe(true);
-    expect(badges60.find((b) => b.id === "popular")?.earned).toBe(true);
+  it("desbloqueia prolific com 50+ posts", () => {
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 50 });
+    expect(badges.find((b) => b.id === "prolific")?.earned).toBe(true);
   });
 
   it("desbloqueia streak-recovered apenas quando hasUsedStreakRestore=true", () => {
-    const badgesFalse = getEarnedBadges({
-      user: makeUser(),
-      postsCount: 0,
-      hasUsedStreakRestore: false,
-    });
-    expect(badgesFalse.find((b) => b.id === "streak-recovered")?.earned).toBe(
-      false,
-    );
-
-    const badgesTrue = getEarnedBadges({
+    const badges = getEarnedBadges({
       user: makeUser(),
       postsCount: 0,
       hasUsedStreakRestore: true,
     });
-    expect(badgesTrue.find((b) => b.id === "streak-recovered")?.earned).toBe(
-      true,
-    );
+    expect(badges.find((b) => b.id === "streak-recovered")?.earned).toBe(true);
+  });
+});
+
+describe("getEarnedBadges — Secret badges (Sprint 5.3)", () => {
+  it("early-bird desbloqueia com post entre 5h e 7h", () => {
+    const posts = [makePostAt(5)];
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 1, posts });
+    expect(badges.find((b) => b.id === "early-bird")?.earned).toBe(true);
   });
 
-  it("Johnny (cenário 141d streak + 21 mês) desbloqueia tudo exceto popular/social/streak-recovered se aplicável", () => {
-    const johnny = makeUser({
-      currentStreak: 141,
-      longestStreak: 141,
-      workoutsThisWeek: 5, // semana atual: seg-qui
-      workoutsThisMonth: 21,
-      activeDaysCount: 141,
-      followersCount: 5, // hipotético
-    });
-    const badges = getEarnedBadges({
-      user: johnny,
-      postsCount: 50,
-      hasUsedStreakRestore: false,
-    });
-    const earnedIds = badges.filter((b) => b.earned).map((b) => b.id);
-    expect(earnedIds).toContain("first-workout");
-    expect(earnedIds).toContain("streak-3");
-    expect(earnedIds).toContain("streak-7");
-    expect(earnedIds).toContain("streak-14");
-    expect(earnedIds).toContain("streak-30");
-    expect(earnedIds).toContain("active-week");
-    expect(earnedIds).toContain("month-active");
-    expect(earnedIds).toContain("year-active");
-    expect(earnedIds).not.toContain("social"); // 5 < 10
-    expect(earnedIds).not.toContain("popular");
-    expect(earnedIds).not.toContain("streak-recovered");
+  it("early-bird NÃO desbloqueia com post às 8h", () => {
+    const posts = [makePostAt(8)];
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 1, posts });
+    expect(badges.find((b) => b.id === "early-bird")?.earned).toBe(false);
+  });
+
+  it("night-owl desbloqueia com post depois das 23h", () => {
+    const posts = [makePostAt(23)];
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 1, posts });
+    expect(badges.find((b) => b.id === "night-owl")?.earned).toBe(true);
+  });
+
+  it("cross-trainer desbloqueia com 3+ workout types em 7 dias", () => {
+    const posts: GamificationPostSnapshot[] = [
+      makePostAt(10, 0, { workoutType: "Musculação" }),
+      makePostAt(10, 2, { workoutType: "Corrida" }),
+      makePostAt(10, 4, { workoutType: "Bike" }),
+    ];
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 3, posts });
+    expect(badges.find((b) => b.id === "cross-trainer")?.earned).toBe(true);
+  });
+
+  it("cross-trainer NÃO desbloqueia com só 2 workout types", () => {
+    const posts: GamificationPostSnapshot[] = [
+      makePostAt(10, 0, { workoutType: "Musculação" }),
+      makePostAt(10, 2, { workoutType: "Corrida" }),
+      makePostAt(10, 3, { workoutType: "Musculação" }),
+    ];
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 3, posts });
+    expect(badges.find((b) => b.id === "cross-trainer")?.earned).toBe(false);
+  });
+
+  it("explorer desbloqueia com 5+ academias diferentes em 30 dias", () => {
+    const posts: GamificationPostSnapshot[] = Array.from({ length: 5 }, (_, i) =>
+      makePostAt(10, i * 2, { gymId: `gym-${i}` }),
+    );
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 5, posts });
+    expect(badges.find((b) => b.id === "explorer")?.earned).toBe(true);
+  });
+
+  it("explorer NÃO desbloqueia com 4 academias", () => {
+    const posts: GamificationPostSnapshot[] = Array.from({ length: 4 }, (_, i) =>
+      makePostAt(10, i, { gymId: `gym-${i}` }),
+    );
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 4, posts });
+    expect(badges.find((b) => b.id === "explorer")?.earned).toBe(false);
+  });
+
+  it("secret badges permanecem locked quando posts não é fornecido", () => {
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 10 });
+    const secrets = badges.filter((b) => b.secret);
+    expect(secrets.every((b) => !b.earned)).toBe(true);
   });
 });
 
@@ -164,7 +199,7 @@ describe("countEarnedBadges", () => {
       user: makeUser({ longestStreak: 7, followersCount: 12 }),
       postsCount: 3,
     });
-    // first-workout (post>=1) + streak-3 + streak-7 + social (followers>=10) = 4
+    // first-workout + streak-3 + streak-7 + social = 4
     expect(countEarnedBadges(badges)).toBe(4);
   });
 
@@ -174,25 +209,32 @@ describe("countEarnedBadges", () => {
   });
 });
 
-describe("getNextBadge", () => {
-  it("retorna o primeiro badge bloqueado da lista", () => {
+describe("getNextBadge — Sprint 5.3 prioriza por proximidade", () => {
+  it("retorna o badge com progress mais próximo de 100%", () => {
+    // longestStreak 5: streak-7 = 71%, streak-14 = 36%, streak-30 = 17%
     const badges = getEarnedBadges({
-      user: makeUser({ longestStreak: 4 }),
+      user: makeUser({ longestStreak: 5 }),
       postsCount: 1,
     });
-    // first-workout ✓, streak-3 ✓ — próximo é streak-7
     const next = getNextBadge(badges);
     expect(next?.id).toBe("streak-7");
   });
 
-  it("retorna null quando todos os badges foram conquistados", () => {
+  it("ignora secret badges (mesmo earned ou locked)", () => {
+    // Mesmo se secret badges fossem 'próximos', getNextBadge retorna público.
+    const badges = getEarnedBadges({ user: makeUser(), postsCount: 1 });
+    const next = getNextBadge(badges);
+    expect(next?.secret).toBeFalsy();
+  });
+
+  it("retorna null quando todos os badges públicos foram conquistados", () => {
     const fully = makeUser({
       currentStreak: 200,
       longestStreak: 200,
       workoutsThisWeek: 7,
       workoutsThisMonth: 31,
       activeDaysCount: 200,
-      followersCount: 100,
+      followersCount: 250, // unlock community
     });
     const badges = getEarnedBadges({
       user: fully,

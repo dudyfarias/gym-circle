@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock, Share2, Trophy, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, HelpCircle, Lock, Share2, Trophy, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   AvatarConsistencyRings,
+  BadgeIcon,
   StreakBadge,
 } from "./design-system";
 import { simulateHaptic } from "./social/haptics";
@@ -123,6 +124,12 @@ export function MyCircleSheet({
     user,
     postsCount: posts.length,
     hasUsedStreakRestore: Boolean(user.lastStreakRestoreUsedAt),
+    // Sprint 5.3 — passa posts pra unlock badges secret de timing/variedade.
+    posts: posts.map((post) => ({
+      createdAt: post.createdAt,
+      workoutType: post.workoutType ?? null,
+      gymId: post.gymId,
+    })),
   });
   const earnedCount = countEarnedBadges(badges);
   const nextBadge = getNextBadge(badges);
@@ -595,24 +602,47 @@ function BadgeChip({ badge }: { badge: ReturnType<typeof getEarnedBadges>[number
   // Sprint 4.4 i18n: subcomponente precisa do seu próprio useTranslation
   // hook — escopo de `t` do parent function não vaza aqui.
   const { t } = useTranslation();
+
+  // Sprint 5.3 — Secret badges:
+  //   !earned + secret → cadeado misterioso + "???" + hint genérico
+  //   earned + secret  → label real visível + ícone único (mesmo
+  //                      comportamento do badge público earned)
+  //   !earned + public → ícone temático dim + label real visível
+  //   earned + public  → ícone temático brilhante + label
+  const isMysterySecret = badge.secret && !badge.earned;
+  const ariaLabel = isMysterySecret
+    ? t("myCircle.badges.secretMystery")
+    : `${badge.label} — ${badge.earned ? t("myCircle.badges.earned") : t("myCircle.badges.locked")}`;
+  const tooltip = isMysterySecret
+    ? t("myCircle.badges.secretHint")
+    : badge.description;
+
   return (
     <div
-      aria-label={`${badge.label} — ${badge.earned ? t("myCircle.badges.earned") : t("myCircle.badges.locked")}`}
+      aria-label={ariaLabel}
       className={[
         "flex aspect-square flex-col items-center justify-center gap-1 rounded-[14px] p-2 text-center transition-colors",
-        badge.earned
-          ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
-          : "bg-white/[0.03] text-white/26",
+        isMysterySecret
+          ? "bg-white/[0.04] text-white/36"
+          : badge.earned
+            ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
+            : "bg-white/[0.03] text-white/30",
       ].join(" ")}
-      title={badge.description}
+      title={tooltip}
     >
-      {badge.earned ? (
-        <Trophy fill="currentColor" size={20} strokeWidth={2} />
+      {isMysterySecret ? (
+        <span className="grid size-7 place-items-center rounded-[10px] bg-white/[0.06] text-white/40">
+          <HelpCircle size={18} strokeWidth={2.4} />
+        </span>
+      ) : badge.earned ? (
+        <BadgeIcon className="size-7" earned iconKey={badge.iconKey} size={18} />
       ) : (
-        <Lock size={18} strokeWidth={2.4} />
+        <span className="grid size-7 place-items-center rounded-[10px] bg-white/[0.04] text-white/36">
+          <Lock size={16} strokeWidth={2.4} />
+        </span>
       )}
       <span className="line-clamp-2 text-[9.5px] font-black leading-[1.1]">
-        {badge.label}
+        {isMysterySecret ? "???" : badge.label}
       </span>
     </div>
   );

@@ -158,7 +158,9 @@
       "earned": "conquistada",
       "locked": "bloqueada",
       "nextHint": "Falta pouco pra {{name}}",
-      "count": "{{earned}}/{{total}}"
+      "count": "{{earned}}/{{total}}",
+      "secretMystery": "Badge secreta — descubra como desbloquear",
+      "secretHint": "Descubra como desbloquear esta badge"
     },
     "recap": {
       "cta": "Compartilhar resumo de {{month}}",
