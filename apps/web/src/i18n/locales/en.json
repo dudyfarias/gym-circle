@@ -628,5 +628,40 @@
     "errors": {
       "save": "Failed to save"
     }
+  },
+  "storyViewer": {
+    "kind": {
+      "checkin": "Check-in",
+      "workout": "Workout"
+    },
+    "header": {
+      "menuAria": "Story options",
+      "closeAria": "Close story"
+    },
+    "share": {
+      "nativeTitle": "Story by {{name}}",
+      "nativeText": "Check out @{{username}}'s story on Gym Circle",
+      "sheetTitle": "Share",
+      "system": "System",
+      "copy": "Copy",
+      "copied": "Copied"
+    },
+    "reply": {
+      "placeholder": "Send a message...",
+      "sendAria": "Reply to story"
+    },
+    "actions": {
+      "likeAria": "Like story",
+      "shareAria": "Share story"
+    },
+    "owner": {
+      "label": "Your story · {{likes}}"
+    },
+    "menu": {
+      "deleteStory": "Delete story",
+      "reportStory": "Report story",
+      "muteUser": "Mute user",
+      "unfollow": "Unfollow"
+    }
   }
 }

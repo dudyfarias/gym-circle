@@ -628,5 +628,40 @@
     "errors": {
       "save": "Falha ao salvar"
     }
+  },
+  "storyViewer": {
+    "kind": {
+      "checkin": "Check-in",
+      "workout": "Treino"
+    },
+    "header": {
+      "menuAria": "Opções do story",
+      "closeAria": "Fechar story"
+    },
+    "share": {
+      "nativeTitle": "Story de {{name}}",
+      "nativeText": "Veja o story de @{{username}} no Gym Circle",
+      "sheetTitle": "Compartilhar",
+      "system": "Sistema",
+      "copy": "Copiar",
+      "copied": "Copiado"
+    },
+    "reply": {
+      "placeholder": "Enviar mensagem...",
+      "sendAria": "Responder story"
+    },
+    "actions": {
+      "likeAria": "Curtir story",
+      "shareAria": "Compartilhar story"
+    },
+    "owner": {
+      "label": "Seu story · {{likes}}"
+    },
+    "menu": {
+      "deleteStory": "Apagar story",
+      "reportStory": "Denunciar story",
+      "muteUser": "Silenciar usuário",
+      "unfollow": "Deixar de seguir"
+    }
   }
 }
