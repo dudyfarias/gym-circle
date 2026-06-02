@@ -611,6 +611,15 @@
     "reportPost": "Denunciar post",
     "blockUser": "Bloquear usuário"
   },
+  "likesOverlay": {
+    "title": "Curtidas",
+    "subtitle": "Pessoas que apoiaram esse treino",
+    "closeAria": "Fechar curtidas",
+    "empty": {
+      "title": "Nenhuma curtida ainda",
+      "detail": "Quando alguém curtir seu treino, aparece aqui."
+    }
+  },
   "editPost": {
     "title": "Editar post",
     "mediaAlt": "Mídia do post",

@@ -1,6 +1,7 @@
 "use client";
 
 import { Heart, UserCheck, UserPlus, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { EmptyState, StreakBadge } from "./design-system";
@@ -25,12 +26,14 @@ export function LikesOverlay({
   open,
   users,
 }: LikesOverlayProps) {
+  const { t } = useTranslation();
+
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/54 backdrop-blur-[10px]">
       <button
-        aria-label="Fechar curtidas"
+        aria-label={t("likesOverlay.closeAria")}
         className="absolute inset-0 cursor-default"
         onClick={onClose}
         type="button"
@@ -43,13 +46,13 @@ export function LikesOverlay({
               <Heart size={17} />
             </div>
             <div>
-              <h2 className="text-[18px] font-black">Curtidas</h2>
+              <h2 className="text-[18px] font-black">{t("likesOverlay.title")}</h2>
               <p className="text-[12px] font-bold text-white/42">
-                Pessoas que apoiaram esse treino
+                {t("likesOverlay.subtitle")}
               </p>
             </div>
           </div>
-          <IconButton label="Fechar" onClick={onClose}>
+          <IconButton label={t("common.close")} onClick={onClose}>
             <X size={18} />
           </IconButton>
         </header>
@@ -107,7 +110,7 @@ export function LikesOverlay({
                       type="button"
                     >
                       {following ? <UserCheck size={14} /> : <UserPlus size={14} />}
-                      {following ? "Seguindo" : "Seguir"}
+                      {following ? t("common.following") : t("common.follow")}
                     </button>
                   ) : null}
                 </div>
@@ -115,8 +118,8 @@ export function LikesOverlay({
             })
           ) : (
             <EmptyState
-              detail="Quando alguém curtir seu treino, aparece aqui."
-              title="Nenhuma curtida ainda"
+              detail={t("likesOverlay.empty.detail")}
+              title={t("likesOverlay.empty.title")}
             />
           )}
         </div>

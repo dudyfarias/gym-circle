@@ -611,6 +611,15 @@
     "reportPost": "Report post",
     "blockUser": "Block user"
   },
+  "likesOverlay": {
+    "title": "Likes",
+    "subtitle": "People who cheered this workout",
+    "closeAria": "Close likes",
+    "empty": {
+      "title": "No likes yet",
+      "detail": "When someone likes your workout, they show up here."
+    }
+  },
   "editPost": {
     "title": "Edit post",
     "mediaAlt": "Post media",
