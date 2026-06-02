@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Search, UserCheck, UserPlus, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { StreakBadge } from "./design-system";
@@ -33,6 +34,7 @@ export function UserSearchSheet({
   onSelectUser,
   onSearchUsers,
 }: UserSearchSheetProps) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [remoteResults, setRemoteResults] = useState<EnrichedUser[]>([]);
   const [searching, setSearching] = useState(false);
@@ -73,7 +75,7 @@ export function UserSearchSheet({
       } catch {
         if (!cancelled) {
           setRemoteResults([]);
-          setSearchError("Não foi possível buscar agora.");
+          setSearchError(t("userSearch.errors.searchFailed"));
         }
       } finally {
         if (!cancelled) setSearching(false);
@@ -84,7 +86,7 @@ export function UserSearchSheet({
       cancelled = true;
       window.clearTimeout(id);
     };
-  }, [currentUserId, onSearchUsers, open, query]);
+  }, [currentUserId, onSearchUsers, open, query, t]);
 
   const localResults = useMemo(() => {
     const filtered = users.filter((u) => u.id !== currentUserId);
@@ -126,14 +128,14 @@ export function UserSearchSheet({
             <input
               className="h-12 flex-1 bg-transparent text-[15px] font-bold text-white outline-none placeholder:text-white/32"
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Buscar @username"
+              placeholder={t("userSearch.placeholder")}
               ref={inputRef}
               type="search"
               value={query}
             />
             {query ? (
               <button
-                aria-label="Limpar"
+                aria-label={t("userSearch.clearAria")}
                 className="gc-pressable text-white/52"
                 onClick={() => setQuery("")}
                 type="button"
@@ -143,7 +145,7 @@ export function UserSearchSheet({
             ) : null}
           </div>
           <button
-            aria-label="Fechar busca"
+            aria-label={t("userSearch.closeAria")}
             className="gc-pressable grid size-12 place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={onClose}
             type="button"
@@ -157,16 +159,20 @@ export function UserSearchSheet({
             <div className="grid h-full place-items-center text-center">
               <div>
                 <p className="text-[16px] font-black text-white/72">
-                  {searching ? "Buscando..." : query ? "Ninguém encontrado" : "Digite um @username"}
+                  {searching
+                    ? t("userSearch.empty.searching")
+                    : query
+                      ? t("userSearch.empty.noResults")
+                      : t("userSearch.empty.idle")}
                 </p>
                 <p className="mt-2 text-[13px] font-bold text-white/44">
                   {searchError
                     ? searchError
                     : query
-                    ? `Nenhum match pra "${query}". Confira o username.`
-                    : users.find((u) => u.id === currentUserId)?.username.toLowerCase() === "dudy"
-                      ? "Como admin, você vê todos os perfis cadastrados."
-                      : "Para encontrar alguém, você precisa saber o @username."}
+                      ? t("userSearch.empty.noResultsDetail", { query })
+                      : users.find((u) => u.id === currentUserId)?.username.toLowerCase() === "dudy"
+                        ? t("userSearch.empty.adminHint")
+                        : t("userSearch.empty.regularHint")}
                 </p>
               </div>
             </div>

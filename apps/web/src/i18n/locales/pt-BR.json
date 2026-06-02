@@ -636,6 +636,22 @@
       "closeAria": "Fechar lista de seguindo"
     }
   },
+  "userSearch": {
+    "placeholder": "Buscar @username",
+    "clearAria": "Limpar",
+    "closeAria": "Fechar busca",
+    "empty": {
+      "searching": "Buscando...",
+      "noResults": "Ninguém encontrado",
+      "idle": "Digite um @username",
+      "noResultsDetail": "Nenhum match pra \"{{query}}\". Confira o username.",
+      "adminHint": "Como admin, você vê todos os perfis cadastrados.",
+      "regularHint": "Para encontrar alguém, você precisa saber o @username."
+    },
+    "errors": {
+      "searchFailed": "Não foi possível buscar agora."
+    }
+  },
   "editPost": {
     "title": "Editar post",
     "mediaAlt": "Mídia do post",

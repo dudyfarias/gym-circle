@@ -636,6 +636,22 @@
       "closeAria": "Close following list"
     }
   },
+  "userSearch": {
+    "placeholder": "Search @username",
+    "clearAria": "Clear",
+    "closeAria": "Close search",
+    "empty": {
+      "searching": "Searching...",
+      "noResults": "No one found",
+      "idle": "Type an @username",
+      "noResultsDetail": "No match for \"{{query}}\". Check the username.",
+      "adminHint": "As admin, you can see all registered profiles.",
+      "regularHint": "To find someone, you need to know their @username."
+    },
+    "errors": {
+      "searchFailed": "Couldn't search right now."
+    }
+  },
   "editPost": {
     "title": "Edit post",
     "mediaAlt": "Post media",
