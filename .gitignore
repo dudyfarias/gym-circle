@@ -22,6 +22,9 @@ output
 .DS_Store
 *.pem
 *.p8
+*.mobileprovision
+*.provisionprofile
+ios-native/**/Config/Secrets.xcconfig
 generate-apple-secret.js
 *.tsbuildinfo
 npm-debug.log*
