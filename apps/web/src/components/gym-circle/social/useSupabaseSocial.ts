@@ -4199,6 +4199,46 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .catch(() => undefined);
   }, [currentUser.createdAt, currentUserId, loading, services.analytics]);
 
+  // Sprint 7 Fase B — bridge de aceite legal pós-signup.
+  // LiveAuthGate salva `gc-pending-legal-accept` no localStorage quando
+  // o user marca o checkbox e completa signup. Aqui chamamos a RPC
+  // accept_alpha_legal() assim que houver session autenticada (o RPC
+  // requer auth.uid()). Funciona em ambos os caminhos:
+  // 1. Signup → session imediata (próximo render dispara o effect)
+  // 2. Signup → email confirm → login (effect dispara depois do confirm)
+  // Se a RPC falhar, mantemos a flag pra tentar de novo no próximo boot.
+  useEffect(() => {
+    if (loading || !currentUser.createdAt) return;
+    if (currentUser.alphaTermsAcceptedAt) return;
+    if (typeof window === "undefined") return;
+    let pending: string | null = null;
+    try {
+      pending = window.localStorage.getItem("gc-pending-legal-accept");
+    } catch {
+      return; // localStorage indisponível
+    }
+    if (pending !== "true") return;
+    void services.onboarding
+      .acceptAlphaLegal()
+      .then(() => {
+        try {
+          window.localStorage.removeItem("gc-pending-legal-accept");
+        } catch {
+          // ignore
+        }
+        void refresh();
+      })
+      .catch(() => {
+        // Mantém flag — retry no próximo boot.
+      });
+  }, [
+    currentUser.alphaTermsAcceptedAt,
+    currentUser.createdAt,
+    loading,
+    refresh,
+    services.onboarding,
+  ]);
+
   const unreadNotifications = useMemo(
     () => agg.myNotifications.filter((n) => !n.read_at).length,
     [agg.myNotifications],

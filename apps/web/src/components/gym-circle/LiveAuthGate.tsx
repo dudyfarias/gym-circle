@@ -1,10 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "@gym-circle/core/hooks";
 import { getAuthErrorMessage, getAuthRedirectTo } from "./authRedirect";
 import { BrandMark } from "./design-system";
+
+// Sprint 7 Fase B — Aceite legal no signup.
+// User marca o checkbox ANTES de submit. Após signUp() OK, salvamos
+// flag em localStorage. O hook useSupabaseSocial detecta a flag no
+// primeiro boot autenticado e chama services.onboarding.acceptAlphaLegal()
+// — bridge necessária porque o RPC requer auth.uid() e signup com email
+// confirm pode não retornar session imediata.
+const PENDING_LEGAL_ACCEPT_KEY = "gc-pending-legal-accept";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
 
@@ -19,6 +27,7 @@ export function LiveAuthGate() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [acceptedLegal, setAcceptedLegal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,11 +51,22 @@ export function LiveAuthGate() {
         await resetPassword(email, getAuthRedirectTo("/reset-password"));
         setSuccess(t("auth.feedback.resetSent"));
       } else {
+        if (!acceptedLegal) {
+          throw new Error(t("auth.errors.legalRequired"));
+        }
         const cleanedUsername = cleanUsername(username);
         if (cleanedUsername.length < 3) {
           throw new Error(t("auth.errors.usernameTooShort"));
         }
         const data = await signUp({ email, password, username: cleanedUsername });
+        // Persiste a intenção de aceite. O bridge no useSupabaseSocial
+        // chama acceptAlphaLegal() assim que houver session autenticada.
+        // Sobrevive a confirmação por email (signup → email confirm → login).
+        try {
+          window.localStorage.setItem(PENDING_LEGAL_ACCEPT_KEY, "true");
+        } catch {
+          // localStorage indisponível (modo privado?). Não bloqueia signup.
+        }
         setSuccess(
           data.session
             ? t("auth.feedback.signupSession")
@@ -132,6 +152,42 @@ export function LiveAuthGate() {
                 type="password"
                 value={password}
               />
+            ) : null}
+            {mode === "sign-up" ? (
+              <label
+                aria-label={t("auth.legal.checkboxAria")}
+                className="flex items-start gap-2 px-1 pt-1 text-[12px] font-bold leading-5 text-white/72"
+              >
+                <input
+                  checked={acceptedLegal}
+                  className="mt-1 size-4 shrink-0 accent-[var(--gc-brand)]"
+                  onChange={(e) => setAcceptedLegal(e.target.checked)}
+                  type="checkbox"
+                />
+                <span>
+                  <Trans
+                    components={{
+                      terms: (
+                        <a
+                          className="text-[var(--gc-brand)] underline"
+                          href="/terms"
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        />
+                      ),
+                      privacy: (
+                        <a
+                          className="text-[var(--gc-brand)] underline"
+                          href="/privacy"
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        />
+                      ),
+                    }}
+                    i18nKey="auth.legal.checkbox"
+                  />
+                </span>
+              </label>
             ) : null}
             {error ? (
               <p className="rounded-[16px] border border-[var(--gc-pink)]/30 bg-[var(--gc-pink)]/10 p-3 text-[12px] font-bold text-[var(--gc-pink)]">

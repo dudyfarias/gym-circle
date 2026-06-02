@@ -288,7 +288,12 @@
     },
     "errors": {
       "usernameTooShort": "Username precisa ter pelo menos 3 caracteres.",
-      "generic": "Não foi possível concluir. Tente novamente."
+      "generic": "Não foi possível concluir. Tente novamente.",
+      "legalRequired": "Você precisa aceitar os Termos e a Privacidade."
+    },
+    "legal": {
+      "checkbox": "Li e aceito os <terms>Termos de Uso</terms> e a <privacy>Política de Privacidade</privacy>.",
+      "checkboxAria": "Aceitar Termos e Política de Privacidade"
     },
     "feedback": {
       "resetSent": "Enviamos um email para alterar sua senha. Abra o link para confirmar.",

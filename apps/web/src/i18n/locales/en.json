@@ -288,7 +288,12 @@
     },
     "errors": {
       "usernameTooShort": "Username must be at least 3 characters.",
-      "generic": "Couldn't complete. Try again."
+      "generic": "Couldn't complete. Try again.",
+      "legalRequired": "You must accept the Terms and Privacy Policy."
+    },
+    "legal": {
+      "checkbox": "I have read and accept the <terms>Terms of Use</terms> and the <privacy>Privacy Policy</privacy>.",
+      "checkboxAria": "Accept Terms and Privacy Policy"
     },
     "feedback": {
       "resetSent": "We sent you a password reset email. Open the link to confirm.",
