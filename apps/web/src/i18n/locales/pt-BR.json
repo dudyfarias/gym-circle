@@ -620,6 +620,22 @@
       "detail": "Quando alguém curtir seu treino, aparece aqui."
     }
   },
+  "followListOverlay": {
+    "followers": {
+      "title": "Seguidores",
+      "detail": "Pessoas que acompanham seu circle",
+      "emptyTitle": "Nenhum seguidor ainda",
+      "emptyDetail": "Quando alguém seguir você, essa lista aparece aqui.",
+      "closeAria": "Fechar seguidores"
+    },
+    "following": {
+      "title": "Seguindo",
+      "detail": "Pessoas que aparecem no seu circle",
+      "emptyTitle": "Você ainda não segue ninguém",
+      "emptyDetail": "Siga pessoas para deixar seu feed mais vivo.",
+      "closeAria": "Fechar lista de seguindo"
+    }
+  },
   "editPost": {
     "title": "Editar post",
     "mediaAlt": "Mídia do post",

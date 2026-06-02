@@ -1,6 +1,7 @@
 "use client";
 
 import { UserCheck, UserPlus, Users, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { EmptyState, StreakBadge } from "./design-system";
@@ -19,21 +20,6 @@ type FollowListOverlayProps = {
   users: EnrichedUser[];
 };
 
-const COPY = {
-  followers: {
-    title: "Seguidores",
-    detail: "Pessoas que acompanham seu circle",
-    emptyTitle: "Nenhum seguidor ainda",
-    emptyDetail: "Quando alguém seguir você, essa lista aparece aqui.",
-  },
-  following: {
-    title: "Seguindo",
-    detail: "Pessoas que aparecem no seu circle",
-    emptyTitle: "Você ainda não segue ninguém",
-    emptyDetail: "Siga pessoas para deixar seu feed mais vivo.",
-  },
-} satisfies Record<FollowListKind, Record<string, string>>;
-
 export function FollowListOverlay({
   currentUserId,
   kind,
@@ -44,13 +30,24 @@ export function FollowListOverlay({
   open,
   users,
 }: FollowListOverlayProps) {
+  const { t } = useTranslation();
+
   if (!open) return null;
-  const copy = COPY[kind];
+
+  // Sprint 4.6+ i18n: copy localizado por kind. Mantém o pattern original
+  // (`COPY[kind]`) mas via i18n key dinâmica `followListOverlay.{kind}.*`.
+  const copy = {
+    title: t(`followListOverlay.${kind}.title`),
+    detail: t(`followListOverlay.${kind}.detail`),
+    emptyTitle: t(`followListOverlay.${kind}.emptyTitle`),
+    emptyDetail: t(`followListOverlay.${kind}.emptyDetail`),
+    closeAria: t(`followListOverlay.${kind}.closeAria`),
+  };
 
   return (
     <div className="fixed inset-0 z-[92] flex items-end justify-center bg-black/54 backdrop-blur-[10px]">
       <button
-        aria-label={`Fechar ${copy.title.toLowerCase()}`}
+        aria-label={copy.closeAria}
         className="absolute inset-0 cursor-default"
         onClick={onClose}
         type="button"
@@ -67,7 +64,7 @@ export function FollowListOverlay({
               <p className="text-[12px] font-bold text-white/42">{copy.detail}</p>
             </div>
           </div>
-          <IconButton label="Fechar" onClick={onClose}>
+          <IconButton label={t("common.close")} onClick={onClose}>
             <X size={18} />
           </IconButton>
         </header>
@@ -125,7 +122,7 @@ export function FollowListOverlay({
                       type="button"
                     >
                       {following ? <UserCheck size={14} /> : <UserPlus size={14} />}
-                      {following ? "Seguindo" : "Seguir"}
+                      {following ? t("common.following") : t("common.follow")}
                     </button>
                   ) : null}
                 </div>

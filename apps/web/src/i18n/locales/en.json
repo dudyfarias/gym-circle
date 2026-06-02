@@ -620,6 +620,22 @@
       "detail": "When someone likes your workout, they show up here."
     }
   },
+  "followListOverlay": {
+    "followers": {
+      "title": "Followers",
+      "detail": "People who follow your circle",
+      "emptyTitle": "No followers yet",
+      "emptyDetail": "When someone follows you, they show up here.",
+      "closeAria": "Close followers"
+    },
+    "following": {
+      "title": "Following",
+      "detail": "People who appear in your circle",
+      "emptyTitle": "You're not following anyone yet",
+      "emptyDetail": "Follow people to make your feed more alive.",
+      "closeAria": "Close following list"
+    }
+  },
   "editPost": {
     "title": "Edit post",
     "mediaAlt": "Post media",
