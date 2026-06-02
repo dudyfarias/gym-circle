@@ -282,20 +282,57 @@ export function calculateWorkoutStats(workoutDays: string[], todayKey = formatDa
   };
 }
 
-export function buildMonthWorkoutDays(workoutDays: string[], todayKey = formatDateKey(new Date())) {
+/**
+ * Constrói o array de dias do mês com flag `trained` + thumbnail opcional.
+ *
+ * Sprint 5.2 — Calendar mini-fotos: aceita 3º parâmetro `posts` (opcional,
+ * back-compat). Quando fornecido, cada dia "trained" tenta resolver o post
+ * mais antigo cujo `workoutDate` bata com o `dateKey` (YYYY-MM-DD). O
+ * thumbnail vem do `thumbnailUrl` do post (preferência LRU-friendly),
+ * caindo pra `imageUrl` quando não há thumbnail dedicado. Vídeos seguem
+ * usando o poster/thumbnail do server.
+ *
+ * Se posts não é fornecido OU nenhum post bate na data, `thumbnailUrl`
+ * fica null — UI mostra cell sólido (comportamento anterior).
+ */
+export function buildMonthWorkoutDays(
+  workoutDays: string[],
+  todayKey = formatDateKey(new Date()),
+  posts?: ReadonlyArray<{
+    workoutDate: string;
+    thumbnailUrl?: string | null;
+    imageUrl?: string | null;
+  }>,
+) {
   const monthKey = todayKey.slice(0, 7);
   const [year, month] = monthKey.split("-").map(Number);
   const totalDays = new Date(year, month, 0).getDate();
   const daySet = new Set(workoutDays);
 
+  // Index posts by workoutDate pra lookup O(1) por dia. Quando há mais de
+  // um post no mesmo dia, mantemos o primeiro encontrado (caller deve já
+  // ordenar por preferência — geralmente ordem do feed).
+  const postsByDate = new Map<string, { thumbnailUrl: string | null }>();
+  if (posts) {
+    for (const post of posts) {
+      if (!post.workoutDate || postsByDate.has(post.workoutDate)) continue;
+      postsByDate.set(post.workoutDate, {
+        thumbnailUrl: post.thumbnailUrl ?? post.imageUrl ?? null,
+      });
+    }
+  }
+
   return Array.from({ length: totalDays }, (_, index) => {
     const day = index + 1;
     const dateKey = `${monthKey}-${String(day).padStart(2, "0")}`;
+    const trained = daySet.has(dateKey);
+    const postMatch = trained ? postsByDate.get(dateKey) : undefined;
 
     return {
       day,
       dateKey,
-      trained: daySet.has(dateKey),
+      trained,
+      thumbnailUrl: postMatch?.thumbnailUrl ?? null,
     };
   });
 }

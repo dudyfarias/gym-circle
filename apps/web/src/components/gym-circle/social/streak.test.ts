@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildConsistencyRings,
+  buildMonthWorkoutDays,
   calculateWorkoutStats,
   formatStreakDays,
   formatTrainingStreakText,
@@ -221,5 +222,90 @@ describe("getConsistencyProgress + buildConsistencyRings — Sprint 3.5", () => 
     });
     expect(rings.find((r) => r.id === "day")).toBeUndefined();
     expect(rings.find((r) => r.id === "streak")).toBeUndefined();
+  });
+});
+
+describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
+  // Today key controlado pra determinismo: 15 de Maio 2026 → mês com 31 dias
+  const todayKey = "2026-05-15";
+
+  it("retorna array com todos os dias do mês, trained derivado de workoutDays", () => {
+    const result = buildMonthWorkoutDays(["2026-05-01", "2026-05-15"], todayKey);
+    expect(result).toHaveLength(31);
+    expect(result[0]).toEqual({
+      day: 1,
+      dateKey: "2026-05-01",
+      trained: true,
+      thumbnailUrl: null,
+    });
+    expect(result[14]).toEqual({
+      day: 15,
+      dateKey: "2026-05-15",
+      trained: true,
+      thumbnailUrl: null,
+    });
+    expect(result[5].trained).toBe(false);
+  });
+
+  it("linka thumbnailUrl do post quando workoutDate bate com o dia", () => {
+    const posts = [
+      {
+        workoutDate: "2026-05-01",
+        thumbnailUrl: "https://cdn/thumb-1.jpg",
+        imageUrl: "https://cdn/img-1.jpg",
+      },
+      {
+        workoutDate: "2026-05-15",
+        thumbnailUrl: null,
+        imageUrl: "https://cdn/img-2.jpg",
+      },
+    ];
+    const result = buildMonthWorkoutDays(
+      ["2026-05-01", "2026-05-15"],
+      todayKey,
+      posts,
+    );
+    // Dia 1: usa thumbnailUrl direto
+    expect(result[0].thumbnailUrl).toBe("https://cdn/thumb-1.jpg");
+    // Dia 15: thumbnailUrl null no post → cai pro imageUrl
+    expect(result[14].thumbnailUrl).toBe("https://cdn/img-2.jpg");
+    // Dia 6: não treinou, sem thumb
+    expect(result[5].thumbnailUrl).toBe(null);
+  });
+
+  it("ignora posts cujo workoutDate não bate em nenhum dia trained", () => {
+    const posts = [
+      {
+        workoutDate: "2026-04-30",
+        thumbnailUrl: "https://cdn/should-be-ignored.jpg",
+        imageUrl: null,
+      },
+    ];
+    const result = buildMonthWorkoutDays(["2026-05-01"], todayKey, posts);
+    // Nenhum dia ganhou thumb (post é de outro mês)
+    expect(result.every((d) => d.thumbnailUrl === null)).toBe(true);
+  });
+
+  it("usa primeiro post quando há múltiplos no mesmo dia", () => {
+    const posts = [
+      {
+        workoutDate: "2026-05-10",
+        thumbnailUrl: "https://cdn/first.jpg",
+        imageUrl: null,
+      },
+      {
+        workoutDate: "2026-05-10",
+        thumbnailUrl: "https://cdn/second.jpg",
+        imageUrl: null,
+      },
+    ];
+    const result = buildMonthWorkoutDays(["2026-05-10"], todayKey, posts);
+    expect(result[9].thumbnailUrl).toBe("https://cdn/first.jpg");
+  });
+
+  it("back-compat: sem posts param, thumbnailUrl é sempre null", () => {
+    const result = buildMonthWorkoutDays(["2026-05-01"], todayKey);
+    expect(result[0].thumbnailUrl).toBe(null);
+    expect(result[0].trained).toBe(true);
   });
 });

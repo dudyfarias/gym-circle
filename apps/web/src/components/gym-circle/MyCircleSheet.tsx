@@ -129,9 +129,15 @@ export function MyCircleSheet({
 
   const calendarDate = new Date(calendarMonth.year, calendarMonth.month, 1);
   const totalDaysInCalendarMonth = getTotalDaysInMonth(calendarDate);
+  // Sprint 5.2 — passa posts pro builder linkar thumbnail por workoutDate.
+  // Posts vêm do parent já filtrados pelo user dono do MyCircleSheet
+  // (pode ser próprio ou outro user — privacy já checada lá em cima
+  // via canSeeDetails). Quando não há foto, builder retorna thumbnailUrl null
+  // e a UI cai pro estilo sólido anterior — fully back-compat.
   const monthDays = buildMonthWorkoutDays(
     user.workoutDays ?? [],
     formatDateKey(calendarDate),
+    posts,
   );
 
   // Cabeçalho do calendário: posição do primeiro dia da semana
@@ -366,6 +372,13 @@ export function MyCircleSheet({
                       const day = idx + 1;
                       const isToday = dayInfo?.dateKey === todayKey;
                       const trained = Boolean(dayInfo?.trained);
+                      const thumbnailUrl = dayInfo?.thumbnailUrl ?? null;
+                      // Sprint 5.2 — Gym Rats style: cell quadrada com
+                      // background-image quando há foto do treino daquele dia.
+                      // Numero do dia em overlay branco com text-shadow pra
+                      // legibilidade sobre qualquer foto. Cells sem foto OU
+                      // dias não treinados caem no estilo sólido original.
+                      const hasPhoto = trained && thumbnailUrl;
                       return (
                         <div
                           aria-label={
@@ -374,17 +387,36 @@ export function MyCircleSheet({
                               : t("myCircle.calendar.notTrained", { day })
                           }
                           className={[
-                            "relative grid aspect-square place-items-center rounded-[10px] text-[11px] font-black transition-colors",
-                            trained
-                              ? "bg-[var(--gc-consistency-month)]/22 text-[var(--gc-consistency-month)]"
-                              : "bg-white/[0.04] text-white/36",
+                            "relative grid aspect-square place-items-center overflow-hidden rounded-[10px] text-[11px] font-black transition-colors",
+                            hasPhoto
+                              ? "text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                              : trained
+                                ? "bg-[var(--gc-consistency-month)]/22 text-[var(--gc-consistency-month)]"
+                                : "bg-white/[0.04] text-white/36",
                             isToday
                               ? "ring-2 ring-[var(--gc-brand)]/72 ring-offset-2 ring-offset-[#101214]"
                               : "",
                           ].join(" ")}
                           key={`day-${day}`}
+                          style={
+                            hasPhoto
+                              ? {
+                                  backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.36)), url(${thumbnailUrl})`,
+                                  backgroundSize: "cover",
+                                  backgroundPosition: "center",
+                                }
+                              : undefined
+                          }
                         >
-                          {day}
+                          <span
+                            className={
+                              hasPhoto
+                                ? "relative text-shadow-[0_1px_3px_rgba(0,0,0,0.72)] [text-shadow:0_1px_3px_rgba(0,0,0,0.72)]"
+                                : "relative"
+                            }
+                          >
+                            {day}
+                          </span>
                         </div>
                       );
                     })}
