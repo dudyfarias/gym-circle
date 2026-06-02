@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, UserPlus, X } from "lucide-react";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
 import type { EditPostInput, EnrichedPost, EnrichedUser } from "./social/types";
@@ -14,14 +15,17 @@ type EditPostSheetProps = {
   onSave: (postId: string, input: EditPostInput) => Promise<void>;
 };
 
-const workoutTypes = [
-  { label: "Sem tipo", value: "" },
-  { label: "Musculação", value: "Musculação" },
-  { label: "Corrida", value: "Corrida" },
-  { label: "Bike", value: "Bike" },
-  { label: "Funcional", value: "Funcional" },
-  { label: "Cardio", value: "Cardio" },
-  { label: "Mobilidade", value: "Mobilidade" },
+// Workout types: value PT-BR é source-of-truth no DB.
+// key indexa o label i18n via postScreen.workoutType.options.{key}
+// (reutilizamos o mesmo namespace do composer).
+const workoutTypes: ReadonlyArray<{ key: string; value: string }> = [
+  { key: "none", value: "" },
+  { key: "musculacao", value: "Musculação" },
+  { key: "corrida", value: "Corrida" },
+  { key: "bike", value: "Bike" },
+  { key: "funcional", value: "Funcional" },
+  { key: "cardio", value: "Cardio" },
+  { key: "mobilidade", value: "Mobilidade" },
 ];
 
 function normalizeSearch(value: string) {
@@ -39,6 +43,7 @@ export function EditPostSheet({
   onClose,
   onSave,
 }: EditPostSheetProps) {
+  const { t } = useTranslation();
   const [caption, setCaption] = useState("");
   const [workoutType, setWorkoutType] = useState("");
   const [friendQuery, setFriendQuery] = useState("");
@@ -101,7 +106,7 @@ export function EditPostSheet({
       });
       onClose();
     } catch (err) {
-      setError((err as Error).message ?? "Falha ao salvar");
+      setError((err as Error).message ?? t("editPost.errors.save"));
     } finally {
       setSaving(false);
     }
@@ -113,9 +118,9 @@ export function EditPostSheet({
     <div className="gc-safe-overlay absolute inset-0 z-[85] bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
-          <p className="text-[17px] font-black">Editar post</p>
+          <p className="text-[17px] font-black">{t("editPost.title")}</p>
           <button
-            aria-label="Fechar"
+            aria-label={t("common.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={onClose}
             type="button"
@@ -143,7 +148,7 @@ export function EditPostSheet({
               />
             ) : (
               <PinchZoomImage
-                alt="Mídia do post"
+                alt={t("editPost.mediaAlt")}
                 blurDataUrl={post.blurDataUrl}
                 className="w-full"
                 hqSrc={
@@ -156,35 +161,37 @@ export function EditPostSheet({
               />
             )}
             <div className="absolute bottom-2 left-2 rounded-full bg-black/64 px-3 py-1.5 text-[11px] font-bold text-white/72 backdrop-blur-md">
-              A mídia não pode ser trocada — apague e poste novamente se precisar.
+              {t("editPost.mediaLocked")}
             </div>
           </div>
 
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-black uppercase text-white/52">
-              Legenda
+              {t("editPost.captionLabel")}
             </span>
             <textarea
               className="min-h-24 w-full resize-none rounded-[16px] border border-white/[0.08] bg-black/40 px-4 py-3 text-[15px] font-semibold text-white outline-none"
               maxLength={300}
               onChange={(e) => setCaption(e.target.value)}
-              placeholder="Como foi o treino?"
+              placeholder={t("postScreen.caption.placeholder")}
               value={caption}
             />
           </label>
 
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-black uppercase text-white/52">
-              Tipo de treino
+              {t("editPost.workoutTypeLabel")}
             </span>
             <select
               className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[15px] font-bold text-white outline-none"
               onChange={(e) => setWorkoutType(e.target.value)}
               value={workoutType}
             >
-              {workoutTypes.map((t) => (
-                <option className="bg-black" key={t.value || "none"} value={t.value}>
-                  {t.label}
+              {workoutTypes.map((type) => (
+                <option className="bg-black" key={type.key} value={type.value}>
+                  {type.key === "none"
+                    ? t("editPost.workoutTypeNone")
+                    : t(`postScreen.workoutType.options.${type.key}`)}
                 </option>
               ))}
             </select>
@@ -194,10 +201,10 @@ export function EditPostSheet({
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[12px] font-black uppercase text-white/52">
-                  Marcar amigos
+                  {t("editPost.tagFriends.label")}
                 </p>
                 <p className="mt-0.5 text-[12px] font-bold text-white/42">
-                  Envia uma solicitação. Só conta streak depois do aceite.
+                  {t("editPost.tagFriends.hint")}
                 </p>
               </div>
               <div className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
@@ -212,7 +219,7 @@ export function EditPostSheet({
                     className="rounded-full border border-[var(--gc-brand)]/28 bg-[var(--gc-brand)]/10 px-3 py-1.5 text-[12px] font-black text-[var(--gc-brand)]"
                     key={`accepted-${user.id}`}
                   >
-                    @{user.username} aceitou
+                    {t("editPost.tagFriends.accepted", { username: user.username })}
                   </span>
                 ))}
                 {pendingParticipants.map((user) => (
@@ -220,7 +227,7 @@ export function EditPostSheet({
                     className="rounded-full border border-white/[0.1] bg-white/[0.06] px-3 py-1.5 text-[12px] font-black text-white/60"
                     key={`pending-${user.id}`}
                   >
-                    @{user.username} pendente
+                    {t("editPost.tagFriends.pending", { username: user.username })}
                   </span>
                 ))}
               </div>
@@ -247,7 +254,7 @@ export function EditPostSheet({
             <input
               className="h-12 w-full rounded-[16px] border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
               onChange={(event) => setFriendQuery(event.target.value)}
-              placeholder="Buscar por username..."
+              placeholder={t("editPost.tagFriends.searchPlaceholder")}
               value={friendQuery}
             />
 
@@ -289,7 +296,7 @@ export function EditPostSheet({
               </div>
             ) : friendQuery.trim() ? (
               <p className="mt-2 text-[12px] font-bold text-white/36">
-                Nenhum usuário encontrado.
+                {t("editPost.tagFriends.empty")}
               </p>
             ) : null}
           </div>
@@ -309,7 +316,7 @@ export function EditPostSheet({
             type="button"
           >
             <Check size={17} strokeWidth={2.8} />
-            {saving ? "Salvando..." : "Salvar alterações"}
+            {saving ? t("editPost.saving") : t("editPost.save")}
           </button>
         </div>
       </div>

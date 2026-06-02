@@ -607,5 +607,26 @@
     "muteUser": "Silenciar usuário",
     "reportPost": "Denunciar post",
     "blockUser": "Bloquear usuário"
+  },
+  "editPost": {
+    "title": "Editar post",
+    "mediaAlt": "Mídia do post",
+    "mediaLocked": "A mídia não pode ser trocada — apague e poste novamente se precisar.",
+    "captionLabel": "Legenda",
+    "workoutTypeLabel": "Tipo de treino",
+    "workoutTypeNone": "Sem tipo",
+    "tagFriends": {
+      "label": "Marcar amigos",
+      "hint": "Envia uma solicitação. Só conta streak depois do aceite.",
+      "accepted": "@{{username}} aceitou",
+      "pending": "@{{username}} pendente",
+      "searchPlaceholder": "Buscar por username...",
+      "empty": "Nenhum usuário encontrado."
+    },
+    "saving": "Salvando...",
+    "save": "Salvar alterações",
+    "errors": {
+      "save": "Falha ao salvar"
+    }
   }
 }

@@ -607,5 +607,26 @@
     "muteUser": "Mute user",
     "reportPost": "Report post",
     "blockUser": "Block user"
+  },
+  "editPost": {
+    "title": "Edit post",
+    "mediaAlt": "Post media",
+    "mediaLocked": "Media can't be swapped — delete and re-post if needed.",
+    "captionLabel": "Caption",
+    "workoutTypeLabel": "Workout type",
+    "workoutTypeNone": "No type",
+    "tagFriends": {
+      "label": "Tag friends",
+      "hint": "Sends a request. Only counts toward streak after they accept.",
+      "accepted": "@{{username}} accepted",
+      "pending": "@{{username}} pending",
+      "searchPlaceholder": "Search by username...",
+      "empty": "No users found."
+    },
+    "saving": "Saving...",
+    "save": "Save changes",
+    "errors": {
+      "save": "Failed to save"
+    }
   }
 }
