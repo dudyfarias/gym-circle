@@ -106,7 +106,7 @@ export function CommentsBottomSheet({
   resolveUser,
   mentionUsers = [],
 }: CommentsBottomSheetProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState("");
   const [caretIndex, setCaretIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -315,7 +315,10 @@ export function CommentsBottomSheet({
                 </p>
               </div>
               <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/52">
-                {commentsCount.toLocaleString()} comentários
+                {t("comments.headerCount", {
+                  count: commentsCount,
+                  formatted: commentsCount.toLocaleString(i18n.language),
+                })}
               </span>
             </div>
             {post.caption ? (
@@ -518,7 +521,7 @@ export function CommentsBottomSheet({
             />
           ) : null}
           <input
-            aria-label="Comentário"
+            aria-label={t("comments.inputAria")}
             className="h-11 min-w-0 flex-1 rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
             enterKeyHint="send"
             onChange={(event) => {

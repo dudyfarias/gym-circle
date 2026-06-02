@@ -102,7 +102,10 @@
     "unlike": "Remove like from comment",
     "showingOf": "Showing {{shown}} of {{total}} comments",
     "reactWith": "React with {{emoji}}",
-    "close": "Close comments"
+    "close": "Close comments",
+    "inputAria": "Comment",
+    "headerCount_one": "{{formatted}} comment",
+    "headerCount_other": "{{formatted}} comments"
   },
   "stories": {
     "yourStory": "Your story",

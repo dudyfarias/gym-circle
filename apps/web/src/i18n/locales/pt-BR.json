@@ -102,7 +102,10 @@
     "unlike": "Remover curtida do comentário",
     "showingOf": "Mostrando {{shown}} de {{total}} comentários",
     "reactWith": "Reagir com {{emoji}}",
-    "close": "Fechar comentários"
+    "close": "Fechar comentários",
+    "inputAria": "Comentário",
+    "headerCount_one": "{{formatted}} comentário",
+    "headerCount_other": "{{formatted}} comentários"
   },
   "stories": {
     "yourStory": "Seu story",
