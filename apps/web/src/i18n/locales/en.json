@@ -521,5 +521,84 @@
         "uploadInvalidType": "Pick a photo or video."
       }
     }
+  },
+  "chatScreen": {
+    "topBar": {
+      "eyebrow": "Circle",
+      "title": "Messages"
+    },
+    "search": {
+      "placeholder": "Search @username",
+      "newGroupAria": "New group"
+    },
+    "sections": {
+      "friends": "Friends",
+      "following": "following",
+      "results": "Results",
+      "conversations": "Conversations"
+    },
+    "messagePreview": {
+      "empty": "Start the conversation",
+      "storyReply": "Replied to story",
+      "storyShare": "Shared a story",
+      "videoSent": "Video sent",
+      "photoSent": "Photo sent",
+      "fallback": "Message",
+      "yourPrefix": "You: "
+    },
+    "userStatus": {
+      "trainedToday": "trained today",
+      "notLit": "circle not lit yet"
+    },
+    "empty": {
+      "searchingTitle": "Searching...",
+      "searchingDetail": "Looking up profiles by username.",
+      "noUsersTitle": "No users found",
+      "noUsersDetail": "To start a conversation, you need to know the @username.",
+      "noConversationsTitle": "No conversations yet",
+      "noConversationsDetail": "Search for an @username or create a group to plan a workout.",
+      "newConversationCta": "New conversation"
+    },
+    "groupComposer": {
+      "namePlaceholder": "Group name",
+      "loading": "Searching users...",
+      "prompt": "Search for an @username to add people.",
+      "groupBadge": "group",
+      "defaultGroupName": "Gym Circle Group"
+    },
+    "conversation": {
+      "deleteAria": "Delete conversation with {{name}}",
+      "messageCta": "Message",
+      "groupMembersCount": "{{count}} people in the group",
+      "backAria": "Back",
+      "openCameraAria": "Open camera",
+      "openGalleryAria": "Send photo or video",
+      "messageAria": "Message",
+      "messagePlaceholder": "Message...",
+      "sendAria": "Send message",
+      "reactAria": "Send reaction"
+    },
+    "emptyThread": {
+      "title": "Start the conversation",
+      "detail": "Send a message or media to plan a workout."
+    },
+    "story": {
+      "replyAlt": "Story replied",
+      "shareAlt": "Story shared",
+      "replyLabel": "Story reply",
+      "shareLabel": "Story shared"
+    },
+    "media": {
+      "chatAlt": "Media sent in chat",
+      "groupAlt": "Group",
+      "uploadInvalidType": "Send a photo or video."
+    },
+    "errors": {
+      "searchUsers": "Failed to search users",
+      "createGroup": "Failed to create group",
+      "deleteConversation": "Failed to delete conversation",
+      "send": "Failed to send",
+      "sendMedia": "Failed to send media"
+    }
   }
 }

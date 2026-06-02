@@ -521,5 +521,84 @@
         "uploadInvalidType": "Escolha uma foto ou vídeo."
       }
     }
+  },
+  "chatScreen": {
+    "topBar": {
+      "eyebrow": "Circle",
+      "title": "Mensagens"
+    },
+    "search": {
+      "placeholder": "Buscar @username",
+      "newGroupAria": "Novo grupo"
+    },
+    "sections": {
+      "friends": "Amigos",
+      "following": "seguindo",
+      "results": "Resultados",
+      "conversations": "Conversas"
+    },
+    "messagePreview": {
+      "empty": "Comece a conversa",
+      "storyReply": "Respondeu ao story",
+      "storyShare": "Compartilhou um story",
+      "videoSent": "Vídeo enviado",
+      "photoSent": "Foto enviada",
+      "fallback": "Mensagem",
+      "yourPrefix": "Você: "
+    },
+    "userStatus": {
+      "trainedToday": "treinou hoje",
+      "notLit": "ainda não acendeu o círculo"
+    },
+    "empty": {
+      "searchingTitle": "Buscando...",
+      "searchingDetail": "Procurando perfis pelo username.",
+      "noUsersTitle": "Nenhum usuário encontrado",
+      "noUsersDetail": "Para começar uma conversa, você precisa saber o @username.",
+      "noConversationsTitle": "Nenhuma conversa ainda",
+      "noConversationsDetail": "Busque um @username ou crie um grupo para combinar treino.",
+      "newConversationCta": "Nova conversa"
+    },
+    "groupComposer": {
+      "namePlaceholder": "Nome do grupo",
+      "loading": "Buscando usuários...",
+      "prompt": "Busque por @username para adicionar pessoas.",
+      "groupBadge": "grupo",
+      "defaultGroupName": "Grupo Gym Circle"
+    },
+    "conversation": {
+      "deleteAria": "Apagar conversa {{name}}",
+      "messageCta": "Mensagem",
+      "groupMembersCount": "{{count}} pessoas no grupo",
+      "backAria": "Voltar",
+      "openCameraAria": "Abrir câmera",
+      "openGalleryAria": "Enviar foto ou vídeo",
+      "messageAria": "Mensagem",
+      "messagePlaceholder": "Mensagem...",
+      "sendAria": "Enviar mensagem",
+      "reactAria": "Enviar reação"
+    },
+    "emptyThread": {
+      "title": "Comece a conversa",
+      "detail": "Envie uma mensagem ou mídia para combinar treino."
+    },
+    "story": {
+      "replyAlt": "Story respondido",
+      "shareAlt": "Story compartilhado",
+      "replyLabel": "Resposta ao story",
+      "shareLabel": "Story compartilhado"
+    },
+    "media": {
+      "chatAlt": "Mídia enviada no chat",
+      "groupAlt": "Grupo",
+      "uploadInvalidType": "Envie uma foto ou vídeo."
+    },
+    "errors": {
+      "searchUsers": "Falha ao buscar usuários",
+      "createGroup": "Falha ao criar grupo",
+      "deleteConversation": "Falha ao apagar conversa",
+      "send": "Falha ao enviar",
+      "sendMedia": "Falha ao enviar mídia"
+    }
   }
 }

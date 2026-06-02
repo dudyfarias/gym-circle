@@ -16,6 +16,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import { EmptyState, StreakBadge, SwipeRevealDelete } from "../design-system";
@@ -71,35 +72,41 @@ type ConversationItem = {
   lastReadAt: string | null;
 };
 
-function formatMessageTime(createdAt?: string | null): string {
+// t function type (matches react-i18next's TFunction return signature)
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+function formatMessageTime(createdAt: string | null | undefined, locale: string): string {
   if (!createdAt) return "";
-  return new Intl.DateTimeFormat("pt-BR", {
+  // Use current i18n locale for time formatting (en uses 12h, pt-BR uses 24h by default)
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(createdAt));
 }
 
-function getMessagePreview(message: ChatMessage | null): string {
-  if (!message) return "Comece a conversa";
-  if (message.replyToStory) return "Respondeu ao story";
-  if (message.storyId) return "Compartilhou um story";
+function getMessagePreview(message: ChatMessage | null, t: TFn): string {
+  if (!message) return t("chatScreen.messagePreview.empty");
+  if (message.replyToStory) return t("chatScreen.messagePreview.storyReply");
+  if (message.storyId) return t("chatScreen.messagePreview.storyShare");
   if (message.body) return message.body;
-  if (message.mediaType === "video") return "Vídeo enviado";
-  if (message.mediaUrl) return "Foto enviada";
-  return "Mensagem";
+  if (message.mediaType === "video") return t("chatScreen.messagePreview.videoSent");
+  if (message.mediaUrl) return t("chatScreen.messagePreview.photoSent");
+  return t("chatScreen.messagePreview.fallback");
 }
 
-function getStatusCopy(user: EnrichedUser): string {
-  return user.streakLitToday ? "treinou hoje" : "ainda não acendeu o círculo";
+function getStatusCopy(user: EnrichedUser, t: TFn): string {
+  return user.streakLitToday
+    ? t("chatScreen.userStatus.trainedToday")
+    : t("chatScreen.userStatus.notLit");
 }
 
 function getOtherUserId(message: ChatMessage, currentUserId: string): string | null {
   return message.senderId === currentUserId ? message.receiverId : message.senderId;
 }
 
-function getGroupName(members: EnrichedUser[], fallback?: string | null): string {
+function getGroupName(members: EnrichedUser[], t: TFn, fallback?: string | null): string {
   if (fallback?.trim()) return fallback.trim();
-  if (members.length === 0) return "Grupo Gym Circle";
+  if (members.length === 0) return t("chatScreen.groupComposer.defaultGroupName");
   return members
     .slice(0, 3)
     .map((member) => member.name.split(" ")[0])
@@ -127,6 +134,7 @@ export function ChatScreen({
   onThreadViewChange,
   onUploadImage,
 }: ChatScreenProps) {
+  const { t, i18n } = useTranslation();
   const safeMessages = useMemo(() => messages ?? [], [messages]);
   const safeConversations = useMemo(() => conversations ?? [], [conversations]);
   const loading = loadingProp ?? messages === undefined;
@@ -193,7 +201,7 @@ export function ChatScreen({
         .catch((err) => {
           if (!cancelled) {
             setRemoteSearch({ query: normalizedChatQuery, users: [] });
-            setError((err as Error).message || "Falha ao buscar usuários");
+            setError((err as Error).message || t("chatScreen.errors.searchUsers"));
           }
         })
         .finally(() => {
@@ -282,7 +290,7 @@ export function ChatScreen({
             type: "group" as const,
             user: null,
             members,
-            name: getGroupName(members, conversation.name),
+            name: getGroupName(members, t, conversation.name),
             imageUrl: conversation.imageUrl,
             messages: sortedMessages,
             last,
@@ -352,7 +360,7 @@ export function ChatScreen({
         (b.lastReadAt ? new Date(b.lastReadAt).getTime() : 0);
       return bTime - aTime || b.unread - a.unread;
     });
-  }, [currentUser.id, safeConversations, safeMessages, usersById]);
+  }, [currentUser.id, safeConversations, safeMessages, t, usersById]);
 
   const hasControlledSelectedUserId = controlledSelectedUserId !== undefined;
   const selectedUserId = hasControlledSelectedUserId
@@ -469,7 +477,7 @@ export function ChatScreen({
     setError(null);
     try {
       const conversationId = await onCreateGroupConversation({
-        name: groupName.trim() || "Grupo Gym Circle",
+        name: groupName.trim() || t("chatScreen.groupComposer.defaultGroupName"),
         memberIds: selectedGroupMemberIds,
       });
       setSelectedConversationId(conversationId);
@@ -478,7 +486,7 @@ export function ChatScreen({
       setSelectedGroupMemberIds([]);
       setGroupComposerOpen(false);
     } catch (err) {
-      setError((err as Error).message ?? "Falha ao criar grupo");
+      setError((err as Error).message ?? t("chatScreen.errors.createGroup"));
     } finally {
       setSending(false);
     }
@@ -500,7 +508,7 @@ export function ChatScreen({
         if (selectedUserId === conversation.user.id) closeThread();
       }
     } catch (err) {
-      setError((err as Error).message ?? "Falha ao apagar conversa");
+      setError((err as Error).message ?? t("chatScreen.errors.deleteConversation"));
     } finally {
       setDeletingConversationId(null);
       setDeletingUserId(null);
@@ -519,7 +527,7 @@ export function ChatScreen({
       }
       setDraft("");
     } catch (err) {
-      setError((err as Error).message ?? "Falha ao enviar");
+      setError((err as Error).message ?? t("chatScreen.errors.send"));
     } finally {
       setSending(false);
     }
@@ -539,7 +547,7 @@ export function ChatScreen({
         ? "image"
         : null;
     if (!mediaType) {
-      setError("Envie uma foto ou vídeo.");
+      setError(t("chatScreen.media.uploadInvalidType"));
       return;
     }
     setSending(true);
@@ -552,7 +560,7 @@ export function ChatScreen({
         await onSendMessage({ receiverId: selectedThread.user.id, mediaUrl, mediaType });
       }
     } catch (err) {
-      setError((err as Error).message ?? "Falha ao enviar mídia");
+      setError((err as Error).message ?? t("chatScreen.errors.sendMedia"));
     } finally {
       setSending(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -585,7 +593,10 @@ export function ChatScreen({
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Circle" title="Mensagens" />
+      <TopBar
+        eyebrow={t("chatScreen.topBar.eyebrow")}
+        title={t("chatScreen.topBar.title")}
+      />
 
       <div className="mt-5 flex items-center gap-2">
         <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.055] px-4 backdrop-blur-2xl">
@@ -593,7 +604,7 @@ export function ChatScreen({
           <input
             className="h-12 min-w-0 flex-1 bg-transparent text-[14px] font-bold text-white outline-none placeholder:text-white/28"
             onChange={(event) => setChatQuery(event.target.value)}
-            placeholder="Buscar @username"
+            placeholder={t("chatScreen.search.placeholder")}
             ref={searchRef}
             type="search"
             value={chatQuery}
@@ -601,7 +612,7 @@ export function ChatScreen({
         </div>
         <IconButton
           className="size-12 border-[var(--gc-brand)]/20 bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]"
-          label="Novo grupo"
+          label={t("chatScreen.search.newGroupAria")}
           onClick={() => setGroupComposerOpen((value) => !value)}
         >
           {groupComposerOpen ? <X size={18} /> : <PenLine size={18} />}
@@ -628,9 +639,11 @@ export function ChatScreen({
         <section className="mt-5">
           <div className="mb-3 flex items-center justify-between px-1">
             <p className="text-[12px] font-black uppercase tracking-[0.08em] text-white/42">
-              Amigos
+              {t("chatScreen.sections.friends")}
             </p>
-            <span className="text-[11px] font-black text-white/34">seguindo</span>
+            <span className="text-[11px] font-black text-white/34">
+              {t("chatScreen.sections.following")}
+            </span>
           </div>
           <div className="gc-scrollbar -mx-5 flex gap-4 overflow-x-auto px-5 pb-1">
             {friends.map((person) => (
@@ -680,7 +693,7 @@ export function ChatScreen({
       {chatQuery.trim() && !groupComposerOpen ? (
         <section className="mt-5 space-y-2">
           <p className="px-1 text-[12px] font-black uppercase tracking-[0.08em] text-white/42">
-            Resultados
+            {t("chatScreen.sections.results")}
           </p>
           {searchResults.length > 0 ? (
             searchResults.map((user) => (
@@ -688,13 +701,13 @@ export function ChatScreen({
             ))
           ) : isSearchingCurrentQuery ? (
             <EmptyState
-              detail="Procurando perfis pelo username."
-              title="Buscando..."
+              detail={t("chatScreen.empty.searchingDetail")}
+              title={t("chatScreen.empty.searchingTitle")}
             />
           ) : (
             <EmptyState
-              detail="Para começar uma conversa, você precisa saber o @username."
-              title="Nenhum usuário encontrado"
+              detail={t("chatScreen.empty.noUsersDetail")}
+              title={t("chatScreen.empty.noUsersTitle")}
             />
           )}
         </section>
@@ -702,7 +715,7 @@ export function ChatScreen({
         <section className="mt-5">
           <div className="mb-3 flex items-center justify-between px-1">
             <p className="text-[12px] font-black uppercase tracking-[0.08em] text-white/42">
-              Conversas
+              {t("chatScreen.sections.conversations")}
             </p>
             {conversationItems.length > 0 ? (
               <span className="text-[11px] font-black text-white/34">
@@ -740,11 +753,11 @@ export function ChatScreen({
                   onClick={() => searchRef.current?.focus()}
                   type="button"
                 >
-                  Nova conversa
+                  {t("chatScreen.empty.newConversationCta")}
                 </button>
               }
-              detail="Busque um @username ou crie um grupo para combinar treino."
-              title="Nenhuma conversa ainda"
+              detail={t("chatScreen.empty.noConversationsDetail")}
+              title={t("chatScreen.empty.noConversationsTitle")}
             />
           )}
         </section>
@@ -772,6 +785,7 @@ function GroupComposer({
   onToggleMember: (userId: string) => void;
   selectedIds: string[];
 }) {
+  const { t } = useTranslation();
   return (
     <section className="mt-4 rounded-[28px] border border-white/[0.08] bg-white/[0.045] p-3 backdrop-blur-2xl">
       <div className="flex items-center gap-2">
@@ -781,7 +795,7 @@ function GroupComposer({
         <input
           className="h-11 min-w-0 flex-1 rounded-full bg-black/30 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
           onChange={(event) => onGroupNameChange(event.target.value)}
-          placeholder="Nome do grupo"
+          placeholder={t("chatScreen.groupComposer.namePlaceholder")}
           value={groupName}
         />
         <button
@@ -820,11 +834,11 @@ function GroupComposer({
           ))
         ) : loading ? (
           <p className="px-2 py-2 text-[12px] font-bold text-white/38">
-            Buscando usuários...
+            {t("chatScreen.groupComposer.loading")}
           </p>
         ) : (
           <p className="px-2 py-2 text-[12px] font-bold text-white/38">
-            Busque por @username para adicionar pessoas.
+            {t("chatScreen.groupComposer.prompt")}
           </p>
         )}
       </div>
@@ -847,6 +861,7 @@ function ConversationRow({
   onDelete,
   onOpen,
 }: ConversationRowProps) {
+  const { t, i18n } = useTranslation();
   const { last, unread } = conversation;
   const mine = last?.senderId === currentUserId;
   const content = (
@@ -882,13 +897,13 @@ function ConversationRow({
             />
           ) : (
             <span className="rounded-full bg-white/[0.06] px-2 py-1 text-[10px] font-black text-white/44">
-              grupo
+              {t("chatScreen.groupComposer.groupBadge")}
             </span>
           )}
         </div>
         <p className="mt-0.5 truncate text-[12px] font-bold text-white/44">
-          {mine ? "Você: " : ""}
-          {getMessagePreview(last)}
+          {mine ? t("chatScreen.messagePreview.yourPrefix") : ""}
+          {getMessagePreview(last, t)}
         </p>
         <p className="mt-0.5 truncate text-[11px] font-bold text-white/30">
           {conversation.type === "group"
@@ -900,7 +915,7 @@ function ConversationRow({
       </div>
       <div className="flex shrink-0 flex-col items-end gap-2">
         <span className="text-[11px] font-black text-white/34">
-          {formatMessageTime(last?.createdAt)}
+          {formatMessageTime(last?.createdAt, i18n.language)}
         </span>
         <span
           className={[
@@ -920,7 +935,7 @@ function ConversationRow({
     <SwipeRevealDelete
       className="rounded-[26px]"
       contentClassName="rounded-[26px] bg-black transition-colors hover:bg-white/[0.045]"
-      deleteLabel={`Apagar conversa ${conversation.name}`}
+      deleteLabel={t("chatScreen.conversation.deleteAria", { name: conversation.name })}
       disabled={deleting}
       onDelete={() => onDelete(conversation)}
       revealWidth={74}
@@ -937,6 +952,7 @@ function UserSearchRow({
   user: EnrichedUser;
   onOpen: (userId: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <button
       className="gc-pressable flex w-full items-center gap-3 rounded-[26px] bg-white/[0.035] px-3 py-3 text-left"
@@ -955,7 +971,7 @@ function UserSearchRow({
         </p>
       </div>
       <span className="rounded-full bg-[var(--gc-brand)]/12 px-3 py-2 text-[11px] font-black text-[var(--gc-brand)]">
-        Mensagem
+        {t("chatScreen.conversation.messageCta")}
       </span>
     </button>
   );
@@ -998,6 +1014,7 @@ function ConversationView({
   threadEndRef,
   uploadDisabled,
 }: ConversationViewProps) {
+  const { t } = useTranslation();
   const headerUser = thread.user;
   return (
     // Sprint 3 — Fase 3.4: refactor anti-teclado-voando.
@@ -1010,7 +1027,7 @@ function ConversationView({
     <section className="gc-screen-enter flex h-[100dvh] flex-col px-3">
       <header className="shrink-0 -mx-3 flex items-center gap-3 border-b border-white/[0.06] bg-black/82 px-4 pb-3 pt-[calc(var(--gc-safe-top)+14px)] backdrop-blur-2xl">
         <button
-          aria-label="Voltar"
+          aria-label={t("chatScreen.conversation.backAria")}
           className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white"
           onClick={onBack}
           type="button"
@@ -1044,8 +1061,10 @@ function ConversationView({
             </div>
             <p className="truncate text-[12px] font-bold text-white/42">
               {headerUser
-                ? `@${headerUser.username} · ${getStatusCopy(headerUser)}`
-                : `${thread.members.length + 1} pessoas no grupo`}
+                ? `@${headerUser.username} · ${getStatusCopy(headerUser, t)}`
+                : t("chatScreen.conversation.groupMembersCount", {
+                    count: thread.members.length + 1,
+                  })}
             </p>
           </div>
         </button>
@@ -1070,9 +1089,11 @@ function ConversationView({
               <div className="mx-auto grid size-16 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)] shadow-[0_0_28px_rgba(92,232,255,0.16)]">
                 <MessageCircle size={24} />
               </div>
-              <p className="mt-4 text-[18px] font-black">Comece a conversa</p>
+              <p className="mt-4 text-[18px] font-black">
+                {t("chatScreen.emptyThread.title")}
+              </p>
               <p className="mx-auto mt-2 max-w-[260px] text-[13px] font-bold leading-5 text-white/44">
-                Envie uma mensagem ou mídia para combinar treino.
+                {t("chatScreen.emptyThread.detail")}
               </p>
             </div>
           </div>
@@ -1087,7 +1108,7 @@ function ConversationView({
         <IconButton
           className="size-10 border-white/[0.08] bg-white/[0.055]"
           disabled={uploadDisabled}
-          label="Abrir câmera"
+          label={t("chatScreen.conversation.openCameraAria")}
           onClick={() => cameraRef.current?.click()}
         >
           <Camera size={17} />
@@ -1095,7 +1116,7 @@ function ConversationView({
         <IconButton
           className="size-10 border-white/[0.08] bg-white/[0.055]"
           disabled={uploadDisabled}
-          label="Enviar foto ou vídeo"
+          label={t("chatScreen.conversation.openGalleryAria")}
           onClick={() => fileRef.current?.click()}
         >
           <ImagePlus size={17} />
@@ -1116,16 +1137,16 @@ function ConversationView({
           type="file"
         />
         <input
-          aria-label="Mensagem"
+          aria-label={t("chatScreen.conversation.messageAria")}
           className="h-10 min-w-0 flex-1 rounded-full bg-white/[0.06] px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
           enterKeyHint="send"
           onChange={(event) => onDraftChange(event.target.value)}
-          placeholder="Mensagem..."
+          placeholder={t("chatScreen.conversation.messagePlaceholder")}
           value={draft}
         />
         {draft.trim() ? (
           <button
-            aria-label="Enviar mensagem"
+            aria-label={t("chatScreen.conversation.sendAria")}
             className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:opacity-50"
             disabled={sending}
             type="submit"
@@ -1134,7 +1155,7 @@ function ConversationView({
           </button>
         ) : (
           <button
-            aria-label="Enviar reação"
+            aria-label={t("chatScreen.conversation.reactAria")}
             className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)] disabled:opacity-50"
             disabled={sending}
             onClick={onQuickReaction}
@@ -1160,10 +1181,17 @@ function GroupAvatar({
   imageUrl: string | null;
   members: EnrichedUser[];
 }) {
+  const { t } = useTranslation();
   if (imageUrl) {
     return (
       <div className="relative size-12 overflow-hidden rounded-full bg-white/[0.08]">
-        <Image alt="Grupo" className="object-cover" fill sizes="48px" src={imageUrl} />
+        <Image
+          alt={t("chatScreen.media.groupAlt")}
+          className="object-cover"
+          fill
+          sizes="48px"
+          src={imageUrl}
+        />
       </div>
     );
   }
@@ -1206,6 +1234,7 @@ function MessageBubble({
   mine: boolean;
   sender?: EnrichedUser;
 }) {
+  const { t, i18n } = useTranslation();
   return (
     <div
       className={["flex gc-screen-enter", mine ? "justify-end" : "justify-start"].join(" ")}
@@ -1233,7 +1262,11 @@ function MessageBubble({
           >
             <div className="relative h-24 w-36 overflow-hidden rounded-[14px] bg-black/24">
               <Image
-                alt={message.replyToStory ? "Story respondido" : "Story compartilhado"}
+                alt={t(
+                  message.replyToStory
+                    ? "chatScreen.story.replyAlt"
+                    : "chatScreen.story.shareAlt",
+                )}
                 className="object-cover"
                 fill
                 sizes="144px"
@@ -1246,7 +1279,11 @@ function MessageBubble({
                 mine ? "text-black/54" : "text-white/48",
               ].join(" ")}
             >
-              {message.replyToStory ? "Resposta ao story" : "Story compartilhado"}
+              {t(
+                message.replyToStory
+                  ? "chatScreen.story.replyLabel"
+                  : "chatScreen.story.shareLabel",
+              )}
             </p>
           </div>
         ) : null}
@@ -1262,7 +1299,7 @@ function MessageBubble({
         ) : message.mediaUrl ? (
           <div className="relative mb-1 aspect-square w-48 overflow-hidden rounded-[18px] bg-black/20">
             <Image
-              alt="Mídia enviada no chat"
+              alt={t("chatScreen.media.chatAlt")}
               className="object-cover"
               fill
               sizes="192px"
@@ -1272,7 +1309,7 @@ function MessageBubble({
         ) : null}
         {message.body ? <p>{message.body}</p> : null}
         <p className={["mt-1 text-[10px] font-black", mine ? "text-black/42" : "text-white/32"].join(" ")}>
-          {formatMessageTime(message.createdAt)}
+          {formatMessageTime(message.createdAt, i18n.language)}
         </p>
       </div>
     </div>
