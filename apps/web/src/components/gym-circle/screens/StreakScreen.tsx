@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { StatsWidget, StreakCard } from "../design-system";
@@ -15,11 +17,24 @@ type StreakScreenProps = {
 };
 
 export function StreakScreen({ currentUser, monthDays }: StreakScreenProps) {
+  const { t, i18n } = useTranslation();
   const currentLevel = getStreakLevel(currentUser.currentStreak);
+
+  // Sprint 4.6+ i18n: nome do mês corrente, capitalizado e localizado.
+  // Antes era "Maio" hardcoded — bug latente que só funcionava em maio.
+  const currentMonthLabel = useMemo(() => {
+    const raw = new Intl.DateTimeFormat(i18n.language, { month: "long" }).format(
+      new Date(),
+    );
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }, [i18n.language]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar eyebrow="Consistência" title="Streak" />
+      <TopBar
+        eyebrow={t("streakScreen.topBar.eyebrow")}
+        title={t("streakScreen.topBar.title")}
+      />
 
       <div className="mt-5">
         <StreakCard
@@ -34,35 +49,37 @@ export function StreakScreen({ currentUser, monthDays }: StreakScreenProps) {
       <div className="mt-4 grid grid-cols-2 gap-3">
         <StatsWidget
           tone="blue"
-          detail="Seu recorde"
-          label="Maior streak"
+          detail={t("streakScreen.stats.longestDetail")}
+          label={t("streakScreen.stats.longestLabel")}
           value={String(currentUser.longestStreak)}
         />
         <StatsWidget
           tone="brand"
-          detail="Com foto"
-          label="Treinos mês"
+          detail={t("streakScreen.stats.monthDetail")}
+          label={t("streakScreen.stats.monthLabel")}
           value={String(currentUser.workoutsThisMonth)}
         />
         <StatsWidget
           tone="brand"
-          detail="Historico"
-          label="Dias ativos"
+          detail={t("streakScreen.stats.activeDetail")}
+          label={t("streakScreen.stats.activeLabel")}
           value={String(currentUser.activeDaysCount)}
         />
         <StatsWidget
           tone="blue"
-          detail="Social"
-          label="Check-ins"
+          detail={t("streakScreen.stats.checkInsDetail")}
+          label={t("streakScreen.stats.checkInsLabel")}
           value={String(currentUser.checkInsCount)}
         />
       </div>
 
       <GlassCard className="mt-5 p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[17px] font-extrabold">Níveis</h3>
+          <h3 className="text-[17px] font-extrabold">
+            {t("streakScreen.levels.title")}
+          </h3>
           <span className="text-[12px] font-black text-white/36">
-            status público
+            {t("streakScreen.levels.publicStatus")}
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -78,7 +95,7 @@ export function StreakScreen({ currentUser, monthDays }: StreakScreenProps) {
             >
               <p className="text-[14px] font-black">{level.label}</p>
               <p className="mt-1 text-[12px] font-bold text-white/42">
-                {level.minDays}+ dias
+                {t("streakScreen.levels.minDays", { count: level.minDays })}
               </p>
             </div>
           ))}
@@ -87,9 +104,11 @@ export function StreakScreen({ currentUser, monthDays }: StreakScreenProps) {
 
       <GlassCard className="mt-5 p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[17px] font-extrabold">Maio</h3>
+          <h3 className="text-[17px] font-extrabold">{currentMonthLabel}</h3>
           <span className="rounded-full bg-[var(--gc-consistency-quiet)] px-3 py-2 text-[12px] font-extrabold text-[var(--gc-consistency-daily)]">
-            {currentUser.workoutsThisMonth} treinos
+            {t("streakScreen.month.workoutsCount", {
+              count: currentUser.workoutsThisMonth,
+            })}
           </span>
         </div>
         <div className="grid grid-cols-7 gap-2">

@@ -629,6 +629,30 @@
       "save": "Failed to save"
     }
   },
+  "streakScreen": {
+    "topBar": {
+      "eyebrow": "Consistency",
+      "title": "Streak"
+    },
+    "stats": {
+      "longestLabel": "Longest streak",
+      "longestDetail": "Your record",
+      "monthLabel": "Month workouts",
+      "monthDetail": "With photo",
+      "activeLabel": "Active days",
+      "activeDetail": "History",
+      "checkInsLabel": "Check-ins",
+      "checkInsDetail": "Social"
+    },
+    "levels": {
+      "title": "Levels",
+      "publicStatus": "public status",
+      "minDays": "{{count}}+ days"
+    },
+    "month": {
+      "workoutsCount": "{{count}} workouts"
+    }
+  },
   "checkInScreen": {
     "topBar": {
       "eyebrow": "Check-in",

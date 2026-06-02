@@ -629,6 +629,30 @@
       "save": "Falha ao salvar"
     }
   },
+  "streakScreen": {
+    "topBar": {
+      "eyebrow": "Consistência",
+      "title": "Streak"
+    },
+    "stats": {
+      "longestLabel": "Maior streak",
+      "longestDetail": "Seu recorde",
+      "monthLabel": "Treinos mês",
+      "monthDetail": "Com foto",
+      "activeLabel": "Dias ativos",
+      "activeDetail": "Histórico",
+      "checkInsLabel": "Check-ins",
+      "checkInsDetail": "Social"
+    },
+    "levels": {
+      "title": "Níveis",
+      "publicStatus": "status público",
+      "minDays": "{{count}}+ dias"
+    },
+    "month": {
+      "workoutsCount": "{{count}} treinos"
+    }
+  },
   "checkInScreen": {
     "topBar": {
       "eyebrow": "Check-in",
