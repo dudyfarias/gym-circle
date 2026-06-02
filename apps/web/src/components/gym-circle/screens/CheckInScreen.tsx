@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Camera,
   Check,
@@ -37,8 +38,10 @@ type CheckInScreenProps = {
 
 type PeopleFilter = "today" | "week";
 
-function formatPostTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", {
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+function formatPostTime(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(iso));
@@ -59,13 +62,13 @@ function isWithinLastDays(iso: string, days: number): boolean {
   return ms < days * 24 * 60 * 60 * 1000;
 }
 
-function formatRelativeDay(iso: string): string {
-  if (isTodayInSP(iso)) return formatPostTime(iso);
+function formatRelativeDay(iso: string, locale: string, t: TFn): string {
+  if (isTodayInSP(iso)) return formatPostTime(iso, locale);
   const ms = Date.now() - new Date(iso).getTime();
   const days = Math.floor(ms / (24 * 60 * 60 * 1000));
-  if (days <= 1) return "Ontem";
-  if (days <= 7) return `${days}d atrás`;
-  return new Intl.DateTimeFormat("pt-BR", {
+  if (days <= 1) return t("checkInScreen.relativeDay.yesterday");
+  if (days <= 7) return t("checkInScreen.relativeDay.daysAgo", { count: days });
+  return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "short",
   }).format(new Date(iso));
@@ -87,6 +90,7 @@ export function CheckInScreen({
   onSelectUser,
   onCatalogPlace,
 }: CheckInScreenProps) {
+  const { t, i18n } = useTranslation();
   const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
@@ -259,7 +263,7 @@ export function CheckInScreen({
       }
 
       if (typeof place.latitude !== "number" || typeof place.longitude !== "number") {
-        setFeedback("Para cadastrar academia, a localização dela é obrigatória.");
+        setFeedback(t("checkInScreen.errors.needsCoordinates"));
         return;
       }
 
@@ -292,7 +296,7 @@ export function CheckInScreen({
     setFeedback(null);
     try {
       await onCheckIn(gymName);
-      setFeedback(`Check-in confirmado em ${gymName}`);
+      setFeedback(t("checkInScreen.lastGym.feedback", { gym: gymName }));
     } finally {
       setCheckinPending(false);
     }
@@ -301,8 +305,10 @@ export function CheckInScreen({
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar
-        eyebrow="Check-in"
-        title={selectedGym?.name ?? lastGym?.name ?? "Check-in"}
+        eyebrow={t("checkInScreen.topBar.eyebrow")}
+        title={
+          selectedGym?.name ?? lastGym?.name ?? t("checkInScreen.topBar.fallbackTitle")
+        }
       />
 
       {isViewingDetail && selectedGym ? (
@@ -340,7 +346,7 @@ export function CheckInScreen({
         registeredGyms={allGyms}
         onSelect={handleCatalogPlace}
         open={searchOpen}
-        title="Escolher academia"
+        title={t("checkInScreen.search.sheetTitle")}
       />
     </section>
   );
@@ -428,10 +434,11 @@ function LastGymCard({
   checkinPending: boolean;
   feedback: string | null;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mt-5 overflow-hidden rounded-[24px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(48,213,255,0.08),rgba(255,255,255,0.02)_50%,transparent)] p-5">
       <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
-        Sua última academia
+        {t("checkInScreen.lastGym.label")}
       </p>
       <button
         className="gc-pressable mt-2 flex w-full items-start gap-3 text-left"
@@ -464,10 +471,12 @@ function LastGymCard({
           ) : (
             <Check size={16} strokeWidth={2.8} />
           )}
-          {checkinPending ? "Confirmando..." : "Estou aqui"}
+          {checkinPending
+            ? t("checkInScreen.lastGym.confirming")
+            : t("checkInScreen.lastGym.cta")}
         </button>
         <button
-          aria-label="Ver detalhes da academia"
+          aria-label={t("checkInScreen.lastGym.detailAria")}
           className="gc-pressable grid size-12 place-items-center rounded-full border border-white/[0.1] bg-white/[0.04] text-white/72"
           onClick={onOpenDetail}
           type="button"
@@ -491,16 +500,17 @@ function EmptyHero({
   searchEnabled: boolean;
   onOpenSearch: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mt-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6 text-center">
       <span className="mx-auto grid size-14 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
         <MapPin size={24} strokeWidth={2.2} />
       </span>
       <h2 className="mt-3 text-[18px] font-black text-white">
-        Onde você tá treinando?
+        {t("checkInScreen.empty.title")}
       </h2>
       <p className="mx-auto mt-1 max-w-[280px] text-[13px] font-bold text-white/52">
-        Marque o lugar pra ver quem mais tá aqui e fazer check-in.
+        {t("checkInScreen.empty.hint")}
       </p>
       <button
         className="gc-pressable mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black shadow-[0_0_22px_rgba(92,232,255,0.28)] disabled:opacity-60"
@@ -509,7 +519,7 @@ function EmptyHero({
         type="button"
       >
         <Search size={16} strokeWidth={2.6} />
-        Buscar academia ou lugar
+        {t("checkInScreen.empty.cta")}
       </button>
     </div>
   );
@@ -528,11 +538,12 @@ function NearbyPlacesList({
   onOpenSearch: () => void;
   searchEnabled: boolean;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mt-6">
       <div className="flex items-center justify-between">
         <h3 className="text-[13px] font-black uppercase tracking-wide text-white/42">
-          Lugares perto de você
+          {t("checkInScreen.nearby.title")}
         </h3>
         {searchEnabled ? (
           <button
@@ -540,7 +551,7 @@ function NearbyPlacesList({
             onClick={onOpenSearch}
             type="button"
           >
-            Buscar →
+            {t("checkInScreen.nearby.searchCta")}
           </button>
         ) : null}
       </div>
@@ -548,14 +559,14 @@ function NearbyPlacesList({
       {loading && places.length === 0 ? (
         <div className="mt-3 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.04] py-6 text-[12px] font-bold text-white/52">
           <Loader2 className="animate-spin" size={14} strokeWidth={2.4} />
-          Buscando lugares no entorno...
+          {t("checkInScreen.nearby.loading")}
         </div>
       ) : null}
 
       {!loading && places.length === 0 ? (
         <div className="mt-3 rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4 text-center">
           <p className="text-[12px] font-bold text-white/52">
-            Sem lugares mapeados no seu entorno.
+            {t("checkInScreen.nearby.empty")}
           </p>
           {searchEnabled ? (
             <button
@@ -563,7 +574,7 @@ function NearbyPlacesList({
               onClick={onOpenSearch}
               type="button"
             >
-              Cadastrar este lugar →
+              {t("checkInScreen.nearby.catalogCta")}
             </button>
           ) : null}
         </div>
@@ -589,7 +600,7 @@ function NearbyPlacesList({
                     {place.distanceKm !== null ? (
                       <span className="text-[var(--gc-brand)]">
                         {place.distanceKm < 0.1
-                          ? "aqui"
+                          ? t("checkInScreen.nearby.here")
                           : place.distanceKm < 1
                             ? `${Math.round(place.distanceKm * 1000)}m`
                             : `${place.distanceKm.toFixed(1).replace(".", ",")}km`}
@@ -620,10 +631,11 @@ function FriendsAtLastGymList({
   gymName: string;
   onSelectUser?: (userId: string) => void;
 }) {
+  const { t, i18n } = useTranslation();
   return (
     <div className="mt-6">
       <h3 className="text-[13px] font-black uppercase tracking-wide text-white/42">
-        Amigos em {gymName}
+        {t("checkInScreen.friends.title", { gym: gymName })}
       </h3>
       <ul className="mt-3 space-y-2">
         {friends.map(({ user, lastPost }) => (
@@ -645,7 +657,7 @@ function FriendsAtLastGymList({
                 </p>
                 <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-white/52">
                   <Clock size={10} strokeWidth={2.6} />
-                  {formatRelativeDay(lastPost.createdAt)}
+                  {formatRelativeDay(lastPost.createdAt, i18n.language, t)}
                   {lastPost.workoutType ? ` · ${lastPost.workoutType}` : ""}
                 </p>
               </div>
@@ -686,6 +698,7 @@ function SelectedGymView({
   onChangeGym,
   onSelectUser,
 }: SelectedGymViewProps) {
+  const { t, i18n } = useTranslation();
   return (
     <>
       <div className="mt-5 flex items-start gap-3 rounded-[20px] border border-white/[0.08] bg-white/[0.03] p-4">
@@ -701,7 +714,7 @@ function SelectedGymView({
           ) : null}
         </div>
         <button
-          aria-label="Trocar de lugar"
+          aria-label={t("checkInScreen.detail.changeGymAria")}
           className="gc-pressable grid size-11 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72"
           onClick={onChangeGym}
           type="button"
@@ -721,7 +734,9 @@ function SelectedGymView({
         ) : (
           <Check size={18} strokeWidth={2.8} />
         )}
-        {checkinPending ? "Confirmando..." : "Estou treinando aqui"}
+        {checkinPending
+          ? t("checkInScreen.detail.ctaConfirming")
+          : t("checkInScreen.detail.cta")}
       </button>
       {feedback ? (
         <p className="mt-2 text-center text-[12px] font-bold text-[var(--gc-brand)]">
@@ -731,7 +746,9 @@ function SelectedGymView({
 
       <div className="mt-6">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-[15px] font-black text-white">Quem treinou aqui</h3>
+          <h3 className="text-[15px] font-black text-white">
+            {t("checkInScreen.detail.peopleTitle")}
+          </h3>
           <PeopleFilterToggle filter={peopleFilter} onChange={onChangeFilter} />
         </div>
 
@@ -757,8 +774,8 @@ function SelectedGymView({
                     <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-white/52">
                       <Clock size={10} strokeWidth={2.6} />
                       {peopleFilter === "today"
-                        ? formatPostTime(post.createdAt)
-                        : formatRelativeDay(post.createdAt)}
+                        ? formatPostTime(post.createdAt, i18n.language)
+                        : formatRelativeDay(post.createdAt, i18n.language, t)}
                       {post.workoutType ? ` · ${post.workoutType}` : ""}
                     </p>
                   </div>
@@ -770,8 +787,8 @@ function SelectedGymView({
           <div className="mt-3 rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4 text-center">
             <p className="text-[12px] font-bold text-white/52">
               {peopleFilter === "today"
-                ? "Nenhum post daqui hoje. Seja o primeiro."
-                : "Nenhum post daqui nos últimos 7 dias."}
+                ? t("checkInScreen.detail.emptyToday")
+                : t("checkInScreen.detail.emptyWeek")}
             </p>
           </div>
         )}
@@ -780,7 +797,7 @@ function SelectedGymView({
       {recentPosts.length > 0 ? (
         <div className="mt-6">
           <h3 className="mb-3 text-[15px] font-black text-white">
-            Posts recentes do lugar
+            {t("checkInScreen.detail.recentPostsTitle")}
           </h3>
           <div className="-mx-5 grid grid-cols-3 gap-[2px]">
             {recentPosts.map((post) => (
@@ -804,6 +821,7 @@ function PeopleFilterToggle({
   filter: PeopleFilter;
   onChange: (filter: PeopleFilter) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex h-8 items-center rounded-full bg-white/[0.05] p-0.5">
       <button
@@ -817,7 +835,7 @@ function PeopleFilterToggle({
         onClick={() => onChange("today")}
         type="button"
       >
-        Hoje
+        {t("checkInScreen.filter.today")}
       </button>
       <button
         aria-pressed={filter === "week"}
@@ -830,7 +848,7 @@ function PeopleFilterToggle({
         onClick={() => onChange("week")}
         type="button"
       >
-        Esta semana
+        {t("checkInScreen.filter.week")}
       </button>
     </div>
   );
@@ -843,9 +861,11 @@ function CheckInPostThumb({
   post: EnrichedPost;
   onSelectUser?: (userId: string) => void;
 }) {
+  const { t } = useTranslation();
+  const workoutLabel = post.workoutType || t("checkInScreen.thumb.fallbackWorkout");
   return (
     <button
-      aria-label={`Post de ${post.workoutType ?? "treino"}`}
+      aria-label={t("checkInScreen.thumb.postAria", { workoutType: workoutLabel })}
       className="gc-pressable relative aspect-square overflow-hidden bg-zinc-950"
       onClick={() => onSelectUser?.(post.userId)}
       type="button"
@@ -861,7 +881,7 @@ function CheckInPostThumb({
         />
       ) : (
         <Image
-          alt={post.workoutType || "Treino"}
+          alt={workoutLabel}
           className="object-cover"
           fill
           sizes="(max-width: 480px) 33vw, 160px"

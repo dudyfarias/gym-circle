@@ -629,6 +629,62 @@
       "save": "Falha ao salvar"
     }
   },
+  "checkInScreen": {
+    "topBar": {
+      "eyebrow": "Check-in",
+      "fallbackTitle": "Check-in"
+    },
+    "search": {
+      "sheetTitle": "Escolher academia"
+    },
+    "relativeDay": {
+      "yesterday": "Ontem",
+      "daysAgo": "{{count}}d atrás"
+    },
+    "lastGym": {
+      "label": "Sua última academia",
+      "confirming": "Confirmando...",
+      "cta": "Estou aqui",
+      "feedback": "Check-in confirmado em {{gym}}",
+      "detailAria": "Ver detalhes da academia"
+    },
+    "empty": {
+      "title": "Onde você tá treinando?",
+      "hint": "Marque o lugar pra ver quem mais tá aqui e fazer check-in.",
+      "cta": "Buscar academia ou lugar"
+    },
+    "nearby": {
+      "title": "Lugares perto de você",
+      "searchCta": "Buscar →",
+      "loading": "Buscando lugares no entorno...",
+      "empty": "Sem lugares mapeados no seu entorno.",
+      "catalogCta": "Cadastrar este lugar →",
+      "here": "aqui"
+    },
+    "friends": {
+      "title": "Amigos em {{gym}}"
+    },
+    "detail": {
+      "changeGymAria": "Trocar de lugar",
+      "ctaConfirming": "Confirmando...",
+      "cta": "Estou treinando aqui",
+      "peopleTitle": "Quem treinou aqui",
+      "emptyToday": "Nenhum post daqui hoje. Seja o primeiro.",
+      "emptyWeek": "Nenhum post daqui nos últimos 7 dias.",
+      "recentPostsTitle": "Posts recentes do lugar"
+    },
+    "filter": {
+      "today": "Hoje",
+      "week": "Esta semana"
+    },
+    "thumb": {
+      "postAria": "Post de {{workoutType}}",
+      "fallbackWorkout": "Treino"
+    },
+    "errors": {
+      "needsCoordinates": "Para cadastrar academia, a localização dela é obrigatória."
+    }
+  },
   "storyViewer": {
     "kind": {
       "checkin": "Check-in",

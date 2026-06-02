@@ -629,6 +629,62 @@
       "save": "Failed to save"
     }
   },
+  "checkInScreen": {
+    "topBar": {
+      "eyebrow": "Check-in",
+      "fallbackTitle": "Check-in"
+    },
+    "search": {
+      "sheetTitle": "Pick a gym"
+    },
+    "relativeDay": {
+      "yesterday": "Yesterday",
+      "daysAgo": "{{count}}d ago"
+    },
+    "lastGym": {
+      "label": "Your last gym",
+      "confirming": "Confirming...",
+      "cta": "I'm here",
+      "feedback": "Check-in confirmed at {{gym}}",
+      "detailAria": "View gym details"
+    },
+    "empty": {
+      "title": "Where are you training?",
+      "hint": "Tag the place to see who else is here and check in.",
+      "cta": "Search gym or place"
+    },
+    "nearby": {
+      "title": "Places near you",
+      "searchCta": "Search →",
+      "loading": "Searching places nearby...",
+      "empty": "No places mapped near you.",
+      "catalogCta": "Register this place →",
+      "here": "here"
+    },
+    "friends": {
+      "title": "Friends at {{gym}}"
+    },
+    "detail": {
+      "changeGymAria": "Change place",
+      "ctaConfirming": "Confirming...",
+      "cta": "I'm training here",
+      "peopleTitle": "Who trained here",
+      "emptyToday": "No posts from here today. Be the first.",
+      "emptyWeek": "No posts from here in the last 7 days.",
+      "recentPostsTitle": "Recent posts from this place"
+    },
+    "filter": {
+      "today": "Today",
+      "week": "This week"
+    },
+    "thumb": {
+      "postAria": "{{workoutType}} post",
+      "fallbackWorkout": "Workout"
+    },
+    "errors": {
+      "needsCoordinates": "To register a gym, its location is required."
+    }
+  },
   "storyViewer": {
     "kind": {
       "checkin": "Check-in",
