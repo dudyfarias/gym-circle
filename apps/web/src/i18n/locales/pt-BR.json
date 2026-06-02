@@ -569,6 +569,56 @@
       "closeAria": "Fechar lista de seguindo"
     }
   },
+  "notificationsSheet": {
+    "title": "Notificações",
+    "loading": "Carregando...",
+    "empty": {
+      "title": "Tudo limpo",
+      "detail": "Quando alguém curtir seus treinos, te seguir ou te marcar, aparece aqui."
+    },
+    "sections": {
+      "today": "Hoje",
+      "earlier": "Anteriores"
+    },
+    "actorFallback": "Alguém",
+    "viewActorAria": "Ver {{name}}",
+    "kinds": {
+      "like": "curtiu seu treino",
+      "comment": "comentou seu treino",
+      "follow": "começou a seguir você",
+      "mention": "mencionou você",
+      "followRequest": "quer te seguir",
+      "storyLike": "curtiu seu story",
+      "postTag": "marcou você em um post",
+      "storyTag": "marcou você em um story"
+    },
+    "relative": {
+      "now": "agora",
+      "min": "{{count}}min",
+      "hour": "{{count}}h",
+      "day": "{{count}}d"
+    },
+    "followBack": {
+      "alreadyFollowingAria": "Você já segue {{name}}",
+      "pendingAria": "Solicitação enviada para {{name}}",
+      "actionAria": "{{label}} {{name}}"
+    },
+    "followRequest": {
+      "accept": "Aceitar",
+      "reject": "Recusar",
+      "accepted": "Solicitação aceita."
+    },
+    "postTag": {
+      "accept": "Aceitar post",
+      "reject": "Recusar",
+      "accepted": "Marcação aceita. Esse post já aparece no seu perfil."
+    },
+    "storyTag": {
+      "accept": "Aceitar story",
+      "reject": "Recusar",
+      "accepted": "Marcação aceita. Esse story já aparece no seu perfil."
+    }
+  },
   "feedScreen": {
     "topBar": {
       "eyebrow": "Gym Circle",

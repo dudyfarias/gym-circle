@@ -569,6 +569,56 @@
       "closeAria": "Close following list"
     }
   },
+  "notificationsSheet": {
+    "title": "Notifications",
+    "loading": "Loading...",
+    "empty": {
+      "title": "All clear",
+      "detail": "When someone likes your workouts, follows you, or tags you, it shows up here."
+    },
+    "sections": {
+      "today": "Today",
+      "earlier": "Earlier"
+    },
+    "actorFallback": "Someone",
+    "viewActorAria": "View {{name}}",
+    "kinds": {
+      "like": "liked your workout",
+      "comment": "commented on your workout",
+      "follow": "started following you",
+      "mention": "mentioned you",
+      "followRequest": "wants to follow you",
+      "storyLike": "liked your story",
+      "postTag": "tagged you in a post",
+      "storyTag": "tagged you in a story"
+    },
+    "relative": {
+      "now": "now",
+      "min": "{{count}}min",
+      "hour": "{{count}}h",
+      "day": "{{count}}d"
+    },
+    "followBack": {
+      "alreadyFollowingAria": "You already follow {{name}}",
+      "pendingAria": "Request sent to {{name}}",
+      "actionAria": "{{label}} {{name}}"
+    },
+    "followRequest": {
+      "accept": "Accept",
+      "reject": "Decline",
+      "accepted": "Request accepted."
+    },
+    "postTag": {
+      "accept": "Accept post",
+      "reject": "Decline",
+      "accepted": "Tag accepted. This post now appears on your profile."
+    },
+    "storyTag": {
+      "accept": "Accept story",
+      "reject": "Decline",
+      "accepted": "Tag accepted. This story now appears on your profile."
+    }
+  },
   "feedScreen": {
     "topBar": {
       "eyebrow": "Gym Circle",

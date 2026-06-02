@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   AtSign,
   BellRing,
@@ -55,16 +56,20 @@ const KIND_ICON = {
   story_tag: AtSign,
 } satisfies Record<SocialBellNotificationKind, LucideIcon>;
 
-const KIND_LABEL = {
-  like: "curtiu seu treino",
-  comment: "comentou seu treino",
-  follow: "começou a seguir você",
-  mention: "mencionou você",
-  follow_request: "quer te seguir",
-  story_like: "curtiu seu story",
-  post_tag: "marcou você em um post",
-  story_tag: "marcou você em um story",
+// Mapping de notification kind → key i18n. Resolve via t() no JSX.
+const KIND_LABEL_KEY = {
+  like: "notificationsSheet.kinds.like",
+  comment: "notificationsSheet.kinds.comment",
+  follow: "notificationsSheet.kinds.follow",
+  mention: "notificationsSheet.kinds.mention",
+  follow_request: "notificationsSheet.kinds.followRequest",
+  story_like: "notificationsSheet.kinds.storyLike",
+  post_tag: "notificationsSheet.kinds.postTag",
+  story_tag: "notificationsSheet.kinds.storyTag",
 } satisfies Record<SocialBellNotificationKind, string>;
+
+// t function type (matches react-i18next's TFunction return signature)
+type TFn = (key: string, options?: Record<string, unknown>) => string;
 
 const KIND_TONE = {
   like: "text-[var(--gc-consistency-month)]",
@@ -81,16 +86,16 @@ function normalizeNotificationKind(kind: string): SocialBellNotificationKind | n
   return isSocialBellNotificationKind(kind) ? kind : null;
 }
 
-function formatRelative(iso: string, now: number): string {
+function formatRelative(iso: string, now: number, t: TFn): string {
   const diff = now - new Date(iso).getTime();
   const sec = Math.floor(diff / 1000);
-  if (sec < 60) return "agora";
+  if (sec < 60) return t("notificationsSheet.relative.now");
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}min`;
+  if (min < 60) return t("notificationsSheet.relative.min", { count: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h`;
+  if (hr < 24) return t("notificationsSheet.relative.hour", { count: hr });
   const days = Math.floor(hr / 24);
-  return `${days}d`;
+  return t("notificationsSheet.relative.day", { count: days });
 }
 
 export function NotificationsSheet({
@@ -107,6 +112,7 @@ export function NotificationsSheet({
   onAcceptStoryTag,
   onRejectStoryTag,
 }: NotificationsSheetProps) {
+  const { t } = useTranslation();
   const services = useGymCircleServices();
   const [items, setItems] = useState<NotificationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -348,9 +354,9 @@ export function NotificationsSheet({
     <div className="gc-safe-overlay absolute inset-0 z-50 bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
-          <p className="text-[17px] font-black">Notificações</p>
+          <p className="text-[17px] font-black">{t("notificationsSheet.title")}</p>
           <button
-            aria-label="Fechar"
+            aria-label={t("common.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
             onClick={onClose}
             type="button"
@@ -362,14 +368,16 @@ export function NotificationsSheet({
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {loading && items.length === 0 ? (
             <p className="mt-10 text-center text-[13px] font-bold text-white/52">
-              Carregando...
+              {t("notificationsSheet.loading")}
             </p>
           ) : items.length === 0 ? (
             <div className="grid h-full place-items-center text-center">
               <div>
-                <p className="text-[16px] font-black">Tudo limpo</p>
+                <p className="text-[16px] font-black">
+                  {t("notificationsSheet.empty.title")}
+                </p>
                 <p className="mt-2 text-[13px] font-bold text-white/52">
-                  Quando alguém curtir seus treinos, te seguir ou te marcar, aparece aqui.
+                  {t("notificationsSheet.empty.detail")}
                 </p>
               </div>
             </div>
@@ -378,7 +386,7 @@ export function NotificationsSheet({
               {grouped.today.length > 0 ? (
                 <Section
                   now={now}
-                  title="Hoje"
+                  title={t("notificationsSheet.sections.today")}
                   items={grouped.today}
                   users={users}
                   onSelectUser={onSelectUser}
@@ -398,7 +406,7 @@ export function NotificationsSheet({
               {grouped.earlier.length > 0 ? (
                 <Section
                   now={now}
-                  title="Anteriores"
+                  title={t("notificationsSheet.sections.earlier")}
                   items={grouped.earlier}
                   users={users}
                   onSelectUser={onSelectUser}
@@ -458,6 +466,7 @@ function Section({
   tagActionBusyId?: string | null;
   tagDecisionOverrides?: TagDecisionOverrides;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="mb-4">
       <h3 className="mb-2 text-[12px] font-black uppercase text-white/42">{title}</h3>
@@ -520,7 +529,9 @@ function Section({
             >
               <div className="flex items-center gap-3">
                 <button
-                  aria-label={`Ver ${actor?.name ?? "perfil"}`}
+                  aria-label={t("notificationsSheet.viewActorAria", {
+                    name: actor?.name ?? t("notificationsSheet.actorFallback"),
+                  })}
                   className="gc-pressable shrink-0"
                   onClick={() => actor && onSelectUser?.(actor.id)}
                   type="button"
@@ -538,9 +549,9 @@ function Section({
                       onClick={() => actor && onSelectUser?.(actor.id)}
                       type="button"
                     >
-                      {actor?.name ?? "Alguém"}
+                      {actor?.name ?? t("notificationsSheet.actorFallback")}
                     </button>{" "}
-                    <span className="font-semibold text-white/64">{KIND_LABEL[kind]}</span>
+                    <span className="font-semibold text-white/64">{t(KIND_LABEL_KEY[kind])}</span>
                   </p>
                   {n.body ? (
                     <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
@@ -553,10 +564,17 @@ function Section({
                     <button
                       aria-label={
                         followBackState?.status === "accepted"
-                          ? `Você já segue ${actor.name}`
+                          ? t("notificationsSheet.followBack.alreadyFollowingAria", {
+                              name: actor.name,
+                            })
                           : followBackState?.status === "pending"
-                            ? `Solicitação enviada para ${actor.name}`
-                            : `${followBackState?.label ?? "Seguir"} ${actor.name}`
+                            ? t("notificationsSheet.followBack.pendingAria", {
+                                name: actor.name,
+                              })
+                            : t("notificationsSheet.followBack.actionAria", {
+                                label: followBackState?.label ?? t("common.follow"),
+                                name: actor.name,
+                              })
                       }
                       className={[
                         "gc-pressable inline-flex h-10 min-w-[92px] items-center justify-center gap-1.5 rounded-full border px-3 text-[12px] font-black transition disabled:opacity-100",
@@ -579,13 +597,13 @@ function Section({
                       ) : (
                         <UserPlus size={16} strokeWidth={2.7} />
                       )}
-                      <span>{followBackBusy ? "..." : followBackState?.label ?? "Seguir"}</span>
+                      <span>{followBackBusy ? "..." : followBackState?.label ?? t("common.follow")}</span>
                     </button>
                   ) : (
                     <Icon className={tone} size={18} fill="none" />
                   )}
                   <span className="text-[10px] font-black text-white/36">
-                    {formatRelative(n.created_at, now)}
+                    {formatRelative(n.created_at, now, t)}
                   </span>
                 </div>
               </div>
@@ -598,25 +616,27 @@ function Section({
                     type="button"
                   >
                     <Check size={14} strokeWidth={2.8} />
-                    Aceitar
+                    {t("notificationsSheet.followRequest.accept")}
                   </button>
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
                     onClick={() => onRejectFollowRequest(actor.id)}
                     type="button"
                   >
-                    Recusar
+                    {t("notificationsSheet.followRequest.reject")}
                   </button>
                 </div>
               ) : null}
 
               {isFollowRequest && actor?.followStatus === "accepted" ? (
-                <p className="text-[11px] font-bold text-white/40">Solicitação aceita.</p>
+                <p className="text-[11px] font-bold text-white/40">
+                  {t("notificationsSheet.followRequest.accepted")}
+                </p>
               ) : null}
 
               {isPostTag && tagDecision === "accepted" ? (
                 <p className="text-[11px] font-bold text-[var(--gc-brand)]/80">
-                  Marcação aceita. Esse post já aparece no seu perfil.
+                  {t("notificationsSheet.postTag.accepted")}
                 </p>
               ) : null}
 
@@ -633,7 +653,7 @@ function Section({
                     ) : (
                       <Check size={14} strokeWidth={2.8} />
                     )}
-                    Aceitar post
+                    {t("notificationsSheet.postTag.accept")}
                   </button>
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
@@ -641,14 +661,14 @@ function Section({
                     onClick={() => void onRejectPostTag?.(n)}
                     type="button"
                   >
-                    Recusar
+                    {t("notificationsSheet.postTag.reject")}
                   </button>
                 </div>
               ) : null}
 
               {isStoryTag && tagDecision === "accepted" ? (
                 <p className="text-[11px] font-bold text-[var(--gc-brand)]/80">
-                  Marcação aceita. Esse story já aparece no seu perfil.
+                  {t("notificationsSheet.storyTag.accepted")}
                 </p>
               ) : null}
 
@@ -665,7 +685,7 @@ function Section({
                     ) : (
                       <Check size={14} strokeWidth={2.8} />
                     )}
-                    Aceitar story
+                    {t("notificationsSheet.storyTag.accept")}
                   </button>
                   <button
                     className="gc-pressable flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-white/[0.12] bg-white/[0.04] text-[12px] font-black text-white/72"
@@ -673,7 +693,7 @@ function Section({
                     onClick={() => void onRejectStoryTag?.(n)}
                     type="button"
                   >
-                    Recusar
+                    {t("notificationsSheet.storyTag.reject")}
                   </button>
                 </div>
               ) : null}
