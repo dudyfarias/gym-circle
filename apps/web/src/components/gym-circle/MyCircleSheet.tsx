@@ -16,6 +16,8 @@ import {
   getNextBadge,
 } from "./social/gamification";
 import type { MonthlyRecap } from "./social/monthlyRecap";
+import type { MonthlyChallengeData } from "./social/monthlyChallenges";
+import { MonthlyChallengesCard } from "./MonthlyChallengesCard";
 import {
   buildMonthWorkoutDays,
   formatDateKey,
@@ -101,6 +103,12 @@ type MyCircleSheetProps = {
    * Quando ausente, hint não renderiza (sem persistência = não mostra).
    */
   onMarkContextualHintSeen?: (hintId: string) => Promise<void>;
+  /**
+   * Sprint 7.5.6 — desafios mensais do período corrente. Carregados no
+   * GymCirclePreview via loadMonthlyChallenges. Array vazio (ou ausente)
+   * → card simplesmente não renderiza.
+   */
+  monthlyChallenges?: ReadonlyArray<MonthlyChallengeData>;
 };
 
 export function MyCircleSheet({
@@ -118,6 +126,7 @@ export function MyCircleSheet({
   onOpenPost,
   onOpenRecapPeriodPicker,
   onMarkContextualHintSeen,
+  monthlyChallenges,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -596,6 +605,17 @@ export function MyCircleSheet({
                   onOpen={onOpenBadges}
                 />
               </section>
+
+              {/* G. Monthly Challenges — Sprint 7.5.6.
+                  Listagem dos 4 desafios do mês corrente com progresso
+                  real-time. Só renderiza pro próprio user e quando há
+                  desafios carregados. */}
+              {isOwn && monthlyChallenges && monthlyChallenges.length > 0 ? (
+                <MonthlyChallengesCard
+                  challenges={monthlyChallenges}
+                  monthLabel={monthLabel}
+                />
+              ) : null}
 
               {/* H. Monthly Recap — Sprint 5.1 + 5.10.
                   CTA principal: abre o MonthlyRecapSheet pro mês corrente.

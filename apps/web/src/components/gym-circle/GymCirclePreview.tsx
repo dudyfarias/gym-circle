@@ -17,6 +17,12 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
 import { buildMonthlyRecap, type RecapPeriod } from "./social/monthlyRecap";
 import type { Achievement } from "./social/achievements";
+import {
+  loadMonthlyChallenges,
+  recomputeChallengeProgress,
+  syncChallengeProgress,
+  type MonthlyChallengeData,
+} from "./social/monthlyChallenges";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -186,6 +192,12 @@ export function GymCirclePreview({
   // e o sheet abre com os dados certos.
   const [recapPeriodPickerOpen, setRecapPeriodPickerOpen] = useState(false);
   const [recapPeriod, setRecapPeriod] = useState<RecapPeriod | null>(null);
+  // Sprint 7.5.6 — desafios mensais do período corrente. Carregados via
+  // loadMonthlyChallenges no boot (effect abaixo). Sync de progresso roda
+  // sempre que workoutDays mudam. Loading inicial: array vazio (card some).
+  const [monthlyChallenges, setMonthlyChallenges] = useState<
+    MonthlyChallengeData[]
+  >([]);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -272,6 +284,64 @@ export function GymCirclePreview({
     }
     measurePerf("app_boot_ms", "app_boot_start", "app_boot_end");
   }, []);
+
+  // Sprint 7.5.6 — carrega desafios do mês + recomputa progress baseado
+  // em workoutDays atuais. Idempotente — roda no boot e quando workoutDays
+  // mudam. Falha silenciosa (best-effort) pra não bloquear UI.
+  useEffect(() => {
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const challenges = await loadMonthlyChallenges(
+          services.client,
+          currentUserId,
+        );
+        if (cancelled) return;
+        // Recompute + sync diff
+        const workoutDays = social.currentUser.workoutDays ?? [];
+        const updatedChallenges: MonthlyChallengeData[] = [];
+        for (const challenge of challenges) {
+          const result = recomputeChallengeProgress(challenge, { workoutDays });
+          if (
+            result.progress !== challenge.progress ||
+            result.justCompleted
+          ) {
+            // Best-effort sync — não awaitamos serial pra performance
+            void syncChallengeProgress(
+              services.client,
+              currentUserId,
+              challenge,
+              result,
+            ).catch((err) => {
+              console.warn("[challenges] sync failed:", err);
+            });
+            updatedChallenges.push({
+              ...challenge,
+              progress: result.progress,
+              completedAt: result.justCompleted
+                ? new Date().toISOString()
+                : challenge.completedAt,
+            });
+          } else {
+            updatedChallenges.push(challenge);
+          }
+        }
+        setMonthlyChallenges(updatedChallenges);
+      } catch (err) {
+        console.warn("[challenges] load failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    services.client,
+    social.currentUser?.id,
+    // workoutDays como dep pra recompute quando user posta novo treino
+    social.currentUser?.workoutDays,
+  ]);
 
   useEffect(() => {
     if (activeScreen !== "chat") return;
@@ -1347,6 +1417,12 @@ export function GymCirclePreview({
             // Sprint 7C.3 — banner "primeira visita" do hub usa o sistema
             // ContextualHint (Sprint 7C.1) pra persistir dismiss cross-device.
             onMarkContextualHintSeen={social.actions.markContextualHintSeen}
+            // Sprint 7.5.6 — desafios mensais carregados no boot.
+            monthlyChallenges={
+              myCircleUser?.id === social.currentUser.id
+                ? monthlyChallenges
+                : undefined
+            }
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
             storyViewed={

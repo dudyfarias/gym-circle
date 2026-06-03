@@ -837,6 +837,15 @@
   "postDetail": {
     "title": "Post"
   },
+  "monthlyChallenges": {
+    "title": "Desafios de {{month}}",
+    "difficulty": {
+      "easy": "Fácil",
+      "medium": "Médio",
+      "hard": "Difícil",
+      "legendary": "Lendário"
+    }
+  },
   "achievementsSheet": {
     "title": "Hall da Fama",
     "hero": "{{earned}} de {{total}} conquistadas",
