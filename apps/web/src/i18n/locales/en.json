@@ -157,6 +157,7 @@
       "title": "Badges",
       "earned": "earned",
       "locked": "locked",
+      "nextStatus": "Next",
       "nextHint": "Almost there for {{name}}",
       "count": "{{earned}}/{{total}}",
       "secretMystery": "Secret badge — figure out how to unlock",

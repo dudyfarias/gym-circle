@@ -149,6 +149,15 @@ export function MyCircleSheet({
   const earnedCount = countEarnedBadges(badges);
   const nextBadge = getNextBadge(badges);
 
+  // Sprint 5.9 — escolha do badge de destaque pro card único da seção F.
+  // Prioridade: próximo (motivacional) > último earned (celebração) >
+  // primeiro da lista (fallback p/ user novo sem nada).
+  const lastEarnedBadge = [...badges]
+    .reverse()
+    .find((badge) => badge.earned && !badge.secret) ?? null;
+  const highlightBadge = nextBadge ?? lastEarnedBadge ?? badges[0] ?? null;
+  const highlightIsNext = highlightBadge === nextBadge && Boolean(nextBadge);
+
   const calendarDate = new Date(calendarMonth.year, calendarMonth.month, 1);
   const totalDaysInCalendarMonth = getTotalDaysInMonth(calendarDate);
   // Sprint 5.2 — passa posts pro builder linkar thumbnail por workoutDate.
@@ -524,57 +533,32 @@ export function MyCircleSheet({
                 </div>
               </section>
 
-              {/* F. Badges — header com tap "Ver todos →" abre BadgesSheet
-                  (Sprint 5.4). Cada badge no grid também é tappable quando
-                  onOpenBadges é fornecido, dando ao user 2 caminhos pra
-                  explorar detalhes. */}
+              {/* F. Badges — Sprint 5.9 redesign: card único de destaque
+                  em vez de grid 3x4. Heurística:
+                    1) nextBadge (motivacional) — próximo a conquistar
+                    2) último earned (celebrar) — quando não há nextBadge
+                       (tudo conquistado)
+                    3) primeiro badge (fallback) — quando nem nextBadge nem
+                       earned existem (user novo)
+                  Card inteiro tappable abre BadgesSheet. Counter "X de Y"
+                  permanece como contexto rápido. */}
               <section className="mt-8">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
                     {t("myCircle.badges.title")}
                   </h4>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[11px] font-black text-white/52">
-                      {t("myCircle.badges.count", {
-                        earned: earnedCount,
-                        total: badges.length,
-                      })}
-                    </span>
-                    {onOpenBadges ? (
-                      <button
-                        aria-label={t("badgesSheet.title")}
-                        className="gc-pressable text-[11px] font-black text-[var(--gc-brand)]"
-                        onClick={onOpenBadges}
-                        type="button"
-                      >
-                        {t("common.more")} →
-                      </button>
-                    ) : null}
-                  </div>
+                  <span className="text-[11px] font-black text-white/52">
+                    {t("myCircle.badges.count", {
+                      earned: earnedCount,
+                      total: badges.length,
+                    })}
+                  </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 rounded-[20px] bg-white/[0.035] p-3 sm:grid-cols-4">
-                  {badges.map((badge) =>
-                    onOpenBadges ? (
-                      <button
-                        aria-label={badge.label}
-                        className="gc-pressable contents"
-                        key={badge.id}
-                        onClick={onOpenBadges}
-                        type="button"
-                      >
-                        <BadgeChip badge={badge} />
-                      </button>
-                    ) : (
-                      <BadgeChip badge={badge} key={badge.id} />
-                    ),
-                  )}
-                </div>
-                {nextBadge ? (
-                  <p className="mt-3 text-center text-[11px] font-bold text-white/52">
-                    {t("myCircle.badges.nextHint", { name: nextBadge.label })}{" "}
-                    — {nextBadge.description.toLowerCase()}
-                  </p>
-                ) : null}
+                <BadgeHighlightCard
+                  badge={highlightBadge}
+                  isNext={highlightIsNext}
+                  onOpen={onOpenBadges}
+                />
               </section>
 
               {/* H. Monthly Recap — Sprint 5.1.
@@ -667,52 +651,121 @@ function RingProgressRow({
   );
 }
 
-function BadgeChip({ badge }: { badge: ReturnType<typeof getEarnedBadges>[number] }) {
+/**
+ * Sprint 5.9 — BadgeHighlightCard: substitui o grid 3x4 da seção F.
+ *
+ * Mostra UM badge em destaque com ícone temático grande + label + descrição
+ * + chip de status. Card inteiro tappable abre BadgesSheet (delegate pro
+ * parent via onOpen). Quando onOpen é ausente, card vira <div> decorativo
+ * (back-compat).
+ *
+ * Estados visuais (4 combinações badge.earned × isNext):
+ *   earned=true            → "Conquistado" — verde sutil + ícone brilhante
+ *   earned=false + isNext  → "Próximo" — brand color + ícone dim + dica
+ *   earned=false + secret  → "???" + HelpCircle + hint genérico
+ *   earned=false + public  → ícone dim + label real + nudge
+ */
+function BadgeHighlightCard({
+  badge,
+  isNext,
+  onOpen,
+}: {
+  badge: ReturnType<typeof getEarnedBadges>[number] | null;
+  isNext: boolean;
+  onOpen?: () => void;
+}) {
   // Sprint 4.4 i18n: subcomponente precisa do seu próprio useTranslation
   // hook — escopo de `t` do parent function não vaza aqui.
   const { t } = useTranslation();
 
-  // Sprint 5.3 — Secret badges:
-  //   !earned + secret → cadeado misterioso + "???" + hint genérico
-  //   earned + secret  → label real visível + ícone único (mesmo
-  //                      comportamento do badge público earned)
-  //   !earned + public → ícone temático dim + label real visível
-  //   earned + public  → ícone temático brilhante + label
+  if (!badge) return null;
+
   const isMysterySecret = badge.secret && !badge.earned;
-  const ariaLabel = isMysterySecret
-    ? t("myCircle.badges.secretMystery")
-    : `${badge.label} — ${badge.earned ? t("myCircle.badges.earned") : t("myCircle.badges.locked")}`;
-  const tooltip = isMysterySecret
+  const statusLabel = badge.earned
+    ? t("myCircle.badges.earned")
+    : isNext
+      ? t("myCircle.badges.nextStatus")
+      : t("myCircle.badges.locked");
+
+  const title = isMysterySecret ? "???" : badge.label;
+  const description = isMysterySecret
     ? t("myCircle.badges.secretHint")
     : badge.description;
+  const ariaLabel = `${title} — ${statusLabel}`;
+
+  const cardContents = (
+    <div className="flex items-center gap-4 px-4 py-4">
+      {/* Ícone grande */}
+      <div className="shrink-0">
+        {isMysterySecret ? (
+          <span className="grid size-14 place-items-center rounded-[18px] bg-white/[0.06] text-white/40">
+            <HelpCircle size={26} strokeWidth={2.4} />
+          </span>
+        ) : badge.earned ? (
+          <BadgeIcon
+            className="size-14 rounded-[18px]"
+            earned
+            iconKey={badge.iconKey}
+            size={28}
+          />
+        ) : (
+          <span className="grid size-14 place-items-center rounded-[18px] bg-white/[0.04] text-white/40">
+            <BadgeIcon
+              className="size-14 rounded-[18px]"
+              earned={false}
+              iconKey={badge.iconKey}
+              size={28}
+            />
+          </span>
+        )}
+      </div>
+      {/* Title + descrição + status */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate text-[15px] font-black text-white">{title}</span>
+          <span
+            className={[
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.04em]",
+              badge.earned
+                ? "bg-[var(--gc-brand)]/16 text-[var(--gc-brand)]"
+                : isNext
+                  ? "bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]/82"
+                  : "bg-white/[0.06] text-white/52",
+            ].join(" ")}
+          >
+            {statusLabel}
+          </span>
+        </div>
+        <p className="mt-1 line-clamp-2 text-[12px] font-bold text-white/64">
+          {description}
+        </p>
+      </div>
+      {/* Chevron de "abrir lista" */}
+      {onOpen ? (
+        <span className="shrink-0 text-[18px] font-black text-white/42">→</span>
+      ) : null}
+    </div>
+  );
+
+  const baseClass =
+    "block w-full rounded-[20px] border border-white/[0.06] bg-white/[0.035] text-left transition-colors";
+
+  if (onOpen) {
+    return (
+      <button
+        aria-label={ariaLabel}
+        className={`gc-pressable ${baseClass}`}
+        onClick={onOpen}
+        type="button"
+      >
+        {cardContents}
+      </button>
+    );
+  }
 
   return (
-    <div
-      aria-label={ariaLabel}
-      className={[
-        "flex aspect-square flex-col items-center justify-center gap-1 rounded-[14px] p-2 text-center transition-colors",
-        isMysterySecret
-          ? "bg-white/[0.04] text-white/36"
-          : badge.earned
-            ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
-            : "bg-white/[0.03] text-white/30",
-      ].join(" ")}
-      title={tooltip}
-    >
-      {isMysterySecret ? (
-        <span className="grid size-7 place-items-center rounded-[10px] bg-white/[0.06] text-white/40">
-          <HelpCircle size={18} strokeWidth={2.4} />
-        </span>
-      ) : badge.earned ? (
-        <BadgeIcon className="size-7" earned iconKey={badge.iconKey} size={18} />
-      ) : (
-        <span className="grid size-7 place-items-center rounded-[10px] bg-white/[0.04] text-white/36">
-          <Lock size={16} strokeWidth={2.4} />
-        </span>
-      )}
-      <span className="line-clamp-2 text-[9.5px] font-black leading-[1.1]">
-        {isMysterySecret ? "???" : badge.label}
-      </span>
+    <div aria-label={ariaLabel} className={baseClass}>
+      {cardContents}
     </div>
   );
 }

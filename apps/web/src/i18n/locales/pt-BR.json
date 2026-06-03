@@ -157,6 +157,7 @@
       "title": "Badges",
       "earned": "conquistada",
       "locked": "bloqueada",
+      "nextStatus": "Próximo",
       "nextHint": "Falta pouco pra {{name}}",
       "count": "{{earned}}/{{total}}",
       "secretMystery": "Badge secreta — descubra como desbloquear",
