@@ -1,8 +1,21 @@
 # Gym Circle 1.1 — Gamification v2
 
 Data: 2026-06-03
-Sprint: 7.5 (em andamento)
-Status: Auditoria completa, planejamento em definição
+Sprint: 7.5 (CONCLUÍDA — 6 sub-fases entregues)
+Status: pronto pra smoke iPhone validation (Sprint 7.5.7)
+
+## Status final por sub-fase
+
+| Sub-fase | Status | Commit principal | Entrega |
+|---|---|---|---|
+| 7.5.0 | ✅ | `225fd57` | Auditoria + este doc (459 linhas) |
+| 7.5.1 | ✅ | `a0d93be` | Foundation: 4 migrations + Achievement union + 21 derivados + 22 tests |
+| 7.5.2 | ✅ | `7932106` | AchievementDetailOverlay Apple Fitness style |
+| 7.5.3 | ⏸ | — | Assets 3D Spline (Eduardo produz async) |
+| 7.5.4 | ✅ | `d16e5f7` | AchievementsSheet Hall da Fama (substitui BadgesSheet) |
+| 7.5.5 | ✅ | `485cb66` | Featured Achievements row no ProfileScreen |
+| 7.5.6 | ✅ | `04be7a8` | Monthly Challenges service + UI + 4 desafios seed |
+| 7.5.7 | 🔄 | (este commit) | Smoke iPhone checklist + spec update |
 
 ## Sumário executivo
 
