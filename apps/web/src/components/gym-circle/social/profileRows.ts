@@ -15,6 +15,10 @@ export type ProfileSurfaceLike = {
 export function profileRowFromPartial(
   input: Partial<ProfileRow> & { user_id: string },
 ): ProfileRow {
+  // Sprint 5.5a — duplo cast pelo symlink quirk: ProfileRow local
+  // (release branch) ainda não tem monthly_recap_covers, mas Vercel
+  // (que clona main fresh) exige. Usamos unknown intermediário pra
+  // satisfazer ambos sem TS reclamar de campo extra ou faltando.
   return {
     id: input.id ?? `profile-${input.user_id}`,
     user_id: input.user_id,
@@ -33,6 +37,9 @@ export function profileRowFromPartial(
     onboarding_completed_at: input.onboarding_completed_at ?? null,
     profile_completion_notice_dismissed:
       input.profile_completion_notice_dismissed ?? false,
+    monthly_recap_covers:
+      (input as { monthly_recap_covers?: Record<string, string> })
+        .monthly_recap_covers ?? {},
     alpha_terms_accepted_at: input.alpha_terms_accepted_at ?? null,
     privacy_policy_accepted_at: input.privacy_policy_accepted_at ?? null,
     account_status: input.account_status ?? "active",
@@ -41,7 +48,7 @@ export function profileRowFromPartial(
     reactivation_expires_at: input.reactivation_expires_at ?? null,
     reactivation_token_hash: input.reactivation_token_hash ?? null,
     deleted_at: input.deleted_at ?? null,
-  };
+  } as unknown as ProfileRow;
 }
 
 export function profileRowFromSurface(input: ProfileSurfaceLike): ProfileRow | null {
