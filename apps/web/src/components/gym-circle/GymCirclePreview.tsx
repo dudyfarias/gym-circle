@@ -68,8 +68,8 @@ const MonthlyRecapSheet = dynamic(
   () => import("./MonthlyRecapSheet").then((module) => module.MonthlyRecapSheet),
   { ssr: false },
 );
-const BadgesSheet = dynamic(
-  () => import("./BadgesSheet").then((module) => module.BadgesSheet),
+const AchievementsSheet = dynamic(
+  () => import("./AchievementsSheet").then((module) => module.AchievementsSheet),
   { ssr: false },
 );
 const RecapCoverPickerSheet = dynamic(
@@ -1354,24 +1354,14 @@ export function GymCirclePreview({
             }
             user={myCircleUser}
           />
-          <BadgesSheet
+          {/* Sprint 7.5.4 — AchievementsSheet (Hall da Fama) substitui o
+              BadgesSheet legacy. Trabalha com Achievement nativo direto —
+              sem adapter Badge → Achievement. 6 tabs (Tudo + 5 categorias)
+              + 3 sub-seções por estado. Tap em qualquer card abre o
+              AchievementDetailOverlay (Sprint 7.5.2). */}
+          <AchievementsSheet
             onClose={closeBadges}
-            // Sprint 7.5.2 — tap num card de badge abre o overlay full-screen
-            // Apple Fitness style. Convertemos Badge → Achievement com kind:
-            // "badge" pra simplificar — Sub-fase 7.5.4 substitui BadgesSheet
-            // por AchievementsSheet que já trabalha com Achievement nativo.
-            onOpenAchievementDetail={(badge) =>
-              setAchievementDetail({
-                kind: "badge",
-                id: badge.id,
-                label: badge.label,
-                description: badge.description,
-                earned: badge.earned,
-                iconKey: badge.iconKey,
-                secret: badge.secret,
-                progress: badge.progress,
-              })
-            }
+            onOpenAchievementDetail={setAchievementDetail}
             open={badgesSheetOpen}
             posts={myCircleUserPosts}
             user={myCircleUser}

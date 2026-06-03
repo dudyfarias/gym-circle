@@ -833,6 +833,27 @@
   "postDetail": {
     "title": "Post"
   },
+  "achievementsSheet": {
+    "title": "Hall of Fame",
+    "hero": "{{earned}} of {{total}} earned",
+    "progress": "{{current}}/{{target}}",
+    "empty": "No achievements in this category yet.",
+    "secretMystery": "Secret achievement",
+    "secretHint": "Figure out how to unlock",
+    "tabs": {
+      "all": "All",
+      "badge": "Badges",
+      "medal": "Medals",
+      "trophy": "Trophies",
+      "relic": "Relics",
+      "challenge": "Challenges"
+    },
+    "section": {
+      "earned": "Earned · {{count}}",
+      "next": "Up next · {{count}}",
+      "locked": "Locked · {{count}}"
+    }
+  },
   "achievementDetail": {
     "title": "Achievement",
     "share": "Share achievement",

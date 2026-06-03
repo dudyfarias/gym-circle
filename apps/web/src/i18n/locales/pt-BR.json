@@ -833,6 +833,27 @@
   "postDetail": {
     "title": "Post"
   },
+  "achievementsSheet": {
+    "title": "Hall da Fama",
+    "hero": "{{earned}} de {{total}} conquistadas",
+    "progress": "{{current}}/{{target}}",
+    "empty": "Nenhuma conquista nesta categoria ainda.",
+    "secretMystery": "Conquista secreta",
+    "secretHint": "Descubra como desbloquear",
+    "tabs": {
+      "all": "Tudo",
+      "badge": "Badges",
+      "medal": "Medalhas",
+      "trophy": "Troféus",
+      "relic": "Relíquias",
+      "challenge": "Desafios"
+    },
+    "section": {
+      "earned": "Conquistados · {{count}}",
+      "next": "Próximos · {{count}}",
+      "locked": "Bloqueados · {{count}}"
+    }
+  },
   "achievementDetail": {
     "title": "Conquista",
     "share": "Compartilhar conquista",
