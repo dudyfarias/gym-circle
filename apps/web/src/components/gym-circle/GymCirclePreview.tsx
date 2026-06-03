@@ -290,62 +290,10 @@ export function GymCirclePreview({
   }, []);
 
   // Sprint 7.5.6 — carrega desafios do mês + recomputa progress baseado
-  // em workoutDays atuais. Idempotente — roda no boot e quando workoutDays
-  // mudam. Falha silenciosa (best-effort) pra não bloquear UI.
-  useEffect(() => {
-    const currentUserId = social.currentUser?.id;
-    if (!currentUserId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const challenges = await loadMonthlyChallenges(
-          services.client,
-          currentUserId,
-        );
-        if (cancelled) return;
-        // Recompute + sync diff
-        const workoutDays = social.currentUser.workoutDays ?? [];
-        const updatedChallenges: MonthlyChallengeData[] = [];
-        for (const challenge of challenges) {
-          const result = recomputeChallengeProgress(challenge, { workoutDays });
-          if (
-            result.progress !== challenge.progress ||
-            result.justCompleted
-          ) {
-            // Best-effort sync — não awaitamos serial pra performance
-            void syncChallengeProgress(
-              services.client,
-              currentUserId,
-              challenge,
-              result,
-            ).catch((err) => {
-              console.warn("[challenges] sync failed:", err);
-            });
-            updatedChallenges.push({
-              ...challenge,
-              progress: result.progress,
-              completedAt: result.justCompleted
-                ? new Date().toISOString()
-                : challenge.completedAt,
-            });
-          } else {
-            updatedChallenges.push(challenge);
-          }
-        }
-        setMonthlyChallenges(updatedChallenges);
-      } catch (err) {
-        console.warn("[challenges] load failed:", err);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    services.client,
-    social.currentUser?.id,
-    // workoutDays como dep pra recompute quando user posta novo treino
-    social.currentUser?.workoutDays,
-  ]);
+  // em workoutDays atuais. Sprint 7.5.10: também passa posts do mês pra
+  // suportar goal_kinds workout_type_specific / group_workouts /
+  // distinct_types. Effect MOVIDO pra depois da declaração de
+  // currentUserPosts (busca o bloco abaixo) — back-compat.
 
   useEffect(() => {
     if (activeScreen !== "chat") return;
@@ -955,6 +903,76 @@ export function GymCirclePreview({
     social.currentUser?.lastStreakRestoreUsedAt,
     currentUserPosts,
   ]);
+
+  // Sprint 7.5.6 + 7.5.10 — carrega desafios mensais + recomputa progress
+  // baseado em workoutDays + posts atuais. Suporta os 5 goal_kinds:
+  // workouts_in_month, workout_type_specific, group_workouts, distinct_types
+  // (Sprint 7.5.10), streak_in_month / perfect_month (deferred). Best-effort.
+  useEffect(() => {
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const challenges = await loadMonthlyChallenges(
+          services.client,
+          currentUserId,
+        );
+        if (cancelled) return;
+        const workoutDays = social.currentUser.workoutDays ?? [];
+        const challengePosts = currentUserPosts.map((post) => ({
+          workoutDate: post.workoutDate,
+          workoutType: post.workoutType ?? null,
+          // Sprint 7.5.10: group workouts contam só quando há 2+
+          // participants accepted (além do autor implícito).
+          hasAcceptedGroup:
+            (post.acceptedParticipants?.length ?? 0) >= 2,
+        }));
+        const updatedChallenges: MonthlyChallengeData[] = [];
+        for (const challenge of challenges) {
+          const result = recomputeChallengeProgress(challenge, {
+            workoutDays,
+            posts: challengePosts,
+          });
+          if (
+            result.progress !== challenge.progress ||
+            result.justCompleted
+          ) {
+            void syncChallengeProgress(
+              services.client,
+              currentUserId,
+              challenge,
+              result,
+            ).catch((err) => {
+              console.warn("[challenges] sync failed:", err);
+            });
+            updatedChallenges.push({
+              ...challenge,
+              progress: result.progress,
+              completedAt: result.justCompleted
+                ? new Date().toISOString()
+                : challenge.completedAt,
+            });
+          } else {
+            updatedChallenges.push(challenge);
+          }
+        }
+        setMonthlyChallenges(updatedChallenges);
+      } catch (err) {
+        console.warn("[challenges] load failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    services.client,
+    social.currentUser,
+    social.currentUser?.id,
+    social.currentUser?.workoutDays,
+    currentUserPosts,
+  ]);
+
   const monthlyRecap = useMemo(
     () =>
       buildMonthlyRecap({

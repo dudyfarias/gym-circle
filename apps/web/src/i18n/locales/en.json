@@ -839,6 +839,7 @@
   },
   "monthlyChallenges": {
     "title": "{{month}} challenges",
+    "secretHint": "Secret challenge — figure out how to earn it.",
     "difficulty": {
       "easy": "Easy",
       "medium": "Medium",

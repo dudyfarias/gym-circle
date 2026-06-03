@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Trophy } from "lucide-react";
+import { Check, HelpCircle, Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MonthlyChallengeData } from "./social/monthlyChallenges";
 
@@ -57,6 +57,9 @@ function ChallengeRow({ challenge }: { challenge: MonthlyChallengeData }) {
   const { t } = useTranslation();
   const tone = DIFFICULTY_TONE[challenge.difficulty];
   const isCompleted = challenge.completedAt !== null;
+  // Sprint 7.5.10 — esconde título/descrição/progresso pra secret
+  // challenges não completados. Quando completar, revela tudo.
+  const isMystery = challenge.isSecret && !isCompleted;
   const pct = Math.min(
     100,
     Math.round((challenge.progress / challenge.goalTarget) * 100),
@@ -73,19 +76,30 @@ function ChallengeRow({ challenge }: { challenge: MonthlyChallengeData }) {
         <span
           className={[
             "grid size-10 shrink-0 place-items-center rounded-[12px]",
-            isCompleted ? tone.iconBg : "bg-white/[0.06] text-white/64",
+            isCompleted
+              ? tone.iconBg
+              : isMystery
+                ? "bg-white/[0.04] text-white/40"
+                : "bg-white/[0.06] text-white/64",
           ].join(" ")}
         >
           {isCompleted ? (
             <Check size={18} strokeWidth={2.8} />
+          ) : isMystery ? (
+            <HelpCircle size={20} strokeWidth={2.2} />
           ) : (
             <Trophy size={18} strokeWidth={2.4} />
           )}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className="truncate text-[13px] font-black text-white">
-              {challenge.title}
+            <span
+              className={[
+                "truncate text-[13px] font-black",
+                isMystery ? "text-white/56" : "text-white",
+              ].join(" ")}
+            >
+              {isMystery ? "???" : challenge.title}
             </span>
             <span
               className={[
@@ -97,14 +111,18 @@ function ChallengeRow({ challenge }: { challenge: MonthlyChallengeData }) {
             </span>
           </div>
           <p className="mt-0.5 line-clamp-1 text-[11.5px] font-bold text-white/56">
-            {challenge.description}
+            {isMystery
+              ? t("monthlyChallenges.secretHint")
+              : challenge.description}
           </p>
         </div>
-        <span className="shrink-0 text-[12px] font-black tabular-nums text-white/82">
-          {challenge.progress}/{challenge.goalTarget}
-        </span>
+        {!isMystery ? (
+          <span className="shrink-0 text-[12px] font-black tabular-nums text-white/82">
+            {challenge.progress}/{challenge.goalTarget}
+          </span>
+        ) : null}
       </div>
-      {!isCompleted ? (
+      {!isCompleted && !isMystery ? (
         <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
           <div
             className={[

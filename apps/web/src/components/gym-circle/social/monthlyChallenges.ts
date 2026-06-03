@@ -34,6 +34,8 @@ type MonthlyChallengeRow = {
   start_date: string;
   end_date: string;
   trophy_id: string;
+  is_secret: boolean;
+  goal_config: Record<string, unknown>;
   created_at: string;
 };
 
@@ -56,6 +58,17 @@ export type MonthlyChallengeData = {
   trophyId: string;
   progress: number;
   completedAt: string | null;
+  /**
+   * Sprint 7.5.10 — quando true, UI esconde título/descrição até user
+   * completar (mostra "???"). Revela ao ganhar — mesmo padrão dos
+   * secret badges (Sprint 5.3).
+   */
+  isSecret: boolean;
+  /**
+   * Sprint 7.5.10 — parâmetros extras pro goal_kind. Shape depende:
+   *   - workout_type_specific: { workout_type: string } (case-insensitive)
+   */
+  goalConfig: Record<string, unknown>;
 };
 
 /**
@@ -127,14 +140,49 @@ export async function loadMonthlyChallenges(
       trophyId: c.trophy_id,
       progress: progress?.progress ?? 0,
       completedAt: progress?.completed_at ?? null,
+      isSecret: c.is_secret ?? false,
+      goalConfig: c.goal_config ?? {},
     };
   });
 }
 
 /**
+ * Snapshot mínimo de um post pra logic de challenge progress.
+ */
+export type ChallengePostSnapshot = {
+  workoutDate: string;
+  workoutType: string | null;
+  /**
+   * Quando o post tem 2+ participantes accepted (excluindo o autor),
+   * conta como group workout. Caller deve hidratar esse flag a partir
+   * de post_participants.
+   */
+  hasAcceptedGroup?: boolean;
+};
+
+/**
+ * Normaliza string pra comparação fuzzy: lowercase + remove acentos.
+ * Permite match "Tênis" / "tenis" / "Tennis" pra mesma palavra-chave.
+ */
+function normalizeForCompare(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
  * Recompute progress de UM challenge a partir do estado social atual.
- * Suporta goal_kind = "workouts_in_month" (only one implemented; more
- * follow-ups: streak_in_month, perfect_month, group_workouts, distinct_types).
+ *
+ * Goal kinds suportados (Sprint 7.5.10):
+ *   - workouts_in_month: dias treinados no período
+ *   - workout_type_specific: posts com workout_type matching (config.workout_type)
+ *   - group_workouts: posts com 2+ participantes accepted
+ *   - distinct_types: workout_types únicos no período
+ *
+ * Pulados (fallback mantém valor atual):
+ *   - streak_in_month, perfect_month
  *
  * Retorna progress atualizado + flag se completou agora (pra trigger
  * UPDATE no DB).
@@ -142,10 +190,14 @@ export async function loadMonthlyChallenges(
 export function recomputeChallengeProgress(
   challenge: MonthlyChallengeData,
   context: {
-    workoutDays: string[]; // YYYY-MM-DD do user (já filtrado pelo período)
+    workoutDays: string[]; // YYYY-MM-DD do user
+    posts?: ReadonlyArray<ChallengePostSnapshot>;
   },
 ): { progress: number; justCompleted: boolean } {
   let newProgress = challenge.progress;
+  const postsInMonth = (context.posts ?? []).filter((p) =>
+    p.workoutDate?.startsWith(challenge.periodKey),
+  );
 
   switch (challenge.goalKind) {
     case "workouts_in_month": {
@@ -155,7 +207,34 @@ export function recomputeChallengeProgress(
       newProgress = new Set(monthDays).size;
       break;
     }
-    // Outros kinds ficam pra sub-fase futura. Fallback: mantém valor.
+    case "workout_type_specific": {
+      const target = String(
+        (challenge.goalConfig?.workout_type as string) ?? "",
+      );
+      if (!target) {
+        newProgress = challenge.progress;
+        break;
+      }
+      const targetNorm = normalizeForCompare(target);
+      newProgress = postsInMonth.filter((p) => {
+        if (!p.workoutType) return false;
+        return normalizeForCompare(p.workoutType).includes(targetNorm);
+      }).length;
+      break;
+    }
+    case "group_workouts": {
+      newProgress = postsInMonth.filter((p) => p.hasAcceptedGroup).length;
+      break;
+    }
+    case "distinct_types": {
+      const types = new Set<string>();
+      for (const p of postsInMonth) {
+        const t = p.workoutType?.trim();
+        if (t) types.add(normalizeForCompare(t));
+      }
+      newProgress = types.size;
+      break;
+    }
     default:
       break;
   }

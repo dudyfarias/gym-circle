@@ -839,6 +839,7 @@
   },
   "monthlyChallenges": {
     "title": "Desafios de {{month}}",
+    "secretHint": "Desafio secreto — descubra como conquistar.",
     "difficulty": {
       "easy": "Fácil",
       "medium": "Médio",
