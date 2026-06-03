@@ -283,7 +283,8 @@ export function calculateWorkoutStats(workoutDays: string[], todayKey = formatDa
 }
 
 /**
- * Constrói o array de dias do mês com flag `trained` + thumbnail opcional.
+ * Constrói o array de dias do mês com flag `trained` + thumbnail opcional
+ * + postId opcional.
  *
  * Sprint 5.2 — Calendar mini-fotos: aceita 3º parâmetro `posts` (opcional,
  * back-compat). Quando fornecido, cada dia "trained" tenta resolver o post
@@ -292,13 +293,18 @@ export function calculateWorkoutStats(workoutDays: string[], todayKey = formatDa
  * caindo pra `imageUrl` quando não há thumbnail dedicado. Vídeos seguem
  * usando o poster/thumbnail do server.
  *
- * Se posts não é fornecido OU nenhum post bate na data, `thumbnailUrl`
- * fica null — UI mostra cell sólido (comportamento anterior).
+ * Sprint 5.8 — agora também devolve `postId` quando há match. UI usa pra
+ * tornar a cell tappable e abrir o post detail (mesmo padrão da grade do
+ * ProfileScreen). Sem postId, cell continua estática.
+ *
+ * Se posts não é fornecido OU nenhum post bate na data, `thumbnailUrl` +
+ * `postId` ficam null — UI mostra cell sólido (comportamento anterior).
  */
 export function buildMonthWorkoutDays(
   workoutDays: string[],
   todayKey = formatDateKey(new Date()),
   posts?: ReadonlyArray<{
+    id?: string;
     workoutDate: string;
     thumbnailUrl?: string | null;
     imageUrl?: string | null;
@@ -312,12 +318,16 @@ export function buildMonthWorkoutDays(
   // Index posts by workoutDate pra lookup O(1) por dia. Quando há mais de
   // um post no mesmo dia, mantemos o primeiro encontrado (caller deve já
   // ordenar por preferência — geralmente ordem do feed).
-  const postsByDate = new Map<string, { thumbnailUrl: string | null }>();
+  const postsByDate = new Map<
+    string,
+    { thumbnailUrl: string | null; postId: string | null }
+  >();
   if (posts) {
     for (const post of posts) {
       if (!post.workoutDate || postsByDate.has(post.workoutDate)) continue;
       postsByDate.set(post.workoutDate, {
         thumbnailUrl: post.thumbnailUrl ?? post.imageUrl ?? null,
+        postId: post.id ?? null,
       });
     }
   }
@@ -333,6 +343,7 @@ export function buildMonthWorkoutDays(
       dateKey,
       trained,
       thumbnailUrl: postMatch?.thumbnailUrl ?? null,
+      postId: postMatch?.postId ?? null,
     };
   });
 }

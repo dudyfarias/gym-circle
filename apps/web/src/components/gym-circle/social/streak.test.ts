@@ -237,14 +237,17 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
       dateKey: "2026-05-01",
       trained: true,
       thumbnailUrl: null,
+      postId: null,
     });
     expect(result[14]).toEqual({
       day: 15,
       dateKey: "2026-05-15",
       trained: true,
       thumbnailUrl: null,
+      postId: null,
     });
     expect(result[5].trained).toBe(false);
+    expect(result[5].postId).toBe(null);
   });
 
   it("linka thumbnailUrl do post quando workoutDate bate com o dia", () => {
@@ -306,6 +309,34 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
   it("back-compat: sem posts param, thumbnailUrl é sempre null", () => {
     const result = buildMonthWorkoutDays(["2026-05-01"], todayKey);
     expect(result[0].thumbnailUrl).toBe(null);
+    expect(result[0].postId).toBe(null);
     expect(result[0].trained).toBe(true);
+  });
+
+  it("Sprint 5.8 — linka postId quando o post tem id", () => {
+    const posts = [
+      {
+        id: "post-uuid-001",
+        workoutDate: "2026-05-01",
+        thumbnailUrl: "https://cdn/thumb-1.jpg",
+        imageUrl: null,
+      },
+      {
+        // Sem id → postId fica null mesmo com match de workoutDate
+        workoutDate: "2026-05-15",
+        thumbnailUrl: "https://cdn/thumb-2.jpg",
+        imageUrl: null,
+      },
+    ];
+    const result = buildMonthWorkoutDays(
+      ["2026-05-01", "2026-05-15"],
+      todayKey,
+      posts,
+    );
+    expect(result[0].postId).toBe("post-uuid-001");
+    expect(result[0].thumbnailUrl).toBe("https://cdn/thumb-1.jpg");
+    // Dia 15: id ausente → postId null, mas thumbnail ainda funciona
+    expect(result[14].postId).toBe(null);
+    expect(result[14].thumbnailUrl).toBe("https://cdn/thumb-2.jpg");
   });
 });

@@ -1256,6 +1256,9 @@ export function GymCirclePreview({
                 ? () => setMonthlyRecapOpen(true)
                 : undefined
             }
+            // Sprint 5.8 — calendar mini-foto tappable abre PostDetail. Mesmo
+            // handler usado pelos profile/feed grids pra consistência de UX.
+            onOpenPost={openPostDetail}
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
             storyViewed={

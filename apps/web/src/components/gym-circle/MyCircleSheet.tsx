@@ -80,6 +80,13 @@ type MyCircleSheetProps = {
    * "Ver todos →" nem torna os badges clicáveis.
    */
   onOpenBadges?: () => void;
+  /**
+   * Sprint 5.8 — abre o PostDetail do post correspondente ao mini-foto do
+   * calendar. Quando ausente, as cells do calendário não viram tappable
+   * (apenas decoração). Wire-up vem do GymCirclePreview, mesmo handler
+   * usado pelo ProfilePostsGrid pra consistência de UX.
+   */
+  onOpenPost?: (postId: string) => void;
 };
 
 export function MyCircleSheet({
@@ -94,6 +101,7 @@ export function MyCircleSheet({
   monthlyRecap,
   onOpenMonthlyRecap,
   onOpenBadges,
+  onOpenPost,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -387,50 +395,77 @@ export function MyCircleSheet({
                       const isToday = dayInfo?.dateKey === todayKey;
                       const trained = Boolean(dayInfo?.trained);
                       const thumbnailUrl = dayInfo?.thumbnailUrl ?? null;
+                      const postId = dayInfo?.postId ?? null;
                       // Sprint 5.2 — Gym Rats style: cell quadrada com
                       // background-image quando há foto do treino daquele dia.
                       // Numero do dia em overlay branco com text-shadow pra
                       // legibilidade sobre qualquer foto. Cells sem foto OU
                       // dias não treinados caem no estilo sólido original.
                       const hasPhoto = trained && thumbnailUrl;
-                      return (
-                        <div
-                          aria-label={
-                            trained
-                              ? t("myCircle.calendar.trained", { day })
-                              : t("myCircle.calendar.notTrained", { day })
+                      // Sprint 5.8 — cell tappable só quando há post + handler
+                      // fornecido. Mantém back-compat: cells sem postId continuam
+                      // sendo decoração (div).
+                      const isTappable = Boolean(postId && onOpenPost);
+                      const sharedClass = [
+                        "relative grid aspect-square place-items-center overflow-hidden rounded-[10px] text-[11px] font-black transition-colors",
+                        hasPhoto
+                          ? "text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                          : trained
+                            ? "bg-[var(--gc-consistency-month)]/22 text-[var(--gc-consistency-month)]"
+                            : "bg-white/[0.04] text-white/36",
+                        isToday
+                          ? "ring-2 ring-[var(--gc-brand)]/72 ring-offset-2 ring-offset-[#101214]"
+                          : "",
+                        isTappable ? "gc-pressable cursor-pointer" : "",
+                      ].join(" ");
+                      const sharedAria = trained
+                        ? t("myCircle.calendar.trained", { day })
+                        : t("myCircle.calendar.notTrained", { day });
+                      const sharedStyle = hasPhoto
+                        ? {
+                            backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.36)), url(${thumbnailUrl})`,
+                            backgroundSize: "cover" as const,
+                            backgroundPosition: "center" as const,
                           }
-                          className={[
-                            "relative grid aspect-square place-items-center overflow-hidden rounded-[10px] text-[11px] font-black transition-colors",
+                        : undefined;
+                      const dayLabel = (
+                        <span
+                          className={
                             hasPhoto
-                              ? "text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-                              : trained
-                                ? "bg-[var(--gc-consistency-month)]/22 text-[var(--gc-consistency-month)]"
-                                : "bg-white/[0.04] text-white/36",
-                            isToday
-                              ? "ring-2 ring-[var(--gc-brand)]/72 ring-offset-2 ring-offset-[#101214]"
-                              : "",
-                          ].join(" ")}
-                          key={`day-${day}`}
-                          style={
-                            hasPhoto
-                              ? {
-                                  backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0.36)), url(${thumbnailUrl})`,
-                                  backgroundSize: "cover",
-                                  backgroundPosition: "center",
-                                }
-                              : undefined
+                              ? "relative text-shadow-[0_1px_3px_rgba(0,0,0,0.72)] [text-shadow:0_1px_3px_rgba(0,0,0,0.72)]"
+                              : "relative"
                           }
                         >
-                          <span
-                            className={
-                              hasPhoto
-                                ? "relative text-shadow-[0_1px_3px_rgba(0,0,0,0.72)] [text-shadow:0_1px_3px_rgba(0,0,0,0.72)]"
-                                : "relative"
-                            }
+                          {day}
+                        </span>
+                      );
+
+                      if (isTappable && postId && onOpenPost) {
+                        return (
+                          <button
+                            aria-label={sharedAria}
+                            className={sharedClass}
+                            key={`day-${day}`}
+                            onClick={() => {
+                              simulateHaptic("brand");
+                              onOpenPost(postId);
+                            }}
+                            style={sharedStyle}
+                            type="button"
                           >
-                            {day}
-                          </span>
+                            {dayLabel}
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div
+                          aria-label={sharedAria}
+                          className={sharedClass}
+                          key={`day-${day}`}
+                          style={sharedStyle}
+                        >
+                          {dayLabel}
                         </div>
                       );
                     })}
