@@ -85,6 +85,11 @@ const RecapPeriodPickerSheet = dynamic(
     ),
   { ssr: false },
 );
+const PostDetailOverlay = dynamic(
+  () =>
+    import("./PostDetailOverlay").then((module) => module.PostDetailOverlay),
+  { ssr: false },
+);
 const NotificationsSheet = dynamic(
   () => import("./NotificationsSheet").then((module) => module.NotificationsSheet),
   { ssr: false },
@@ -192,6 +197,10 @@ export function GymCirclePreview({
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [postDetailId, setPostDetailId] = useState<string | null>(null);
+  // Sprint 5.11 — estado separado pro overlay full-screen do post (estilo
+  // Instagram quando user tapa em foto do grid). `postDetailId` continua
+  // sendo só pro CommentsBottomSheet (tap no ícone 💬 do feed).
+  const [postDetailFullId, setPostDetailFullId] = useState<string | null>(null);
   const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [followListOverlay, setFollowListOverlay] = useState<{
     kind: "followers" | "following";
@@ -361,6 +370,18 @@ export function GymCirclePreview({
     [refreshPostDetailsAction],
   );
   const closePostDetail = useCallback(() => setPostDetailId(null), []);
+  // Sprint 5.11 — abre overlay full-screen do post (estilo Instagram).
+  // Usado em grids: ProfileScreen, ProfileSheet, MyCircleSheet calendar.
+  // Dentro do overlay, user pode tocar em "Comentários" → abre o sheet
+  // de comentários por cima (compartilha `openPostDetail` clássico).
+  const openPostDetailFull = useCallback(
+    (postId: string) => {
+      setPostDetailFullId(postId);
+      void refreshPostDetailsAction?.(postId);
+    },
+    [refreshPostDetailsAction],
+  );
+  const closePostDetailFull = useCallback(() => setPostDetailFullId(null), []);
   const openLikes = useCallback(
     (postId: string) => {
       setLikesPostId(postId);
@@ -485,6 +506,12 @@ export function GymCirclePreview({
     if (!postDetailId) return null;
     return profilePosts.find((p) => p.id === postDetailId) ?? null;
   }, [postDetailId, profilePosts]);
+  // Sprint 5.11 — resolve o post pro PostDetailOverlay. Mesma estratégia
+  // do postDetailTarget mas com state separado.
+  const postDetailFullTarget: EnrichedPost | null = useMemo(() => {
+    if (!postDetailFullId) return null;
+    return profilePosts.find((p) => p.id === postDetailFullId) ?? null;
+  }, [postDetailFullId, profilePosts]);
   const likesTarget: EnrichedPost | null = useMemo(() => {
     if (!likesPostId) return null;
     return profilePosts.find((post) => post.id === likesPostId) ?? null;
@@ -1003,7 +1030,11 @@ export function GymCirclePreview({
             onSelectUser={openProfile}
             onToggleFollow={toggleFollowIgnoringResult}
             posts={currentUserPosts}
-            onOpenPost={openPostDetail}
+            // Sprint 5.11 — tap em foto do grid abre PostDetailOverlay
+            // (página completa estilo Instagram). Antes abria
+            // CommentsBottomSheet (overlay só de comentários) — bug
+            // reportado pelo user no smoke iPhone.
+            onOpenPost={openPostDetailFull}
             onOpenMyCircle={() => openMyCircle(social.currentUser.id)}
             onUseStreakRestore={social.actions.useStreakRestore}
             onDismissProfileCompletionNotice={
@@ -1130,6 +1161,7 @@ export function GymCirclePreview({
     openProfile,
     openFollowListOverlay,
     openPostDetail,
+    openPostDetailFull,
     openLikes,
     usersById,
     resolveUser,
@@ -1256,7 +1288,8 @@ export function GymCirclePreview({
             onToggleFollow={toggleFollowIgnoringResult}
             open={profileOpenId !== null}
             onOpenMyCircle={() => profileSheetUser && openMyCircle(profileSheetUser.id)}
-            onOpenPost={openPostDetail}
+            // Sprint 5.11 — ver coment em currentUser ProfileScreen acima.
+            onOpenPost={openPostDetailFull}
             posts={profileSheetPosts}
             user={profileSheetUser}
           />
@@ -1277,9 +1310,10 @@ export function GymCirclePreview({
                 ? () => setMonthlyRecapOpen(true)
                 : undefined
             }
-            // Sprint 5.8 — calendar mini-foto tappable abre PostDetail. Mesmo
-            // handler usado pelos profile/feed grids pra consistência de UX.
-            onOpenPost={openPostDetail}
+            // Sprint 5.8 — calendar mini-foto tappable abre PostDetail.
+            // Sprint 5.11 — usa overlay full-screen (estilo Instagram) em
+            // vez do CommentsBottomSheet, igual aos profile grids.
+            onOpenPost={openPostDetailFull}
             // Sprint 5.10 — CTA secundário "Outro período" abre o picker
             // de período pro user escolher mês passado OU ano inteiro.
             // Mesma checagem isOwn do recap principal — recap é asset do
@@ -1303,6 +1337,29 @@ export function GymCirclePreview({
             open={badgesSheetOpen}
             posts={myCircleUserPosts}
             user={myCircleUser}
+          />
+          {/* Sprint 5.11 — overlay full-screen do post (estilo Instagram).
+              Aberto via tap em foto do grid (Profile, ProfileSheet, calendar
+              do MyCircle). Dentro do overlay, "Comentários" abre o
+              CommentsBottomSheet por cima (compartilha openPostDetail). */}
+          <PostDetailOverlay
+            currentUser={social.currentUser}
+            formatTime={social.formatPostClock}
+            onClose={closePostDetailFull}
+            onLikePost={social.actions.likePost}
+            onOpenComments={openPostDetail}
+            onOpenLikes={openLikes}
+            onOpenPostMenu={openPostMenu}
+            onSelectUser={(userId) => {
+              closePostDetailFull();
+              openProfile(userId);
+            }}
+            onSharePostToChat={social.actions.sharePostToChat}
+            onToggleFollow={toggleFollowIgnoringResult}
+            open={postDetailFullId !== null}
+            post={postDetailFullTarget}
+            resolveUser={resolveUser}
+            shareTargets={followedUsers}
           />
           <CommentsBottomSheet
             currentUser={social.currentUser}
@@ -1587,6 +1644,9 @@ export function GymCirclePreview({
               setConfirmIntent(null);
               if (intent.kind === "delete-post" && deletePost) {
                 if (postDetailId === intent.postId) closePostDetail();
+                // Sprint 5.11 — também fecha o overlay full-screen quando
+                // user deleta o post que está sendo exibido lá.
+                if (postDetailFullId === intent.postId) closePostDetailFull();
                 await deletePost(intent.postId);
                 return;
               }

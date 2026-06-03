@@ -829,6 +829,9 @@
     "subtitle": "Share your recap for a month or the whole year.",
     "yearHint": "Whole year"
   },
+  "postDetail": {
+    "title": "Post"
+  },
   "badgesSheet": {
     "title": "Badges",
     "closeAria": "Close badges",

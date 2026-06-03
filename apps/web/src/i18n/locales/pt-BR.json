@@ -829,6 +829,9 @@
     "subtitle": "Compartilhe o resumo de um mês ou do ano inteiro.",
     "yearHint": "Ano inteiro"
   },
+  "postDetail": {
+    "title": "Post"
+  },
   "badgesSheet": {
     "title": "Badges",
     "closeAria": "Fechar badges",
