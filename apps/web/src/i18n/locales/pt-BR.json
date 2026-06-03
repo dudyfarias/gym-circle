@@ -833,6 +833,27 @@
   "postDetail": {
     "title": "Post"
   },
+  "achievementDetail": {
+    "title": "Conquista",
+    "share": "Compartilhar conquista",
+    "progress": "Progresso",
+    "mysteryHint": "Descubra como desbloquear esta conquista secreta.",
+    "stats": {
+      "earnedAt": "Conquistado",
+      "lastEarned": "Última vez",
+      "total": "Total",
+      "totalCount_one": "{{count}} vez",
+      "totalCount_other": "{{count}} vezes"
+    },
+    "rarity": {
+      "common": "Comum",
+      "uncommon": "Incomum",
+      "rare": "Raro",
+      "epic": "Épico",
+      "legendary": "Lendário"
+    },
+    "rarityPercent": "Apenas {{percent}}% dos usuários possuem esta conquista."
+  },
   "badgesSheet": {
     "title": "Badges",
     "closeAria": "Fechar badges",

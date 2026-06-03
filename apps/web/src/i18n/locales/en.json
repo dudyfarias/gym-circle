@@ -833,6 +833,27 @@
   "postDetail": {
     "title": "Post"
   },
+  "achievementDetail": {
+    "title": "Achievement",
+    "share": "Share achievement",
+    "progress": "Progress",
+    "mysteryHint": "Figure out how to unlock this secret achievement.",
+    "stats": {
+      "earnedAt": "Earned",
+      "lastEarned": "Last earned",
+      "total": "Total",
+      "totalCount_one": "{{count}} time",
+      "totalCount_other": "{{count}} times"
+    },
+    "rarity": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
+    },
+    "rarityPercent": "Only {{percent}}% of users own this achievement."
+  },
   "badgesSheet": {
     "title": "Badges",
     "closeAria": "Close badges",

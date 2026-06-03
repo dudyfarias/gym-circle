@@ -16,6 +16,7 @@ import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
 import { buildMonthlyRecap, type RecapPeriod } from "./social/monthlyRecap";
+import type { Achievement } from "./social/achievements";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -88,6 +89,13 @@ const RecapPeriodPickerSheet = dynamic(
 const PostDetailOverlay = dynamic(
   () =>
     import("./PostDetailOverlay").then((module) => module.PostDetailOverlay),
+  { ssr: false },
+);
+const AchievementDetailOverlay = dynamic(
+  () =>
+    import("./AchievementDetailOverlay").then(
+      (module) => module.AchievementDetailOverlay,
+    ),
   { ssr: false },
 );
 const NotificationsSheet = dynamic(
@@ -201,6 +209,13 @@ export function GymCirclePreview({
   // Instagram quando user tapa em foto do grid). `postDetailId` continua
   // sendo só pro CommentsBottomSheet (tap no ícone 💬 do feed).
   const [postDetailFullId, setPostDetailFullId] = useState<string | null>(null);
+  // Sprint 7.5.2 — overlay full-screen Apple Fitness style. Aberto via
+  // tap em qualquer achievement (MyCircle highlight, BadgesSheet, Profile
+  // featured). Stats (earnedAt, count, rarity) ficam null por enquanto —
+  // sub-fase futura wires user_achievements queries.
+  const [achievementDetail, setAchievementDetail] = useState<Achievement | null>(
+    null,
+  );
   const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [followListOverlay, setFollowListOverlay] = useState<{
     kind: "followers" | "following";
@@ -1341,6 +1356,22 @@ export function GymCirclePreview({
           />
           <BadgesSheet
             onClose={closeBadges}
+            // Sprint 7.5.2 — tap num card de badge abre o overlay full-screen
+            // Apple Fitness style. Convertemos Badge → Achievement com kind:
+            // "badge" pra simplificar — Sub-fase 7.5.4 substitui BadgesSheet
+            // por AchievementsSheet que já trabalha com Achievement nativo.
+            onOpenAchievementDetail={(badge) =>
+              setAchievementDetail({
+                kind: "badge",
+                id: badge.id,
+                label: badge.label,
+                description: badge.description,
+                earned: badge.earned,
+                iconKey: badge.iconKey,
+                secret: badge.secret,
+                progress: badge.progress,
+              })
+            }
             open={badgesSheetOpen}
             posts={myCircleUserPosts}
             user={myCircleUser}
@@ -1367,6 +1398,17 @@ export function GymCirclePreview({
             post={postDetailFullTarget}
             resolveUser={resolveUser}
             shareTargets={followedUsers}
+          />
+          {/* Sprint 7.5.2 — overlay Apple Fitness style pra qualquer
+              achievement. Stats (earnedAt/count/rarity %) ainda null —
+              sub-fase futura wires user_achievements queries. */}
+          <AchievementDetailOverlay
+            achievement={achievementDetail}
+            onClose={() => setAchievementDetail(null)}
+            open={achievementDetail !== null}
+            showUnlockHint={
+              achievementDetail !== null && !achievementDetail.earned
+            }
           />
           <CommentsBottomSheet
             currentUser={social.currentUser}

@@ -39,13 +39,24 @@ type BadgesSheetProps = {
   user: EnrichedUser | null;
   posts: EnrichedPost[];
   onClose: () => void;
+  /**
+   * Sprint 7.5.2 — abre AchievementDetailOverlay full-screen Apple Fitness
+   * style. Quando ausente, cards continuam decorativos (back-compat).
+   */
+  onOpenAchievementDetail?: (badge: Badge) => void;
 };
 
 type FilterKey = "all" | "earned" | "next" | "secret";
 
 const FILTER_KEYS: ReadonlyArray<FilterKey> = ["all", "earned", "next", "secret"];
 
-export function BadgesSheet({ open, user, posts, onClose }: BadgesSheetProps) {
+export function BadgesSheet({
+  open,
+  user,
+  posts,
+  onClose,
+  onOpenAchievementDetail,
+}: BadgesSheetProps) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<FilterKey>("all");
 
@@ -198,7 +209,15 @@ export function BadgesSheet({ open, user, posts, onClose }: BadgesSheetProps) {
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {filteredBadges.map((badge) => (
-                  <BadgeCard badge={badge} key={badge.id} />
+                  <BadgeCard
+                    badge={badge}
+                    key={badge.id}
+                    onTap={
+                      onOpenAchievementDetail
+                        ? () => onOpenAchievementDetail(badge)
+                        : undefined
+                    }
+                  />
                 ))}
               </div>
             )}
@@ -216,26 +235,34 @@ export function BadgesSheet({ open, user, posts, onClose }: BadgesSheetProps) {
  *   2. !earned + public → ícone dim + label + description + progress
  *   3. !earned + secret → cadeado misterioso + "???" + hint genérico
  *   4. earned + secret → ícone único + label real (revealed)
+ *
+ * Sprint 7.5.2 — quando `onTap` fornecido, card inteiro vira tappable
+ * (botão) que abre o AchievementDetailOverlay full-screen Apple Fitness
+ * style. Sem onTap, segue como div decorativa (back-compat).
  */
-function BadgeCard({ badge }: { badge: Badge }) {
+function BadgeCard({ badge, onTap }: { badge: Badge; onTap?: () => void }) {
   const { t } = useTranslation();
   const isMystery = badge.secret && !badge.earned;
+  const Tag = onTap ? "button" : "div";
 
   return (
-    <div
+    <Tag
       aria-label={
         isMystery
           ? t("badgesSheet.secretMystery")
           : `${badge.label} — ${badge.description}`
       }
       className={[
-        "flex flex-col gap-2 rounded-[18px] p-3 transition-colors",
+        "flex w-full flex-col gap-2 rounded-[18px] p-3 text-left transition-colors",
         isMystery
           ? "bg-white/[0.03] text-white/36"
           : badge.earned
             ? "bg-white/[0.05]"
             : "bg-white/[0.025] text-white/68",
+        onTap ? "gc-pressable" : "",
       ].join(" ")}
+      onClick={onTap}
+      type={onTap ? "button" : undefined}
     >
       {isMystery ? (
         <span className="grid size-10 place-items-center rounded-[14px] bg-white/[0.06] text-white/40">
@@ -293,7 +320,7 @@ function BadgeCard({ badge }: { badge: Badge }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </Tag>
   );
 }
 
