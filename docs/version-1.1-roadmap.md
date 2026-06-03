@@ -107,23 +107,67 @@ Gate:
 
 - Usuario entende streak, restorers e progresso sem dashboard tecnico.
 
-## Sprint 6 - Native Feel RC
+## Sprint 6 - Native Feel (infra entregue, RC movido)
 
-Objetivo: preparar candidate 1.1 para App Store/TestFlight.
+Status: **infra concluida ao longo das Sprints 3.x-5.x**. O TestFlight RC
+foi movido pra Sprint 9 (pos SwiftUI) — nao faz sentido buildar candidate
+com Capacitor se o app vai virar SwiftUI nativo na Sprint 8.
+
+Entregas ja em producao:
+
+- Haptics calibrados — `social/haptics.ts` (`simulateHaptic`).
+- Keyboard detection — `keyboardDetection.ts` + test.
+- Safe areas — `env(safe-area-inset-*)` + variaveis `--gc-safe-*`.
+- Camera/galeria — `native/NativeMediaPickerService.ts`.
+- Push token lifecycle — `native/PushNotificationsService.ts`.
+- Cache local LRU — `media/MediaLoadingService.ts` (com pin-protect Sprint 1 v1.1.1).
+- Smoke iOS recorrente — feito em todas as Sprints (5.7 a mais recente).
+
+## Sprint 7 - Onboarding (P0 App Store)
+
+Objetivo: limpar fluxo de onboarding pra cumprir requisitos App Store
+e dar primeira impressao premium.
 
 Escopo:
 
-- Haptics calibrados.
-- Keyboard/safe areas.
-- Camera/galeria.
-- Push token lifecycle.
-- Cache local com TTL.
-- Smoke iOS.
+- Fase A: deletar `OnboardingFlow.tsx` legado + namespace onboarding.
+- Fase B: aceite legal no signup form (P0 App Store — terms + privacy policy).
+- Fase C: Contextual Motion Onboarding multi-fase (animacoes guiadas).
+
+Status: A + B concluidas. C pendente.
+
+## Sprint 8 - SwiftUI Migration (app nativo)
+
+Objetivo: migrar surfaces criticas pra SwiftUI nativo, sair do WebView
+em zonas onde performance/feel importam mais.
+
+Escopo:
+
+- Foundation: `GymCircleAppModel`, `HKHealthStore` provider, design tokens.
+- Migrar feed, stories viewer, chat — ganhar 60fps nativo + HealthKit integration.
+- Manter web app pra desktop/admin + zonas de baixa friction.
 
 Gate:
 
-- TestFlight build com checklist.
-- Sem Apple/Google Login na UI enquanto decisao continuar pausada.
+- App roda standalone em SwiftUI nativo no iOS sem WebView fallback no boot.
+- HealthKit opt-in funcional (kcal/duracao/BPM no recap mensal).
+
+## Sprint 9 - TestFlight + App Store (era Sprint 6)
+
+Objetivo: levar a 1.1 SwiftUI nativa pra TestFlight e Apple review.
+
+Escopo:
+
+- App Store Connect setup: bundle ID, categorias, URLs, ASO.
+- Apple Developer: App ID, Push Notifications, signing.
+- Pre-build checklist (`docs/testflight-upload-checklist.md`).
+- Xcode Archive + upload TestFlight.
+- Internal testing → External testing → Apple Review submission.
+
+Gate:
+
+- TestFlight build aprovado por Apple Review.
+- App publicado na App Store.
 
 ## Backlog pos-1.1
 

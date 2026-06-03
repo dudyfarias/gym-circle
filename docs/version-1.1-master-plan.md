@@ -70,10 +70,26 @@ Transformar o Gym Circle 1.1 em uma evolucao segura da alpha/app aprovado, com f
 - Elevar Meu Circle, streak restore, badges, monthly recap e achievements.
 - Planejar ranking sem criar competicao toxica.
 
-### Sprint 6 - Native Feel + Release Candidate
+### Sprint 6 - Native Feel (infra concluida, RC movido pra Sprint 9)
 
-- Cache local, haptics, keyboard, safe areas, push token lifecycle, camera/gallery, iOS smoke tests.
-- Preparar build TestFlight/App Store candidate da 1.1.
+- Cache local, haptics, keyboard, safe areas, push token, camera/gallery — ENTREGUE ao longo das Sprints 3.x-5.x.
+- TestFlight RC adiado pra Sprint 9 (pos SwiftUI nativo da Sprint 8) — evitar buildar candidate Capacitor que sera reescrito.
+
+### Sprint 7 - Onboarding (P0 App Store)
+
+- Limpar `OnboardingFlow` legado, aceite legal no signup, contextual motion onboarding.
+- Fases A + B entregues; Fase C pendente.
+
+### Sprint 8 - SwiftUI Migration
+
+- Migrar feed/stories/chat pra SwiftUI nativo (60fps + HealthKit).
+- Foundation: `GymCircleAppModel`, `HKHealthStore`, design tokens.
+
+### Sprint 9 - TestFlight + App Store submission
+
+- App Store Connect, Apple Developer, signing.
+- Xcode Archive → TestFlight internal/external → Apple Review.
+- Checklist em `docs/testflight-upload-checklist.md`.
 
 ## Criterios de sucesso
 
