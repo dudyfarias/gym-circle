@@ -270,8 +270,40 @@ button {
   }
 }
 
+@keyframes gc-achievement-detail-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes gc-achievement-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotateZ(-0.6deg);
+  }
+
+  50% {
+    transform: translate3d(0, -6px, 0) rotateZ(0.6deg);
+  }
+}
+
 .gc-phone-shell {
   background: #000;
+}
+
+.gc-achievement-detail-modal {
+  animation: gc-achievement-detail-in 240ms var(--gc-ease-ios) both;
+}
+
+.gc-achievement-artifact-float {
+  animation: gc-achievement-float 5.5s ease-in-out infinite;
+  transform-origin: center;
 }
 
 .gc-safe-overlay {

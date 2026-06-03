@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   countEarnedBadges,
+  countEarnedAchievements,
+  getAchievementsV2,
   getEarnedBadges,
+  getFeaturedAchievements,
+  getMonthlyChallenges,
   getNextBadge,
 } from "./gamification";
-import type { EnrichedUser } from "./types";
+import type { EnrichedPost, EnrichedUser } from "./types";
 
 function makeUser(overrides: Partial<EnrichedUser> = {}): EnrichedUser {
   return {
@@ -37,6 +41,38 @@ function makeUser(overrides: Partial<EnrichedUser> = {}): EnrichedUser {
     streakPresenceSource: "none",
     ...overrides,
   } satisfies EnrichedUser;
+}
+
+function makePost(overrides: Partial<EnrichedPost> = {}): EnrichedPost {
+  const author = makeUser();
+  return {
+    id: "post-test",
+    userId: author.id,
+    imageUrl: "https://example.com/post.jpg",
+    mediaType: "image",
+    caption: "Treino feito",
+    workoutType: "Musculação",
+    gymName: "",
+    gymId: "",
+    locationSource: "none",
+    locationName: null,
+    locationLatitude: null,
+    locationLongitude: null,
+    locationGoogleMapsUrl: null,
+    createdAt: "2026-06-03T12:00:00.000Z",
+    workoutDate: "2026-06-03",
+    isWorkoutPost: true,
+    streakAtPost: 1,
+    likesCount: 0,
+    likedByCurrentUser: false,
+    comments: [],
+    author,
+    commentPreviews: [],
+    likedByPreview: [],
+    smartScore: 0,
+    smartReason: "",
+    ...overrides,
+  } satisfies EnrichedPost;
 }
 
 describe("getEarnedBadges — Sprint 3.5.3", () => {
@@ -200,5 +236,191 @@ describe("getNextBadge", () => {
       hasUsedStreakRestore: true,
     });
     expect(getNextBadge(badges)).toBeNull();
+  });
+});
+
+describe("Gym Circle 1.1 achievement hierarchy", () => {
+  it("migra badges legados para AchievementV2 sem remover os ids antigos", () => {
+    const user = makeUser({ longestStreak: 14, workoutsThisMonth: 10 });
+    const achievements = getAchievementsV2({
+      user,
+      posts: [makePost()],
+      postsCount: 1,
+    });
+
+    expect(achievements.find((item) => item.legacyBadgeId === "first-workout")?.earned).toBe(true);
+    expect(achievements.find((item) => item.legacyBadgeId === "streak-7")?.category).toBe("medal");
+    expect(achievements.find((item) => item.id === "streak-30")?.category).toBe("trophy");
+  });
+
+  it("prioriza relíquias e troféus nas conquistas em destaque", () => {
+    const user = makeUser({
+      createdAt: "2026-05-01T12:00:00.000Z",
+      longestStreak: 30,
+      activeDaysCount: 50,
+      followersCount: 60,
+      isFounder: true,
+      founderRank: 1,
+    });
+    const achievements = getAchievementsV2({
+      user,
+      posts: [makePost()],
+      postsCount: 120,
+    });
+    const featured = getFeaturedAchievements(achievements, 3);
+
+    expect(featured).toHaveLength(3);
+    expect(featured[0]?.category).toBe("relic");
+    expect(featured.some((item) => item.category === "trophy")).toBe(true);
+  });
+
+  it("concede a relíquia Fundador apenas quando o backend marca o usuário como top 100", () => {
+    const notFounder = getAchievementsV2({
+      user: makeUser({ createdAt: "2026-05-01T12:00:00.000Z" }),
+      posts: [],
+      postsCount: 0,
+    }).find((item) => item.id === "founder");
+    const founder = getAchievementsV2({
+      user: makeUser({ isFounder: true, founderRank: 42 }),
+      posts: [],
+      postsCount: 0,
+    }).find((item) => item.id === "founder");
+
+    expect(notFounder?.earned).toBe(false);
+    expect(founder?.earned).toBe(true);
+    expect(founder?.progress).toMatchObject({ current: 42, target: 100 });
+  });
+
+  it("anexa estatísticas de raridade global às conquistas", () => {
+    const achievements = getAchievementsV2({
+      user: makeUser({ isFounder: true, founderRank: 1 }),
+      posts: [],
+      postsCount: 0,
+      rarityStats: {
+        founder: {
+          achievementId: "founder",
+          ownersCount: 100,
+          totalUsers: 10000,
+          ownedPercent: 1,
+        },
+      },
+    });
+
+    expect(achievements.find((item) => item.id === "founder")?.rarityStats).toMatchObject({
+      ownersCount: 100,
+      totalUsers: 10000,
+      ownedPercent: 1,
+    });
+  });
+
+  it("gera desafios mensais exclusivos para o mês corrente", () => {
+    const user = makeUser({
+      workoutDays: Array.from({ length: 20 }, (_, index) => `2026-06-${String(index + 1).padStart(2, "0")}`),
+    });
+    const challenges = getMonthlyChallenges({
+      user,
+      now: new Date("2026-06-20T12:00:00.000Z"),
+    });
+
+    expect(challenges).toHaveLength(4);
+    expect(challenges.every((challenge) => challenge.monthKey === "2026-06")).toBe(true);
+    expect(challenges.find((challenge) => challenge.difficulty === "hard")?.isCompleted).toBe(true);
+    expect(challenges.find((challenge) => challenge.difficulty === "legendary")?.isCompleted).toBe(false);
+    expect(challenges.find((challenge) => challenge.difficulty === "hard")?.achievement.periodStart).toBe("2026-06-01");
+    expect(challenges.find((challenge) => challenge.difficulty === "hard")?.achievement.periodEnd).toBe("2026-06-30");
+    expect(challenges.find((challenge) => challenge.difficulty === "hard")?.achievement.rewardLabel).toContain("Troféu exclusivo");
+  });
+
+  it("preenche metadados usados no detalhe Apple Fitness style", () => {
+    const firstPost = makePost({
+      id: "first",
+      createdAt: "2026-06-01T12:00:00.000Z",
+      workoutDate: "2026-06-01",
+    });
+    const secondPost = makePost({
+      id: "second",
+      createdAt: "2026-06-03T12:00:00.000Z",
+      workoutDate: "2026-06-03",
+    });
+    const achievements = getAchievementsV2({
+      user: makeUser(),
+      posts: [secondPost, firstPost],
+      postsCount: 2,
+    });
+
+    const firstWorkout = achievements.find((item) => item.id === "first-workout");
+    expect(firstWorkout?.earnedAt).toBe("2026-06-01T12:00:00.000Z");
+    expect(firstWorkout?.lastEarnedAt).toBe("2026-06-01T12:00:00.000Z");
+    expect(firstWorkout?.timesEarned).toBe(1);
+  });
+
+  it("usa storyCount real para primeiro story e Fantasma", () => {
+    const workoutDays = Array.from({ length: 30 }, (_, index) =>
+      `2026-05-${String(index + 1).padStart(2, "0")}`,
+    );
+    const ghostUser = makeUser({
+      activeDaysCount: 30,
+      workoutDays,
+      storyCount: 0,
+    });
+    const storyUser = makeUser({
+      activeDaysCount: 30,
+      workoutDays,
+      storyCount: 1,
+    });
+
+    const ghostAchievements = getAchievementsV2({
+      user: ghostUser,
+      posts: [],
+      postsCount: 0,
+    });
+    const storyAchievements = getAchievementsV2({
+      user: storyUser,
+      posts: [],
+      postsCount: 0,
+    });
+
+    expect(ghostAchievements.find((item) => item.id === "ghost")?.earned).toBe(true);
+    expect(ghostAchievements.find((item) => item.id === "first-story")?.earned).toBe(false);
+    expect(storyAchievements.find((item) => item.id === "ghost")?.earned).toBe(false);
+    expect(storyAchievements.find((item) => item.id === "first-story")?.earned).toBe(true);
+  });
+
+  it("desbloqueia badges secretos por comportamento real de posts", () => {
+    const posts = [
+      makePost({
+        id: "late",
+        createdAt: "2026-06-03T02:30:00.000Z",
+        workoutDate: "2026-06-02",
+      }),
+      makePost({
+        id: "early",
+        createdAt: "2026-06-03T07:30:00.000Z",
+        workoutDate: "2026-06-03",
+        workoutType: "Corrida",
+      }),
+      makePost({
+        id: "mobility",
+        workoutDate: "2026-06-03",
+        workoutType: "Mobilidade",
+      }),
+      makePost({
+        id: "pilates",
+        workoutDate: "2026-06-03",
+        workoutType: "Pilates",
+      }),
+    ];
+    const achievements = getAchievementsV2({
+      user: makeUser(),
+      posts,
+      postsCount: posts.length,
+      now: new Date("2026-06-03T12:00:00.000Z"),
+    });
+
+    expect(achievements.find((item) => item.id === "owl")?.earned).toBe(true);
+    expect(achievements.find((item) => item.id === "early-bird")?.earned).toBe(true);
+    expect(achievements.find((item) => item.id === "lightning")?.earned).toBe(true);
+    expect(achievements.find((item) => item.id === "chameleon")?.earned).toBe(true);
+    expect(countEarnedAchievements(achievements)).toBeGreaterThan(4);
   });
 });

@@ -1,4 +1,5 @@
 export * from "./AchievementBadge";
+export * from "./AchievementArtifact3D";
 export * from "./ActivityCircle";
 export * from "./AvatarConsistencyRings";
 export * from "./BottomTabBar";

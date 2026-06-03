@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   Clock,
   Flame,
@@ -11,7 +12,16 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/IconButton";
-import { ProfileIdentity, ProfilePostsGrid } from "../design-system";
+import {
+  AchievementArtifact3D,
+  ProfileIdentity,
+  ProfilePostsGrid,
+} from "../design-system";
+import {
+  equippedAchievementStorageKey,
+  getAchievementsV2,
+  getFeaturedAchievementsWithEquipped,
+} from "../social/gamification";
 import type { MonthlyRecap } from "../social/monthlyRecap";
 import {
   calculateProfileCompletion,
@@ -78,6 +88,7 @@ export function ProfileScreen({
   onDismissProfileCompletionNotice,
 }: ProfileScreenProps) {
   const { t } = useTranslation();
+  const [equippedAchievementIds, setEquippedAchievementIds] = useState<string[]>([]);
   const currentLevel = getStreakLevel(currentUser.currentStreak);
   const profileCompletion = calculateProfileCompletion(currentUser);
   const restoreCountdown = formatRestoreCountdown(currentUser.streakRestoreDeadlineAt);
@@ -92,6 +103,30 @@ export function ProfileScreen({
     profileCompletion,
   );
   const nextCompletionItem = profileCompletion.missing[0];
+  const achievements = useMemo(
+    () => getAchievementsV2({
+      user: currentUser,
+      posts,
+      postsCount: posts.length,
+      hasUsedStreakRestore: Boolean(currentUser.lastStreakRestoreUsedAt),
+    }),
+    [currentUser, posts],
+  );
+  const featuredAchievements = getFeaturedAchievementsWithEquipped(
+    achievements,
+    equippedAchievementIds,
+    3,
+  );
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(equippedAchievementStorageKey(currentUser.id));
+      const parsed = raw ? JSON.parse(raw) : [];
+      setEquippedAchievementIds(Array.isArray(parsed) ? parsed.slice(0, 3) : []);
+    } catch {
+      setEquippedAchievementIds([]);
+    }
+  }, [currentUser.id]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -183,6 +218,36 @@ export function ProfileScreen({
             </span>
           </button>
         </section>
+      ) : null}
+
+      {featuredAchievements.length > 0 ? (
+        <button
+          className="gc-pressable mt-3 w-full rounded-[18px] border border-white/[0.07] bg-white/[0.04] px-4 py-3 text-left"
+          onClick={onOpenMyCircle}
+          type="button"
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[12px] font-black uppercase tracking-[0.06em] text-white/42">
+              Conquistas em destaque
+            </p>
+            <span className="text-[11px] font-black text-white/38">Hall da Fama →</span>
+          </div>
+          <div className="flex items-center gap-3">
+            {featuredAchievements.map((achievement) => (
+              <div className="flex min-w-0 flex-1 items-center gap-2" key={achievement.id}>
+                <AchievementArtifact3D achievement={achievement} size="sm" />
+                <div className="min-w-0">
+                  <p className="truncate text-[12px] font-black text-white">
+                    {achievement.label}
+                  </p>
+                  <p className="truncate text-[10px] font-bold text-white/38">
+                    {achievement.category}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </button>
       ) : null}
 
       {/* Streak compacto — uma linha, abre o sheet detalhado ao tocar */}

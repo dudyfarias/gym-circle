@@ -1165,6 +1165,7 @@ export function GymCirclePreview({
             onClose={closeMyCircle}
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
+            rarityStats={social.achievementRarity}
             storyViewed={
               myCircleUser?.id === social.currentUser.id
                 ? currentUserStoryGroup?.viewed ?? false

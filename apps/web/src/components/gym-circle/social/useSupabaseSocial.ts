@@ -54,6 +54,7 @@ import {
   hasUserLikedStory,
 } from "./storyInteractions";
 import { buildMonthWorkoutDays, calculateWorkoutStats } from "./streak";
+import type { AchievementRarityStats } from "./gamification";
 import type {
   ChatMessage,
   ChatConversation,
@@ -192,6 +193,8 @@ type AggregateState = {
    * prefere esses valores quando existem.
    */
   profileExtras: Record<string, ProfileExtras>;
+  founderStatus: Record<string, { founderRank: number; isFounder: boolean }>;
+  achievementRarity: Record<string, AchievementRarityStats>;
 };
 
 type ProfileExtras = {
@@ -213,6 +216,8 @@ type ProfileExtras = {
    * mais antiga, precisaria expandir o lookback (próxima sprint).
    */
   activityDates: string[];
+  /** Contagem histórica leve de stories com mídia, usada por conquistas. */
+  storyCount?: number;
 };
 
 const EMPTY: AggregateState = {
@@ -244,7 +249,48 @@ const EMPTY: AggregateState = {
   blockedUserIds: [],
   mutedPostUserIds: [],
   profileExtras: {},
+  founderStatus: {},
+  achievementRarity: {},
 };
+
+type FounderStatusRow = {
+  user_id: string;
+  founder_rank: number | null;
+  is_founder: boolean | null;
+};
+
+type AchievementRarityRow = {
+  achievement_id: string;
+  owners_count: number | null;
+  total_users: number | null;
+  owned_percent: number | string | null;
+};
+
+function founderStatusMap(rows: FounderStatusRow[] | null | undefined) {
+  const map: AggregateState["founderStatus"] = {};
+  for (const row of rows ?? []) {
+    if (!row.user_id || !row.founder_rank) continue;
+    map[row.user_id] = {
+      founderRank: row.founder_rank,
+      isFounder: Boolean(row.is_founder),
+    };
+  }
+  return map;
+}
+
+function achievementRarityMap(rows: AchievementRarityRow[] | null | undefined) {
+  const map: Record<string, AchievementRarityStats> = {};
+  for (const row of rows ?? []) {
+    if (!row.achievement_id) continue;
+    map[row.achievement_id] = {
+      achievementId: row.achievement_id,
+      ownersCount: row.owners_count ?? 0,
+      totalUsers: row.total_users ?? 0,
+      ownedPercent: Number(row.owned_percent ?? 0),
+    };
+  }
+  return map;
+}
 
 type HomeNativeCache = Pick<
   AggregateState,
@@ -742,6 +788,7 @@ function enrichedUserFromDiscovery(row: DiscoveryProfileRow): EnrichedUser {
     streakRestoreMissedDate: null,
     streakRestoreStatus: null,
     checkInsCount: 0,
+    storyCount: undefined,
     achievements: deriveAchievements(statsRowFromDiscovery(row)),
     followersCount: row.mutual_friends_count ?? 0,
     followingCount: 0,
@@ -804,6 +851,7 @@ function enrichedUserFromProfileRow(
     streakRestoreMissedDate: null,
     streakRestoreStatus: null,
     checkInsCount: 0,
+    storyCount: undefined,
     achievements: deriveAchievements(stats),
     followersCount: 0,
     followingCount: 0,
@@ -1206,6 +1254,7 @@ export type SupabaseSocialActions = {
 export type SupabaseSocialResult = {
   currentUser: EnrichedUser;
   users: Record<string, GymUser>;
+  achievementRarity: Record<string, AchievementRarityStats>;
   gyms: GymLocationOption[];
   feedPosts: EnrichedPost[];
   profilePosts: EnrichedPost[];
@@ -1456,14 +1505,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
    * MyCircleSheet com dados certos, e counts de seguidores/seguindo
    * corretos.
    *
-   * Filtramos o currentUserId fora porque ele já foi hidratado pelo
-   * `refreshHomeCritical` (que faz a query individual pra ele).
+   * Inclui também o currentUserId para hidratar dados que não entram no
+   * `refreshHomeCritical`, como contagem histórica de stories para
+   * conquistas.
    */
   const refreshUsersExtras = useCallback(
     async (userIds: string[]) => {
-      const uniqueIds = Array.from(
-        new Set(userIds.filter((id) => id && id !== currentUserId)),
-      );
+      const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
       if (uniqueIds.length === 0) return;
       // Sprint 3.6.5: 90 dias de lookback cobre o calendário do
       // MyCircleSheet (mês atual + mês anterior + buffer). Antes era 14d
@@ -1476,7 +1524,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         .toISOString()
         .slice(0, 10);
 
-      const [statsRes, followersRes, followingRes, activityRes] =
+      const [statsRes, followersRes, followingRes, activityRes, founderRes, storyCountRes] =
         await Promise.all([
           services.client
             .from("user_stats_live")
@@ -1502,6 +1550,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             .select("user_id,activity_date")
             .in("user_id", uniqueIds)
             .gte("activity_date", lookbackKey),
+          services.client.rpc("get_founder_status", {
+            p_user_ids: uniqueIds,
+          }),
+          services.client
+            .from("stories")
+            .select("user_id")
+            .in("user_id", uniqueIds),
         ]);
 
       // Best-effort: falha em uma query não bloqueia as outras.
@@ -1516,6 +1571,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       }
       if (activityRes.error) {
         logSurfaceFallback("bulk activity days", activityRes.error);
+      }
+      if (founderRes.error) {
+        logSurfaceFallback("bulk founder status", founderRes.error);
+      }
+      if (storyCountRes.error) {
+        logSurfaceFallback("bulk story count", storyCountRes.error);
       }
 
       // Casts via `unknown` necessários: supabase-js v2 com type builder
@@ -1549,6 +1610,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         list.push(row.activity_date);
         activityByUser.set(row.user_id, list);
       }
+      const storyCountByUser = new Map<string, number>();
+      for (const row of (storyCountRes.data ?? []) as unknown as Array<{
+        user_id: string;
+      }>) {
+        storyCountByUser.set(row.user_id, (storyCountByUser.get(row.user_id) ?? 0) + 1);
+      }
 
       const nextProfileExtras: Record<string, ProfileExtras> = {};
       for (const userId of uniqueIds) {
@@ -1565,6 +1632,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           // por dia, mas o calendário só precisa do dia). Set dedupa
           // automaticamente.
           activityDates: Array.from(new Set(userActivityDays)),
+          storyCount: storyCountByUser.get(userId) ?? 0,
         };
       }
       // Cast através de `unknown` é o pattern correto pra supabase-js
@@ -1584,9 +1652,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ...current.profileExtras,
           ...nextProfileExtras,
         },
+        founderStatus: {
+          ...current.founderStatus,
+          ...founderStatusMap(founderRes.data as FounderStatusRow[] | null),
+        },
       }));
     },
-    [currentUserId, services],
+    [services],
   );
 
   const refreshHomeSecondary = useCallback(
@@ -1606,6 +1678,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           storyViewsRes,
           postParticipants,
           storyParticipants,
+          founderRes,
+          achievementRarityRes,
         ] = await Promise.all([
           queryUserSuggestionsSurface(services.client, 24),
           services.client
@@ -1647,6 +1721,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           storyIds.length > 0
             ? services.participants.listStoryParticipants(storyIds)
             : Promise.resolve([] as StoryParticipantRow[]),
+          services.client.rpc("get_founder_status", {
+            p_user_ids: [currentUserId],
+          }),
+          services.client.rpc("get_achievement_rarity_summary"),
         ]);
 
         for (const r of [
@@ -1677,6 +1755,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         const suggestionFollows = suggestionRows
           .map((row) => followRowFromDiscovery(row, currentUserId))
           .filter((follow): follow is FollowRow => Boolean(follow));
+        if (founderRes.error) {
+          logSurfaceFallback("founder status", founderRes.error);
+        }
+        if (achievementRarityRes.error) {
+          logSurfaceFallback("achievement rarity", achievementRarityRes.error);
+        }
 
         if (!mountedRef.current) return;
         const nextViewedStoryIds = loadStoredViewedStoryIds(currentUserId);
@@ -1719,6 +1803,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ],
           checkinsToday: (checkinsTodayRes.data ?? []) as unknown as CheckinRow[],
           myActivityDays: (myActivityRes.data ?? []) as unknown as UserActivityDayRow[],
+          founderStatus: {
+            ...current.founderStatus,
+            ...founderStatusMap(founderRes.data as FounderStatusRow[] | null),
+          },
+          achievementRarity: {
+            ...current.achievementRarity,
+            ...achievementRarityMap(achievementRarityRes.data as AchievementRarityRow[] | null),
+          },
         }));
 
         // Sprint 3.6.4: bulk-hidrata stats/follows/activity de TODOS os
@@ -1727,6 +1819,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         // porque é "nice to have" pro paint de cards já corretos no
         // próximo render, mas não bloqueante.
         const visibleUserIds = new Set<string>();
+        visibleUserIds.add(currentUserId);
         for (const post of aggRef.current.feedPosts) {
           visibleUserIds.add(post.user_id);
         }
@@ -2014,6 +2107,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followersCountRes,
         followingCountRes,
         profileActivityRes,
+        founderRes,
+        profileStoryCountRes,
       ] = await Promise.all([
         services.client.rpc("get_profile_posts", {
           p_user_id: userId,
@@ -2043,6 +2138,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .eq("user_id", userId)
           .order("activity_date", { ascending: false })
           .limit(400),
+        services.client.rpc("get_founder_status", {
+          p_user_ids: [userId],
+        }),
+        services.client
+          .from("stories")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId),
       ]);
       if (profilePostsRes.error) {
         logSurfaceFallback("profile posts", profilePostsRes.error);
@@ -2062,6 +2164,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       }
       if (profileActivityRes.error) {
         logSurfaceFallback("profile activity days", profileActivityRes.error);
+      }
+      if (founderRes.error) {
+        logSurfaceFallback("profile founder status", founderRes.error);
+      }
+      if (profileStoryCountRes.error) {
+        logSurfaceFallback("profile story count", profileStoryCountRes.error);
       }
 
       const profileSurfaceRows = (profilePostsRes.data ?? []) as SurfacePostRow[];
@@ -2112,6 +2220,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         // MyCircleSheet. profileActivityDays já é uma lista de
         // activity_date strings via limit 400.
         activityDates: Array.from(new Set(profileActivityDays)),
+        storyCount: profileStoryCountRes.count ?? 0,
       };
 
       if (!mountedRef.current) return;
@@ -2137,6 +2246,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         profileExtras: {
           ...current.profileExtras,
           [userId]: nextProfileExtras,
+        },
+        founderStatus: {
+          ...current.founderStatus,
+          ...founderStatusMap(founderRes.data as FounderStatusRow[] | null),
         },
       }));
       measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
@@ -2585,6 +2698,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
         privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
         accountStatus,
+        founderRank: agg.founderStatus[profile.user_id]?.founderRank ?? null,
+        isFounder: agg.founderStatus[profile.user_id]?.isFounder ?? false,
         suspendedAt: profile.suspended_at ?? null,
         reactivationSentAt: profile.reactivation_sent_at ?? null,
         reactivationExpiresAt: profile.reactivation_expires_at ?? null,
@@ -2620,6 +2735,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         streakRestoreStatus:
           profile.user_id === currentUserId ? stats?.streak_restore_status ?? null : null,
         checkInsCount: profile.user_id === currentUserId ? agg.myActivityDays.length : 0,
+        storyCount: agg.profileExtras[profile.user_id]?.storyCount,
         achievements: deriveAchievements(stats),
         // Sprint 3.6.3: pra current user, derivamos de agg.follows (que
         // está completo — refreshHomeCritical busca todas as relações
@@ -2698,6 +2814,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         streakRestoreMissedDate: null,
         streakRestoreStatus: null,
         checkInsCount: 0,
+        storyCount: undefined,
         achievements: [],
         followersCount: 0,
         followingCount: 0,
@@ -4248,6 +4365,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   return {
     currentUser,
     users: usersRecord,
+    achievementRarity: agg.achievementRarity,
     gyms: gymOptions,
     feedPosts,
     profilePosts,

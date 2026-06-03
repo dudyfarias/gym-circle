@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock, Trophy, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
+  AchievementArtifact3D,
   AvatarConsistencyRings,
   StreakBadge,
 } from "./design-system";
 import { simulateHaptic } from "./social/haptics";
 import {
-  countEarnedBadges,
-  getEarnedBadges,
-  getNextBadge,
+  countEarnedAchievements,
+  equippedAchievementStorageKey,
+  getAchievementsV2,
+  getFeaturedAchievementsWithEquipped,
+  type AchievementRarityStats,
+  type AchievementCategory,
+  type AchievementV2,
 } from "./social/gamification";
 import {
   buildMonthWorkoutDays,
@@ -62,9 +67,22 @@ type MyCircleSheetProps = {
   isOwn: boolean;
   hasStory?: boolean;
   storyViewed?: boolean;
+  rarityStats?: Record<string, AchievementRarityStats>;
   onClose: () => void;
   onOpenStory?: () => void;
 };
+
+const ACHIEVEMENT_SECTIONS: Array<{
+  label: string;
+  category: AchievementCategory | "secret";
+}> = [
+  { label: "Badges", category: "badge" },
+  { label: "Medalhas", category: "medal" },
+  { label: "Troféus", category: "trophy" },
+  { label: "Relíquias", category: "relic" },
+  { label: "Desafios", category: "challenge" },
+  { label: "Secretos", category: "secret" },
+];
 
 export function MyCircleSheet({
   open,
@@ -73,8 +91,8 @@ export function MyCircleSheet({
   isOwn,
   hasStory = false,
   storyViewed = false,
+  rarityStats,
   onClose,
-  onOpenStory,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -84,6 +102,8 @@ export function MyCircleSheet({
     year: today.getFullYear(),
     month: today.getMonth(),
   });
+  const [selectedAchievement, setSelectedAchievement] = useState<AchievementV2 | null>(null);
+  const [equippedAchievementIds, setEquippedAchievementIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) {
@@ -94,7 +114,19 @@ export function MyCircleSheet({
     }
   }, [open, today]);
 
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    try {
+      const raw = window.localStorage.getItem(equippedAchievementStorageKey(user.id));
+      const parsed = raw ? JSON.parse(raw) : [];
+      setEquippedAchievementIds(Array.isArray(parsed) ? parsed.slice(0, 3) : []);
+    } catch {
+      setEquippedAchievementIds([]);
+    }
+  }, [open, user?.id]);
+
   if (!open || !user) return null;
+  const userId = user.id;
 
   const canSeeDetails =
     isOwn || !user.isPrivate || user.followStatus === "accepted";
@@ -108,13 +140,21 @@ export function MyCircleSheet({
 
   const level = getStreakLevel(user.currentStreak);
   const allLevels = getAllStreakLevels();
-  const badges = getEarnedBadges({
+  const achievements = getAchievementsV2({
     user,
+    posts,
     postsCount: posts.length,
     hasUsedStreakRestore: Boolean(user.lastStreakRestoreUsedAt),
+    now: today,
+    rarityStats,
   });
-  const earnedCount = countEarnedBadges(badges);
-  const nextBadge = getNextBadge(badges);
+  const earnedCount = countEarnedAchievements(achievements);
+  const featuredAchievements = getFeaturedAchievementsWithEquipped(
+    achievements,
+    equippedAchievementIds,
+    3,
+  );
+  const nextAchievement = achievements.find((achievement) => !achievement.earned) ?? null;
 
   const calendarDate = new Date(calendarMonth.year, calendarMonth.month, 1);
   const totalDaysInCalendarMonth = getTotalDaysInMonth(calendarDate);
@@ -132,7 +172,28 @@ export function MyCircleSheet({
   const leadingBlanks = (firstDayOfWeek + 6) % 7; // converte pra base segunda (0=seg, 6=dom)
 
   function handleClose() {
+    setSelectedAchievement(null);
     onClose();
+  }
+
+  function toggleEquippedAchievement(achievement: AchievementV2) {
+    if (!achievement.earned) return;
+    simulateHaptic("brand");
+    setEquippedAchievementIds((current) => {
+      const isEquipped = current.includes(achievement.id);
+      const next = isEquipped
+        ? current.filter((id) => id !== achievement.id)
+        : [achievement.id, ...current.filter((id) => id !== achievement.id)].slice(0, 3);
+      try {
+        window.localStorage.setItem(
+          equippedAchievementStorageKey(userId),
+          JSON.stringify(next),
+        );
+      } catch {
+        // Preferimos manter a UI responsiva mesmo se o storage do WebView falhar.
+      }
+      return next;
+    });
   }
 
   function goPrevMonth() {
@@ -432,46 +493,92 @@ export function MyCircleSheet({
                 </div>
               </section>
 
-              {/* F. Badges */}
+              {/* F. Conquistas em destaque */}
               <section className="mt-8">
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className="text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
-                    {t("myCircle.badges.title")}
+                    Conquistas em destaque
                   </h4>
                   <span className="text-[11px] font-black text-white/52">
-                    {t("myCircle.badges.count", {
-                      earned: earnedCount,
-                      total: badges.length,
-                    })}
+                    {earnedCount}/{achievements.length}
                   </span>
                 </div>
-                <div className="grid grid-cols-3 gap-2 rounded-[20px] bg-white/[0.035] p-3 sm:grid-cols-4">
-                  {badges.map((badge) => (
-                    <BadgeChip badge={badge} key={badge.id} />
-                  ))}
+                <div className="grid grid-cols-3 gap-2 rounded-[22px] bg-white/[0.035] p-3">
+                  {(featuredAchievements.length ? featuredAchievements : achievements.slice(0, 3)).map(
+                    (achievement) => (
+                      <AchievementTile
+                        achievement={achievement}
+                        key={achievement.id}
+                        onSelect={() => {
+                          simulateHaptic("brand");
+                          setSelectedAchievement(achievement);
+                        }}
+                      />
+                    ),
+                  )}
                 </div>
-                {nextBadge ? (
+                {nextAchievement ? (
                   <p className="mt-3 text-center text-[11px] font-bold text-white/52">
-                    {t("myCircle.badges.nextHint", { name: nextBadge.label })}{" "}
-                    — {nextBadge.description.toLowerCase()}
+                    Falta pouco para {nextAchievement.label} — {nextAchievement.lockedDescription.toLowerCase()}
                   </p>
                 ) : null}
               </section>
 
-              {/* G. Competição (placeholder) */}
-              <section className="mt-8 rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] p-5 text-center">
-                <Trophy className="mx-auto text-white/32" size={28} strokeWidth={2} />
-                <p className="mt-3 text-[14px] font-black text-white">
-                  {t("myCircle.competition.title")} · {t("common.comingSoon")}
-                </p>
-                <p className="mt-1.5 text-[12px] font-bold text-white/52">
-                  {t("myCircle.competition.description")}
-                </p>
+              {/* G. Hall da Fama */}
+              <section className="mt-8">
+                <h4 className="mb-3 text-[13px] font-black uppercase tracking-[0.06em] text-white/44">
+                  Hall da Fama
+                </h4>
+                <div className="space-y-5">
+                  {ACHIEVEMENT_SECTIONS.map((section) => {
+                    const items = achievements.filter((achievement) =>
+                      section.category === "secret"
+                        ? achievement.isSecret
+                        : achievement.category === section.category && !achievement.isSecret,
+                    );
+                    if (items.length === 0) return null;
+                    const earnedInSection = items.filter((item) => item.earned).length;
+                    return (
+                      <div key={section.label}>
+                        <div className="mb-2 flex items-center justify-between">
+                          <p className="text-[12px] font-black text-white">
+                            {section.label}
+                          </p>
+                          <p className="text-[11px] font-black text-white/40">
+                            {earnedInSection}/{items.length}
+                          </p>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                          {items.map((achievement) => (
+                            <AchievementTile
+                              achievement={achievement}
+                              key={achievement.id}
+                              onSelect={() => {
+                                simulateHaptic(achievement.earned ? "success" : "brand");
+                                setSelectedAchievement(achievement);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </section>
             </>
           )}
         </div>
       </div>
+
+      {selectedAchievement ? (
+        <AchievementDetailModal
+          achievement={selectedAchievement}
+          canEquip={isOwn && selectedAchievement.earned}
+          isEquipped={equippedAchievementIds.includes(selectedAchievement.id)}
+          onClose={() => setSelectedAchievement(null)}
+          onToggleEquip={() => toggleEquippedAchievement(selectedAchievement)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -515,31 +622,277 @@ function RingProgressRow({
   );
 }
 
-function BadgeChip({ badge }: { badge: ReturnType<typeof getEarnedBadges>[number] }) {
-  // Sprint 4.4 i18n: subcomponente precisa do seu próprio useTranslation
-  // hook — escopo de `t` do parent function não vaza aqui.
-  const { t } = useTranslation();
+function AchievementTile({
+  achievement,
+  onSelect,
+}: {
+  achievement: AchievementV2;
+  onSelect: () => void;
+}) {
   return (
-    <div
-      aria-label={`${badge.label} — ${badge.earned ? t("myCircle.badges.earned") : t("myCircle.badges.locked")}`}
+    <button
+      aria-label={`${achievement.label} — ${achievement.earned ? "conquistada" : "bloqueada"}`}
       className={[
-        "flex aspect-square flex-col items-center justify-center gap-1 rounded-[14px] p-2 text-center transition-colors",
-        badge.earned
-          ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
-          : "bg-white/[0.03] text-white/26",
+        "gc-pressable flex min-h-[124px] flex-col items-center justify-center gap-2 rounded-[16px] border p-2 text-center transition-colors",
+        achievement.earned
+          ? "border-white/[0.08] bg-white/[0.055]"
+          : "border-white/[0.045] bg-white/[0.025]",
       ].join(" ")}
-      title={badge.description}
+      onClick={onSelect}
+      title={achievement.earned ? achievement.description : achievement.lockedDescription}
+      type="button"
     >
-      {badge.earned ? (
-        <Trophy fill="currentColor" size={20} strokeWidth={2} />
-      ) : (
-        <Lock size={18} strokeWidth={2.4} />
-      )}
-      <span className="line-clamp-2 text-[9.5px] font-black leading-[1.1]">
-        {badge.label}
+      <AchievementArtifact3D achievement={achievement} size="sm" />
+      <span
+        className={[
+          "line-clamp-2 text-[10px] font-black leading-[1.12]",
+          achievement.earned ? "text-white/88" : "text-white/34",
+        ].join(" ")}
+      >
+        {achievement.isSecret && !achievement.earned ? "Conquista secreta" : achievement.label}
       </span>
+    </button>
+  );
+}
+
+function AchievementDetailModal({
+  achievement,
+  canEquip,
+  isEquipped,
+  onClose,
+  onToggleEquip,
+}: {
+  achievement: AchievementV2;
+  canEquip: boolean;
+  isEquipped: boolean;
+  onClose: () => void;
+  onToggleEquip: () => void;
+}) {
+  const progress = achievement.progress;
+  const progressPct = progress
+    ? Math.max(0, Math.min(100, (progress.current / progress.target) * 100))
+    : null;
+  const earnedTimes = achievement.timesEarned ?? (achievement.earned ? 1 : 0);
+  const earnedAt = formatAchievementDate(achievement.earnedAt);
+  const lastEarnedAt = formatAchievementDate(achievement.lastEarnedAt);
+  const periodStart = formatAchievementDate(achievement.periodStart);
+  const periodEnd = formatAchievementDate(achievement.periodEnd);
+  const showChallengeDetails = achievement.category === "challenge";
+
+  return (
+    <div className="gc-achievement-detail-modal absolute inset-0 z-[90] bg-black/88 backdrop-blur-2xl">
+      <div className="relative flex h-full flex-col overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_28%,rgba(140,251,255,0.18),rgba(0,0,0,0)_42%)]" />
+        <div className="pointer-events-none absolute inset-x-10 top-[18%] h-56 rounded-full bg-[var(--gc-brand)]/10 blur-[80px]" />
+        <header className="relative z-10 flex shrink-0 items-center justify-between px-5 pb-3 pt-[calc(var(--gc-safe-top)+12px)]">
+          <button
+            aria-label="Voltar"
+            className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.07] text-white"
+            onClick={onClose}
+            type="button"
+          >
+            <ChevronLeft size={22} strokeWidth={2.8} />
+          </button>
+          <p className="text-[13px] font-black uppercase tracking-[0.08em] text-white/42">
+            {categoryLabel(achievement.category)}
+          </p>
+          <button
+            aria-label="Compartilhar em breve"
+            className="grid size-11 place-items-center rounded-full bg-white/[0.04] text-white/28"
+            disabled
+            type="button"
+          >
+            <span className="text-[15px] font-black">↗</span>
+          </button>
+        </header>
+
+        <div className="relative z-10 flex flex-1 flex-col items-center overflow-y-auto px-6 pb-[calc(var(--gc-safe-bottom)+28px)] pt-8 text-center">
+          <div className="gc-achievement-artifact-float">
+            <AchievementArtifact3D achievement={achievement} size="lg" />
+          </div>
+          <div className="mt-9 max-w-[360px]">
+            <h3 className="text-[28px] font-black leading-tight text-white">
+              {achievement.isSecret && !achievement.earned
+                ? "Conquista secreta"
+                : achievement.label}
+            </h3>
+            <p className="mt-3 text-[14px] font-semibold leading-5 text-white/58">
+              {achievement.earned
+                ? achievement.description
+                : achievement.lockedDescription}
+            </p>
+          </div>
+
+          {canEquip ? (
+            <button
+              className={[
+                "gc-pressable mt-5 h-11 rounded-full px-5 text-[13px] font-black transition-colors",
+                isEquipped
+                  ? "border border-[var(--gc-brand)]/28 bg-[var(--gc-brand)]/[0.09] text-[var(--gc-brand)]"
+                  : "bg-white text-black",
+              ].join(" ")}
+              onClick={onToggleEquip}
+              type="button"
+            >
+              {isEquipped ? "Remover destaque" : "Equipar no perfil"}
+            </button>
+          ) : null}
+
+          {progress ? (
+            <div className="mt-7 w-full max-w-[360px] rounded-[22px] border border-white/[0.07] bg-white/[0.045] p-4 text-left">
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-black uppercase tracking-[0.06em] text-white/40">
+                  Progresso
+                </p>
+                <p className="text-[13px] font-black text-white">
+                  {progress.current}/{progress.target} {progress.unit}
+                </p>
+              </div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.08]">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,#8CFBFF,#30D5FF,#0066FF)] transition-[width] duration-500"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-3 grid w-full max-w-[360px] grid-cols-2 gap-2 text-left">
+            <DetailStat label="Status" value={achievement.earned ? "Conquistada" : "Bloqueada"} />
+            <DetailStat
+              label="Raridade"
+              value={rarityStatLabel(achievement) ?? rarityLabel(achievement.rarity)}
+            />
+            <DetailStat label="Total" value={formatTimesEarned(earnedTimes)} />
+            <DetailStat label="Tipo" value={categoryLabel(achievement.category)} />
+            {earnedAt ? <DetailStat label="Conquistado" value={earnedAt} /> : null}
+            {lastEarnedAt && lastEarnedAt !== earnedAt ? (
+              <DetailStat label="Última conquista" value={lastEarnedAt} />
+            ) : null}
+          </div>
+
+          {!achievement.earned ? (
+            <div className="mt-3 w-full max-w-[360px] rounded-[20px] border border-white/[0.07] bg-white/[0.04] p-4 text-left">
+              <p className="text-[10px] font-black uppercase tracking-[0.08em] text-white/36">
+                Como desbloquear
+              </p>
+              <p className="mt-1 text-[14px] font-black leading-5 text-white">
+                {achievement.lockedDescription}
+              </p>
+            </div>
+          ) : null}
+
+          {showChallengeDetails ? (
+            <div className="mt-3 w-full max-w-[360px] rounded-[20px] border border-white/[0.07] bg-white/[0.04] p-4 text-left">
+              <p className="text-[10px] font-black uppercase tracking-[0.08em] text-white/36">
+                Desafio mensal
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {periodStart ? <DetailStat label="Início" value={periodStart} /> : null}
+                {periodEnd ? <DetailStat label="Termina em" value={periodEnd} /> : null}
+              </div>
+              {achievement.rewardLabel ? (
+                <p className="mt-3 rounded-[14px] bg-[var(--gc-brand)]/[0.08] px-3 py-2 text-[12px] font-black leading-4 text-[var(--gc-brand)]">
+                  Recompensa: {achievement.rewardLabel}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {achievement.rarityStats ? (
+            <div className="mt-3 w-full max-w-[360px] rounded-[20px] border border-[var(--gc-brand)]/12 bg-[var(--gc-brand)]/[0.055] p-4 text-left">
+              <p className="text-[10px] font-black uppercase tracking-[0.08em] text-[var(--gc-brand)]/72">
+                Raridade global
+              </p>
+              <p className="mt-1 text-[15px] font-black text-white">
+                {rarityOwnershipSentence(achievement.rarityStats)}
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-white/42">
+                Base atual: {achievement.rarityStats.totalUsers.toLocaleString("pt-BR")} usuários ativos.
+              </p>
+            </div>
+          ) : null}
+
+          {achievement.monthKey ? (
+            <p className="mt-4 rounded-full bg-white/[0.05] px-4 py-2 text-[12px] font-bold text-white/52">
+              Exclusiva de {achievement.monthKey}. Desafios mensais não voltam.
+            </p>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
+}
+
+function DetailStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] bg-white/[0.045] p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.06em] text-white/36">
+        {label}
+      </p>
+      <p className="mt-1 text-[13px] font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function formatAchievementDate(value?: string | null) {
+  if (!value) return null;
+  const date = value.length === 10 ? new Date(`${value}T12:00:00`) : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  }).format(date);
+}
+
+function formatTimesEarned(times: number) {
+  if (times === 1) return "1 vez";
+  return `${times.toLocaleString("pt-BR")} vezes`;
+}
+
+function categoryLabel(category: AchievementCategory) {
+  const labels: Record<AchievementCategory, string> = {
+    badge: "Badge",
+    medal: "Medalha",
+    trophy: "Troféu",
+    relic: "Relíquia",
+    challenge: "Desafio",
+  };
+  return labels[category];
+}
+
+function rarityLabel(rarity: AchievementV2["rarity"]) {
+  const labels: Record<AchievementV2["rarity"], string> = {
+    common: "Comum",
+    uncommon: "Incomum",
+    rare: "Raro",
+    epic: "Épico",
+    legendary: "Lendário",
+  };
+  return labels[rarity];
+}
+
+function formatOwnedPercent(stats: AchievementRarityStats) {
+  if (stats.totalUsers <= 0 || stats.ownersCount <= 0) return "0%";
+  const pct = stats.ownedPercent > 0 && stats.ownedPercent < 0.01 ? 0.01 : stats.ownedPercent;
+  if (pct < 1) return `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}%`;
+  return `${pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+}
+
+function rarityStatLabel(achievement: AchievementV2) {
+  if (!achievement.rarityStats) return null;
+  return `${formatOwnedPercent(achievement.rarityStats)} possuem`;
+}
+
+function rarityOwnershipSentence(stats: AchievementRarityStats) {
+  const percent = formatOwnedPercent(stats);
+  const people =
+    stats.ownersCount === 1
+      ? "1 pessoa possui"
+      : `${stats.ownersCount.toLocaleString("pt-BR")} pessoas possuem`;
+  return `${percent} dos usuários têm esta conquista · ${people}`;
 }
 
 export type { MyCircleSheetProps };

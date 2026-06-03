@@ -20,6 +20,8 @@ export type GymUser = {
   alphaTermsAcceptedAt?: string | null;
   privacyPolicyAcceptedAt?: string | null;
   accountStatus?: string;
+  founderRank?: number | null;
+  isFounder?: boolean;
   suspendedAt?: string | null;
   reactivationSentAt?: string | null;
   reactivationExpiresAt?: string | null;
@@ -48,6 +50,7 @@ export type GymUser = {
   streakRestoreMissedDate?: string | null;
   streakRestoreStatus?: string | null;
   checkInsCount: number;
+  storyCount?: number;
   achievements: string[];
   followersCount: number;
   followingCount: number;
@@ -380,6 +383,15 @@ export type SocialActions = {
 export type SocialBundle = {
   currentUser: EnrichedUser;
   users?: Record<string, GymUser>;
+  achievementRarity?: Record<
+    string,
+    {
+      achievementId: string;
+      ownersCount: number;
+      totalUsers: number;
+      ownedPercent: number;
+    }
+  >;
   gyms?: GymLocationOption[];
   feedPosts: EnrichedPost[];
   profilePosts?: EnrichedPost[];

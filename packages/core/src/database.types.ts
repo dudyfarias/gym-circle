@@ -1386,6 +1386,23 @@ export type Database = {
           unread_count: number | null
         }[]
       }
+      get_achievement_rarity_summary: {
+        Args: never
+        Returns: {
+          achievement_id: string
+          owners_count: number
+          owned_percent: number
+          total_users: number
+        }[]
+      }
+      get_founder_status: {
+        Args: { p_user_ids?: string[] | null }
+        Returns: {
+          founder_rank: number
+          is_founder: boolean
+          user_id: string
+        }[]
+      }
       get_home_feed: {
         Args: {
           p_cursor_created_at?: string | null
