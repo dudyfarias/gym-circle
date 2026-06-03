@@ -166,7 +166,8 @@
     "recap": {
       "cta": "Compartilhar resumo de {{month}}",
       "ctaShort": "Compartilhar resumo",
-      "hint": "Você escolhe a foto da capa"
+      "hint": "Você escolhe a foto da capa",
+      "pickPeriod": "Outro mês ou o ano todo"
     },
     "competition": {
       "title": "Competição",
@@ -813,13 +814,20 @@
   "recapCoverPicker": {
     "title": "Escolher capa",
     "subtitle": "Foto do mês de {{month}}",
+    "subtitleYear": "Foto do ano de {{year}}",
     "closeAria": "Fechar seletor de capa",
     "empty": "Você ainda não tem posts neste mês.",
+    "emptyYear": "Você ainda não tem posts neste ano.",
     "useAuto": "Usar foto automática",
     "useThis": "Usar como capa",
     "saving": "Salvando...",
     "errorSave": "Não foi possível salvar a escolha.",
     "selectedBadge": "Selecionada"
+  },
+  "recapPeriodPicker": {
+    "title": "Escolher período",
+    "subtitle": "Compartilhe o resumo de um mês ou do ano inteiro.",
+    "yearHint": "Ano inteiro"
   },
   "badgesSheet": {
     "title": "Badges",

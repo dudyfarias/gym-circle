@@ -15,7 +15,7 @@ import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
-import { buildMonthlyRecap } from "./social/monthlyRecap";
+import { buildMonthlyRecap, type RecapPeriod } from "./social/monthlyRecap";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -75,6 +75,13 @@ const RecapCoverPickerSheet = dynamic(
   () =>
     import("./RecapCoverPickerSheet").then(
       (module) => module.RecapCoverPickerSheet,
+    ),
+  { ssr: false },
+);
+const RecapPeriodPickerSheet = dynamic(
+  () =>
+    import("./RecapPeriodPickerSheet").then(
+      (module) => module.RecapPeriodPickerSheet,
     ),
   { ssr: false },
 );
@@ -160,6 +167,12 @@ export function GymCirclePreview({
   // Abre via botão "Trocar foto" dentro do MonthlyRecapSheet. Quando user
   // escolhe um post, social.actions.setMonthlyRecapCover persiste em DB.
   const [recapCoverPickerOpen, setRecapCoverPickerOpen] = useState(false);
+  // Sprint 5.10 — picker pra escolher qual período do recap (mês ou ano).
+  // Default `null` = mês corrente (back-compat). Quando user escolhe um
+  // período no picker, `buildMonthlyRecap` é re-executado com aquele period
+  // e o sheet abre com os dados certos.
+  const [recapPeriodPickerOpen, setRecapPeriodPickerOpen] = useState(false);
+  const [recapPeriod, setRecapPeriod] = useState<RecapPeriod | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -792,8 +805,16 @@ export function GymCirclePreview({
     [profilePosts, social.currentUser.id],
   );
   const monthlyRecap = useMemo(
-    () => buildMonthlyRecap({ now, posts: currentUserPosts, user: social.currentUser }),
-    [currentUserPosts, now, social.currentUser],
+    () =>
+      buildMonthlyRecap({
+        now,
+        posts: currentUserPosts,
+        user: social.currentUser,
+        // Sprint 5.10 — undefined preserva default (mês corrente). Quando
+        // user escolhe via picker, period vem populado.
+        period: recapPeriod ?? undefined,
+      }),
+    [currentUserPosts, now, recapPeriod, social.currentUser],
   );
   const recentPostLocations = useMemo(
     () =>
@@ -1259,6 +1280,15 @@ export function GymCirclePreview({
             // Sprint 5.8 — calendar mini-foto tappable abre PostDetail. Mesmo
             // handler usado pelos profile/feed grids pra consistência de UX.
             onOpenPost={openPostDetail}
+            // Sprint 5.10 — CTA secundário "Outro período" abre o picker
+            // de período pro user escolher mês passado OU ano inteiro.
+            // Mesma checagem isOwn do recap principal — recap é asset do
+            // próprio user.
+            onOpenRecapPeriodPicker={
+              myCircleUser?.id === social.currentUser.id
+                ? () => setRecapPeriodPickerOpen(true)
+                : undefined
+            }
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
             storyViewed={
@@ -1333,6 +1363,8 @@ export function GymCirclePreview({
           />
           <RecapCoverPickerSheet
             monthLabel={monthlyRecap.monthLabel}
+            // Sprint 5.10 — startsWith funciona tanto pra mês ("2026-05" matches
+            // "2026-05-XX") quanto pra ano ("2026" matches "2026-XX-XX").
             monthPosts={currentUserPosts.filter((post) =>
               post.workoutDate.startsWith(monthlyRecap.monthKey),
             )}
@@ -1348,6 +1380,25 @@ export function GymCirclePreview({
               social.currentUser.monthlyRecapCovers?.[monthlyRecap.monthKey] ??
               null
             }
+          />
+          {/* Sprint 5.10 — Picker de período (mês ou ano). Aberto via botão
+              "Outro período" no MyCircle. Após escolha, atualizamos recapPeriod
+              state e abrimos o MonthlyRecapSheet com os dados do período novo. */}
+          <RecapPeriodPickerSheet
+            currentPeriod={
+              recapPeriod ?? {
+                kind: "month",
+                year: new Date().getFullYear(),
+                month: new Date().getMonth() + 1,
+              }
+            }
+            now={now}
+            onClose={() => setRecapPeriodPickerOpen(false)}
+            onSelect={(period) => {
+              setRecapPeriod(period);
+              setMonthlyRecapOpen(true);
+            }}
+            open={recapPeriodPickerOpen}
           />
           {social.actions.updateProfile ? (
             <EditProfileSheet

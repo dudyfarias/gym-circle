@@ -166,7 +166,8 @@
     "recap": {
       "cta": "Share {{month}} recap",
       "ctaShort": "Share recap",
-      "hint": "You choose the cover photo"
+      "hint": "You choose the cover photo",
+      "pickPeriod": "Another month or full year"
     },
     "competition": {
       "title": "Competition",
@@ -813,13 +814,20 @@
   "recapCoverPicker": {
     "title": "Choose cover",
     "subtitle": "Photo for {{month}}",
+    "subtitleYear": "Photo for {{year}}",
     "closeAria": "Close cover picker",
     "empty": "You haven't posted this month yet.",
+    "emptyYear": "You haven't posted this year yet.",
     "useAuto": "Use auto photo",
     "useThis": "Use as cover",
     "saving": "Saving...",
     "errorSave": "Couldn't save your choice.",
     "selectedBadge": "Selected"
+  },
+  "recapPeriodPicker": {
+    "title": "Choose period",
+    "subtitle": "Share your recap for a month or the whole year.",
+    "yearHint": "Whole year"
   },
   "badgesSheet": {
     "title": "Badges",

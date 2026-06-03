@@ -87,6 +87,13 @@ type MyCircleSheetProps = {
    * usado pelo ProfilePostsGrid pra consistência de UX.
    */
   onOpenPost?: (postId: string) => void;
+  /**
+   * Sprint 5.10 — abre o RecapPeriodPickerSheet pra escolher qual mês ou
+   * ano compartilhar. Aparece como CTA secundário abaixo do "Compartilhar
+   * resumo de {mês}". Quando ausente, só o caminho rápido (mês corrente)
+   * fica disponível.
+   */
+  onOpenRecapPeriodPicker?: () => void;
 };
 
 export function MyCircleSheet({
@@ -102,6 +109,7 @@ export function MyCircleSheet({
   onOpenMonthlyRecap,
   onOpenBadges,
   onOpenPost,
+  onOpenRecapPeriodPicker,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -561,13 +569,12 @@ export function MyCircleSheet({
                 />
               </section>
 
-              {/* H. Monthly Recap — Sprint 5.1.
-                  Botão social que abre o MonthlyRecapSheet pra compartilhar o
-                  resumo mensal no Instagram. Aparece só pro próprio user
-                  (`isOwn`) e quando o recap foi computado (`monthlyRecap` not
-                  null). Lib de geração de imagem fica no sheet aberto, não aqui. */}
+              {/* H. Monthly Recap — Sprint 5.1 + 5.10.
+                  CTA principal: abre o MonthlyRecapSheet pro mês corrente.
+                  CTA secundário (Sprint 5.10): "Outro período" abre picker
+                  pra escolher mês passado OU ano inteiro. */}
               {isOwn && monthlyRecap && onOpenMonthlyRecap ? (
-                <section className="mt-8">
+                <section className="mt-8 flex flex-col gap-2">
                   <button
                     aria-label={t("myCircle.recap.cta", {
                       month: monthlyRecap.shortMonthLabel,
@@ -591,6 +598,16 @@ export function MyCircleSheet({
                     </span>
                     <span className="text-[18px] font-black text-white/42">→</span>
                   </button>
+                  {onOpenRecapPeriodPicker ? (
+                    <button
+                      aria-label={t("myCircle.recap.pickPeriod")}
+                      className="gc-pressable rounded-[14px] bg-white/[0.04] px-4 py-2.5 text-center text-[12px] font-black text-[var(--gc-brand)]"
+                      onClick={onOpenRecapPeriodPicker}
+                      type="button"
+                    >
+                      {t("myCircle.recap.pickPeriod")} →
+                    </button>
+                  ) : null}
                 </section>
               ) : null}
 
