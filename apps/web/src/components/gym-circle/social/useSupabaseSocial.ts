@@ -38,6 +38,11 @@ type ProfileRowWithRecapCovers = ProfileRow & {
   monthly_recap_covers?: Record<string, string> | null;
 };
 
+// Sprint 7C.1 — mesmo workaround do symlink quirk pra contextual_hints_seen.
+type ProfileRowWithContextualHints = ProfileRow & {
+  contextual_hints_seen?: Record<string, string> | null;
+};
+
 import { simulateHaptic } from "./haptics";
 import { clearImageCache } from "../design-system/imageCache";
 import {
@@ -398,6 +403,7 @@ const PROFILE_COLUMNS = [
   "onboarding_completed_at",
   "profile_completion_notice_dismissed",
   "monthly_recap_covers",
+  "contextual_hints_seen",
   "alpha_terms_accepted_at",
   "privacy_policy_accepted_at",
   "account_status",
@@ -792,6 +798,8 @@ function enrichedUserFromProfileRow(
       profile.profile_completion_notice_dismissed ?? false,
     monthlyRecapCovers:
       (profile as ProfileRowWithRecapCovers).monthly_recap_covers ?? undefined,
+    contextualHintsSeen:
+      (profile as ProfileRowWithContextualHints).contextual_hints_seen ?? undefined,
     alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
     privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
     accountStatus: profile.account_status ?? "active",
@@ -4200,6 +4208,23 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         };
         await profilesExt.setMonthlyRecapCover(currentUserId, monthKey, postId);
         await refresh();
+      },
+      /**
+       * Sprint 7C.1 — marca hint contextual como visto cross-device.
+       * Best-effort: erro de rede não bloqueia UX (caller já marcou local
+       * via localStorage). Refresh opcional pra hydratar UI imediatamente;
+       * pulamos aqui porque hint dismiss não precisa re-renderizar tudo —
+       * próximo boot puxa o JSONB atualizado.
+       */
+      async markContextualHintSeen(hintId: string) {
+        const profilesExt = services.profiles as typeof services.profiles & {
+          markContextualHintSeen?: (
+            userId: string,
+            hintId: string,
+          ) => Promise<void>;
+        };
+        if (!profilesExt.markContextualHintSeen) return;
+        await profilesExt.markContextualHintSeen(currentUserId, hintId);
       },
       refreshChat,
       refreshPostDetails,

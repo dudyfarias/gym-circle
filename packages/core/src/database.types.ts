@@ -702,6 +702,7 @@ export type Database = {
           instagram_username: string | null
           is_private: boolean
           main_gym_id: string | null
+          contextual_hints_seen: Json
           monthly_recap_covers: Json
           onboarding_completed_at: string | null
           preferred_training_times: string[]
@@ -729,6 +730,7 @@ export type Database = {
           instagram_username?: string | null
           is_private?: boolean
           main_gym_id?: string | null
+          contextual_hints_seen?: Json
           monthly_recap_covers?: Json
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]
@@ -756,6 +758,7 @@ export type Database = {
           instagram_username?: string | null
           is_private?: boolean
           main_gym_id?: string | null
+          contextual_hints_seen?: Json
           monthly_recap_covers?: Json
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]

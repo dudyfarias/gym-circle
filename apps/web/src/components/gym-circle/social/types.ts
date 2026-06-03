@@ -62,6 +62,13 @@ export type GymUser = {
    * cai pro auto-pick. Map vazio (default DB) e undefined são equivalentes.
    */
   monthlyRecapCovers?: Record<string, string>;
+  /**
+   * Sprint 7C.1 — Hints contextuais dispensados pelo user.
+   * Shape: { "hintId": "ISO8601 timestamp", ... }. Persistido no DB
+   * (cross-device) + localStorage (instant local). Map vazio e undefined
+   * são equivalentes.
+   */
+  contextualHintsSeen?: Record<string, string>;
 };
 
 export type StreakPresenceSource = "feed-photo" | "fitness-story" | "none";
@@ -325,6 +332,12 @@ export type SocialActions = {
   dismissProfileCompletionNotice?: () => Promise<void>;
   /** Sprint 5.5a — salva foto de capa do recap mensal por monthKey. */
   setMonthlyRecapCover?: (monthKey: string, postId: string | null) => Promise<void>;
+  /**
+   * Sprint 7C.1 — marca hint contextual como visto (cross-device sync).
+   * Best-effort: caller pode awaitar mas falha não bloqueia UX (localStorage
+   * já absorveu o dismiss local). Idempotente — chamar 2x não duplica.
+   */
+  markContextualHintSeen?: (hintId: string) => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;

@@ -4,6 +4,7 @@ export * from "./BadgeIcon";
 export * from "./AvatarConsistencyRings";
 export * from "./BottomTabBar";
 export * from "./BrandMark";
+export * from "./ContextualHint";
 export * from "./DiscoveryUserCard";
 export * from "./EmptyState";
 export * from "./FloatingCreatePostButton";

@@ -40,6 +40,9 @@ export function profileRowFromPartial(
     monthly_recap_covers:
       (input as { monthly_recap_covers?: Record<string, string> })
         .monthly_recap_covers ?? {},
+    contextual_hints_seen:
+      (input as { contextual_hints_seen?: Record<string, string> })
+        .contextual_hints_seen ?? {},
     alpha_terms_accepted_at: input.alpha_terms_accepted_at ?? null,
     privacy_policy_accepted_at: input.privacy_policy_accepted_at ?? null,
     account_status: input.account_status ?? "active",

@@ -110,6 +110,49 @@ export function profileService(client: GymCircleClient) {
         .eq("user_id", userId);
       if (writeError) throw writeError;
     },
+
+    /**
+     * Sprint 7C.1 — Contextual Motion Onboarding.
+     *
+     * Marca um hint como visto pra que não reapareça em outros devices.
+     * Mesma estratégia client-side read→mutate→write do setMonthlyRecapCover.
+     * Timestamp ISO guarda quando foi dispensado (útil pra analytics).
+     *
+     * Best-effort: falha aqui não bloqueia UX — localStorage local já
+     * absorveu o dismiss. Caller deve catch e logar mas não interromper.
+     */
+    async markContextualHintSeen(
+      userId: string,
+      hintId: string,
+    ): Promise<void> {
+      const { data: current, error: readError } = await client
+        .from("profiles")
+        .select("contextual_hints_seen")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (readError) throw readError;
+
+      const currentMap =
+        ((current as { contextual_hints_seen?: Record<string, string> } | null)
+          ?.contextual_hints_seen as Record<string, string> | undefined) ?? {};
+      // Idempotente: se hint já existe, não sobreescreve timestamp original.
+      if (currentMap[hintId]) return;
+
+      const nextMap: Record<string, string> = {
+        ...currentMap,
+        [hintId]: new Date().toISOString(),
+      };
+
+      const { error: writeError } = await client
+        .from("profiles")
+        // Cast pelo symlink quirk (Sprint 5.5a): ProfileRow do release branch
+        // pode não conhecer o campo. Vercel main sim. Triple-cast satisfaz ambos.
+        .update({ contextual_hints_seen: nextMap } as unknown as {
+          contextual_hints_seen: Record<string, string>;
+        })
+        .eq("user_id", userId);
+      if (writeError) throw writeError;
+    },
   };
 }
 
