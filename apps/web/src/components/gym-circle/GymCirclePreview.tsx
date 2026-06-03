@@ -1059,6 +1059,8 @@ export function GymCirclePreview({
             // persistir dismiss individual cross-device. Mesma action que
             // outras surfaces vão consumir nas Sprints 7C.3/7C.4.
             onMarkContextualHintSeen={social.actions.markContextualHintSeen}
+            // Sprint 7.5.5 — Featured Achievements row tap abre overlay.
+            onOpenAchievementDetail={setAchievementDetail}
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={

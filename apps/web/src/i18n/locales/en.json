@@ -263,6 +263,10 @@
       "cta": "Complete",
       "closeAria": "Dismiss profile completion notice"
     },
+    "featuredAchievements": {
+      "title": "Featured achievements",
+      "secret": "Secret achievement"
+    },
     "streakRestore": {
       "title": "Restore streak?",
       "body": "Use 1 restore to save yesterday's missed day.",

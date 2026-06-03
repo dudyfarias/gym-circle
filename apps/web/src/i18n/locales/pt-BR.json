@@ -263,6 +263,10 @@
       "cta": "Completar",
       "closeAria": "Fechar aviso de completar perfil"
     },
+    "featuredAchievements": {
+      "title": "Conquistas em destaque",
+      "secret": "Conquista secreta"
+    },
     "streakRestore": {
       "title": "Restaurar streak?",
       "body": "Use 1 restaurador para proteger o dia que passou.",

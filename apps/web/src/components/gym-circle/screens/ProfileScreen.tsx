@@ -16,9 +16,16 @@ import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/IconButton";
 import {
   ContextualHint,
+  FeaturedAchievementsRow,
   ProfileIdentity,
   ProfilePostsGrid,
 } from "../design-system";
+import {
+  getAllAchievements,
+  parseAchievementCompositeId,
+  suggestFeaturedAchievements,
+  type Achievement,
+} from "../social/achievements";
 import type { ProfileCompletionItem } from "../social/profile";
 import {
   calculateProfileCompletion,
@@ -66,6 +73,11 @@ type ProfileScreenProps = {
    * Wire-up no GymCirclePreview (passa social.actions.markContextualHintSeen).
    */
   onMarkContextualHintSeen?: (hintId: string) => Promise<void>;
+  /**
+   * Sprint 7.5.5 — abre AchievementDetailOverlay quando user toca em
+   * card da Featured Achievements row.
+   */
+  onOpenAchievementDetail?: (achievement: Achievement) => void;
 };
 
 /**
@@ -93,6 +105,7 @@ export function ProfileScreen({
   onUseStreakRestore,
   onDismissProfileCompletionNotice,
   onMarkContextualHintSeen,
+  onOpenAchievementDetail,
 }: ProfileScreenProps) {
   const { t } = useTranslation();
   const profileCompletion = calculateProfileCompletion(currentUser);
@@ -122,6 +135,40 @@ export function ProfileScreen({
     )
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 2);
+
+  // Sprint 7.5.5 — Featured Achievements row.
+  // Resolve achievements em 2 modos: (a) user equipou manualmente via
+  // profile.featuredAchievements (lookup por composite ID); (b) auto-
+  // suggest top 3 por raridade (Relic > Trophy > Medal > Badge).
+  // Lista vazia (nenhum earned ainda) → row simplesmente não renderiza.
+  const allAchievements = getAllAchievements({
+    user: currentUser,
+    postsCount: posts.length,
+    hasUsedStreakRestore: Boolean(currentUser.lastStreakRestoreUsedAt),
+    posts: posts.map((post) => ({
+      createdAt: post.createdAt,
+      workoutType: post.workoutType ?? null,
+      gymId: post.gymId,
+    })),
+  });
+  const featuredAchievements: Achievement[] = (() => {
+    const equipped = currentUser.featuredAchievements ?? [];
+    if (equipped.length > 0) {
+      // Mode (a): user manualmente equipou — lookup por composite ID
+      const resolved: Achievement[] = [];
+      for (const compositeId of equipped) {
+        const parsed = parseAchievementCompositeId(compositeId);
+        if (!parsed) continue;
+        const match = allAchievements.find(
+          (a) => a.kind === parsed.kind && a.id === parsed.id,
+        );
+        if (match && match.earned) resolved.push(match);
+      }
+      if (resolved.length > 0) return resolved;
+    }
+    // Mode (b): fallback auto-suggest top 3 earned por raridade
+    return suggestFeaturedAchievements(allAchievements, 3);
+  })();
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -176,6 +223,14 @@ export function ProfileScreen({
           }
         />
       </div>
+
+      {/* Sprint 7.5.5 — Conquistas em destaque (Section 13 do brief).
+          Row horizontal com até 3 achievements priorizados (Relic > Trophy
+          > Medal > Badge). Vazio (user sem nada earned) → row some. */}
+      <FeaturedAchievementsRow
+        achievements={featuredAchievements}
+        onOpenDetail={onOpenAchievementDetail}
+      />
 
       {/* Sprint 7C.2 — Substitui o banner grande por chips inline
           ContextualHint. Cada chip = 1 missing item, dismissable individual.
