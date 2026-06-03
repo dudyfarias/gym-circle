@@ -134,20 +134,43 @@ function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser 
   const { t } = useTranslation();
   return (
     <article className="relative mx-auto aspect-[4/5] w-full max-w-[360px] overflow-hidden rounded-[34px] border border-white/[0.08] bg-black shadow-[0_24px_80px_rgba(0,0,0,0.52)]">
+      {/* Sprint 5.5c — foto 100% background sem desbotar. A foto escolhida
+          pelo user (ou auto-pick) é o protagonista. Stats viram overlay
+          sutil no canto superior esquerdo, estilo widget fitness do iPhone. */}
       {recap.coverImageUrl ? (
         <Image
           alt={t("monthlyRecap.poster.alt")}
-          className="object-cover opacity-70"
+          className="object-cover"
           fill
           sizes="360px"
           src={recap.coverImageUrl}
         />
       ) : null}
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.16),rgba(0,0,0,0.88)),radial-gradient(circle_at_82%_18%,rgba(48,213,255,0.38),transparent_32%),radial-gradient(circle_at_15%_88%,rgba(0,102,255,0.34),transparent_38%)]" />
 
-      <div className="absolute inset-0 flex flex-col p-6">
+      {/* Scrim duplo:
+          1. Gradient vertical pra escurecer top-left (área dos stats)
+          2. Vinheta sutil pra centralizar atenção. Sem dominar a foto. */}
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.62)_0%,rgba(0,0,0,0.18)_45%,rgba(0,0,0,0.16)_55%,rgba(0,0,0,0.78)_100%)]" />
+
+      <div className="absolute inset-0 flex flex-col p-5">
+        {/* Top row: stats overlay esquerda + RecapRings direita */}
         <div className="flex items-start justify-between">
-          <BrandMark size={34} />
+          <div className="space-y-3">
+            <PosterStatStack
+              label={recap.shortMonthLabel}
+              value={recap.trainedDays.toString()}
+              suffix={`${recap.trainedDaysUnit} ${t("monthlyRecap.poster.trainedInMonth")}`}
+              isHero
+            />
+            <PosterStatStack
+              label={t("monthlyRecap.poster.topWorkoutLabel")}
+              value={recap.topWorkoutType}
+            />
+            <PosterStatStack
+              label={t("monthlyRecap.poster.topLocationLabel")}
+              value={recap.topLocation}
+            />
+          </div>
           <RecapRings
             month={recap.monthProgressPercent}
             week={recap.weekProgressPercent}
@@ -155,45 +178,72 @@ function RecapPoster({ recap, user }: { recap: MonthlyRecap; user: EnrichedUser 
           />
         </div>
 
-        <div className="mt-auto">
-          <p className="text-[12px] font-black uppercase tracking-[0.18em] text-white/48">
-            {t("monthlyRecap.poster.brandTitle")}
-          </p>
-          <h3 className="mt-2 text-[50px] font-black capitalize leading-none text-white">
-            {recap.shortMonthLabel}
-          </h3>
-          <div className="mt-5 rounded-[28px] border border-white/[0.1] bg-black/46 p-4 backdrop-blur-2xl">
-            <p className="text-[13px] font-bold text-white/52">
-              {t("monthlyRecap.poster.trainedLabel")}
-            </p>
-            <p className="mt-1 text-[58px] font-black leading-none text-[var(--gc-brand)]">
-              {recap.trainedDays}
-            </p>
-            <p className="mt-1 text-[15px] font-black text-white">
-              {recap.trainedDaysUnit} {t("monthlyRecap.poster.trainedInMonth")}
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <PosterStat
-                label={t("monthlyRecap.poster.topWorkoutLabel")}
-                value={recap.topWorkoutType}
-              />
-              <PosterStat
-                label={t("monthlyRecap.poster.topLocationLabel")}
-                value={recap.topLocation}
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex items-end justify-between gap-3">
-            <p className="text-[13px] font-black text-white/74">
+        {/* Bottom row: BrandMark + tagline esquerda + @username pill direita */}
+        <div className="mt-auto flex items-end justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <BrandMark size={24} />
+            <p
+              className="text-[11px] font-black uppercase tracking-[0.14em] text-white/74"
+              style={{ textShadow: "0 1px 4px rgba(0,0,0,0.72)" }}
+            >
               {t("monthlyRecap.poster.tagline")}
             </p>
-            <div className="rounded-full bg-black/42 px-2.5 py-1 text-[10px] font-black text-white/72 backdrop-blur-xl">
-              @{user.username}
-            </div>
+          </div>
+          <div className="rounded-full bg-black/52 px-3 py-1.5 text-[10px] font-black text-white/86 backdrop-blur-xl">
+            @{user.username}
           </div>
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * Sprint 5.5c — stat block estilo widget fitness do iPhone.
+ * Label uppercase pequeno em cima + número grande + suffix opcional.
+ * `isHero` aumenta o número (workouts contados) e adiciona cor brand.
+ * text-shadow garante leitura sobre qualquer foto.
+ */
+function PosterStatStack({
+  label,
+  value,
+  suffix,
+  isHero = false,
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+  isHero?: boolean;
+}) {
+  const numberShadow = "0 2px 8px rgba(0,0,0,0.72)";
+  const textShadow = "0 1px 4px rgba(0,0,0,0.72)";
+  return (
+    <div>
+      <p
+        className="text-[10px] font-black uppercase tracking-[0.12em] text-white/74"
+        style={{ textShadow }}
+      >
+        {label}
+      </p>
+      <p
+        className={
+          isHero
+            ? "leading-none text-[44px] font-black text-[var(--gc-brand)]"
+            : "leading-none text-[22px] font-black text-white"
+        }
+        style={{ textShadow: numberShadow }}
+      >
+        {value}
+      </p>
+      {suffix ? (
+        <p
+          className="mt-0.5 text-[11px] font-black text-white/82"
+          style={{ textShadow }}
+        >
+          {suffix}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -265,15 +315,6 @@ function RingArc({
   );
 }
 
-function PosterStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[18px] bg-white/[0.08] p-3">
-      <p className="text-[9px] font-black uppercase text-white/36">{label}</p>
-      <p className="mt-1 truncate text-[13px] font-black text-white">{value}</p>
-    </div>
-  );
-}
-
 async function createRecapShareFile(
   recap: MonthlyRecap,
   user: EnrichedUser,
@@ -300,7 +341,12 @@ async function createRecapShareFile(
   });
 }
 
-function drawRecapBackground(ctx: CanvasRenderingContext2D, recap: MonthlyRecap) {
+/**
+ * Sprint 5.5c — background fica premium em ambos os casos:
+ * - Com foto: drawCoverImage sobrescreve com a foto cheia + scrim sutil
+ * - Sem foto (mês sem posts): este gradient vira o background final
+ */
+function drawRecapBackground(ctx: CanvasRenderingContext2D, _recap: MonthlyRecap) {
   const gradient = ctx.createLinearGradient(0, 0, 1080, 1350);
   gradient.addColorStop(0, "#02080C");
   gradient.addColorStop(0.55, "#000000");
@@ -316,11 +362,13 @@ function drawRecapBackground(ctx: CanvasRenderingContext2D, recap: MonthlyRecap)
   ctx.beginPath();
   ctx.arc(120, 1220, 340, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.fillStyle = "rgba(255,255,255,0.05)";
-  ctx.fillRect(72, 996, Math.round(936 * (recap.progressPercent / 100)), 10);
 }
 
+/**
+ * Sprint 5.5c — foto cheia (alpha 1.0) com scrim duplo sutil pra leitura.
+ * Espelha o JSX: top escuro pra stats, bottom escuro pra brandmark/username.
+ * Meio mais claro pra deixar a foto "respirar" no centro.
+ */
 async function drawCoverImage(ctx: CanvasRenderingContext2D, url: string | null) {
   if (!url) return;
   try {
@@ -328,18 +376,38 @@ async function drawCoverImage(ctx: CanvasRenderingContext2D, url: string | null)
     const ratio = Math.max(1080 / image.width, 1350 / image.height);
     const width = image.width * ratio;
     const height = image.height * ratio;
-    ctx.globalAlpha = 0.48;
     ctx.drawImage(image, (1080 - width) / 2, (1350 - height) / 2, width, height);
-    ctx.globalAlpha = 1;
+
     const overlay = ctx.createLinearGradient(0, 0, 0, 1350);
-    overlay.addColorStop(0, "rgba(0,0,0,0.18)");
-    overlay.addColorStop(0.62, "rgba(0,0,0,0.74)");
-    overlay.addColorStop(1, "rgba(0,0,0,0.94)");
+    overlay.addColorStop(0, "rgba(0,0,0,0.62)");
+    overlay.addColorStop(0.45, "rgba(0,0,0,0.18)");
+    overlay.addColorStop(0.55, "rgba(0,0,0,0.16)");
+    overlay.addColorStop(1, "rgba(0,0,0,0.78)");
     ctx.fillStyle = overlay;
     ctx.fillRect(0, 0, 1080, 1350);
   } catch {
-    // CORS pode bloquear imagens externas; o card continua exportável com fundo premium.
+    // CORS pode bloquear imagens externas; o card continua exportável com
+    // fundo premium do drawRecapBackground.
   }
+}
+
+/**
+ * Helper: text drawing com shadow garantida pra legibilidade sobre foto.
+ * Espelha o `text-shadow` CSS do JSX PosterStatStack.
+ */
+function drawShadowText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  shadowBlur = 8,
+) {
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.72)";
+  ctx.shadowBlur = shadowBlur;
+  ctx.shadowOffsetY = 2;
+  ctx.fillText(text, x, y);
+  ctx.restore();
 }
 
 function drawRecapText(
@@ -348,58 +416,65 @@ function drawRecapText(
   user: EnrichedUser,
   t: TFn,
 ) {
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "900 42px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(t("monthlyRecap.canvas.brandTitle"), 72, 104);
+  // Sprint 5.5c — Layout estilo iPhone widget:
+  //   Top-left: stack de stats (mês hero + mais treinado + lugar)
+  //   Top-right: RecapRings
+  //   Bottom-left: BrandMark + tagline
+  //   Bottom-right: @username pill
 
-  // Anéis no canto superior direito (espelha o RecapPoster JSX).
+  // === Hero stat: mês em label + workout count + suffix ===
+  ctx.fillStyle = "rgba(255,255,255,0.74)";
+  ctx.font = "900 26px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, capitalize(recap.shortMonthLabel).toUpperCase(), 72, 130);
+
+  ctx.fillStyle = "#8CFBFF";
+  ctx.font = "900 156px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, String(recap.trainedDays), 72, 280, 14);
+
+  ctx.fillStyle = "rgba(255,255,255,0.86)";
+  ctx.font = "900 34px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(
+    ctx,
+    `${recap.trainedDaysUnit} ${t("monthlyRecap.poster.trainedInMonth")}`,
+    72,
+    332,
+  );
+
+  // === Mais treinado stat ===
+  ctx.fillStyle = "rgba(255,255,255,0.74)";
+  ctx.font = "900 22px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, t("monthlyRecap.poster.topWorkoutLabel").toUpperCase(), 72, 446);
+  ctx.fillStyle = "rgba(255,255,255,1)";
+  ctx.font = "900 56px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, truncateCanvasText(ctx, recap.topWorkoutType, 580), 72, 506, 12);
+
+  // === Lugar stat ===
+  ctx.fillStyle = "rgba(255,255,255,0.74)";
+  ctx.font = "900 22px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, t("monthlyRecap.poster.topLocationLabel").toUpperCase(), 72, 612);
+  ctx.fillStyle = "rgba(255,255,255,1)";
+  ctx.font = "900 48px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, truncateCanvasText(ctx, recap.topLocation, 580), 72, 666, 12);
+
+  // === RecapRings top-right (espelha JSX) ===
   drawRecapRings(ctx, {
     cx: 920,
-    cy: 170,
+    cy: 200,
     week: recap.weekProgressPercent,
     month: recap.monthProgressPercent,
     year: recap.yearProgressPercent,
   });
 
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "900 96px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(capitalize(recap.shortMonthLabel), 72, 770);
-  ctx.font = "800 36px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.62)";
-  ctx.fillText(t("monthlyRecap.poster.trainedLabel"), 72, 850);
+  // === Bottom-left: BRAND CIRCLE pill em texto ===
+  ctx.fillStyle = "rgba(255,255,255,0.74)";
+  ctx.font = "900 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, t("monthlyRecap.canvas.brandTitle"), 72, 1244);
+  ctx.fillStyle = "rgba(255,255,255,0.82)";
+  ctx.font = "900 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  drawShadowText(ctx, t("monthlyRecap.poster.tagline"), 72, 1290);
 
-  ctx.fillStyle = "#8CFBFF";
-  ctx.font = "900 176px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(String(recap.trainedDays), 72, 1010);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "900 46px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(
-    `${recap.trainedDaysUnit} ${t("monthlyRecap.poster.trainedInMonth")}`,
-    72,
-    1070,
-  );
-
-  drawCanvasStat(
-    ctx,
-    t("monthlyRecap.poster.topWorkoutLabel"),
-    recap.topWorkoutType,
-    72,
-    1168,
-  );
-  drawCanvasStat(
-    ctx,
-    t("monthlyRecap.poster.topLocationLabel"),
-    recap.topLocation,
-    560,
-    1168,
-  );
-
-  ctx.fillStyle = "rgba(255,255,255,0.76)";
-  ctx.font = "900 34px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(t("monthlyRecap.poster.tagline"), 72, 1290);
-
-  // @username no canto inferior direito — discreto, balanceando "Train together"
-  drawUsernameBadge(ctx, user.username, 1008, 1290);
+  // === Bottom-right: @username pill (mantém helper antigo) ===
+  drawUsernameBadge(ctx, user.username, 1008, 1280);
 }
 
 /**
