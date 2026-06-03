@@ -886,7 +886,7 @@
       "epic": "Epic",
       "legendary": "Legendary"
     },
-    "rarityPercent": "Only {{percent}}% of users own this achievement."
+    "rarityPercent": "Only {{percent}} of users own this achievement."
   },
   "badgesSheet": {
     "title": "Badges",

@@ -886,7 +886,7 @@
       "epic": "Épico",
       "legendary": "Lendário"
     },
-    "rarityPercent": "Apenas {{percent}}% dos usuários possuem esta conquista."
+    "rarityPercent": "Apenas {{percent}} dos usuários possuem esta conquista."
   },
   "badgesSheet": {
     "title": "Badges",

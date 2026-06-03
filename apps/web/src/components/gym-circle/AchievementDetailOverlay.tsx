@@ -5,7 +5,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BadgeIcon } from "./design-system";
 import { simulateHaptic } from "./social/haptics";
-import type { Achievement, AchievementRarity } from "./social/achievements";
+import {
+  getAchievementCompositeId,
+  type Achievement,
+  type AchievementRarity,
+} from "./social/achievements";
+import {
+  formatRarityPercent,
+  getAchievementGlobalPercent,
+} from "./social/achievementsStats";
+import { useGymCircleServices } from "@gym-circle/core/hooks";
 
 /**
  * AchievementDetailOverlay — Sprint 7.5.2.
@@ -66,7 +75,11 @@ export function AchievementDetailOverlay({
   onClose,
 }: AchievementDetailOverlayProps) {
   const { t, i18n } = useTranslation();
+  const services = useGymCircleServices();
   const [mounted, setMounted] = useState(false);
+  // Sprint 7.5.8 — fetch raridade global ao abrir. Cache 5min in-memory
+  // no service evita refetch quando user navega back/forward.
+  const [globalPercent, setGlobalPercent] = useState<number | null>(null);
 
   // Trigger animations on mount/open + haptic burst
   useEffect(() => {
@@ -78,6 +91,28 @@ export function AchievementDetailOverlay({
     const id = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(id);
   }, [open]);
+
+  // Sprint 7.5.8 — fetch global percent quando achievement muda ou abre.
+  // Não bloqueia render: overlay aparece, e quando RPC retorna o chip
+  // de raridade aparece com fade do mounted state.
+  useEffect(() => {
+    if (!open || !achievement) {
+      setGlobalPercent(null);
+      return;
+    }
+    let cancelled = false;
+    const compositeId = getAchievementCompositeId(achievement);
+    void (async () => {
+      const percent = await getAchievementGlobalPercent(
+        services.client,
+        compositeId,
+      );
+      if (!cancelled) setGlobalPercent(percent);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, achievement, services.client]);
 
   const isMysterySecret = useMemo(
     () => Boolean(achievement?.secret && !achievement?.earned),
@@ -95,13 +130,23 @@ export function AchievementDetailOverlay({
   const showStats =
     achievement.earned && !isMysterySecret && detail !== undefined;
 
-  // Raridade só quando dado é estatisticamente significativo
-  const showRarity =
-    !isMysterySecret &&
-    (achievement.rarity !== undefined ||
-      (detail?.globalEarnedPercent !== null &&
-        detail?.globalEarnedPercent !== undefined &&
-        detail.globalEarnedPercent > 0));
+  // Sprint 7.5.8 — priorização da fonte de % global:
+  //   1. detail.globalEarnedPercent (override do caller — útil pra tests)
+  //   2. globalPercent fetched aqui via RPC
+  // Quando nenhum disponível, fallback pro chip de raridade nominal
+  // (rarity: "common/uncommon/...").
+  const effectiveGlobalPercent =
+    detail?.globalEarnedPercent !== undefined &&
+    detail?.globalEarnedPercent !== null
+      ? detail.globalEarnedPercent
+      : globalPercent;
+  const formattedRarityPercent = formatRarityPercent(
+    effectiveGlobalPercent,
+    i18n.language,
+  );
+
+  // Raridade aparece quando: % real disponível OU rarity nominal definida
+  const showRarity = !isMysterySecret && (formattedRarityPercent !== null || achievement.rarity !== undefined);
 
   return (
     <div
@@ -247,7 +292,9 @@ export function AchievementDetailOverlay({
             </div>
           ) : null}
 
-          {/* Raridade chip */}
+          {/* Raridade chip — Sprint 7.5.8: prioriza % real fetched
+              quando disponível (precisão até 0.01%). Fallback pro chip
+              nominal de rarity (common/uncommon/rare/epic/legendary). */}
           {showRarity ? (
             <div
               className={[
@@ -255,12 +302,10 @@ export function AchievementDetailOverlay({
                 mounted ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
               ].join(" ")}
             >
-              {detail?.globalEarnedPercent !== null &&
-              detail?.globalEarnedPercent !== undefined &&
-              detail.globalEarnedPercent > 0 ? (
+              {formattedRarityPercent ? (
                 <p className="text-center text-[12px] font-bold text-white/56">
                   {t("achievementDetail.rarityPercent", {
-                    percent: Math.round(detail.globalEarnedPercent),
+                    percent: formattedRarityPercent,
                   })}
                 </p>
               ) : achievement.rarity ? (

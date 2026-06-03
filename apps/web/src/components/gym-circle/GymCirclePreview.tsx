@@ -16,13 +16,17 @@ import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
 import { buildMonthlyRecap, type RecapPeriod } from "./social/monthlyRecap";
-import type { Achievement } from "./social/achievements";
+import {
+  getAllAchievements,
+  type Achievement,
+} from "./social/achievements";
 import {
   loadMonthlyChallenges,
   recomputeChallengeProgress,
   syncChallengeProgress,
   type MonthlyChallengeData,
 } from "./social/monthlyChallenges";
+import { backfillUserAchievements } from "./social/achievementsStats";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -916,6 +920,41 @@ export function GymCirclePreview({
       ),
     [profilePosts, social.currentUser.id],
   );
+
+  // Sprint 7.5.8 — Lazy backfill de user_achievements no boot. Compara
+  // achievements derivados (getAllAchievements) com o que está no DB e
+  // popula faltantes. Idempotente. Best-effort (errors logged, não
+  // bloqueia UI). Sem isso, a RPC get_achievement_global_stats sempre
+  // retornaria 0% — UI mostraria "Apenas 0% dos usuários" pra tudo.
+  useEffect(() => {
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId) return;
+    const allAchievements = getAllAchievements({
+      user: social.currentUser,
+      postsCount: currentUserPosts.length,
+      hasUsedStreakRestore: Boolean(social.currentUser.lastStreakRestoreUsedAt),
+      posts: currentUserPosts.map((post) => ({
+        createdAt: post.createdAt,
+        workoutType: post.workoutType ?? null,
+        gymId: post.gymId,
+      })),
+    });
+    void backfillUserAchievements(
+      services.client,
+      currentUserId,
+      allAchievements,
+    );
+  }, [
+    services.client,
+    social.currentUser?.id,
+    social.currentUser,
+    social.currentUser?.longestStreak,
+    social.currentUser?.workoutsThisMonth,
+    social.currentUser?.activeDaysCount,
+    social.currentUser?.followersCount,
+    social.currentUser?.lastStreakRestoreUsedAt,
+    currentUserPosts,
+  ]);
   const monthlyRecap = useMemo(
     () =>
       buildMonthlyRecap({
