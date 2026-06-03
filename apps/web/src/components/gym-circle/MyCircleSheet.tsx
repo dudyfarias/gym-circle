@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   AvatarConsistencyRings,
   BadgeIcon,
+  ContextualHint,
   StreakBadge,
 } from "./design-system";
 import { simulateHaptic } from "./social/haptics";
@@ -94,6 +95,12 @@ type MyCircleSheetProps = {
    * fica disponível.
    */
   onOpenRecapPeriodPicker?: () => void;
+  /**
+   * Sprint 7C.3 — marca hint contextual como visto (cross-device). Usada
+   * pelo banner "primeira visita" do hub que explica rings/badges/calendar.
+   * Quando ausente, hint não renderiza (sem persistência = não mostra).
+   */
+  onMarkContextualHintSeen?: (hintId: string) => Promise<void>;
 };
 
 export function MyCircleSheet({
@@ -110,6 +117,7 @@ export function MyCircleSheet({
   onOpenBadges,
   onOpenPost,
   onOpenRecapPeriodPicker,
+  onMarkContextualHintSeen,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -270,6 +278,26 @@ export function MyCircleSheet({
 
         {/* Conteúdo scrollável */}
         <div className="gc-scrollbar flex-1 overflow-y-auto px-5 pb-8 pt-6">
+          {/* Sprint 7C.3 — Banner de boas-vindas na primeira visita do hub.
+              Explica os 3 pilares (rings, badges, calendar). Persiste seen
+              cross-device via ContextualHint (DB JSONB + localStorage).
+              Só mostra pro próprio user (`isOwn`) — hub de outros users
+              não precisa de tutorial. */}
+          {isOwn && canSeeDetails ? (
+            <div className="mb-5">
+              <ContextualHint
+                hintId="myCircle-firstVisit"
+                markSeen={onMarkContextualHintSeen}
+                seenHints={user.contextualHintsSeen}
+                variant="banner"
+              >
+                <p className="text-[12.5px] font-bold leading-[1.45] text-white/86">
+                  {t("myCircle.firstVisitHint")}
+                </p>
+              </ContextualHint>
+            </div>
+          ) : null}
+
           {/* A. Header com rings + identidade */}
           <section className="flex flex-col items-center text-center">
             <AvatarConsistencyRings

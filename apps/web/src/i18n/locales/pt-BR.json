@@ -118,6 +118,7 @@
     "title": "Meu Circle",
     "titleOther": "Circle de {{name}}",
     "closeLabel": "Fechar Meu Circle",
+    "firstVisitHint": "Bem-vindo ao seu hub. Rings mostram sua consistência (semana / mês / ano). Badges são conquistas. Calendar guarda o histórico mensal — toque numa foto pra abrir o post daquele dia.",
     "currentStreak": "Streak atual",
     "longestStreak": "Maior streak",
     "monthWorkouts": "Treinos no mês",

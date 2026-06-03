@@ -118,6 +118,7 @@
     "title": "My Circle",
     "titleOther": "{{name}}'s Circle",
     "closeLabel": "Close My Circle",
+    "firstVisitHint": "Welcome to your hub. Rings track your consistency (week / month / year). Badges are achievements. Calendar holds your monthly history — tap a photo to open that day's post.",
     "currentStreak": "Current streak",
     "longestStreak": "Best streak",
     "monthWorkouts": "Workouts this month",

@@ -1327,6 +1327,9 @@ export function GymCirclePreview({
                 ? () => setRecapPeriodPickerOpen(true)
                 : undefined
             }
+            // Sprint 7C.3 — banner "primeira visita" do hub usa o sistema
+            // ContextualHint (Sprint 7C.1) pra persistir dismiss cross-device.
+            onMarkContextualHintSeen={social.actions.markContextualHintSeen}
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
             storyViewed={
