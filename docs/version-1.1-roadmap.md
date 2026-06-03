@@ -130,11 +130,18 @@ e dar primeira impressao premium.
 
 Escopo:
 
-- Fase A: deletar `OnboardingFlow.tsx` legado + namespace onboarding.
-- Fase B: aceite legal no signup form (P0 App Store — terms + privacy policy).
-- Fase C: Contextual Motion Onboarding multi-fase (animacoes guiadas).
+- Fase A: deletar `OnboardingFlow.tsx` legado + namespace onboarding. CONCLUIDA.
+- Fase B: aceite legal no signup form (P0 App Store — terms + privacy policy). CONCLUIDA.
+- Fase C: Contextual Motion Onboarding — entregue em 3 sub-fases:
+  - 7C.1: ContextualHint foundation (DB JSONB + componente + hook). CONCLUIDA.
+  - 7C.2: profile completion prompts inline (chips no ProfileScreen). CONCLUIDA.
+  - 7C.3: banner welcome no MyCircle primeira visita. CONCLUIDA.
+  - 7C.4: motion polish (badge unlock confetti, streak ignite glow, level-up
+    transition, first-post celebration) — ADIADO pra Sprint 8 SwiftUI.
+    Animações CSS/JS Capacitor seriam reescritas com `.symbolEffect`,
+    `withAnimation`, `.transition(.scale)` nativos — trabalho descartavel.
 
-Status: A + B concluidas. C pendente.
+Status: A, B, C.1, C.2, C.3 concluidas. C.4 absorvida pela Sprint 8.
 
 ## Sprint 8 - SwiftUI Migration (app nativo)
 
@@ -146,6 +153,11 @@ Escopo:
 - Foundation: `GymCircleAppModel`, `HKHealthStore` provider, design tokens.
 - Migrar feed, stories viewer, chat — ganhar 60fps nativo + HealthKit integration.
 - Manter web app pra desktop/admin + zonas de baixa friction.
+- ABSORVE Sprint 7C.4: motion polish em SwiftUI nativo. Itens herdados:
+  - Badge unlock celebration (`.symbolEffect(.bounce)` + haptic)
+  - Streak ignite glow (`.transition(.scale)` + brand color glow)
+  - Level-up transition (animation entre StreakLevel chips)
+  - First-post celebration (toast + confetti via UIKit overlay)
 
 Gate:
 

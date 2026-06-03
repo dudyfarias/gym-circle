@@ -78,12 +78,13 @@ Transformar o Gym Circle 1.1 em uma evolucao segura da alpha/app aprovado, com f
 ### Sprint 7 - Onboarding (P0 App Store)
 
 - Limpar `OnboardingFlow` legado, aceite legal no signup, contextual motion onboarding.
-- Fases A + B entregues; Fase C pendente.
+- Fases A, B, C.1, C.2, C.3 entregues. C.4 (motion polish key moments) absorvida pela Sprint 8 SwiftUI.
 
 ### Sprint 8 - SwiftUI Migration
 
 - Migrar feed/stories/chat pra SwiftUI nativo (60fps + HealthKit).
 - Foundation: `GymCircleAppModel`, `HKHealthStore`, design tokens.
+- Inclui motion polish key moments (heranca da Sprint 7C.4): badge unlock, streak ignite, level-up, first-post.
 
 ### Sprint 9 - TestFlight + App Store submission
 
