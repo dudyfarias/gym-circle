@@ -1040,6 +1040,10 @@ export function GymCirclePreview({
             onDismissProfileCompletionNotice={
               social.actions.dismissProfileCompletionNotice
             }
+            // Sprint 7C.2 — chips inline usam o sistema ContextualHint pra
+            // persistir dismiss individual cross-device. Mesma action que
+            // outras surfaces vão consumir nas Sprints 7C.3/7C.4.
+            onMarkContextualHintSeen={social.actions.markContextualHintSeen}
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={

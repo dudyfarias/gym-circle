@@ -1,16 +1,25 @@
 "use client";
 
 import {
+  Camera,
   Clock,
   LifeBuoy,
+  MapPin,
   MoreHorizontal,
   Pencil,
   ShieldCheck,
-  X,
+  Target,
+  User,
+  UserCircle,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { IconButton } from "@/components/ui/IconButton";
-import { ProfileIdentity, ProfilePostsGrid } from "../design-system";
+import {
+  ContextualHint,
+  ProfileIdentity,
+  ProfilePostsGrid,
+} from "../design-system";
+import type { ProfileCompletionItem } from "../social/profile";
 import {
   calculateProfileCompletion,
   shouldShowProfileCompletionNotice,
@@ -46,7 +55,17 @@ type ProfileScreenProps = {
   onOpenMyCircle?: () => void;
   onOpenPost?: (postId: string) => void;
   onUseStreakRestore?: () => void | Promise<void>;
+  /**
+   * Sprint 7C.2 — legacy: dismiss MACRO do notice antigo (1 boolean DB).
+   * Mantido por compat enquanto outras surfaces não migram pra hint individual.
+   * Os chips novos usam o sistema ContextualHint (DB JSONB + localStorage).
+   */
   onDismissProfileCompletionNotice?: () => void | Promise<void>;
+  /**
+   * Sprint 7C.2 — marca um hint individual como visto cross-device.
+   * Wire-up no GymCirclePreview (passa social.actions.markContextualHintSeen).
+   */
+  onMarkContextualHintSeen?: (hintId: string) => Promise<void>;
 };
 
 /**
@@ -73,6 +92,7 @@ export function ProfileScreen({
   onOpenPost,
   onUseStreakRestore,
   onDismissProfileCompletionNotice,
+  onMarkContextualHintSeen,
 }: ProfileScreenProps) {
   const { t } = useTranslation();
   const profileCompletion = calculateProfileCompletion(currentUser);
@@ -90,7 +110,18 @@ export function ProfileScreen({
     currentUser,
     profileCompletion,
   );
-  const nextCompletionItem = profileCompletion.missing[0];
+
+  // Sprint 7C.2 — pendingPromptItems = missing items que ainda não foram
+  // individualmente dismissados via ContextualHint. Ordenado pelo weight
+  // descendente pra mostrar primeiro o que pesa mais (identity > avatar/gym
+  // > goal/bio/preferredTimes). Cap em 2 visíveis pra não saturar a UI.
+  const seenHintsMap = currentUser.contextualHintsSeen;
+  const pendingPromptItems = profileCompletion.missing
+    .filter(
+      (item) => !seenHintsMap?.[`profile-complete-${item.id}`],
+    )
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 2);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -146,43 +177,38 @@ export function ProfileScreen({
         />
       </div>
 
-      {onEditProfile && shouldShowCompletionNotice ? (
-        <section className="relative mt-3 rounded-[16px] border border-white/[0.08] bg-white/[0.04] p-3 pr-12">
-          {onDismissProfileCompletionNotice ? (
-            <button
-              aria-label={t("profile.completionNotice.closeAria")}
-              className="gc-pressable absolute right-2 top-2 grid size-11 place-items-center rounded-full bg-white/[0.05] text-white/48 transition hover:text-white"
-              onClick={() => void onDismissProfileCompletionNotice()}
-              type="button"
-            >
-              <X size={15} strokeWidth={2.6} />
-            </button>
-          ) : null}
-          <button
-            className="gc-pressable flex w-full items-center justify-between gap-3 text-left"
-            onClick={onEditProfile}
-            type="button"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-black text-white">
-                {t("profile.completionNotice.title", {
-                  percentage: profileCompletion.percentage,
-                })}
-              </p>
-              <p className="mt-0.5 truncate text-[11px] font-bold text-white/46">
-                {nextCompletionItem?.label ?? t("profile.completionNotice.fallback")}
-              </p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
-                <div
-                  className="h-full rounded-full bg-[linear-gradient(90deg,#8CFBFF,#30D5FF,#0066FF)] transition-all duration-500"
-                  style={{ width: `${profileCompletion.percentage}%` }}
-                />
-              </div>
+      {/* Sprint 7C.2 — Substitui o banner grande por chips inline
+          ContextualHint. Cada chip = 1 missing item, dismissable individual.
+          Barra fina top mostra progresso geral. Quando nada pendente ou
+          completion=100%, seção some inteira.
+          Legacy: `onDismissProfileCompletionNotice` (boolean MACRO no DB)
+          ainda funciona via fallback — quando o user dismissa todos os
+          chips um a um, o auto-tracking abaixo dispara o macro também. */}
+      {onEditProfile &&
+      shouldShowCompletionNotice &&
+      pendingPromptItems.length > 0 ? (
+        <section className="mt-3 flex flex-col gap-1.5">
+          {/* Mini progress bar — visual cue sutil de "tem progresso a fazer" */}
+          <div className="flex items-center gap-2 px-1">
+            <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/[0.06]">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,#8CFBFF,#30D5FF,#0066FF)] transition-all duration-500"
+                style={{ width: `${profileCompletion.percentage}%` }}
+              />
             </div>
-            <span className="grid h-8 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] px-3 text-[11px] font-black text-black">
-              {t("profile.completionNotice.cta")}
+            <span className="text-[10px] font-black tabular-nums text-white/52">
+              {profileCompletion.percentage}%
             </span>
-          </button>
+          </div>
+          {pendingPromptItems.map((item) => (
+            <ProfileCompletionChip
+              item={item}
+              key={item.id}
+              markSeen={onMarkContextualHintSeen}
+              onTap={onEditProfile}
+              seenHints={seenHintsMap}
+            />
+          ))}
         </section>
       ) : null}
 
@@ -250,3 +276,68 @@ function formatRestoreCountdown(
 // `ProfileIdentity` e `ProfilePostsGrid` em `design-system/` (Sprint 3 pós-3.4).
 // Ambos agora são usados pelo `ProfileSheet.tsx` também, garantindo paridade
 // visual entre a aba "Perfil" e o overlay ao clicar em outro user.
+
+/**
+ * Sprint 7C.2 — chip de prompt contextual pra completar perfil.
+ *
+ * Encapsula `ContextualHint` (banner) + mapping de ícone Lucide por item.id.
+ * Tap no chip body abre EditProfileSheet (via `onTap`). Dismiss via X
+ * persiste via `markSeen` (sync DB) + localStorage (instant local).
+ *
+ * O ícone temático ajuda identificação rápida do campo:
+ *   identity → UserCircle (perfil em geral)
+ *   avatar   → Camera (foto)
+ *   gym      → MapPin (academia/lugar)
+ *   goal     → Target (objetivo)
+ *   bio      → User (descrição própria)
+ *   preferredTimes → Clock (horários)
+ */
+function ProfileCompletionChip({
+  item,
+  seenHints,
+  markSeen,
+  onTap,
+}: {
+  item: ProfileCompletionItem;
+  seenHints?: Record<string, string>;
+  markSeen?: (hintId: string) => Promise<void>;
+  onTap: () => void;
+}) {
+  const hintId = `profile-complete-${item.id}`;
+  const IconComponent = ICON_BY_COMPLETION_ID[item.id];
+
+  return (
+    <ContextualHint
+      hintId={hintId}
+      markSeen={markSeen}
+      seenHints={seenHints}
+      variant="banner"
+    >
+      <button
+        className="gc-pressable -my-1 flex w-full items-center gap-2.5 text-left"
+        onClick={onTap}
+        type="button"
+      >
+        <span className="grid size-7 shrink-0 place-items-center rounded-[10px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+          <IconComponent size={14} strokeWidth={2.4} />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[12.5px] font-bold text-white/86">
+          {item.label}
+        </span>
+        <span className="shrink-0 text-[14px] font-black text-white/52">→</span>
+      </button>
+    </ContextualHint>
+  );
+}
+
+const ICON_BY_COMPLETION_ID: Record<
+  ProfileCompletionItem["id"],
+  typeof UserCircle
+> = {
+  identity: UserCircle,
+  avatar: Camera,
+  gym: MapPin,
+  goal: Target,
+  bio: User,
+  preferredTimes: Clock,
+};
