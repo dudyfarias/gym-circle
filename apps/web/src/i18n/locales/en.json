@@ -886,7 +886,9 @@
       "epic": "Epic",
       "legendary": "Legendary"
     },
-    "rarityPercent": "Only {{percent}} of users own this achievement."
+    "rarityPercent": "Only {{percent}} of users own this achievement.",
+    "onlyEarner": "You are the first to earn this!",
+    "nobodyYet": "Nobody has earned this yet. Be the first!"
   },
   "badgesSheet": {
     "title": "Badges",

@@ -23,8 +23,17 @@ import { getAchievementCompositeId, type Achievement } from "./achievements";
  * backfill = "0% dos usuários" pra tudo (misleading).
  */
 
-type CachedStats = {
+export type AchievementGlobalStats = {
+  /** % de users que têm. Null quando earnedCount=0 ou data insuficiente. */
   percent: number | null;
+  /** Contagem absoluta de users com o achievement. */
+  earnedCount: number;
+  /** Total de users qualificados (ativos, não deletados). */
+  totalUsers: number;
+};
+
+type CachedStats = {
+  stats: AchievementGlobalStats;
   timestamp: number;
 };
 
@@ -40,21 +49,29 @@ export function clearAchievementStatsCache(): void {
 }
 
 /**
- * Retorna % de users que possuem o achievement. Null quando:
- *   - earned_count = 0 (achievement não foi conquistado por ninguém)
- *   - total_users = 0 (DB vazio — edge case)
- *   - Query falha (network/RLS)
+ * Retorna stats globais completas: percent + earnedCount + totalUsers.
+ *
+ * Sprint 7.5.9: retornar a tripla permite UX rica que diferencia:
+ *   - earnedCount=0 → "Ninguém conquistou ainda"
+ *   - earnedCount=1 (current user é o 1) → "Você é o primeiro!"
+ *   - earnedCount>=2 → "Apenas X% dos usuários possuem"
  *
  * Cache 5min in-memory. Cold call dispara RPC.
  */
-export async function getAchievementGlobalPercent(
+export async function getAchievementGlobalStats(
   client: SupabaseClient,
   achievementId: string,
-): Promise<number | null> {
+): Promise<AchievementGlobalStats> {
   const cached = STATS_CACHE.get(achievementId);
   if (cached && Date.now() - cached.timestamp < STATS_TTL_MS) {
-    return cached.percent;
+    return cached.stats;
   }
+
+  const fallback: AchievementGlobalStats = {
+    percent: null,
+    earnedCount: 0,
+    totalUsers: 0,
+  };
 
   try {
     const { data, error } = await client.rpc("get_achievement_global_stats", {
@@ -65,20 +82,38 @@ export async function getAchievementGlobalPercent(
     // RPC retorna array com 1 row (RETURNS TABLE)
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) {
-      STATS_CACHE.set(achievementId, { percent: null, timestamp: Date.now() });
-      return null;
+      STATS_CACHE.set(achievementId, { stats: fallback, timestamp: Date.now() });
+      return fallback;
     }
 
     const earned = Number(row.earned_count ?? 0);
     const total = Number(row.total_users ?? 0);
     const percent = total === 0 || earned === 0 ? null : (earned / total) * 100;
+    const stats: AchievementGlobalStats = {
+      percent,
+      earnedCount: earned,
+      totalUsers: total,
+    };
 
-    STATS_CACHE.set(achievementId, { percent, timestamp: Date.now() });
-    return percent;
+    STATS_CACHE.set(achievementId, { stats, timestamp: Date.now() });
+    return stats;
   } catch (err) {
-    console.warn(`[achievementsStats] global percent failed for ${achievementId}:`, err);
-    return null;
+    console.warn(`[achievementsStats] global stats failed for ${achievementId}:`, err);
+    return fallback;
   }
+}
+
+/**
+ * @deprecated Sprint 7.5.9 — use getAchievementGlobalStats pra ter
+ * earnedCount + totalUsers. Mantido pra back-compat enquanto callers
+ * migram.
+ */
+export async function getAchievementGlobalPercent(
+  client: SupabaseClient,
+  achievementId: string,
+): Promise<number | null> {
+  const stats = await getAchievementGlobalStats(client, achievementId);
+  return stats.percent;
 }
 
 /**

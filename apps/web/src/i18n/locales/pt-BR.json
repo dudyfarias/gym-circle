@@ -886,7 +886,9 @@
       "epic": "Épico",
       "legendary": "Lendário"
     },
-    "rarityPercent": "Apenas {{percent}} dos usuários possuem esta conquista."
+    "rarityPercent": "Apenas {{percent}} dos usuários possuem esta conquista.",
+    "onlyEarner": "Você é o primeiro a conquistar esta!",
+    "nobodyYet": "Ninguém conquistou esta ainda. Seja o primeiro!"
   },
   "badgesSheet": {
     "title": "Badges",

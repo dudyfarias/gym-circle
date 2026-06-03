@@ -12,7 +12,8 @@ import {
 } from "./social/achievements";
 import {
   formatRarityPercent,
-  getAchievementGlobalPercent,
+  getAchievementGlobalStats,
+  type AchievementGlobalStats,
 } from "./social/achievementsStats";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 
@@ -77,9 +78,12 @@ export function AchievementDetailOverlay({
   const { t, i18n } = useTranslation();
   const services = useGymCircleServices();
   const [mounted, setMounted] = useState(false);
-  // Sprint 7.5.8 — fetch raridade global ao abrir. Cache 5min in-memory
-  // no service evita refetch quando user navega back/forward.
-  const [globalPercent, setGlobalPercent] = useState<number | null>(null);
+  // Sprint 7.5.8 + 7.5.9 — fetch stats globais completas ao abrir.
+  // Tripla (percent + earnedCount + totalUsers) permite UX diferenciada
+  // entre "ninguém ganhou" / "você é o primeiro" / "% real". Cache 5min.
+  const [globalStats, setGlobalStats] = useState<AchievementGlobalStats | null>(
+    null,
+  );
 
   // Trigger animations on mount/open + haptic burst
   useEffect(() => {
@@ -92,22 +96,22 @@ export function AchievementDetailOverlay({
     return () => cancelAnimationFrame(id);
   }, [open]);
 
-  // Sprint 7.5.8 — fetch global percent quando achievement muda ou abre.
+  // Sprint 7.5.8 + 7.5.9 — fetch stats globais quando achievement muda.
   // Não bloqueia render: overlay aparece, e quando RPC retorna o chip
   // de raridade aparece com fade do mounted state.
   useEffect(() => {
     if (!open || !achievement) {
-      setGlobalPercent(null);
+      setGlobalStats(null);
       return;
     }
     let cancelled = false;
     const compositeId = getAchievementCompositeId(achievement);
     void (async () => {
-      const percent = await getAchievementGlobalPercent(
+      const stats = await getAchievementGlobalStats(
         services.client,
         compositeId,
       );
-      if (!cancelled) setGlobalPercent(percent);
+      if (!cancelled) setGlobalStats(stats);
     })();
     return () => {
       cancelled = true;
@@ -130,23 +134,41 @@ export function AchievementDetailOverlay({
   const showStats =
     achievement.earned && !isMysterySecret && detail !== undefined;
 
-  // Sprint 7.5.8 — priorização da fonte de % global:
-  //   1. detail.globalEarnedPercent (override do caller — útil pra tests)
-  //   2. globalPercent fetched aqui via RPC
-  // Quando nenhum disponível, fallback pro chip de raridade nominal
-  // (rarity: "common/uncommon/...").
+  // Sprint 7.5.9 — UX diferenciada por cenário de dados:
+  //   A. Detail.globalEarnedPercent override → mostra % direto (legacy)
+  //   B. earnedCount=0 + totalUsers>0 → "Ninguém conquistou ainda" (raro)
+  //   C. earnedCount=1 + user é earned → "Você é o primeiro!" (especial)
+  //   D. earnedCount>=2 → "% dos usuários possuem" (caso comum)
+  //   E. Sem dados → fallback chip nominal (rarity)
   const effectiveGlobalPercent =
     detail?.globalEarnedPercent !== undefined &&
     detail?.globalEarnedPercent !== null
       ? detail.globalEarnedPercent
-      : globalPercent;
+      : globalStats?.percent ?? null;
   const formattedRarityPercent = formatRarityPercent(
     effectiveGlobalPercent,
     i18n.language,
   );
 
-  // Raridade aparece quando: % real disponível OU rarity nominal definida
-  const showRarity = !isMysterySecret && (formattedRarityPercent !== null || achievement.rarity !== undefined);
+  // Cenário B/C: detecta "ninguém" ou "você é o único" baseado no
+  // earned + earnedCount. user é o earned quando achievement.earned=true.
+  const isOnlyEarner =
+    achievement.earned &&
+    globalStats !== null &&
+    globalStats.earnedCount === 1;
+  const isNobodyYet =
+    !achievement.earned &&
+    globalStats !== null &&
+    globalStats.earnedCount === 0 &&
+    globalStats.totalUsers > 0;
+
+  // Raridade aparece quando: dados reais disponíveis OU rarity nominal
+  const showRarity =
+    !isMysterySecret &&
+    (formattedRarityPercent !== null ||
+      isOnlyEarner ||
+      isNobodyYet ||
+      achievement.rarity !== undefined);
 
   return (
     <div
@@ -292,9 +314,12 @@ export function AchievementDetailOverlay({
             </div>
           ) : null}
 
-          {/* Raridade chip — Sprint 7.5.8: prioriza % real fetched
-              quando disponível (precisão até 0.01%). Fallback pro chip
-              nominal de rarity (common/uncommon/rare/epic/legendary). */}
+          {/* Raridade — Sprint 7.5.8 + 7.5.9: cenário visual escolhido
+              em ordem de prioridade:
+              1. "Você é o primeiro!" quando earnedCount=1 e user é esse 1
+              2. "Ninguém conquistou ainda" quando earnedCount=0 (raro)
+              3. "% real" quando earnedCount>=2 com precisão até 0.01%
+              4. Chip nominal de rarity (common/uncommon/rare/epic/legendary) */}
           {showRarity ? (
             <div
               className={[
@@ -302,7 +327,15 @@ export function AchievementDetailOverlay({
                 mounted ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
               ].join(" ")}
             >
-              {formattedRarityPercent ? (
+              {isOnlyEarner ? (
+                <p className="text-center text-[12px] font-black text-[var(--gc-brand)]">
+                  ✦ {t("achievementDetail.onlyEarner")}
+                </p>
+              ) : isNobodyYet ? (
+                <p className="text-center text-[12px] font-bold text-white/56">
+                  {t("achievementDetail.nobodyYet")}
+                </p>
+              ) : formattedRarityPercent ? (
                 <p className="text-center text-[12px] font-bold text-white/56">
                   {t("achievementDetail.rarityPercent", {
                     percent: formattedRarityPercent,
