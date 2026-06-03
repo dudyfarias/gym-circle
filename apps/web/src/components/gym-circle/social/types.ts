@@ -69,6 +69,12 @@ export type GymUser = {
    * são equivalentes.
    */
   contextualHintsSeen?: Record<string, string>;
+  /**
+   * Sprint 7.5.1 — Achievements equipados no perfil (Section 13 do brief).
+   * Array de até 3 composite IDs ("kind:id" — ex: "trophy:perfect-month").
+   * Frontend valida que cada ID está em user_achievements do user.
+   */
+  featuredAchievements?: string[];
 };
 
 export type StreakPresenceSource = "feed-photo" | "fitness-story" | "none";
@@ -338,6 +344,12 @@ export type SocialActions = {
    * já absorveu o dismiss local). Idempotente — chamar 2x não duplica.
    */
   markContextualHintSeen?: (hintId: string) => Promise<void>;
+  /**
+   * Sprint 7.5.1 — persiste array de achievements equipados no perfil.
+   * Frontend valida que cada ID é earned ANTES de chamar — backend só
+   * salva o array como está.
+   */
+  setFeaturedAchievements?: (achievementIds: string[]) => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;

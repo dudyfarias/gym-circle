@@ -43,6 +43,11 @@ type ProfileRowWithContextualHints = ProfileRow & {
   contextual_hints_seen?: Record<string, string> | null;
 };
 
+// Sprint 7.5.1 — symlink quirk pra featured_achievements.
+type ProfileRowWithFeaturedAchievements = ProfileRow & {
+  featured_achievements?: string[] | null;
+};
+
 import { simulateHaptic } from "./haptics";
 import { clearImageCache } from "../design-system/imageCache";
 import {
@@ -404,6 +409,7 @@ const PROFILE_COLUMNS = [
   "profile_completion_notice_dismissed",
   "monthly_recap_covers",
   "contextual_hints_seen",
+  "featured_achievements",
   "alpha_terms_accepted_at",
   "privacy_policy_accepted_at",
   "account_status",
@@ -800,6 +806,8 @@ function enrichedUserFromProfileRow(
       (profile as ProfileRowWithRecapCovers).monthly_recap_covers ?? undefined,
     contextualHintsSeen:
       (profile as ProfileRowWithContextualHints).contextual_hints_seen ?? undefined,
+    featuredAchievements:
+      (profile as ProfileRowWithFeaturedAchievements).featured_achievements ?? undefined,
     alphaTermsAcceptedAt: profile.alpha_terms_accepted_at ?? null,
     privacyPolicyAcceptedAt: profile.privacy_policy_accepted_at ?? null,
     accountStatus: profile.account_status ?? "active",
@@ -4225,6 +4233,24 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         };
         if (!profilesExt.markContextualHintSeen) return;
         await profilesExt.markContextualHintSeen(currentUserId, hintId);
+      },
+      /**
+       * Sprint 7.5.1 — persiste achievements equipados no perfil.
+       * Caller é responsável por validar que cada ID é earned ANTES
+       * de chamar (UI confirma cross-ref com user_achievements).
+       * Refresh full pra rehydrate `currentUser.featuredAchievements`.
+       */
+      async setFeaturedAchievements(achievementIds: string[]) {
+        // Symlink quirk: services.profiles type lags behind worktree.
+        const profilesExt = services.profiles as typeof services.profiles & {
+          setFeaturedAchievements?: (
+            userId: string,
+            achievementIds: string[],
+          ) => Promise<void>;
+        };
+        if (!profilesExt.setFeaturedAchievements) return;
+        await profilesExt.setFeaturedAchievements(currentUserId, achievementIds);
+        await refresh();
       },
       refreshChat,
       refreshPostDetails,

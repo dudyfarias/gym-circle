@@ -1,27 +1,24 @@
 import type { EnrichedUser } from "./types";
 
 /**
- * Gamification helpers — Sprint 3.5.3 + Sprint 5.3 rich badges.
+ * Gamification helpers — Sprint 3.5.3 + Sprint 5.3 + Sprint 7.5 compat layer.
  *
- * Helpers puros pra derivar badges, níveis e progresso da gamificação
- * a partir de dados que JÁ existem no `EnrichedUser` + counts dos
- * arrays do hook social.
+ * Sprint 7.5 introduziu `social/achievements.ts` com hierarquia rica de 5
+ * categorias (badge/medal/trophy/relic/challenge). Este arquivo continua
+ * exportando `Badge` e `getEarnedBadges` como ADAPTER pra MyCircleSheet
+ * e BadgesSheet existentes — eles consomem o shape antigo enquanto a
+ * UI nova não é entregue (sub-fases 7.5.2/7.5.4).
+ *
+ * `Badge.kind === "badge"` é só uma das 5 categorias. Os 20 badges
+ * históricos foram redistribuídos: alguns viraram `medal` (streak-3/7,
+ * workouts-50, streak-recovered), outros viraram `trophy` (streak-60,
+ * active-week, month-active, year-active, social tiers, prolific-100),
+ * outros viraram `relic` (streak-100, streak-365). Mapping completo no
+ * `achievements.ts`.
  *
  * IMPORTANTE: nenhum badge é fake. Cada um tem regra clara baseada em
  * dado real disponível. Quando o dado não está disponível, o badge é
  * considerado bloqueado em vez de fake.
- *
- * Sprint 5.3 adiciona:
- * - Tipo `iconKey` pra ícone visual único por badge (vs Trophy genérico).
- * - Tipo `secret` pra badges escondidas até serem desbloqueadas (UI
- *   mostra "???" + cadeado misterioso).
- * - Tipo `progress` pra mostrar "X/Y" em badges progressivas.
- * - 9 badges novas (5 visíveis + 4 secret) usando dados de timing,
- *   variedade de workout types e exploração de academias.
- *
- * Sprint 3.5.4 vai mover isso pra um `GamificationService` com cache
- * curto + acesso a `user_activity_days` pra calendário e métricas mais
- * ricas. Por enquanto: tudo client-side, sem rede.
  */
 
 export type BadgeId =

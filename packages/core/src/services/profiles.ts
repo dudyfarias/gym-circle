@@ -112,6 +112,29 @@ export function profileService(client: GymCircleClient) {
     },
 
     /**
+     * Sprint 7.5.1 — persiste achievements equipados no perfil.
+     *
+     * Salva o array como veio — caller (frontend) é responsável por:
+     *   1. Validar que cada ID está em user_achievements do user
+     *   2. Garantir tamanho máximo (recomendado <= 3)
+     *
+     * Mesmo patter do setMonthlyRecapCover: simple UPDATE, sem RPC.
+     */
+    async setFeaturedAchievements(
+      userId: string,
+      achievementIds: string[],
+    ): Promise<void> {
+      const { error } = await client
+        .from("profiles")
+        // Triple cast pelo symlink quirk — Sprint 5.5a pattern.
+        .update({ featured_achievements: achievementIds } as unknown as {
+          featured_achievements: string[];
+        })
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+
+    /**
      * Sprint 7C.1 — Contextual Motion Onboarding.
      *
      * Marca um hint como visto pra que não reapareça em outros devices.

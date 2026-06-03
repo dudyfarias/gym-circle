@@ -703,6 +703,7 @@ export type Database = {
           is_private: boolean
           main_gym_id: string | null
           contextual_hints_seen: Json
+          featured_achievements: Json
           monthly_recap_covers: Json
           onboarding_completed_at: string | null
           preferred_training_times: string[]
@@ -731,6 +732,7 @@ export type Database = {
           is_private?: boolean
           main_gym_id?: string | null
           contextual_hints_seen?: Json
+          featured_achievements?: Json
           monthly_recap_covers?: Json
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]
@@ -759,6 +761,7 @@ export type Database = {
           is_private?: boolean
           main_gym_id?: string | null
           contextual_hints_seen?: Json
+          featured_achievements?: Json
           monthly_recap_covers?: Json
           onboarding_completed_at?: string | null
           preferred_training_times?: string[]

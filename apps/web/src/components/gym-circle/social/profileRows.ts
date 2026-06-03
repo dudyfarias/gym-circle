@@ -43,6 +43,8 @@ export function profileRowFromPartial(
     contextual_hints_seen:
       (input as { contextual_hints_seen?: Record<string, string> })
         .contextual_hints_seen ?? {},
+    featured_achievements:
+      (input as { featured_achievements?: string[] }).featured_achievements ?? [],
     alpha_terms_accepted_at: input.alpha_terms_accepted_at ?? null,
     privacy_policy_accepted_at: input.privacy_policy_accepted_at ?? null,
     account_status: input.account_status ?? "active",
