@@ -503,18 +503,11 @@ function SocialPostCardComponent({
           </p>
         ) : null}
 
-        {/* Sprint 5 — Typography padronizada Instagram-like:
-            - Caption e comment preview compartilham a MESMA escala
-              (text-[14px] font-semibold leading-5 text-white/92).
-            - Username em font-black + text-white em AMBOS (era inconsistente:
-              o caption username herdava font-semibold enquanto o do comment
-              tinha font-black explícito → comment parecia maior).
-            - Link "Ver N comentários" subtler (white/48) pra ficar abaixo da
-              hierarquia de body text. */}
+        {/* Caption e preview de comentário compartilham escala; só o username fica em bold. */}
         {post.caption ? (
-          <p className="text-[14px] font-semibold leading-5 text-white/92">
+          <p className="text-[14px] font-normal leading-5 text-white/90">
             <button
-              className="gc-pressable font-black text-white"
+              className="gc-pressable font-bold text-white"
               onClick={() => onSelectUser?.(post.author.id)}
               type="button"
             >
@@ -547,11 +540,11 @@ function SocialPostCardComponent({
           return (
             <button
               aria-label={`${preview.author.username}: ${preview.body}`}
-              className="gc-pressable block w-full text-left text-[14px] font-semibold leading-5 text-white/92"
+              className="gc-pressable block w-full text-left text-[14px] font-normal leading-5 text-white/90"
               onClick={handleOpenComments}
               type="button"
             >
-              <span className="font-black text-white">{preview.author.username}</span>{" "}
+              <span className="font-bold text-white">{preview.author.username}</span>{" "}
               <MentionText
                 onSelectUser={onSelectUser}
                 resolveUser={resolveUser}

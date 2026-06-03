@@ -319,7 +319,7 @@ export function CommentsBottomSheet({
               </span>
             </div>
             {post.caption ? (
-              <p className="mt-2 line-clamp-2 text-[13px] font-semibold leading-5 text-white/72">
+              <p className="mt-2 line-clamp-2 text-[13px] font-normal leading-5 text-white/72">
                 {post.caption}
               </p>
             ) : null}
@@ -359,7 +359,7 @@ export function CommentsBottomSheet({
                     <div className="min-w-0 flex-1">
                       <div className="inline-flex min-w-0 items-center gap-1.5 align-middle">
                         <button
-                          className="gc-pressable text-[13px] font-black text-white"
+                          className="gc-pressable text-[13px] font-bold text-white"
                           onClick={() => onSelectUser?.(comment.author.id)}
                           type="button"
                         >
@@ -374,7 +374,7 @@ export function CommentsBottomSheet({
                           {formatTime(comment.createdAt)}
                         </span>
                       </div>
-                      <div className="text-[13px] font-semibold leading-5 text-white/80">
+                      <div className="text-[13px] font-normal leading-5 text-white/80">
                         <MentionText
                           onSelectUser={onSelectUser}
                           resolveUser={resolveUser}

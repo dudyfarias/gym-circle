@@ -283,8 +283,9 @@ export function GymCirclePreview({
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
   // Sprint 3.5.3: handlers do MyCircleSheet.
   const openMyCircle = useCallback((userId: string) => {
+    void social.actions.refreshProfilePosts?.(userId);
     setMyCircleUserId(userId);
-  }, []);
+  }, [social.actions]);
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   const openChatWithUser = useCallback((userId: string) => {
     setProfileOpenId(null);
@@ -1021,6 +1022,7 @@ export function GymCirclePreview({
     toggleFollowIgnoringResult,
     openAdmin,
     openProfile,
+    openMyCircle,
     openFollowListOverlay,
     openPostDetail,
     openLikes,
