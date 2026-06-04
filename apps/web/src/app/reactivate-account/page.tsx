@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth, useGymCircleServices } from "@gym-circle/core/hooks";
 import { BrandMark } from "@/components/gym-circle/design-system";
 
+// Sprint 8.2 hotfix: useAuth + useGymCircleServices precisam de
+// SupabaseProvider runtime — força dynamic rendering pra evitar
+// prerender estático no build de produção.
+export const dynamic = "force-dynamic";
+
 export default function ReactivateAccountPage() {
   return (
     <Suspense fallback={<ReactivateShell status="Validando link..." />}>

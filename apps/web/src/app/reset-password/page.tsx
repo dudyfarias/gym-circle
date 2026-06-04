@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useAuth } from "@gym-circle/core/hooks";
 import { BrandMark } from "@/components/gym-circle/design-system";
 
+// Sprint 8.2 hotfix: useAuth() precisa de SupabaseProvider runtime —
+// força dynamic rendering pra evitar prerender estático no build.
+export const dynamic = "force-dynamic";
+
 export default function ResetPasswordPage() {
   const { updatePassword } = useAuth();
   const [password, setPassword] = useState("");

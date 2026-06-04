@@ -2,6 +2,10 @@ import Link from "next/link";
 import { LiveHomeWrapper } from "@/components/gym-circle/LiveHomeWrapper";
 import { readSupabaseEnv } from "@/lib/supabase/env";
 
+// Sprint 8.2 hotfix: LiveHomeWrapper precisa de SupabaseProvider runtime —
+// força dynamic rendering pra evitar prerender estático no build.
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   const env = readSupabaseEnv();
 
