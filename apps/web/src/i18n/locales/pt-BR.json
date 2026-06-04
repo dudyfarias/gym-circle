@@ -837,6 +837,13 @@
   "postDetail": {
     "title": "Post"
   },
+  "achievementCelebration": {
+    "title": "Conquista desbloqueada",
+    "eyebrow": "Você desbloqueou",
+    "continue": "Continuar",
+    "skipAll": "Ver depois",
+    "queueIndicator": "{{index}} de {{total}}"
+  },
   "monthlyChallenges": {
     "title": "Desafios de {{month}}",
     "secretHint": "Desafio secreto — descubra como conquistar.",

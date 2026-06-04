@@ -17,6 +17,7 @@ import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
 import { buildMonthlyRecap, type RecapPeriod } from "./social/monthlyRecap";
 import {
+  getAchievementCompositeId,
   getAllAchievements,
   type Achievement,
 } from "./social/achievements";
@@ -27,6 +28,12 @@ import {
   type MonthlyChallengeData,
 } from "./social/monthlyChallenges";
 import { backfillUserAchievements } from "./social/achievementsStats";
+import {
+  loadUncelebratedAchievementIds,
+  markAchievementCelebrated,
+  markAllAchievementsCelebrated,
+  resolveAchievementsByCompositeIds,
+} from "./social/achievementsCelebration";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
 import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
@@ -105,6 +112,13 @@ const AchievementDetailOverlay = dynamic(
   () =>
     import("./AchievementDetailOverlay").then(
       (module) => module.AchievementDetailOverlay,
+    ),
+  { ssr: false },
+);
+const AchievementCelebrationOverlay = dynamic(
+  () =>
+    import("./AchievementCelebrationOverlay").then(
+      (module) => module.AchievementCelebrationOverlay,
     ),
   { ssr: false },
 );
@@ -232,6 +246,12 @@ export function GymCirclePreview({
   const [achievementDetail, setAchievementDetail] = useState<Achievement | null>(
     null,
   );
+  // Sprint 7.5.11 — queue de achievements ainda não celebrados. Carregado
+  // no boot via loadUncelebratedAchievementIds. Quando user dismiss um,
+  // marca celebrated + avança índice. "Pular tudo" zera queue + marca
+  // todos celebrated em batch.
+  const [celebrationQueue, setCelebrationQueue] = useState<Achievement[]>([]);
+  const [celebrationIndex, setCelebrationIndex] = useState(0);
   const [likesPostId, setLikesPostId] = useState<string | null>(null);
   const [followListOverlay, setFollowListOverlay] = useState<{
     kind: "followers" | "following";
@@ -904,6 +924,57 @@ export function GymCirclePreview({
     currentUserPosts,
   ]);
 
+  // Sprint 7.5.11 — Carrega queue de achievements uncelebrated.
+  // Roda AFTER backfill effect (mesmas deps) pra capturar os recém
+  // inseridos. Cross-ref composite IDs com allAchievements pra resolver
+  // shape completo (label/description/iconKey/rarity). Best-effort.
+  useEffect(() => {
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId) return;
+    let cancelled = false;
+    // Delay levemente pra dar tempo do backfill rodar primeiro
+    const timer = setTimeout(async () => {
+      try {
+        const compositeIds = await loadUncelebratedAchievementIds(
+          services.client,
+          currentUserId,
+        );
+        if (cancelled || compositeIds.length === 0) return;
+        const allAchievements = getAllAchievements({
+          user: social.currentUser,
+          postsCount: currentUserPosts.length,
+          hasUsedStreakRestore: Boolean(
+            social.currentUser.lastStreakRestoreUsedAt,
+          ),
+          posts: currentUserPosts.map((post) => ({
+            createdAt: post.createdAt,
+            workoutType: post.workoutType ?? null,
+            gymId: post.gymId,
+          })),
+        });
+        const resolved = resolveAchievementsByCompositeIds(
+          compositeIds,
+          allAchievements,
+        );
+        if (!cancelled && resolved.length > 0) {
+          setCelebrationQueue(resolved);
+          setCelebrationIndex(0);
+        }
+      } catch (err) {
+        console.warn("[celebrations] load failed:", err);
+      }
+    }, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [
+    services.client,
+    social.currentUser?.id,
+    social.currentUser,
+    currentUserPosts,
+  ]);
+
   // Sprint 7.5.6 + 7.5.10 — carrega desafios mensais + recomputa progress
   // baseado em workoutDays + posts atuais. Suporta os 5 goal_kinds:
   // workouts_in_month, workout_type_specific, group_workouts, distinct_types
@@ -1535,6 +1606,45 @@ export function GymCirclePreview({
               achievementDetail !== null && !achievementDetail.earned
             }
           />
+          {/* Sprint 7.5.11 — Celebration full-screen com confetti escala-
+              do por raridade. Render quando há queue + boot terminou. */}
+          {celebrationQueue.length > 0 && celebrationIndex < celebrationQueue.length ? (
+            <AchievementCelebrationOverlay
+              achievement={celebrationQueue[celebrationIndex] ?? null}
+              onDismiss={() => {
+                const currentUserId = social.currentUser?.id;
+                const current = celebrationQueue[celebrationIndex];
+                if (currentUserId && current) {
+                  void markAchievementCelebrated(
+                    services.client,
+                    currentUserId,
+                    getAchievementCompositeId(current),
+                  );
+                }
+                // Avança próximo OU fecha queue
+                if (celebrationIndex + 1 >= celebrationQueue.length) {
+                  setCelebrationQueue([]);
+                  setCelebrationIndex(0);
+                } else {
+                  setCelebrationIndex((i) => i + 1);
+                }
+              }}
+              onSkipAll={() => {
+                const currentUserId = social.currentUser?.id;
+                if (currentUserId) {
+                  void markAllAchievementsCelebrated(
+                    services.client,
+                    currentUserId,
+                  );
+                }
+                setCelebrationQueue([]);
+                setCelebrationIndex(0);
+              }}
+              open={celebrationQueue.length > 0}
+              queueIndex={celebrationIndex + 1}
+              queueTotal={celebrationQueue.length}
+            />
+          ) : null}
           <CommentsBottomSheet
             currentUser={social.currentUser}
             currentUserId={social.currentUser.id}

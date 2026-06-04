@@ -837,6 +837,13 @@
   "postDetail": {
     "title": "Post"
   },
+  "achievementCelebration": {
+    "title": "Achievement unlocked",
+    "eyebrow": "You just earned",
+    "continue": "Continue",
+    "skipAll": "Skip rest",
+    "queueIndicator": "{{index}} of {{total}}"
+  },
   "monthlyChallenges": {
     "title": "{{month}} challenges",
     "secretHint": "Secret challenge — figure out how to earn it.",
