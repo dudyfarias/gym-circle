@@ -1,9 +1,10 @@
 .DS_Store
 /.build
 /Packages
-/*.xcodeproj
 xcuserdata/
 DerivedData/
 .swiftpm/
 .netrc
 Package.resolved
+# NOTA: GymCircleNative.xcodeproj/ É commitado (gerado por XcodeGen
+# via project.yml mas precisa estar versionado pro CI funcionar).

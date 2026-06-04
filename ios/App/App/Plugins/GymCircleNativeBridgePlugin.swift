@@ -114,26 +114,46 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
 
 // MARK: - HostingController factory
 
-/// Sprint 8.1 placeholder. Renderiza tela stub enquanto Sprint 8.2
-/// implementa MyCircleView nativa completa. Quando 8.2 chegar, substitui
-/// o `MyCirclePlaceholderView` pelo `MyCircleView` real do Foundation
-/// Package.
+/// Sprint 8.2 — usa MyCircleView real do Foundation Package.
+///
+/// Dados via `MyCircleViewData.demo()` enquanto Sprint 8.3 não conecta
+/// API real. Quando o app for buildado com Swift Package adicionado,
+/// `import GymCircleNativeFoundation` (no topo do arquivo) precisa
+/// estar descomentado.
+///
+/// Wrap em ZStack pra suportar onDismiss callback como overlay no
+/// MyCircleView (botão X já está na sua estrutura).
 private func makeMyCircleHostingController(
     userId: String,
     isOwn: Bool,
     onDismiss: @escaping () -> Void
 ) -> UIViewController {
-    let placeholderView = MyCirclePlaceholderView(
-        userId: userId,
-        isOwn: isOwn,
-        onDismiss: onDismiss
+    #if canImport(GymCircleNativeFoundation)
+    let view = MyCircleView(
+        data: MyCircleViewData.demo(userId: userId, isOwn: isOwn),
+        onClose: onDismiss,
+        onTapBadgeHighlight: {
+            // Sprint 8.5 — aqui chama presentAchievementsHub
+        },
+        onTapChallenge: { _ in
+            // Sprint 8.4 — aqui chama presentAchievementDetail
+        },
+        onTapRecap: {
+            // Sprint 8.x — aqui chama presentRecapNative
+        }
     )
-    let hosting = UIHostingController(rootView: placeholderView)
+    let hosting = UIHostingController(rootView: view)
+    #else
+    // Fallback quando Swift Package ainda não foi adicionado ao Xcode
+    let view = MyCirclePlaceholderView(userId: userId, isOwn: isOwn, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
     hosting.modalPresentationStyle = .fullScreen
     return hosting
 }
 
-// MARK: - Stub View (Sprint 8.1 placeholder)
+#if !canImport(GymCircleNativeFoundation)
+// MARK: - Stub View (fallback quando Foundation Package não adicionado)
 
 private struct MyCirclePlaceholderView: View {
     let userId: String
@@ -145,38 +165,19 @@ private struct MyCirclePlaceholderView: View {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 24) {
-                Image(systemName: "trophy.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(LinearGradient(
-                        colors: [.cyan, .blue],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    ))
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 56))
+                    .foregroundColor(.orange)
 
-                Text("MyCircle Nativo")
-                    .font(.system(size: 28, weight: .black))
+                Text("Foundation Package missing")
+                    .font(.system(size: 24, weight: .black))
                     .foregroundColor(.white)
 
-                Text("Em construção — Sprint 8.2 implementa rings + badges + monthly challenges aqui.")
-                    .font(.system(size: 14, weight: .semibold))
+                Text("Add ios-native/GymCircleNative as a Local Swift Package dependency in Xcode and rebuild. See docs/sprint-8-swiftui-phase-7.md.")
+                    .font(.system(size: 13, weight: .semibold))
                     .multilineTextAlignment(.center)
                     .foregroundColor(.white.opacity(0.72))
                     .padding(.horizontal, 32)
-
-                VStack(spacing: 4) {
-                    Text("userId:")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
-                    Text(userId)
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
-                        .foregroundColor(.white.opacity(0.8))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(isOwn ? "Próprio perfil" : "Outro user")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundColor(.white.opacity(0.5))
-                }
-                .padding(.top, 8)
 
                 Button(action: onDismiss) {
                     Text("Voltar")
@@ -187,8 +188,9 @@ private struct MyCirclePlaceholderView: View {
                         .background(Color.white)
                         .clipShape(Capsule())
                 }
-                .padding(.top, 16)
+                .padding(.top, 24)
             }
         }
     }
 }
+#endif

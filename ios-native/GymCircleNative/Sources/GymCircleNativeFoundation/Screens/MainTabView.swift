@@ -31,7 +31,15 @@ public struct MainTabView: View {
             }
 
             NavigationStack {
-                MyCircleView(summary: myCircle)
+                // Sprint 8.2 — usa MyCircleViewData (estende MyCircleSummary).
+                // Sprint 8.3 conecta API real; aqui demo data inline pra preview.
+                MyCircleView(
+                    data: MyCircleViewData.demo(
+                        userId: profile?.userId ?? "demo-user",
+                        isOwn: true
+                    )
+                )
+                .navigationTitle("Meu Circle")
             }
             .tabItem {
                 Label("Circle", systemImage: "flame")

@@ -233,11 +233,21 @@ Decisão de produto:
 ## Verificação por sub-fase
 
 Após cada sub-fase 8.x:
-1. `xcodebuild -scheme GymCircleNative -destination "generic/platform=iOS" build`
-   (cd ios-native/GymCircleNative) — sintaxe + tipos
-2. SwiftUI Preview em Xcode (manual visual)
-3. Git commit + push (não merge)
-4. Smoke iPhone só na 8.10
+1. **Regenerar xcodeproj** se adicionou/removeu arquivos:
+   ```bash
+   cd ios-native/GymCircleNative && xcodegen generate
+   ```
+   (XcodeGen via `project.yml` — necessário porque o `.xcodeproj` lista
+   arquivos source explicitamente, e adicionar novo `.swift` não basta)
+2. **Build pra iOS**:
+   ```bash
+   cd ios-native/GymCircleNative && \
+     xcodebuild -scheme GymCircleNative \
+     -destination "generic/platform=iOS" build
+   ```
+3. SwiftUI Preview em Xcode (manual visual)
+4. Git commit + push (não merge)
+5. Smoke iPhone só na 8.10
 
 ## Passo a passo: Adicionar Swift Package no Xcode (manual, Eduardo)
 

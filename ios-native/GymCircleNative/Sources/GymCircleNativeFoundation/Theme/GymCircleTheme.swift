@@ -12,6 +12,19 @@ public enum GymCircleTheme {
         public static let electricBlue = Color(red: 0.188, green: 0.835, blue: 1.0)
         public static let deepBlue = Color(red: 0.0, green: 0.4, blue: 1.0)
         public static let quietBlue = Color(red: 0.188, green: 0.835, blue: 1.0).opacity(0.12)
+
+        // Sprint 8.2 — paleta gamification por raridade + categoria
+        public static let rarityCommon = Color(white: 0.78)
+        public static let rarityUncommon = Color(red: 0.20, green: 0.83, blue: 0.60)   // green-400
+        public static let rarityRare = electricBlue
+        public static let rarityEpic = Color(red: 0.66, green: 0.55, blue: 0.98)        // purple-400
+        public static let rarityLegendary = Color(red: 0.98, green: 0.75, blue: 0.14)   // gold-400
+
+        // Sprint 8.2 — challenge difficulty tones
+        public static let difficultyEasy = Color(red: 0.13, green: 0.83, blue: 0.93)    // cyan-400
+        public static let difficultyMedium = electricBlue
+        public static let difficultyHard = rarityEpic
+        public static let difficultyLegendary = rarityLegendary
     }
 
     public enum Spacing {

@@ -16,11 +16,15 @@
 		49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55AE3C88470738904E400FD /* AppConfiguration.swift */; };
 		52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069AF1E053D24164413598B0 /* BaseComponents.swift */; };
 		5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52D40B4007DAC206C665780 /* FeedPost.swift */; };
+		5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */; };
 		6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20940CB53959FF53CFF9C75 /* StoriesViews.swift */; };
 		70EB9C329DE1DA414347C6A3 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */; };
+		71427FF59C8B4933ED803A26 /* AchievementModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938F0854F909B3772AE14447 /* AchievementModels.swift */; };
 		775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71697375FF0895F613E1090F /* MyCircleView.swift */; };
 		7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5A004267A6D5354857ABFD /* LoginView.swift */; };
+		81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */; };
 		9CA8C13BAC321E232D5BCD2E /* GymCircleNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AD1AB193A5FDA3AB7B141AE /* GymCircleNativeApp.swift */; };
+		9CABDB82A84408A020396A0C /* MyCircleComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D161B1E627FB137F94874 /* MyCircleComponents.swift */; };
 		A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
@@ -42,7 +46,10 @@
 		4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
 		633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClientProvider.swift; sourceTree = "<group>"; };
 		636F3999A2F250111C153818 /* MyCircleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleModels.swift; sourceTree = "<group>"; };
+		641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeIconNativeView.swift; sourceTree = "<group>"; };
 		71697375FF0895F613E1090F /* MyCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleView.swift; sourceTree = "<group>"; };
+		783D161B1E627FB137F94874 /* MyCircleComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleComponents.swift; sourceTree = "<group>"; };
+		938F0854F909B3772AE14447 /* AchievementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementModels.swift; sourceTree = "<group>"; };
 		96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAppModel.swift; sourceTree = "<group>"; };
 		A52D40B4007DAC206C665780 /* FeedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPost.swift; sourceTree = "<group>"; };
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -50,6 +57,7 @@
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
 		F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleTheme.swift; sourceTree = "<group>"; };
+		F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyChallengeModels.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,7 +84,9 @@
 			isa = PBXGroup;
 			children = (
 				1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */,
+				641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */,
 				069AF1E053D24164413598B0 /* BaseComponents.swift */,
+				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -120,7 +130,9 @@
 		87CDD7F65D4E0C21D12751E0 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				938F0854F909B3772AE14447 /* AchievementModels.swift */,
 				A52D40B4007DAC206C665780 /* FeedPost.swift */,
+				F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */,
 				636F3999A2F250111C153818 /* MyCircleModels.swift */,
 				15CF77117635F0D69B78BE8C /* StoryModels.swift */,
 				4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */,
@@ -241,8 +253,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				71427FF59C8B4933ED803A26 /* AchievementModels.swift in Sources */,
 				A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */,
 				49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */,
+				5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */,
 				52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */,
 				5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */,
 				CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */,
@@ -253,6 +267,8 @@
 				12816EF8CCF3450B4AD7E4E3 /* GymCircleTheme.swift in Sources */,
 				7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */,
 				FB1C810F996E874492D37712 /* MainTabView.swift in Sources */,
+				81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */,
+				9CABDB82A84408A020396A0C /* MyCircleComponents.swift in Sources */,
 				DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */,
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
