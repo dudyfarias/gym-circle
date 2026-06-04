@@ -381,9 +381,37 @@ export function GymCirclePreview({
   }, [social.actions]);
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
   // Sprint 3.5.3: handlers do MyCircleSheet.
-  const openMyCircle = useCallback((userId: string) => {
-    setMyCircleUserId(userId);
-  }, []);
+  // Sprint 8.1: estratégia híbrida — quando flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`
+  // ativada E o bridge nativo está disponível (iOS + Capacitor + plugin
+  // registrado), apresenta MyCircleView SwiftUI nativa em vez do web sheet.
+  // Sem nada disponível: fallback transparente pro path web atual.
+  const openMyCircle = useCallback(
+    async (userId: string) => {
+      if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
+        try {
+          const { GymCircleNativeBridge } = await import(
+            "./native/GymCircleNativeBridge"
+          );
+          if (await GymCircleNativeBridge.isAvailable()) {
+            const isOwn = userId === social.currentUser.id;
+            await GymCircleNativeBridge.presentMyCircleNative({
+              userId,
+              isOwn,
+            });
+            return;
+          }
+        } catch (err) {
+          // Plugin não disponível ou falhou — cai pro web sheet
+          console.warn(
+            "[MyCircle] native bridge unavailable, falling back to web:",
+            err,
+          );
+        }
+      }
+      setMyCircleUserId(userId);
+    },
+    [social.currentUser.id],
+  );
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   const openBadges = useCallback(() => setBadgesSheetOpen(true), []);
   const closeBadges = useCallback(() => setBadgesSheetOpen(false), []);

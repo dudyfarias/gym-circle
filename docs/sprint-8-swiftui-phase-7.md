@@ -13,6 +13,52 @@ maior impacto visual (rings 60fps, particle effects nativos, HealthKit).
 Auth + Feed + Stories + Chat continuam no Capacitor web durante esta sprint.
 Migração dessas surfaces fica pra Sprint 8.x posterior.
 
+### Estratégia: HÍBRIDA com Capacitor Plugin Bridge (decisão Sprint 8.1)
+
+Em vez de manter dois apps paralelos (Capacitor + SwiftUI standalone) ou
+migrar 100% antes de Sprint 9 TestFlight, adotamos arquitetura híbrida:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ Single iOS Bundle                                             │
+│                                                               │
+│  Capacitor + WKWebView          GymCircleNativeBridge        │
+│  ├─ Auth                        (Capacitor Plugin Swift)     │
+│  ├─ Feed                        │                            │
+│  ├─ Stories                     ├─ presentMyCircleNative()   │
+│  ├─ Chat                        ├─ presentAchievementDetail()│
+│  ├─ Profile (web)               ├─ presentCelebration()      │
+│  └─ MyCircle (web) ──── bridge ──┴─► UIHostingController     │
+│                                       └─ SwiftUI Views       │
+│                                          (Package Foundation)│
+│                                                               │
+│  Shared: Supabase Session (iOS Keychain — supabase-swift     │
+│          e Capacitor Auth leem a mesma)                       │
+│  Shared: HealthKit (apenas nativo acessa)                     │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Feature flag** (`NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`, etc) decide por
+surface se abre via bridge nativo ou continua web. Rollback instantâneo.
+
+**Phase 10 (Migration Plan original)** vira trivial: quando paridade
+100%, remove plugin + Capacitor + WebView. SwiftUI nativo já está
+standalone, só vira o app principal.
+
+### Trade-offs aceitos
+
+**Pros**:
+- Incremental: Sprint 8 entrega MyCircle nativo em 2-3 commits, não 4-6 semanas
+- Risco baixo: rollback via env flag, web continua funcionando
+- A/B real possível em produção
+- Web app desktop/admin continua
+
+**Cons aceitos**:
+- 2 codebases temporariamente (gerenciar duplicação)
+- Bundle iOS +6MB (SwiftUI Package + plugin)
+- Bridge calls ~30ms overhead vs render JS direto
+- Estado cache pode dessincronizar (mitigation: Supabase fonte de verdade)
+
 ## Estado nativo no boot (Phase 1 — Sprint 3 v1.1 entregue)
 
 | Surface | Estado |
@@ -57,19 +103,19 @@ O que falta migrar pra paridade Phase 7:
 - Atualizar `Models/UserProfile.swift` — adicionar featuredAchievements
 - Sem UI ainda
 
-### 8.1 — GymCircleAPI extension: Achievement queries
+### 8.1 — Capacitor Plugin Bridge foundation (revised escopo)
 
-- Estende `GymCircleAPI` com:
-  - `getUserAchievements(userId:) -> [UserAchievementRecord]`
-  - `getMonthlyChallenges(periodKey:) -> [MonthlyChallenge]`
-  - `getUserChallengeProgress(userId:, challengeIds:) -> [Progress]`
-  - `getAchievementGlobalStats(achievementId:) -> AchievementGlobalStats`
-  - `getUncelebratedAchievementIds(userId:) -> [String]`
-  - `markAchievementCelebrated(userId:, id:)`
-  - `markAllAchievementsCelebrated(userId:)`
-  - `setFeaturedAchievements(userId:, ids:)`
-- Encodable params structs
-- Cache local opcional pra global stats (mesma estratégia 5min do web)
+**NOVO escopo** (estratégia híbrida confirmada em Sprint 8.1):
+
+- `ios/App/App/Plugins/GymCircleNativeBridgePlugin.swift` — plugin Capacitor 8 com `@objc(...)` registration
+  - `presentMyCircleNative(userId:)` — apresenta UIHostingController com MyCircleView SwiftUI
+  - Stub methods para AchievementDetail, Celebration, Achievements (sub-fases futuras)
+- `ios/App/App/Plugins/MyCircleHostingController.swift` — wrapper UIHostingController + dismissal handling
+- `apps/web/src/native/GymCircleNativeBridge.ts` — TS wrapper via `registerPlugin`
+- Feature flag wiring no GymCirclePreview pra escolher entre web sheet (default) vs bridge
+- Doc passo-a-passo de adicionar Swift Package no Xcode (manual user step)
+
+GymCircleAPI extension (queries Achievement/Challenge) moved pra **8.3**.
 
 ### 8.2 — Components reutilizáveis
 
@@ -187,10 +233,49 @@ Decisão de produto:
 ## Verificação por sub-fase
 
 Após cada sub-fase 8.x:
-1. `swift build` no Package.swift (sintaxe + tipos)
+1. `xcodebuild -scheme GymCircleNative -destination "generic/platform=iOS" build`
+   (cd ios-native/GymCircleNative) — sintaxe + tipos
 2. SwiftUI Preview em Xcode (manual visual)
 3. Git commit + push (não merge)
 4. Smoke iPhone só na 8.10
+
+## Passo a passo: Adicionar Swift Package no Xcode (manual, Eduardo)
+
+Sprint 8.1 introduz dependência do Swift Package
+`ios-native/GymCircleNative/` no projeto Xcode principal `ios/App/App.xcodeproj`.
+Esse step não é automatizável via CLI — precisa abrir Xcode.
+
+**Quando fazer**: depois do commit Sprint 8.1, antes de tentar buildar
+o app iOS pra testar o bridge.
+
+**Passos**:
+
+1. Abrir `ios/App/App.xcworkspace` no Xcode
+2. Em File menu → Add Package Dependencies... (ou Add Files to "App"...)
+3. Clicar no botão "Add Local..." (canto inferior esquerdo da janela)
+4. Navegar até `ios-native/GymCircleNative/` (a pasta com `Package.swift`)
+5. Selecionar a pasta e clicar Add Package
+6. No diálogo "Choose Package Products":
+   - Target App: marcar `GymCircleNativeFoundation` (library)
+   - Clicar Add Package
+7. Build (Cmd+B). Pode aparecer prompt pra confirmar Package Resolution
+   — confirmar
+8. Em `GymCircleNativeBridgePlugin.swift`, descomentar a linha:
+   ```swift
+   // import GymCircleNativeFoundation
+   ```
+   Vira:
+   ```swift
+   import GymCircleNativeFoundation
+   ```
+9. Build novamente (Cmd+B) — deve compilar limpo
+10. Em `apps/web/.env.local` (ou Vercel env vars) adicionar:
+    ```
+    NEXT_PUBLIC_USE_NATIVE_MYCIRCLE=true
+    ```
+11. `npm run build && npx cap sync ios` no monorepo root
+12. Run no simulator ou device — quando tocar nos rings, abre native
+    placeholder em vez do web sheet
 
 ## Risk / mitigation
 
