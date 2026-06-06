@@ -3,10 +3,19 @@ import SwiftUI
 public struct ProfileView: View {
     private let profile: UserProfile?
     private let posts: [ProfilePost]
+    private let featuredAchievements: [Achievement]
+    private let onTapAchievement: ((Achievement) -> Void)?
 
-    public init(profile: UserProfile?, posts: [ProfilePost] = []) {
+    public init(
+        profile: UserProfile?,
+        posts: [ProfilePost] = [],
+        featuredAchievements: [Achievement] = [],
+        onTapAchievement: ((Achievement) -> Void)? = nil
+    ) {
         self.profile = profile
         self.posts = posts
+        self.featuredAchievements = featuredAchievements
+        self.onTapAchievement = onTapAchievement
     }
 
     public var body: some View {
@@ -14,6 +23,9 @@ public struct ProfileView: View {
             VStack(spacing: 20) {
                 if let profile {
                     header(profile)
+                    if !featuredAchievements.isEmpty {
+                        featuredRow
+                    }
                     postsGrid
                 } else {
                     GCEmptyState(
@@ -50,6 +62,63 @@ public struct ProfileView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+        }
+    }
+
+    // Sprint 8.8 — Featured Achievements row (paridade Sprint 7.5.5 web)
+    private var featuredRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("CONQUISTAS EM DESTAQUE")
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(0.8)
+                .foregroundColor(.white.opacity(0.44))
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            HStack(spacing: 10) {
+                ForEach(Array(featuredAchievements.prefix(3).enumerated()), id: \.element.id) { _, achievement in
+                    featuredCard(achievement)
+                }
+            }
+        }
+    }
+
+    private func featuredCard(_ achievement: Achievement) -> some View {
+        Button(action: { onTapAchievement?(achievement) }) {
+            VStack(spacing: 8) {
+                BadgeIconNativeView(
+                    iconKey: achievement.iconKey,
+                    earned: achievement.earned,
+                    size: 56
+                )
+                .padding(.top, 6)
+
+                Text(achievement.label)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(achievement.earned ? .white : .white.opacity(0.56))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 4)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(featuredCardBackground(achievement))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func featuredCardBackground(_ a: Achievement) -> Color {
+        guard a.earned, let rarity = a.rarity else {
+            return Color.white.opacity(0.025)
+        }
+        switch rarity {
+        case .legendary: return Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.14)
+        case .epic: return Color(red: 0.66, green: 0.55, blue: 0.98).opacity(0.14)
+        case .rare: return GymCircleTheme.ColorToken.electricBlue.opacity(0.14)
+        case .uncommon: return Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.12)
+        case .common: return Color.white.opacity(0.06)
         }
     }
 

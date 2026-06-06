@@ -86,10 +86,24 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("userId is required")
             return
         }
-        // Sprint 8.4 vai implementar — por ora retorna pendência
-        call.reject("AchievementDetail bridge not implemented yet (Sprint 8.4)")
-        _ = compositeId
-        _ = userId
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  let viewController = self.bridge?.viewController else {
+                call.reject("Bridge unavailable")
+                return
+            }
+            let hosting = makeAchievementDetailHostingController(
+                userId: userId,
+                compositeId: compositeId,
+                onDismiss: { [weak viewController] in
+                    viewController?.dismiss(animated: true)
+                }
+            )
+            viewController.present(hosting, animated: true) {
+                call.resolve()
+            }
+        }
     }
 
     @objc func presentCelebration(_ call: CAPPluginCall) {
@@ -97,9 +111,28 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("compositeId is required")
             return
         }
-        // Sprint 8.6 vai implementar
-        call.reject("Celebration bridge not implemented yet (Sprint 8.6)")
-        _ = compositeId
+        guard let userId = call.getString("userId"), !userId.isEmpty else {
+            call.reject("userId is required")
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  let viewController = self.bridge?.viewController else {
+                call.reject("Bridge unavailable")
+                return
+            }
+            let hosting = makeCelebrationHostingController(
+                userId: userId,
+                compositeId: compositeId,
+                onDismiss: { [weak viewController] in
+                    viewController?.dismiss(animated: true)
+                }
+            )
+            viewController.present(hosting, animated: true) {
+                call.resolve()
+            }
+        }
     }
 
     @objc func presentAchievementsHub(_ call: CAPPluginCall) {
@@ -107,9 +140,23 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("userId is required")
             return
         }
-        // Sprint 8.5 vai implementar
-        call.reject("AchievementsHub bridge not implemented yet (Sprint 8.5)")
-        _ = userId
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self,
+                  let viewController = self.bridge?.viewController else {
+                call.reject("Bridge unavailable")
+                return
+            }
+            let hosting = makeAchievementsHubHostingController(
+                userId: userId,
+                onDismiss: { [weak viewController] in
+                    viewController?.dismiss(animated: true)
+                }
+            )
+            viewController.present(hosting, animated: true) {
+                call.resolve()
+            }
+        }
     }
 }
 
@@ -198,7 +245,8 @@ private struct NativeMyCircleHost: View {
 
     /// Cria AppModel com client Supabase real lido das env vars Capacitor.
     /// Quando URL/key não encontradas (dev sem env), volta pra modo demo.
-    private static func makeModel() -> GymCircleAppModel {
+    /// `fileprivate` permite reuso pelos outros hosts no mesmo file (Sprint 8.9).
+    fileprivate static func makeModel() -> GymCircleAppModel {
         guard let url = readSupabaseURL(),
               let key = readSupabaseAnonKey() else {
             return GymCircleAppModel() // demo mode
@@ -224,6 +272,206 @@ private struct NativeMyCircleHost: View {
             return str
         }
         return ProcessInfo.processInfo.environment["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+    }
+}
+#endif
+
+// MARK: - Sprint 8.9 hosting controllers (Detail/Celebration/Hub)
+
+private func makeAchievementDetailHostingController(
+    userId: String,
+    compositeId: String,
+    onDismiss: @escaping () -> Void
+) -> UIViewController {
+    #if canImport(GymCircleNativeFoundation)
+    let host = NativeAchievementDetailHost(
+        userId: userId,
+        compositeId: compositeId,
+        onDismiss: onDismiss
+    )
+    let hosting = UIHostingController(rootView: host)
+    #else
+    let view = MyCirclePlaceholderView(userId: userId, isOwn: false, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
+    hosting.modalPresentationStyle = .fullScreen
+    return hosting
+}
+
+private func makeCelebrationHostingController(
+    userId: String,
+    compositeId: String,
+    onDismiss: @escaping () -> Void
+) -> UIViewController {
+    #if canImport(GymCircleNativeFoundation)
+    let host = NativeCelebrationHost(
+        userId: userId,
+        compositeId: compositeId,
+        onDismiss: onDismiss
+    )
+    let hosting = UIHostingController(rootView: host)
+    #else
+    let view = MyCirclePlaceholderView(userId: userId, isOwn: false, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
+    hosting.modalPresentationStyle = .overFullScreen
+    hosting.view.backgroundColor = .clear
+    return hosting
+}
+
+private func makeAchievementsHubHostingController(
+    userId: String,
+    onDismiss: @escaping () -> Void
+) -> UIViewController {
+    #if canImport(GymCircleNativeFoundation)
+    let host = NativeAchievementsHubHost(userId: userId, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: host)
+    #else
+    let view = MyCirclePlaceholderView(userId: userId, isOwn: false, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
+    hosting.modalPresentationStyle = .fullScreen
+    return hosting
+}
+
+#if canImport(GymCircleNativeFoundation)
+// MARK: - Sprint 8.9 hosts (compõem AppModel + chamam services)
+
+private struct NativeAchievementDetailHost: View {
+    let userId: String
+    let compositeId: String
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+    @State private var record: UserAchievementRecord?
+    @State private var globalStats: AchievementGlobalStats?
+
+    init(userId: String, compositeId: String, onDismiss: @escaping () -> Void) {
+        self.userId = userId
+        self.compositeId = compositeId
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        let achievement = resolveAchievement()
+        AchievementDetailView(
+            achievement: achievement,
+            userRecord: record,
+            globalStats: globalStats,
+            onClose: onDismiss
+        )
+        .task {
+            await model.boot()
+            // Sprint 8.x — Buscar userRecord específico via service
+            // (filtra achievements do user pelo compositeId)
+        }
+    }
+
+    private func resolveAchievement() -> Achievement {
+        if let match = model.achievements.first(where: { $0.compositeId == compositeId }) {
+            return match
+        }
+        // Fallback: parse compositeId pra mostrar pelo menos kind/id
+        if let parsed = AchievementCompositeId.parse(compositeId) {
+            return Achievement(
+                kind: parsed.kind,
+                achievementId: parsed.id,
+                label: "Conquista",
+                description: "Carregando detalhes...",
+                earned: false,
+                iconKey: .trophy
+            )
+        }
+        return Achievement(
+            kind: .badge,
+            achievementId: "unknown",
+            label: "Conquista",
+            description: "",
+            earned: false,
+            iconKey: .trophy
+        )
+    }
+}
+
+private struct NativeCelebrationHost: View {
+    let userId: String
+    let compositeId: String
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+
+    init(userId: String, compositeId: String, onDismiss: @escaping () -> Void) {
+        self.userId = userId
+        self.compositeId = compositeId
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        let achievement = resolveAchievement()
+        AchievementCelebrationView(
+            achievement: achievement,
+            queueIndex: nil,
+            queueTotal: nil,
+            onDismiss: {
+                Task {
+                    await model.markCelebrated(compositeId: compositeId)
+                    onDismiss()
+                }
+            }
+        )
+        .task {
+            await model.boot()
+        }
+    }
+
+    private func resolveAchievement() -> Achievement {
+        if let match = model.achievements.first(where: { $0.compositeId == compositeId }) {
+            return match
+        }
+        return Achievement(
+            kind: .badge,
+            achievementId: compositeId,
+            label: "Nova conquista",
+            description: "Parabéns!",
+            earned: true,
+            iconKey: .trophy,
+            rarity: .common
+        )
+    }
+}
+
+private struct NativeAchievementsHubHost: View {
+    let userId: String
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+    @State private var detailAchievement: Achievement?
+
+    init(userId: String, onDismiss: @escaping () -> Void) {
+        self.userId = userId
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        AchievementsView(
+            achievements: model.achievements,
+            onTap: { achievement in
+                detailAchievement = achievement
+            },
+            onClose: onDismiss
+        )
+        .task {
+            await model.boot()
+        }
+        .fullScreenCover(item: $detailAchievement) { ach in
+            AchievementDetailView(
+                achievement: ach,
+                onClose: { detailAchievement = nil }
+            )
+        }
     }
 }
 #endif
