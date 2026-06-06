@@ -37,7 +37,7 @@ itens P0 abaixo**.
 | **FeaturedAchievements paleta por kind** | 🟡 | Swift usa rarity. Web usa kind (relic→purple/trophy→cyan/medal→gold) |
 | **AchievementDetail "Você é o primeiro"** | ✅ | Implementado |
 | **AchievementCelebration particles** | ✅ | Canvas SwiftUI 60fps |
-| **Plugin Bridge no app JS** | 🟡 | TS wrapper `GymCircleNativeBridge.ts` existe — falta wire em ALGUM lugar do app (search-fail abaixo) |
+| **Plugin Bridge no app JS** | 🟡 | `presentMyCircleNative` wired em `GymCirclePreview.tsx:392` com flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`. 3 outros métodos não chamados |
 | **ProfileSheet (perfil de outros users)** | ❌ | Não tem versão SwiftUI — só ProfileView (próprio) |
 | **EditProfileSheet** | ❌ | Sem paridade SwiftUI |
 | **MonthlyRecapSheet (poster canvas)** | ❌ | Sem paridade SwiftUI |
@@ -242,28 +242,28 @@ Web tem **24 achievements + N challenges**. Swift tem **19 + N challenges**. Fal
 `GymCircleNativeBridgePlugin.swift` expõe `isAvailable`, `presentMyCircleNative`,
 `presentAchievementDetail`, `presentCelebration`, `presentAchievementsHub`.
 
-### 4.2 Lado JS: 🟡 wrapper existe, **mas ninguém chama**
+### 4.2 Lado JS: 🟡 1 de 4 métodos wired
 
-`apps/web/src/components/gym-circle/native/GymCircleNativeBridge.ts` exporta:
+**Correção pós-grep:** `GymCirclePreview.tsx:392` chama `presentMyCircleNative`
+quando flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true"` E `isAvailable()`.
+Bom — tem fallback gracioso.
 
-```typescript
-const plugin = registerPlugin<GymCircleNativeBridgePlugin>(
-  "GymCircleNativeBridge"
-);
-export async function presentMyCircleNative(...) { ... }
-```
+**Faltam 3 métodos não wired no app web:**
+- `presentAchievementDetail` — nunca chamado. Tap em badge no
+  `MyCircleSheet` / `AchievementsSheet` / `FeaturedAchievementsRow` continua
+  abrindo `AchievementDetailOverlay` web mesmo em iOS.
+- `presentCelebration` — nunca chamado. Sprint 7.5.11 dispara
+  `AchievementCelebrationOverlay` web direto, sem checar bridge.
+- `presentAchievementsHub` — nunca chamado. Botão "Ver todos" abre
+  `AchievementsSheet` web.
 
-**Mas nenhum componente do app importa esse arquivo.** Não há call site
-em `MyCircleSheet`, `ProfileScreen`, `GymCirclePreview`, etc. → o user
-nunca vê a tela nativa.
-
-#### Pra acender o bridge:
-1. Em `GymCirclePreview.tsx` (ou onde MyCircleSheet abre), checar
-   `isAvailable()` antes do `setMyCircleOpen(true)`. Se sim, chamar
-   `presentMyCircleNative({ userId, isOwn })` em vez do sheet web.
-2. Idem pros 3 outros métodos.
-3. Fallback gracioso pra sheet web quando bridge não disponível
-   (Capacitor não rodando, simulador, web build).
+#### Pra acender os 3 restantes:
+1. Em `GymCirclePreview.tsx` envolver os 3 handlers (`openAchievementDetail`,
+   `triggerCelebration`, `openAchievementsSheet`) com o mesmo padrão de
+   flag + `isAvailable()` + fallback.
+2. Cuidado: flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE` precisa virar mais
+   granular OU usar uma flag única `NEXT_PUBLIC_USE_NATIVE_GAMIFICATION`
+   pra acender as 4 telas juntas.
 
 ---
 
@@ -295,7 +295,7 @@ Strings que precisam virar i18n (lista non-exaustiva, encontrada em scan):
 | 2 | Carregar `workoutDays` real → `CalendarBuilder.buildMonth` | M | `MyCircleService.swift` + `GymCircleAppModel.swift:222` |
 | 3 | Implementar `loadProfile()` (avatar + displayName + createdAt) | M | `GymCircleAppModel.swift` (novo método) |
 | 4 | i18n completo: `Localizable.strings` PT/EN + replace 60+ strings | M | Todas screens |
-| 5 | JS wire-up: `GymCircleNativeBridge.ts` precisa ser chamado em `GymCirclePreview.tsx` (ou equivalente) | S | `apps/web/.../GymCirclePreview.tsx` |
+| 5 | JS wire-up dos 3 métodos restantes: `presentAchievementDetail`, `presentCelebration`, `presentAchievementsHub` no `GymCirclePreview.tsx` | S | `apps/web/.../GymCirclePreview.tsx` |
 | 6 | Calendar navegação `← →` chevron | S | `MyCircleComponents.swift` |
 | 7 | Calendar mini-fotos (Sprint 5.2 paridade) | M | `MonthlyCalendarGridView` |
 
