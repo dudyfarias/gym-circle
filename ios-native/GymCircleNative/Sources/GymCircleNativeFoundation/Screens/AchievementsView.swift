@@ -1,0 +1,267 @@
+import SwiftUI
+
+/// AchievementsView — Sprint 8.6 (paridade web Sprint 7.5.4 Hall da Fama).
+///
+/// Tela completa de conquistas com 6 tabs (Tudo + 5 categorias) + sub-
+/// seções por estado (Conquistados / Próximos / Bloqueados).
+public struct AchievementsView: View {
+    public let achievements: [Achievement]
+    public let onTap: (Achievement) -> Void
+    public let onClose: () -> Void
+
+    @State private var activeTab: TabKey = .all
+
+    public init(
+        achievements: [Achievement],
+        onTap: @escaping (Achievement) -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.achievements = achievements
+        self.onTap = onTap
+        self.onClose = onClose
+    }
+
+    enum TabKey: Hashable {
+        case all
+        case kind(AchievementKind)
+    }
+
+    private var earnedCount: Int { achievements.filter(\.earned).count }
+    private var totalCount: Int { achievements.count }
+    private var progressPct: Double {
+        totalCount == 0 ? 0 : Double(earnedCount) / Double(totalCount)
+    }
+
+    private var filteredByTab: [Achievement] {
+        switch activeTab {
+        case .all: return achievements
+        case .kind(let kind): return achievements.filter { $0.kind == kind }
+        }
+    }
+
+    private var sections: (earned: [Achievement], next: [Achievement], locked: [Achievement]) {
+        let earned = filteredByTab.filter(\.earned)
+        let next = filteredByTab.filter { !$0.earned && !$0.secret && $0.progress != nil }
+        let locked = filteredByTab.filter { !$0.earned && ($0.secret || $0.progress == nil) }
+        return (earned, next, locked)
+    }
+
+    public var body: some View {
+        ZStack(alignment: .top) {
+            GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                header
+                progressBar
+                tabChips
+                Divider().background(Color.white.opacity(0.06))
+
+                ScrollView {
+                    VStack(spacing: 24) {
+                        if filteredByTab.isEmpty {
+                            emptyState
+                        } else {
+                            sectionGroup(title: "Conquistados", items: sections.earned)
+                            sectionGroup(title: "Próximos", items: sections.next)
+                            sectionGroup(title: "Bloqueados", items: sections.locked)
+                        }
+                        Spacer(minLength: 32)
+                    }
+                    .padding(20)
+                }
+            }
+        }
+    }
+
+    // MARK: - Header
+
+    private var header: some View {
+        HStack {
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .heavy))
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(Color.white.opacity(0.06)))
+                    .foregroundColor(.white)
+            }
+            Spacer()
+            Text("Hall da Fama")
+                .font(.system(size: 15, weight: .heavy))
+                .foregroundColor(.white)
+            Spacer()
+            Spacer().frame(width: 36)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+    }
+
+    // MARK: - Progress bar
+
+    private var progressBar: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Text("\(earnedCount) de \(totalCount) conquistadas")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.white)
+                Spacer()
+                Text("\(Int(progressPct * 100))%")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(.white.opacity(0.52))
+            }
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.06))
+                    Capsule()
+                        .fill(LinearGradient(
+                            colors: [
+                                Color(red: 0.55, green: 0.98, blue: 1.0),
+                                Color(red: 0.0, green: 0.4, blue: 1.0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        ))
+                        .frame(width: proxy.size.width * progressPct)
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 12)
+    }
+
+    // MARK: - Tabs
+
+    private var tabChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                tabChip(.all, label: "Tudo")
+                tabChip(.kind(.badge), label: "Badges")
+                tabChip(.kind(.medal), label: "Medalhas")
+                tabChip(.kind(.trophy), label: "Troféus")
+                tabChip(.kind(.relic), label: "Relíquias")
+                tabChip(.kind(.challenge), label: "Desafios")
+            }
+            .padding(.horizontal, 20)
+        }
+        .padding(.bottom, 12)
+    }
+
+    private func tabChip(_ tab: TabKey, label: String) -> some View {
+        let isActive = activeTab == tab
+        return Button(action: { activeTab = tab }) {
+            Text(label.uppercased())
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(0.6)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule().fill(isActive ? GymCircleTheme.ColorToken.electricBlue : Color.white.opacity(0.04))
+                )
+                .foregroundColor(isActive ? .black : .white.opacity(0.68))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Section groups
+
+    @ViewBuilder
+    private func sectionGroup(title: String, items: [Achievement]) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("\(title) · \(items.count)".uppercased())
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundColor(.white.opacity(0.44))
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(items) { achievement in
+                        achievementCard(achievement)
+                    }
+                }
+            }
+        }
+    }
+
+    private func achievementCard(_ achievement: Achievement) -> some View {
+        Button(action: { onTap(achievement) }) {
+            VStack(alignment: .leading, spacing: 8) {
+                if achievement.isMysterySecret {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "questionmark")
+                            .font(.system(size: 18, weight: .heavy))
+                            .foregroundColor(.white.opacity(0.4))
+                    }
+                } else {
+                    BadgeIconNativeView(
+                        iconKey: achievement.iconKey,
+                        earned: achievement.earned,
+                        size: 40
+                    )
+                }
+
+                Text(achievement.isMysterySecret ? "???" : achievement.label)
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(achievement.earned ? .white : .white.opacity(0.72))
+                    .lineLimit(1)
+
+                Text(achievement.isMysterySecret ? "Descubra como desbloquear" : achievement.description)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.52))
+                    .lineLimit(2)
+
+                if let progress = achievement.progress, !achievement.earned, !achievement.isMysterySecret {
+                    HStack {
+                        Text("\(progress.current)/\(progress.target)")
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundColor(.white.opacity(0.42))
+                        Spacer()
+                        Text("\(Int(progress.percent * 100))%")
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundColor(.white.opacity(0.42))
+                    }
+                    GeometryReader { proxy in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.06))
+                            Capsule()
+                                .fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.72))
+                                .frame(width: proxy.size.width * progress.percent)
+                        }
+                    }
+                    .frame(height: 4)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(cardBackground(achievement))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func cardBackground(_ a: Achievement) -> Color {
+        if a.isMysterySecret { return Color.white.opacity(0.03) }
+        if a.earned { return Color.white.opacity(0.05) }
+        return Color.white.opacity(0.025)
+    }
+
+    // MARK: - Empty
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "trophy")
+                .font(.system(size: 32))
+                .foregroundColor(.white.opacity(0.32))
+            Text("Nenhuma conquista nesta categoria ainda.")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white.opacity(0.52))
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 64)
+        .frame(maxWidth: .infinity)
+    }
+}

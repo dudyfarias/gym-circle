@@ -20,6 +20,7 @@
 		52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069AF1E053D24164413598B0 /* BaseComponents.swift */; };
 		5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52D40B4007DAC206C665780 /* FeedPost.swift */; };
 		5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */; };
+		5EEBF3147E247A6E731BA17D /* AchievementDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */; };
 		6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20940CB53959FF53CFF9C75 /* StoriesViews.swift */; };
 		70EB9C329DE1DA414347C6A3 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */; };
 		71427FF59C8B4933ED803A26 /* AchievementModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938F0854F909B3772AE14447 /* AchievementModels.swift */; };
@@ -31,10 +32,12 @@
 		A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */; };
 		A64CCBB3086148E777260BA8 /* AchievementBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A25EE1B0649D40C491D4501 /* AchievementBuilder.swift */; };
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
+		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
 		CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */; };
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
 		CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489ABF91A6CB491B111116DC /* FeedView.swift */; };
+		CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */; };
 		DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636F3999A2F250111C153818 /* MyCircleModels.swift */; };
 		FB1C810F996E874492D37712 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F08F3783EAD0DC084E6E2F /* MainTabView.swift */; };
 /* End PBXBuildFile section */
@@ -52,6 +55,7 @@
 		381506FB324FA418FAD1FEBF /* MyCircleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleService.swift; sourceTree = "<group>"; };
 		489ABF91A6CB491B111116DC /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementCelebrationView.swift; sourceTree = "<group>"; };
 		61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesService.swift; sourceTree = "<group>"; };
 		633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClientProvider.swift; sourceTree = "<group>"; };
 		636F3999A2F250111C153818 /* MyCircleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleModels.swift; sourceTree = "<group>"; };
@@ -59,12 +63,14 @@
 		71697375FF0895F613E1090F /* MyCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleView.swift; sourceTree = "<group>"; };
 		783D161B1E627FB137F94874 /* MyCircleComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleComponents.swift; sourceTree = "<group>"; };
 		7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		7E02612239E7BC217D0CE54E /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		938F0854F909B3772AE14447 /* AchievementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementModels.swift; sourceTree = "<group>"; };
 		96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAppModel.swift; sourceTree = "<group>"; };
 		9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsService.swift; sourceTree = "<group>"; };
 		A52D40B4007DAC206C665780 /* FeedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPost.swift; sourceTree = "<group>"; };
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAPI.swift; sourceTree = "<group>"; };
+		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
@@ -120,6 +126,9 @@
 		4DCFA5A7B2B6C8B81204EE1B /* Screens */ = {
 			isa = PBXGroup;
 			children = (
+				5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */,
+				CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */,
+				7E02612239E7BC217D0CE54E /* AchievementsView.swift */,
 				489ABF91A6CB491B111116DC /* FeedView.swift */,
 				0F5A004267A6D5354857ABFD /* LoginView.swift */,
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
@@ -272,8 +281,11 @@
 			buildActionMask = 2147483647;
 			files = (
 				A64CCBB3086148E777260BA8 /* AchievementBuilder.swift in Sources */,
+				CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */,
+				5EEBF3147E247A6E731BA17D /* AchievementDetailView.swift in Sources */,
 				71427FF59C8B4933ED803A26 /* AchievementModels.swift in Sources */,
 				425F19777DF07AA72E43F4F2 /* AchievementsService.swift in Sources */,
+				BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */,
 				A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */,
 				49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */,
 				1EEF102EFB0EA7E7396B94BB /* AuthService.swift in Sources */,
