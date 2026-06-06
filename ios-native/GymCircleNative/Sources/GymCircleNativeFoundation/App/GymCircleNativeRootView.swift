@@ -20,7 +20,12 @@ public struct GymCircleNativeRootView: View {
                     stories: model.stories,
                     profile: model.profile,
                     profilePosts: model.profilePosts,
-                    myCircle: model.myCircleSummary
+                    // Sprint 8.3 — usa MyCircleViewData real quando disponível
+                    // (fetchado via MyCircleService no boot), demo como fallback.
+                    myCircle: model.myCircleData ?? MyCircleViewData.demo(
+                        userId: model.profile?.userId ?? "demo-user",
+                        isOwn: true
+                    )
                 )
             } else {
                 LoginView { email, password in
@@ -29,5 +34,11 @@ public struct GymCircleNativeRootView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .task {
+            // Sprint 8.3 — boot dispara restoreSession + loadInitialSurfaces +
+            // loadMyCircle. Quando ok, isAuthenticated vira true e MainTabView
+            // recebe dados reais via @Published.
+            await model.boot()
+        }
     }
 }

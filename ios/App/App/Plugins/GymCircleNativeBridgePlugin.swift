@@ -4,8 +4,9 @@ import SwiftUI
 
 // Quando o Swift Package GymCircleNativeFoundation for adicionado como
 // dependência local do projeto Xcode (Workspace > Add Local Package),
-// descomente este import:
+// descomente estes 2 imports:
 // import GymCircleNativeFoundation
+// import Supabase
 
 /// Sprint 8.1 — Capacitor Plugin Bridge.
 ///
@@ -129,20 +130,15 @@ private func makeMyCircleHostingController(
     onDismiss: @escaping () -> Void
 ) -> UIViewController {
     #if canImport(GymCircleNativeFoundation)
-    let view = MyCircleView(
-        data: MyCircleViewData.demo(userId: userId, isOwn: isOwn),
-        onClose: onDismiss,
-        onTapBadgeHighlight: {
-            // Sprint 8.5 — aqui chama presentAchievementsHub
-        },
-        onTapChallenge: { _ in
-            // Sprint 8.4 — aqui chama presentAchievementDetail
-        },
-        onTapRecap: {
-            // Sprint 8.x — aqui chama presentRecapNative
-        }
+    // Sprint 8.3 — usa NativeMyCircleHost que injeta AppModel real
+    // com Supabase client. Fetcha dados via MyCircleService. Quando
+    // erro/loading, fallback graceful pra demo data.
+    let host = NativeMyCircleHost(
+        userId: userId,
+        isOwn: isOwn,
+        onDismiss: onDismiss
     )
-    let hosting = UIHostingController(rootView: view)
+    let hosting = UIHostingController(rootView: host)
     #else
     // Fallback quando Swift Package ainda não foi adicionado ao Xcode
     let view = MyCirclePlaceholderView(userId: userId, isOwn: isOwn, onDismiss: onDismiss)
@@ -151,6 +147,86 @@ private func makeMyCircleHostingController(
     hosting.modalPresentationStyle = .fullScreen
     return hosting
 }
+
+#if canImport(GymCircleNativeFoundation)
+// MARK: - NativeMyCircleHost (Sprint 8.3)
+
+/// Container que instancia GymCircleAppModel com SupabaseClient real,
+/// dispara loadMyCircle() no aparecer e renderiza MyCircleView com
+/// dados reais. Fallback pra demo data quando dados ainda não chegaram
+/// ou erro de rede.
+///
+/// Lê URL/key Supabase de `Bundle.main.infoDictionary` (que Capacitor
+/// popula via `capacitor.config.json` → ConfigurationManager).
+private struct NativeMyCircleHost: View {
+    let userId: String
+    let isOwn: Bool
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+
+    init(userId: String, isOwn: Bool, onDismiss: @escaping () -> Void) {
+        self.userId = userId
+        self.isOwn = isOwn
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        MyCircleView(
+            data: model.myCircleData ?? MyCircleViewData.demo(
+                userId: userId,
+                isOwn: isOwn
+            ),
+            onClose: onDismiss,
+            onTapBadgeHighlight: {
+                // Sprint 8.5 — aqui chama presentAchievementsHub
+            },
+            onTapChallenge: { _ in
+                // Sprint 8.4 — aqui chama presentAchievementDetail
+            },
+            onTapRecap: {
+                // Sprint 8.x — aqui chama presentRecapNative
+            }
+        )
+        .task {
+            // Sprint 8.3 — tenta restaurar session + buscar dados reais.
+            // Quando sucesso, MyCircleView re-renderiza via @Published.
+            await model.boot()
+        }
+    }
+
+    /// Cria AppModel com client Supabase real lido das env vars Capacitor.
+    /// Quando URL/key não encontradas (dev sem env), volta pra modo demo.
+    private static func makeModel() -> GymCircleAppModel {
+        guard let url = readSupabaseURL(),
+              let key = readSupabaseAnonKey() else {
+            return GymCircleAppModel() // demo mode
+        }
+        let client = SupabaseClient(supabaseURL: url, supabaseKey: key)
+        return GymCircleAppModel(client: client)
+    }
+
+    private static func readSupabaseURL() -> URL? {
+        if let str = Bundle.main.object(forInfoDictionaryKey: "NEXT_PUBLIC_SUPABASE_URL") as? String,
+           let url = URL(string: str) {
+            return url
+        }
+        if let str = ProcessInfo.processInfo.environment["NEXT_PUBLIC_SUPABASE_URL"],
+           let url = URL(string: str) {
+            return url
+        }
+        return nil
+    }
+
+    private static func readSupabaseAnonKey() -> String? {
+        if let str = Bundle.main.object(forInfoDictionaryKey: "NEXT_PUBLIC_SUPABASE_ANON_KEY") as? String {
+            return str
+        }
+        return ProcessInfo.processInfo.environment["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
+    }
+}
+#endif
 
 #if !canImport(GymCircleNativeFoundation)
 // MARK: - Stub View (fallback quando Foundation Package não adicionado)

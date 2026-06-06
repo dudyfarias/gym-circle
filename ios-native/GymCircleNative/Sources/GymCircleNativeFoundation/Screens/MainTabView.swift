@@ -5,14 +5,14 @@ public struct MainTabView: View {
     private let stories: [StoryAuthorGroup]
     private let profile: UserProfile?
     private let profilePosts: [ProfilePost]
-    private let myCircle: MyCircleSummary
+    private let myCircle: MyCircleViewData
 
     public init(
         posts: [FeedPost],
         stories: [StoryAuthorGroup],
         profile: UserProfile?,
         profilePosts: [ProfilePost],
-        myCircle: MyCircleSummary
+        myCircle: MyCircleViewData
     ) {
         self.posts = posts
         self.stories = stories
@@ -31,15 +31,10 @@ public struct MainTabView: View {
             }
 
             NavigationStack {
-                // Sprint 8.2 — usa MyCircleViewData (estende MyCircleSummary).
-                // Sprint 8.3 conecta API real; aqui demo data inline pra preview.
-                MyCircleView(
-                    data: MyCircleViewData.demo(
-                        userId: profile?.userId ?? "demo-user",
-                        isOwn: true
-                    )
-                )
-                .navigationTitle("Meu Circle")
+                // Sprint 8.3 — MyCircleViewData injetado pelo AppModel
+                // (já hidratado via MyCircleService quando autenticado).
+                MyCircleView(data: myCircle)
+                    .navigationTitle("Meu Circle")
             }
             .tabItem {
                 Label("Circle", systemImage: "flame")
