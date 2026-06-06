@@ -190,6 +190,81 @@ public struct GCLoadingView: View {
     }
 }
 
+public struct GCErrorState: View {
+    private let title: String
+    private let subtitle: String
+    private let retryTitle: String?
+    private let onRetry: (() -> Void)?
+
+    public init(
+        title: String,
+        subtitle: String,
+        retryTitle: String? = nil,
+        onRetry: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.retryTitle = retryTitle
+        self.onRetry = onRetry
+    }
+
+    public var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "wifi.exclamationmark")
+                .font(.system(size: 30, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+
+            VStack(spacing: 6) {
+                GCText(title, style: .headline)
+                GCText(subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+
+            if let retryTitle, let onRetry {
+                Button(action: onRetry) {
+                    Text(retryTitle)
+                        .font(.system(size: 14, weight: .black, design: .rounded))
+                        .foregroundStyle(Color.black)
+                        .padding(.horizontal, 18)
+                        .frame(height: 40)
+                        .background(GymCircleTheme.ColorToken.cyan)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 180)
+        .padding()
+    }
+}
+
+public struct GCSkeletonBlock: View {
+    private let height: CGFloat
+    private let radius: CGFloat
+
+    public init(height: CGFloat, radius: CGFloat = 18) {
+        self.height = height
+        self.radius = radius
+    }
+
+    public var body: some View {
+        RoundedRectangle(cornerRadius: radius, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        GymCircleTheme.ColorToken.elevatedCard,
+                        GymCircleTheme.ColorToken.card,
+                        GymCircleTheme.ColorToken.elevatedCard
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .frame(height: height)
+            .redacted(reason: .placeholder)
+    }
+}
+
 public struct GCEmptyState: View {
     private let title: String
     private let subtitle: String

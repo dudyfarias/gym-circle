@@ -58,14 +58,34 @@ Real values must be added locally in Xcode or in an untracked `.xcconfig`.
 - auth calls,
 - RPC calls.
 
-`GymCircleAPI` currently wraps:
+`AuthService` currently wraps:
 
 - email/password sign-in,
 - sign-out,
+- current session,
+- current user,
+- session restore.
+
+`SessionStore` centralizes:
+
+- current user id,
+- authenticated/signed-out/restoring state,
+- logout,
+- friendly auth errors.
+
+`GymCircleAPI` currently wraps:
+
 - `get_home_feed`,
 - `get_story_tray_lightweight`,
 - `get_story_viewer_items`,
-- `get_profile_posts`.
+- `get_profile_posts`,
+- current profile loading.
+
+`MyCircleService` currently wraps:
+
+- `user_stats_live`,
+- `user_activity_days`,
+- week/month/year consistency calculations.
 
 ## Models
 
@@ -120,7 +140,7 @@ Implemented as native SwiftUI foundation screens:
 - `MyCircleView`
 - `MainTabView`
 
-Create and Chat are placeholders in this sprint.
+Create and Chat are placeholders in this sprint. Auth, feed, story tray, story viewer, profile and My Circle now use real Supabase surfaces when local anon-key configuration is present.
 
 ## Xcode Project
 

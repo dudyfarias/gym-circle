@@ -33,6 +33,11 @@ let package = Package(
             name: "GymCircleNativePreview",
             dependencies: ["GymCircleNativeFoundation"],
             path: "Sources/GymCircleNativePreview"
+        ),
+        .testTarget(
+            name: "GymCircleNativeFoundationTests",
+            dependencies: ["GymCircleNativeFoundation"],
+            path: "Tests/GymCircleNativeFoundationTests"
         )
     ]
 )

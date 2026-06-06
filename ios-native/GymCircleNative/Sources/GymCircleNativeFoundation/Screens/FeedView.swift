@@ -2,20 +2,53 @@ import SwiftUI
 
 public struct FeedView: View {
     private let posts: [FeedPost]
-    private let isLoading: Bool
+    private let stories: [StoryAuthorGroup]
+    private let isFeedLoading: Bool
+    private let isStoriesLoading: Bool
+    private let feedError: String?
+    private let storiesError: String?
+    private let onRetry: () -> Void
+    private let onOpenStory: (StoryAuthorGroup) -> Void
 
-    public init(posts: [FeedPost], isLoading: Bool = false) {
+    public init(
+        posts: [FeedPost],
+        stories: [StoryAuthorGroup] = [],
+        isFeedLoading: Bool = false,
+        isStoriesLoading: Bool = false,
+        feedError: String? = nil,
+        storiesError: String? = nil,
+        onRetry: @escaping () -> Void = {},
+        onOpenStory: @escaping (StoryAuthorGroup) -> Void = { _ in }
+    ) {
         self.posts = posts
-        self.isLoading = isLoading
+        self.stories = stories
+        self.isFeedLoading = isFeedLoading
+        self.isStoriesLoading = isStoriesLoading
+        self.feedError = feedError
+        self.storiesError = storiesError
+        self.onRetry = onRetry
+        self.onOpenStory = onOpenStory
     }
 
     public var body: some View {
         ScrollView {
             LazyVStack(spacing: 18) {
-                StoriesTrayView(groups: [], isLoading: false)
+                StoriesTrayView(
+                    groups: stories,
+                    isLoading: isStoriesLoading,
+                    error: storiesError,
+                    onOpenStory: onOpenStory
+                )
 
-                if isLoading {
-                    GCLoadingView("Carregando feed")
+                if isFeedLoading && posts.isEmpty {
+                    feedSkeleton
+                } else if let feedError {
+                    GCErrorState(
+                        title: "Feed indisponivel",
+                        subtitle: feedError,
+                        retryTitle: "Tentar de novo",
+                        onRetry: onRetry
+                    )
                 } else if posts.isEmpty {
                     GCEmptyState(
                         title: "Seu circle esta quieto",
@@ -31,6 +64,35 @@ public struct FeedView: View {
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .navigationTitle("Hoje")
+        .refreshable {
+            onRetry()
+        }
+    }
+
+    private var feedSkeleton: some View {
+        VStack(spacing: 18) {
+            ForEach(0..<3, id: \.self) { _ in
+                GCCard {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 12) {
+                            Circle()
+                                .fill(GymCircleTheme.ColorToken.elevatedCard)
+                                .frame(width: 48, height: 48)
+                            VStack(alignment: .leading, spacing: 8) {
+                                GCSkeletonBlock(height: 12, radius: 6)
+                                    .frame(width: 130)
+                                GCSkeletonBlock(height: 10, radius: 5)
+                                    .frame(width: 90)
+                            }
+                            Spacer()
+                        }
+                        GCSkeletonBlock(height: 360, radius: 22)
+                        GCSkeletonBlock(height: 14, radius: 7)
+                            .frame(width: 220)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -48,12 +110,23 @@ public struct FeedPostCard: View {
                     GCAvatar(url: post.avatarURL, fallback: post.username)
                     VStack(alignment: .leading, spacing: 2) {
                         GCText(post.displayAuthorName, style: .body)
-                        if let location = post.locationName {
+                        HStack(spacing: 5) {
+                            GCText("@\(post.username)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                            GCText("•", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                            GCText(post.relativeCreatedAt, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                        }
+                        if let location = post.locationName, !location.isEmpty {
                             GCText(location, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                         }
                     }
                     Spacer()
-                    GCText("\(post.authorCurrentStreak ?? 0)d", style: .caption, color: GymCircleTheme.ColorToken.cyan)
+                    if let streak = post.authorCurrentStreak, streak > 0 {
+                        GCText("\(streak)d", style: .caption, color: GymCircleTheme.ColorToken.cyan)
+                            .padding(.horizontal, 10)
+                            .frame(height: 28)
+                            .background(GymCircleTheme.ColorToken.cyan.opacity(0.12))
+                            .clipShape(Capsule())
+                    }
                 }
 
                 MediaView(url: post.displayMediaURL, aspectRatio: mediaAspectRatio)
@@ -80,7 +153,7 @@ public struct FeedPostCard: View {
         guard let width = post.mediaWidth, let height = post.mediaHeight, height > 0 else {
             return 4 / 5
         }
-        return CGFloat(width) / CGFloat(height)
+        return min(max(CGFloat(width) / CGFloat(height), 0.75), 1.45)
     }
 }
 
@@ -98,23 +171,60 @@ public struct MediaView: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(GymCircleTheme.ColorToken.elevatedCard)
 
-            if let imageURL = URL(string: url) {
+            if let imageURL = URL(string: url), !url.isEmpty {
                 AsyncImage(url: imageURL) { phase in
                     switch phase {
                     case .success(let image):
                         image
                             .resizable()
                             .scaledToFill()
+                    case .failure:
+                        unavailableMedia
                     default:
-                        Image(systemName: "photo")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                        ProgressView()
+                            .tint(GymCircleTheme.ColorToken.cyan)
                     }
                 }
+            } else {
+                unavailableMedia
             }
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .clipped()
     }
+
+    private var unavailableMedia: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "photo")
+                .font(.system(size: 28, weight: .bold))
+            GCText("Midia indisponivel", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+        }
+        .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+    }
+}
+
+private extension FeedPost {
+    var relativeCreatedAt: String {
+        guard let date = Self.isoFormatterWithFractionalSeconds.date(from: createdAt) ?? Self.isoFormatter.date(from: createdAt) else {
+            return "agora"
+        }
+
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .short
+        formatter.locale = Locale(identifier: "pt_BR")
+        return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    static let isoFormatterWithFractionalSeconds: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    static let isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
 }

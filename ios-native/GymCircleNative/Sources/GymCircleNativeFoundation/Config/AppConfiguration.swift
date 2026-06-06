@@ -10,15 +10,40 @@ public struct AppConfiguration: Sendable {
     }
 
     public static func fromEnvironment() -> AppConfiguration? {
-        let environment = ProcessInfo.processInfo.environment
         guard
-            let url = environment["SUPABASE_URL"], !url.isEmpty,
-            let anonKey = environment["SUPABASE_ANON_KEY"], !anonKey.isEmpty
+            let url = value(named: "SUPABASE_URL"),
+            let anonKey = value(named: "SUPABASE_ANON_KEY")
         else {
             return nil
         }
 
         return AppConfiguration(supabaseURL: url, supabaseAnonKey: anonKey)
+    }
+
+    private static func value(named key: String) -> String? {
+        let environment = ProcessInfo.processInfo.environment
+        if let value = sanitized(environment[key]) {
+            return value
+        }
+
+        if let value = Bundle.main.object(forInfoDictionaryKey: key) as? String {
+            return sanitized(value)
+        }
+
+        return nil
+    }
+
+    private static func sanitized(_ value: String?) -> String? {
+        guard let value else {
+            return nil
+        }
+
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.contains("$(") else {
+            return nil
+        }
+
+        return trimmed
     }
 }
 

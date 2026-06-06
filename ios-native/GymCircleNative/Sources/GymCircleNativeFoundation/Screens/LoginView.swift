@@ -4,11 +4,13 @@ public struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var isSubmitting = false
-    @State private var error: String?
+    @State private var localError: String?
 
+    private let error: String?
     private let onSignIn: (String, String) async throws -> Void
 
-    public init(onSignIn: @escaping (String, String) async throws -> Void) {
+    public init(error: String? = nil, onSignIn: @escaping (String, String) async throws -> Void) {
+        self.error = error
         self.onSignIn = onSignIn
     }
 
@@ -24,17 +26,15 @@ public struct LoginView: View {
             GCCard {
                 VStack(spacing: 12) {
                     TextField("email", text: $email)
-                        .textContentType(.emailAddress)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
+                        .emailInputBehavior()
                         .formField()
 
                     SecureField("senha", text: $password)
-                        .textContentType(.password)
+                        .passwordInputBehavior()
                         .formField()
 
-                    if let error {
-                        GCText(error, style: .caption, color: Color.red.opacity(0.9))
+                    if let message = localError ?? error {
+                        GCText(message, style: .caption, color: Color.red.opacity(0.9))
                     }
 
                     GCButton(isSubmitting ? "Entrando..." : "Entrar") {
@@ -52,18 +52,39 @@ public struct LoginView: View {
 
     private func submit() async {
         isSubmitting = true
-        error = nil
+        localError = nil
         defer { isSubmitting = false }
 
         do {
             try await onSignIn(email, password)
         } catch {
-            self.error = error.localizedDescription
+            self.localError = "Nao foi possivel entrar. Confira email e senha."
         }
     }
 }
 
 private extension View {
+    @ViewBuilder
+    func emailInputBehavior() -> some View {
+        #if os(iOS)
+        self
+            .textContentType(.emailAddress)
+            .textInputAutocapitalization(.never)
+            .keyboardType(.emailAddress)
+        #else
+        self
+        #endif
+    }
+
+    @ViewBuilder
+    func passwordInputBehavior() -> some View {
+        #if os(iOS)
+        self.textContentType(.password)
+        #else
+        self
+        #endif
+    }
+
     func formField() -> some View {
         self
             .font(.system(size: 15, weight: .semibold, design: .rounded))

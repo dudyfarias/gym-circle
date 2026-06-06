@@ -112,3 +112,7 @@ Supabase Swift docs confirm initialization through `SupabaseClient(supabaseURL:s
 - No secrets are committed.
 - Docs explain how to continue.
 - Web/Capacitor validation remains healthy.
+
+## Sprint 3.1 Follow-up
+
+Sprint 3.1 builds on this foundation by connecting the parallel SwiftUI app to real Supabase Auth, session restore, read-only feed, stories, profile posts and My Circle consistency data. The production app remains the Next.js + Capacitor target in `ios/App`.

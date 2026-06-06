@@ -11,6 +11,7 @@ out
 # build outputs
 dist
 build
+**/.build
 coverage
 output
 

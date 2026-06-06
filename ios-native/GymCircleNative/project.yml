@@ -39,6 +39,8 @@ targets:
         NSPhotoLibraryUsageDescription: O Gym Circle nativo usara a galeria para selecionar midias em uma sprint futura.
         NSMicrophoneUsageDescription: O Gym Circle nativo usara o microfone para videos em uma sprint futura.
         NSLocationWhenInUseUsageDescription: O Gym Circle nativo usara localizacao para lugares e academias em uma sprint futura.
+        SUPABASE_URL: $(SUPABASE_URL)
+        SUPABASE_ANON_KEY: $(SUPABASE_ANON_KEY)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev
