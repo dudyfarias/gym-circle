@@ -263,6 +263,32 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    // MARK: - Detail accessors (Sprint 8.9 - Plugin Bridge expansion)
+
+    /// Busca o `UserAchievementRecord` específico do user pra um composite ID.
+    /// Usado por NativeAchievementDetailHost pra hidratar earnedAt/count.
+    public func fetchUserRecord(compositeId: String) async -> UserAchievementRecord? {
+        guard let achievementsService,
+              let userId = sessionStore?.currentUserId else { return nil }
+        do {
+            let records = try await achievementsService.getUserAchievements(userId: userId)
+            return records.first(where: { $0.achievementId == compositeId })
+        } catch {
+            return nil
+        }
+    }
+
+    /// Busca raridade global (% de users que conquistaram) — RPC supabase.
+    /// Cache LRU futuro (Sprint 8.11+) — por ora chama a cada open.
+    public func fetchGlobalStats(compositeId: String) async -> AchievementGlobalStats? {
+        guard let achievementsService else { return nil }
+        do {
+            return try await achievementsService.getGlobalStats(achievementId: compositeId)
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Backwards-compat
 
     /// Legacy: usado por MainTabView (Sprint 3 read-only) antes do Sprint 8.2

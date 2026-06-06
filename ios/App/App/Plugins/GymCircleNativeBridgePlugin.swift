@@ -363,8 +363,11 @@ private struct NativeAchievementDetailHost: View {
         )
         .task {
             await model.boot()
-            // Sprint 8.x — Buscar userRecord específico via service
-            // (filtra achievements do user pelo compositeId)
+            // Sprint 8.9 — fetch userRecord + globalStats em paralelo
+            async let recordTask = model.fetchUserRecord(compositeId: compositeId)
+            async let statsTask = model.fetchGlobalStats(compositeId: compositeId)
+            record = await recordTask
+            globalStats = await statsTask
         }
     }
 
