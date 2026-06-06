@@ -41,6 +41,19 @@ public final class GymCircleAppModel: ObservableObject {
 
     private let api: GymCircleAPI?
     private let myCircleService: MyCircleService?
+    private let achievementsService: AchievementsService?
+    private let challengesService: ChallengesService?
+
+    // MARK: - State expandido pra Sprint 8.4
+
+    /// Sprint 8.4 — array completo de achievements (todas 5 categorias)
+    /// computado client-side via AchievementBuilder.buildAll após services
+    /// retornarem. Re-publicado pra UI observar.
+    @Published public private(set) var achievements: [Achievement] = []
+
+    /// IDs de achievements ainda não celebrados. Drive AchievementCelebrationView
+    /// queue na UI nativa (Sprint 8.7).
+    @Published public private(set) var uncelebratedAchievementIds: [String] = []
 
     public var isAuthenticated: Bool {
         sessionStore?.isAuthenticated ?? false
@@ -56,10 +69,14 @@ public final class GymCircleAppModel: ObservableObject {
         let sessionStore = SessionStore(authService: authService)
         let api = GymCircleAPI(client: client)
         let myCircleService = MyCircleService(client: client)
+        let achievementsService = AchievementsService(client: client)
+        let challengesService = ChallengesService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
-            myCircleService: myCircleService
+            myCircleService: myCircleService,
+            achievementsService: achievementsService,
+            challengesService: challengesService
         )
     }
 
@@ -68,11 +85,15 @@ public final class GymCircleAppModel: ObservableObject {
     public init(
         sessionStore: SessionStore? = nil,
         api: GymCircleAPI? = nil,
-        myCircleService: MyCircleService? = nil
+        myCircleService: MyCircleService? = nil,
+        achievementsService: AchievementsService? = nil,
+        challengesService: ChallengesService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
         self.myCircleService = myCircleService
+        self.achievementsService = achievementsService
+        self.challengesService = challengesService
     }
 
     // MARK: - Boot pipeline
@@ -137,9 +158,11 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
-    /// Sprint 8.3 — fetcha MyCircleViewData real via MyCircleService.
-    /// Caller (Plugin Bridge ou MainTabView) chama isso depois de auth OK.
-    /// Quando services ausentes ou erro, usa demo data como fallback graceful.
+    /// Sprint 8.3 + 8.4 — fetcha TUDO pra MyCircleViewData: stats reais,
+    /// monthly challenges, achievements computados client-side via
+    /// AchievementBuilder, featured/highlight via AchievementSuggester.
+    ///
+    /// Quando services ausentes ou erro, fallback graceful pra demo data.
     public func loadMyCircle() async {
         guard let sessionStore, let myCircleService else {
             myCircleData = MyCircleViewData.demo(
@@ -154,7 +177,40 @@ public final class GymCircleAppModel: ObservableObject {
         }
 
         do {
+            // 1. Stats reais (Sprint 8.3)
             let summary = try await myCircleService.getSummary(userId: userId)
+
+            // 2. Monthly challenges (Sprint 8.4)
+            let challenges: [MonthlyChallenge] = await {
+                guard let challengesService else { return [] }
+                return (try? await challengesService.loadChallenges(userId: userId)) ?? []
+            }()
+
+            // 3. Computa achievements client-side via builder
+            let builderInput = AchievementBuilder.Input(
+                postsCount: 0, // Sprint 8.x — wire profile_posts count
+                longestStreak: summary.stats.bestStreak,
+                workoutsThisMonth: summary.stats.workoutsThisMonth,
+                workoutsThisWeek: summary.stats.workoutsThisWeek,
+                activeDaysCount: summary.stats.workoutsThisYear,
+                followersCount: 0, // Sprint 8.x — wire follows count
+                hasUsedStreakRestore: false,
+                createdAt: nil,
+                monthlyChallenges: challenges
+            )
+            let allAchievements = AchievementBuilder.buildAll(input: builderInput)
+            achievements = allAchievements
+
+            let earnedCount = allAchievements.filter(\.earned).count
+            let totalCount = allAchievements.count
+            let highlight = AchievementSuggester.nextAchievement(achievements: allAchievements)
+                ?? AchievementSuggester.suggestFeatured(achievements: allAchievements, count: 1).first
+
+            // 4. Uncelebrated queue (Sprint 7.5.11 — Sprint 8.7 vai mostrar overlay)
+            if let achievementsService {
+                uncelebratedAchievementIds = (try? await achievementsService.getUncelebratedAchievementIds(userId: userId)) ?? []
+            }
+
             myCircleData = MyCircleViewData(
                 userId: userId,
                 isOwn: true,
@@ -163,21 +219,47 @@ public final class GymCircleAppModel: ObservableObject {
                 avatarURL: profile?.avatarURL.flatMap(URL.init(string:)),
                 stats: summary.stats,
                 calendarDays: CalendarBuilder.buildMonth(
-                    workoutDays: [], // Sprint 8.4: trazer activity_days pra cá
+                    workoutDays: [],
                     todayKey: Self.todayKey()
                 ),
                 currentLevel: StreakLevel.current(for: summary.stats.currentStreak),
                 allLevels: StreakLevel.all,
-                highlightBadge: nil,     // Sprint 8.4: AchievementsService
-                nextBadge: nil,
-                earnedCount: 0,
-                totalAchievements: 22,    // hardcoded até Sprint 8.4 conectar
-                monthlyChallenges: []     // Sprint 8.4: ChallengesService
+                highlightBadge: highlight,
+                nextBadge: highlight,
+                earnedCount: earnedCount,
+                totalAchievements: totalCount,
+                monthlyChallenges: challenges
             )
         } catch {
             self.error = error.localizedDescription
-            // Fallback graceful pra demo se falhar
             myCircleData = MyCircleViewData.demo(userId: userId, isOwn: true)
+        }
+    }
+
+    // MARK: - Sprint 8.4 — celebration management
+
+    /// Marca um achievement como celebrado e remove da queue.
+    /// Chamado quando user dispensa AchievementCelebrationView.
+    public func markCelebrated(compositeId: String) async {
+        guard let achievementsService,
+              let userId = sessionStore?.currentUserId else { return }
+        do {
+            try await achievementsService.markCelebrated(userId: userId, compositeId: compositeId)
+            uncelebratedAchievementIds.removeAll { $0 == compositeId }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Marca TODOS uncelebrated como celebrados ("Pular tudo").
+    public func markAllCelebrated() async {
+        guard let achievementsService,
+              let userId = sessionStore?.currentUserId else { return }
+        do {
+            try await achievementsService.markAllCelebrated(userId: userId)
+            uncelebratedAchievementIds = []
+        } catch {
+            self.error = error.localizedDescription
         }
     }
 
