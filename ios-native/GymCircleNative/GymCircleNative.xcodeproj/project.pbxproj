@@ -35,6 +35,7 @@
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
+		C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */; };
 		CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */; };
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
 		CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489ABF91A6CB491B111116DC /* FeedView.swift */; };
@@ -72,6 +73,7 @@
 		9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsService.swift; sourceTree = "<group>"; };
 		A52D40B4007DAC206C665780 /* FeedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPost.swift; sourceTree = "<group>"; };
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapPeriodPickerSheet.swift; sourceTree = "<group>"; };
 		C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAPI.swift; sourceTree = "<group>"; };
 		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
@@ -138,6 +140,7 @@
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
 				71697375FF0895F613E1090F /* MyCircleView.swift */,
 				ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */,
+				BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */,
 				F20940CB53959FF53CFF9C75 /* StoriesViews.swift */,
 			);
 			path = Screens;
@@ -315,6 +318,7 @@
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
 				3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */,
+				C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */,
 				CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */,
 				6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */,
 				079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */,
