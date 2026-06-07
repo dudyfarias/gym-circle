@@ -158,8 +158,15 @@ public enum CalendarBuilder {
     /// Constrói array de dias do mês corrente do todayKey (YYYY-MM-DD).
     /// Paridade com `buildMonthWorkoutDays` TS — mínimo necessário pra UI.
     public static func buildMonth(workoutDays: [String], todayKey: String) -> [CalendarDay] {
-        // "YYYY-MM-DD" → extrai "YYYY-MM"
         let monthKey = String(todayKey.prefix(7))
+        return buildMonth(monthKey: monthKey, workoutDays: workoutDays, todayKey: todayKey)
+    }
+
+    /// Sprint 8.11.3 — variação que aceita `monthKey` explícito ("YYYY-MM").
+    /// Usado pela navegação calendar ← → quando user vê meses passados.
+    /// `todayKey` continua sendo "hoje" pra ring de today highlight quando
+    /// o mês corrente contém hoje.
+    public static func buildMonth(monthKey: String, workoutDays: [String], todayKey: String) -> [CalendarDay] {
         let parts = monthKey.split(separator: "-")
         guard parts.count == 2,
               let year = Int(parts[0]),

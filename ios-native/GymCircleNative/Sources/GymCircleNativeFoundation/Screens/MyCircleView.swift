@@ -22,19 +22,27 @@ public struct MyCircleView: View {
     public let onTapBadgeHighlight: (() -> Void)?
     public let onTapChallenge: ((MonthlyChallenge) -> Void)?
     public let onTapRecap: (() -> Void)?
+    /// Sprint 8.11.3 — recebe offset de mês (-1, 0, +1...) pra recarregar
+    /// `data.calendarDays`. Quando nil, chevrons não aparecem (back-compat).
+    public let onChangeMonth: ((Int) -> Void)?
+
+    /// Sprint 8.11.3 — offset atual do mês exibido no calendar. 0 = hoje.
+    @State private var calendarMonthOffset: Int = 0
 
     public init(
         data: MyCircleViewData,
         onClose: (() -> Void)? = nil,
         onTapBadgeHighlight: (() -> Void)? = nil,
         onTapChallenge: ((MonthlyChallenge) -> Void)? = nil,
-        onTapRecap: (() -> Void)? = nil
+        onTapRecap: (() -> Void)? = nil,
+        onChangeMonth: ((Int) -> Void)? = nil
     ) {
         self.data = data
         self.onClose = onClose
         self.onTapBadgeHighlight = onTapBadgeHighlight
         self.onTapChallenge = onTapChallenge
         self.onTapRecap = onTapRecap
+        self.onChangeMonth = onChangeMonth
     }
 
     public var body: some View {
@@ -166,13 +174,68 @@ public struct MyCircleView: View {
         }
     }
 
-    // MARK: - D. Calendar
+    // MARK: - D. Calendar (Sprint 8.11.3 — navegação ← →)
 
     private var calendarSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Calendário do mês")
+            HStack {
+                sectionTitle("Calendário do mês")
+                Spacer()
+                if onChangeMonth != nil {
+                    calendarMonthNav
+                }
+            }
             MonthlyCalendarGridView(days: data.calendarDays, todayKey: todayKey)
         }
+    }
+
+    private var calendarMonthNav: some View {
+        HStack(spacing: 8) {
+            Button(action: { changeMonth(by: -1) }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 12, weight: .heavy))
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(Color.white.opacity(0.06)))
+                    .foregroundColor(.white.opacity(0.72))
+            }
+            .buttonStyle(.plain)
+
+            Text(currentMonthLabel)
+                .font(.system(size: 12, weight: .heavy))
+                .foregroundColor(.white)
+                .frame(minWidth: 96)
+
+            Button(action: { changeMonth(by: 1) }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .heavy))
+                    .frame(width: 32, height: 32)
+                    .background(Circle().fill(Color.white.opacity(0.06)))
+                    .foregroundColor(calendarMonthOffset >= 0 ? .white.opacity(0.32) : .white.opacity(0.72))
+            }
+            .buttonStyle(.plain)
+            .disabled(calendarMonthOffset >= 0) // não navega pra futuro
+        }
+    }
+
+    /// Re-renderiza label do mês baseado no offset corrente.
+    private var currentMonthLabel: String {
+        var calendar = Calendar(identifier: .gregorian)
+        if let tz = TimeZone(identifier: "America/Sao_Paulo") {
+            calendar.timeZone = tz
+        }
+        let target = calendar.date(byAdding: .month, value: calendarMonthOffset, to: .now) ?? .now
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = .current
+        formatter.dateFormat = "LLLL yyyy"
+        return formatter.string(from: target).capitalized
+    }
+
+    private func changeMonth(by delta: Int) {
+        let newOffset = calendarMonthOffset + delta
+        guard newOffset <= 0 else { return } // sem futuro
+        calendarMonthOffset = newOffset
+        onChangeMonth?(newOffset)
     }
 
     private var todayKey: String {

@@ -54,6 +54,32 @@ public actor MyCircleService {
         try await getSummary(userId: userId, date: date).rings
     }
 
+    /// Sprint 8.11.3 — workout days de um mês específico (YYYY-MM).
+    /// Usado pela navegação calendar ← → no MyCircleView. Range filtrado
+    /// no DB pra evitar transferir o ano inteiro só pra mostrar 1 mês.
+    public func getWorkoutDays(userId: String, monthKey: String) async throws -> [String] {
+        let parts = monthKey.split(separator: "-")
+        guard parts.count == 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]) else { return [] }
+
+        let monthStart = String(format: "%04d-%02d-01", year, month)
+        // 1º dia do próximo mês = limite superior (exclusive via lt)
+        let nextMonth = month == 12 ? 1 : month + 1
+        let nextYear = month == 12 ? year + 1 : year
+        let monthEnd = String(format: "%04d-%02d-01", nextYear, nextMonth)
+
+        let rows: [UserActivityDayRow] = try await client
+            .from("user_activity_days")
+            .select("activity_date")
+            .eq("user_id", value: userId)
+            .gte("activity_date", value: monthStart)
+            .lt("activity_date", value: monthEnd)
+            .execute()
+            .value
+        return Array(Set(rows.map(\.activityDate))).sorted()
+    }
+
     private func fetchStats(userId: String) async throws -> UserStatsLiveRow? {
         let rows: [UserStatsLiveRow] = try await client
             .from("user_stats_live")

@@ -263,6 +263,62 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    // MARK: - Sprint 8.11.3 — calendar navigation
+
+    /// Carrega dias treinados de um mês específico (offset relativo ao hoje:
+    /// 0 = mês corrente, -1 = mês anterior, +1 = mês seguinte). Atualiza
+    /// `myCircleData.calendarDays` no @Published — UI re-renderiza.
+    /// No-op quando services ausentes (modo demo).
+    public func loadCalendarForMonth(offset: Int) async {
+        guard let myCircleService,
+              let userId = sessionStore?.currentUserId,
+              var data = myCircleData else { return }
+
+        let targetMonthKey = Self.monthKey(offsetFromToday: offset)
+        do {
+            let days = try await myCircleService.getWorkoutDays(
+                userId: userId,
+                monthKey: targetMonthKey
+            )
+            let newCalendar = CalendarBuilder.buildMonth(
+                monthKey: targetMonthKey,
+                workoutDays: days,
+                todayKey: Self.todayKey()
+            )
+            data = MyCircleViewData(
+                userId: data.userId,
+                isOwn: data.isOwn,
+                displayName: data.displayName,
+                username: data.username,
+                avatarURL: data.avatarURL,
+                stats: data.stats,
+                calendarDays: newCalendar,
+                currentLevel: data.currentLevel,
+                allLevels: data.allLevels,
+                highlightBadge: data.highlightBadge,
+                nextBadge: data.nextBadge,
+                earnedCount: data.earnedCount,
+                totalAchievements: data.totalAchievements,
+                monthlyChallenges: data.monthlyChallenges
+            )
+            myCircleData = data
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Retorna YYYY-MM relativo a hoje. Offset 0 = mês corrente.
+    private static func monthKey(offsetFromToday offset: Int) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        if let tz = TimeZone(identifier: "America/Sao_Paulo") {
+            calendar.timeZone = tz
+        }
+        let target = calendar.date(byAdding: .month, value: offset, to: .now) ?? .now
+        let y = calendar.component(.year, from: target)
+        let m = calendar.component(.month, from: target)
+        return String(format: "%04d-%02d", y, m)
+    }
+
     // MARK: - Sprint 8.4 — celebration management
 
     /// Marca um achievement como celebrado e remove da queue.

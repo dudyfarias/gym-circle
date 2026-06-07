@@ -234,6 +234,10 @@ private struct NativeMyCircleHost: View {
             },
             onTapRecap: {
                 // Sprint 8.x — aqui chama presentRecapNative
+            },
+            onChangeMonth: { offset in
+                // Sprint 8.11.3 — recarrega workoutDays do mês escolhido
+                Task { await model.loadCalendarForMonth(offset: offset) }
             }
         )
         .task {
