@@ -213,8 +213,16 @@ public final class GymCircleAppModel: ObservableObject {
             let currentMonth = Self.monthKey(offsetFromToday: 0)
             async let monthPostsTask: [MonthCalendarPost] =
                 (try? await myCircleService.getMonthPosts(userId: userId, monthKey: currentMonth)) ?? []
+            // Sprint 8.13.2 — paralelo: distinct types em 7d + gyms em 30d
+            // alimentam achievements secret cross-trainer e explorer
+            async let distinctTypesTask: Int =
+                (try? await myCircleService.getDistinctWorkoutTypes(userId: userId, sinceDaysAgo: 7)) ?? 0
+            async let distinctGymsTask: Int =
+                (try? await myCircleService.getDistinctGyms(userId: userId, sinceDaysAgo: 30)) ?? 0
             let challenges = await challengesTask
             let monthPosts = await monthPostsTask
+            let distinctTypes = await distinctTypesTask
+            let distinctGyms = await distinctGymsTask
 
             // 3. Computa achievements client-side via builder
             // Sprint 8.11.1 — todos inputs hidratados via MyCircleSummary +
@@ -229,7 +237,9 @@ public final class GymCircleAppModel: ObservableObject {
                 followersCount: summary.followersCount,
                 hasUsedStreakRestore: summary.hasUsedStreakRestore,
                 createdAt: profile?.createdAt,
-                monthlyChallenges: challenges
+                monthlyChallenges: challenges,
+                distinctWorkoutTypesIn7Days: distinctTypes,
+                distinctGymsIn30Days: distinctGyms
             )
             let allAchievements = AchievementBuilder.buildAll(input: builderInput)
             achievements = allAchievements

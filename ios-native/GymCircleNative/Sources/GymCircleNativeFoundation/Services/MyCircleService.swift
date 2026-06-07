@@ -54,6 +54,40 @@ public actor MyCircleService {
         try await getSummary(userId: userId, date: date).rings
     }
 
+    /// Sprint 8.13.2 — workout types distintos do user nos últimos N dias.
+    /// Usado pelo achievement secret `cross-trainer` (3+ tipos em 7d).
+    public func getDistinctWorkoutTypes(userId: String, sinceDaysAgo: Int) async throws -> Int {
+        let calendar = Calendar(identifier: .gregorian)
+        let cutoff = calendar.date(byAdding: .day, value: -sinceDaysAgo, to: .now) ?? .now
+        let cutoffKey = Self.dateFormatter.string(from: cutoff)
+
+        let rows: [PostWorkoutTypeRow] = try await client
+            .from("posts")
+            .select("workout_type")
+            .eq("user_id", value: userId)
+            .gte("workout_date", value: cutoffKey)
+            .execute()
+            .value
+        return Set(rows.map(\.workoutType).filter { !$0.isEmpty }).count
+    }
+
+    /// Sprint 8.13.2 — gym IDs distintos do user nos últimos N dias.
+    /// Usado pelo achievement secret `explorer` (5+ academias em 30d).
+    public func getDistinctGyms(userId: String, sinceDaysAgo: Int) async throws -> Int {
+        let calendar = Calendar(identifier: .gregorian)
+        let cutoff = calendar.date(byAdding: .day, value: -sinceDaysAgo, to: .now) ?? .now
+        let cutoffKey = Self.dateFormatter.string(from: cutoff)
+
+        let rows: [PostGymRow] = try await client
+            .from("posts")
+            .select("gym_id")
+            .eq("user_id", value: userId)
+            .gte("workout_date", value: cutoffKey)
+            .execute()
+            .value
+        return Set(rows.compactMap(\.gymId)).count
+    }
+
     /// Sprint 8.13.1 — posts do mês para renderizar thumbnails no calendar.
     /// Retorna lista (workout_date, post_id, image_url) ordenada por
     /// workout_date asc. UI agrupa por dia (1 thumbnail por dia, prefere
@@ -248,4 +282,15 @@ public struct MonthCalendarPost: Hashable, Sendable {
     public let dateKey: String  // YYYY-MM-DD
     public let postId: String
     public let imageURL: URL
+}
+
+/// Sprint 8.13.2 — shapes só do `workout_type` e `gym_id` pros 2 secrets.
+private struct PostWorkoutTypeRow: Codable, Sendable {
+    let workoutType: String
+    enum CodingKeys: String, CodingKey { case workoutType = "workout_type" }
+}
+
+private struct PostGymRow: Codable, Sendable {
+    let gymId: String?
+    enum CodingKeys: String, CodingKey { case gymId = "gym_id" }
 }

@@ -19,6 +19,12 @@ public enum AchievementBuilder {
         public let hasUsedStreakRestore: Bool
         public let createdAt: Date?
         public let monthlyChallenges: [MonthlyChallenge]
+        /// Sprint 8.13.2 — tipos de treino distintos nos últimos 7 dias.
+        /// Alimenta cross-trainer secret (3+).
+        public let distinctWorkoutTypesIn7Days: Int
+        /// Sprint 8.13.2 — academias distintas nos últimos 30 dias.
+        /// Alimenta explorer secret (5+).
+        public let distinctGymsIn30Days: Int
 
         public init(
             postsCount: Int,
@@ -29,7 +35,9 @@ public enum AchievementBuilder {
             followersCount: Int,
             hasUsedStreakRestore: Bool = false,
             createdAt: Date? = nil,
-            monthlyChallenges: [MonthlyChallenge] = []
+            monthlyChallenges: [MonthlyChallenge] = [],
+            distinctWorkoutTypesIn7Days: Int = 0,
+            distinctGymsIn30Days: Int = 0
         ) {
             self.postsCount = postsCount
             self.longestStreak = longestStreak
@@ -40,6 +48,8 @@ public enum AchievementBuilder {
             self.hasUsedStreakRestore = hasUsedStreakRestore
             self.createdAt = createdAt
             self.monthlyChallenges = monthlyChallenges
+            self.distinctWorkoutTypesIn7Days = distinctWorkoutTypesIn7Days
+            self.distinctGymsIn30Days = distinctGymsIn30Days
         }
     }
 
@@ -85,6 +95,26 @@ public enum AchievementBuilder {
                 earned: false,
                 iconKey: .moon,
                 rarity: .uncommon,
+                secret: true
+            ),
+            Achievement(
+                kind: .badge,
+                achievementId: "cross-trainer",
+                label: "Versátil",
+                description: "Variou 3+ tipos de treino em 7 dias.",
+                earned: input.distinctWorkoutTypesIn7Days >= 3,
+                iconKey: .shuffle,
+                rarity: .rare,
+                secret: true
+            ),
+            Achievement(
+                kind: .badge,
+                achievementId: "explorer",
+                label: "Explorador",
+                description: "Treinou em 5+ academias diferentes em 30 dias.",
+                earned: input.distinctGymsIn30Days >= 5,
+                iconKey: .compass,
+                rarity: .epic,
                 secret: true
             )
         ]
