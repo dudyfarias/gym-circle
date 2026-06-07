@@ -286,6 +286,12 @@ private struct NativeMyCircleHost: View {
         _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
     }
 
+    // Sprint 9.5.2 — nested fullScreenCover state pros 3 callbacks.
+    // Evita o tap do user terminar em void (era stub em Sprint 8.x).
+    @State private var hubOpen = false
+    @State private var detailAchievement: Achievement?
+    @State private var recapOpen = false
+
     var body: some View {
         MyCircleView(
             data: model.myCircleData ?? MyCircleViewData.demo(
@@ -293,15 +299,14 @@ private struct NativeMyCircleHost: View {
                 isOwn: isOwn
             ),
             onClose: onDismiss,
-            onTapBadgeHighlight: {
-                // Sprint 8.5 — aqui chama presentAchievementsHub
+            onTapBadgeHighlight: { hubOpen = true },
+            onTapChallenge: { challenge in
+                // Achievement composite "challenge:periodKey:id"
+                if let match = model.achievements.first(where: { $0.achievementId == challenge.id }) {
+                    detailAchievement = match
+                }
             },
-            onTapChallenge: { _ in
-                // Sprint 8.4 — aqui chama presentAchievementDetail
-            },
-            onTapRecap: {
-                // Sprint 8.x — aqui chama presentRecapNative
-            },
+            onTapRecap: { recapOpen = true },
             onChangeMonth: { offset in
                 // Sprint 8.11.3 — recarrega workoutDays do mês escolhido
                 Task { await model.loadCalendarForMonth(offset: offset) }
@@ -311,6 +316,24 @@ private struct NativeMyCircleHost: View {
             // Sprint 8.3 — tenta restaurar session + buscar dados reais.
             // Quando sucesso, MyCircleView re-renderiza via @Published.
             await model.boot()
+        }
+        // Sprint 9.5.2 — nested presentations dentro do MyCircle nativo
+        .fullScreenCover(isPresented: $hubOpen) {
+            NativeAchievementsHubHost(userId: userId, onDismiss: { hubOpen = false })
+        }
+        .fullScreenCover(item: $detailAchievement) { achievement in
+            NativeAchievementDetailHost(
+                userId: userId,
+                compositeId: achievement.compositeId,
+                onDismiss: { detailAchievement = nil }
+            )
+        }
+        .fullScreenCover(isPresented: $recapOpen) {
+            NativeMonthlyRecapHost(
+                userId: userId,
+                monthKey: nil,
+                onDismiss: { recapOpen = false }
+            )
         }
     }
 
