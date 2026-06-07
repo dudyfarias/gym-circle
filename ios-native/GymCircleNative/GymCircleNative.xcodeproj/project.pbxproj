@@ -33,6 +33,7 @@
 		A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */; };
 		A237D22A211DEBC05FFAFE2F /* RecapCoverPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */; };
 		A64CCBB3086148E777260BA8 /* AchievementBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A25EE1B0649D40C491D4501 /* AchievementBuilder.swift */; };
+		AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */; };
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
@@ -79,6 +80,7 @@
 		BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapPeriodPickerSheet.swift; sourceTree = "<group>"; };
 		C0BB038D99927918121215E6 /* OtherProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherProfileView.swift; sourceTree = "<group>"; };
 		C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAPI.swift; sourceTree = "<group>"; };
+		C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileSheet.swift; sourceTree = "<group>"; };
 		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
@@ -139,6 +141,7 @@
 				5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */,
 				CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */,
 				7E02612239E7BC217D0CE54E /* AchievementsView.swift */,
+				C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */,
 				489ABF91A6CB491B111116DC /* FeedView.swift */,
 				0F5A004267A6D5354857ABFD /* LoginView.swift */,
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
@@ -307,6 +310,7 @@
 				5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */,
 				52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */,
 				AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */,
+				AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */,
 				5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */,
 				CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */,
 				33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */,

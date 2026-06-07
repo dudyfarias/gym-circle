@@ -50,6 +50,15 @@ public enum L10n {
     case profileRequestFollow
     case profileMessage
     case profileLastPost
+    case editProfileTitle
+    case editProfileCancel
+    case editProfileSave
+    case editProfileDisplayName
+    case editProfileBio
+    case editProfileFitnessGoal
+    case editProfilePrivateToggle
+    case editProfilePrivateHint
+    case editProfileChangeAvatarSoon
 
     // MARK: - AchievementDetailView
 
@@ -159,6 +168,22 @@ public enum L10n {
         case .profileRequestFollow:    return isEN ? "Request"           : "Solicitar"
         case .profileMessage:          return isEN ? "Message"           : "Mensagem"
         case .profileLastPost:         return isEN ? "LAST WORKOUT"      : "ÚLTIMO TREINO"
+
+        // Edit profile
+        case .editProfileTitle:       return isEN ? "Edit profile"     : "Editar perfil"
+        case .editProfileCancel:      return isEN ? "Cancel"           : "Cancelar"
+        case .editProfileSave:        return isEN ? "Save"             : "Salvar"
+        case .editProfileDisplayName: return isEN ? "Display name"     : "Nome de exibição"
+        case .editProfileBio:         return isEN ? "Bio"              : "Bio"
+        case .editProfileFitnessGoal: return isEN ? "Fitness goal"     : "Meta fitness"
+        case .editProfilePrivateToggle:
+            return isEN ? "Private account" : "Conta privada"
+        case .editProfilePrivateHint:
+            return isEN
+                ? "Only approved followers see your posts."
+                : "Apenas seguidores aprovados veem seus posts."
+        case .editProfileChangeAvatarSoon:
+            return isEN ? "Avatar upload coming soon" : "Troca de avatar em breve"
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"

@@ -72,6 +72,41 @@ public actor ProfilesService {
             .execute()
     }
 
+    /// Sprint 8.13.7 — atualiza campos editáveis do profile.
+    /// Apenas campos opcionais não-nil são enviados (PATCH-like).
+    public func updateProfile(
+        userId: String,
+        displayName: String? = nil,
+        bio: String? = nil,
+        fitnessGoal: String? = nil,
+        isPrivate: Bool? = nil
+    ) async throws {
+        struct UpdatePayload: Encodable {
+            var displayName: String?
+            var bio: String?
+            var fitnessGoal: String?
+            var isPrivate: Bool?
+
+            enum CodingKeys: String, CodingKey {
+                case displayName = "display_name"
+                case bio
+                case fitnessGoal = "fitness_goal"
+                case isPrivate = "is_private"
+            }
+        }
+        let payload = UpdatePayload(
+            displayName: displayName,
+            bio: bio,
+            fitnessGoal: fitnessGoal,
+            isPrivate: isPrivate
+        )
+        try await client
+            .from("profiles")
+            .update(payload)
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
     private func fetchCoversMap(userId: String) async throws -> [String: String] {
         let rows: [MonthlyRecapCoversRow] = try await client
             .from("profiles")
