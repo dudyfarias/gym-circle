@@ -1054,6 +1054,50 @@ export function GymCirclePreview({
     currentUserPosts,
   ]);
 
+  // Sprint 8.13.3 — bridge híbrido pra celebration queue.
+  // Quando flag NEXT_PUBLIC_USE_NATIVE_MYCIRCLE=true E plugin disponível,
+  // despacha cada achievement da queue como presentCelebration nativo
+  // sequencialmente. NativeCelebrationHost cuida do markCelebrated DB call
+  // internamente. Após despacho, zera state local pra não renderizar
+  // overlay web duplicado. Em falha (plugin não disponível), state local
+  // permanece e overlay web roda normalmente.
+  useEffect(() => {
+    if (celebrationQueue.length === 0) return;
+    if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE !== "true") return;
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId) return;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { GymCircleNativeBridge } = await import(
+          "./native/GymCircleNativeBridge"
+        );
+        if (!(await GymCircleNativeBridge.isAvailable())) return;
+        for (const achievement of celebrationQueue) {
+          if (cancelled) break;
+          try {
+            await GymCircleNativeBridge.presentCelebration({
+              userId: currentUserId,
+              compositeId: getAchievementCompositeId(achievement),
+            });
+          } catch (err) {
+            console.warn("[Celebration] native present failed:", err);
+          }
+        }
+        if (!cancelled) {
+          setCelebrationQueue([]);
+          setCelebrationIndex(0);
+        }
+      } catch (err) {
+        console.warn("[Celebration] native bridge unavailable:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [celebrationQueue, social.currentUser?.id]);
+
   // Sprint 7.5.6 + 7.5.10 — carrega desafios mensais + recomputa progress
   // baseado em workoutDays + posts atuais. Suporta os 5 goal_kinds:
   // workouts_in_month, workout_type_specific, group_workouts, distinct_types
