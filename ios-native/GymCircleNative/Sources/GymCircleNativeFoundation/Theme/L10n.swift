@@ -39,6 +39,8 @@ public enum L10n {
     case myCircleOutroPeriodo
     case myCirclePrivacyTitle
     case myCirclePrivacyBody
+    case myCircleFirstVisitHint
+    case myCircleFirstVisitDismiss
 
     // MARK: - AchievementDetailView
 
@@ -124,6 +126,12 @@ public enum L10n {
             return isEN
                 ? "Follow this profile to see workouts, badges and challenges."
                 : "Siga esse perfil pra ver treinos, badges e desafios."
+        case .myCircleFirstVisitHint:
+            return isEN
+                ? "The rings track your consistency, badges celebrate streaks, and the calendar shows every workout day."
+                : "Os anéis acompanham sua consistência, badges celebram streaks e o calendário mostra cada dia de treino."
+        case .myCircleFirstVisitDismiss:
+            return isEN ? "Got it" : "Entendi"
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"

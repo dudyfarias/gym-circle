@@ -29,6 +29,11 @@ public struct MyCircleView: View {
     /// Sprint 8.11.3 — offset atual do mês exibido no calendar. 0 = hoje.
     @State private var calendarMonthOffset: Int = 0
 
+    /// Sprint 8.12.5 — visibilidade do banner contextual da primeira visita.
+    /// Inicializa lendo UserDefaults (cross-session persist), e o dismiss
+    /// escreve a flag pra não voltar.
+    @State private var firstVisitHintVisible: Bool = false
+
     public init(
         data: MyCircleViewData,
         onClose: (() -> Void)? = nil,
@@ -52,6 +57,9 @@ public struct MyCircleView: View {
 
             ScrollView {
                 VStack(spacing: 28) {
+                    if firstVisitHintVisible && data.isOwn && data.canSeeDetails {
+                        firstVisitHintBanner
+                    }
                     headerSection
                     if !data.canSeeDetails {
                         // Sprint 8.12.4 — perfil privado sem follow aprovado:
@@ -84,6 +92,66 @@ public struct MyCircleView: View {
             if let onClose {
                 closeButtonOverlay(action: onClose)
             }
+        }
+        .onAppear {
+            // Sprint 8.12.5 — checa UserDefaults pra primeira visita do hub.
+            // Persist é por user (avoid mostrar pra outro user logado depois).
+            firstVisitHintVisible = data.isOwn
+                && data.canSeeDetails
+                && !UserDefaults.standard.bool(forKey: firstVisitHintKey)
+        }
+    }
+
+    // MARK: - First-visit hint (Sprint 8.12.5)
+
+    private var firstVisitHintKey: String {
+        "gymcircle.myCircle.firstVisitHint.seen.\(data.userId)"
+    }
+
+    /// Banner contextual mostrado UMA VEZ pra dono do MyCircle. Explica os
+    /// 3 pilares (rings, badges, calendar). Tap "Entendi" persiste cross-session.
+    private var firstVisitHintBanner: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .heavy))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.18)))
+                .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(L10n.myCircleFirstVisitHint.string)
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundColor(.white.opacity(0.86))
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button(action: dismissFirstVisitHint) {
+                    Text(L10n.myCircleFirstVisitDismiss.string)
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(0.4)
+                        .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(GymCircleTheme.ColorToken.electricBlue.opacity(0.24), lineWidth: 1)
+                )
+        )
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+
+    private func dismissFirstVisitHint() {
+        UserDefaults.standard.set(true, forKey: firstVisitHintKey)
+        withAnimation(.easeOut(duration: 0.24)) {
+            firstVisitHintVisible = false
         }
     }
 
