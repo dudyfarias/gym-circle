@@ -65,6 +65,7 @@ public struct MyCircleView: View {
                     }
                     if data.isOwn {
                         recapCTASection
+                        competitionPlaceholderSection
                     }
                     Spacer(minLength: 32)
                 }
@@ -316,7 +317,7 @@ public struct MyCircleView: View {
                     .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    GCText(L10n.myCircleCompartilharResumo.string, style: .body, color: GymCircleTheme.ColorToken.primaryText)
+                    GCText(L10n.myCircleCompartilharResumoMes(currentMonthShortLabel).string, style: .body, color: GymCircleTheme.ColorToken.primaryText)
                     GCText(L10n.myCircleEscolheFoto.string, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 }
 
@@ -347,6 +348,47 @@ public struct MyCircleView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - I. Competição placeholder (Sprint 8.12.3, paridade web seção G)
+
+    private var competitionPlaceholderSection: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "trophy")
+                .font(.system(size: 26, weight: .regular))
+                .foregroundColor(.white.opacity(0.32))
+
+            Text("\(L10n.myCircleCompeticao.string) · \(L10n.myCircleEmBreve.string)")
+                .font(.system(size: 14, weight: .heavy))
+                .foregroundColor(.white)
+
+            Text(L10n.myCircleCompeticaoDescricao.string)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(.white.opacity(0.52))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    Color.white.opacity(0.08),
+                    style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                )
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .fill(Color.white.opacity(0.02))
+                )
+        )
+    }
+
+    /// Mês corrente abreviado em locale ativo. Usado pelo Recap CTA pra
+    /// trocar "Compartilhar resumo" → "Compartilhar resumo de maio".
+    private var currentMonthShortLabel: String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.dateFormat = "LLLL"
+        return formatter.string(from: .now)
     }
 
     // MARK: - Helpers

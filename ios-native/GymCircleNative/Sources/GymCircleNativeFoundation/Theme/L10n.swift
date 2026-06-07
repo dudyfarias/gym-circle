@@ -31,7 +31,12 @@ public enum L10n {
     case myCircleNiveis
     case myCircleDesafiosMes
     case myCircleCompartilharResumo
+    case myCircleCompartilharResumoMes(String)
     case myCircleEscolheFoto
+    case myCircleCompeticao
+    case myCircleEmBreve
+    case myCircleCompeticaoDescricao
+    case myCircleOutroPeriodo
 
     // MARK: - AchievementDetailView
 
@@ -103,7 +108,15 @@ public enum L10n {
         case .myCircleNiveis:             return isEN ? "Levels"             : "Níveis"
         case .myCircleDesafiosMes:        return isEN ? "Monthly challenges" : "Desafios do mês"
         case .myCircleCompartilharResumo: return isEN ? "Share monthly recap": "Compartilhar resumo"
+        case .myCircleCompartilharResumoMes(let mes):
+            return isEN ? "Share \(mes) recap" : "Compartilhar resumo de \(mes)"
         case .myCircleEscolheFoto:        return isEN ? "You pick the cover photo" : "Você escolhe a foto da capa"
+        case .myCircleCompeticao:         return isEN ? "Competition"          : "Competição"
+        case .myCircleEmBreve:            return isEN ? "Coming soon"          : "Em breve"
+        case .myCircleCompeticaoDescricao:
+            return isEN ? "Compete with your circle in weekly leagues."
+                        : "Compita com seu circle em ligas semanais."
+        case .myCircleOutroPeriodo:       return isEN ? "Pick another period"  : "Outro período"
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"
