@@ -37,6 +37,8 @@ public enum L10n {
     case myCircleEmBreve
     case myCircleCompeticaoDescricao
     case myCircleOutroPeriodo
+    case myCirclePrivacyTitle
+    case myCirclePrivacyBody
 
     // MARK: - AchievementDetailView
 
@@ -117,6 +119,11 @@ public enum L10n {
             return isEN ? "Compete with your circle in weekly leagues."
                         : "Compita com seu circle em ligas semanais."
         case .myCircleOutroPeriodo:       return isEN ? "Pick another period"  : "Outro período"
+        case .myCirclePrivacyTitle:       return isEN ? "Profile is private" : "Perfil é privado"
+        case .myCirclePrivacyBody:
+            return isEN
+                ? "Follow this profile to see workouts, badges and challenges."
+                : "Siga esse perfil pra ver treinos, badges e desafios."
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"

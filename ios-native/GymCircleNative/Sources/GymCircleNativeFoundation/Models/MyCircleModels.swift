@@ -222,6 +222,13 @@ public struct MyCircleViewData: Sendable {
     public let totalAchievements: Int
     public let monthlyChallenges: [MonthlyChallenge]
 
+    /// Sprint 8.12.4 — true quando user atual pode ver os detalhes completos
+    /// do MyCircle do dono. Cálculo padrão:
+    /// `isOwn || !ownerIsPrivate || followStatus == "accepted"`.
+    /// Quando `false`, MyCircleView mostra apenas Header + Lock notice
+    /// (paridade `canSeeDetails` em MyCircleSheet.tsx).
+    public let canSeeDetails: Bool
+
     public init(
         userId: String,
         isOwn: Bool,
@@ -236,7 +243,8 @@ public struct MyCircleViewData: Sendable {
         nextBadge: Achievement? = nil,
         earnedCount: Int = 0,
         totalAchievements: Int = 0,
-        monthlyChallenges: [MonthlyChallenge] = []
+        monthlyChallenges: [MonthlyChallenge] = [],
+        canSeeDetails: Bool = true
     ) {
         self.userId = userId
         self.isOwn = isOwn
@@ -252,6 +260,7 @@ public struct MyCircleViewData: Sendable {
         self.earnedCount = earnedCount
         self.totalAchievements = totalAchievements
         self.monthlyChallenges = monthlyChallenges
+        self.canSeeDetails = canSeeDetails
     }
 
     /// Dados de demonstração pra preview + bridge placeholder antes da

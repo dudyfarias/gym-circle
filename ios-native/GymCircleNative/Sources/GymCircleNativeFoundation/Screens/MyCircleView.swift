@@ -53,19 +53,26 @@ public struct MyCircleView: View {
             ScrollView {
                 VStack(spacing: 28) {
                     headerSection
-                    summaryGrid
-                    consistencySection
-                    calendarSection
-                    levelsSection
-                    if data.isOwn, let badge = data.highlightBadge {
-                        badgeHighlightSection(badge: badge)
-                    }
-                    if data.isOwn, !data.monthlyChallenges.isEmpty {
-                        monthlyChallengesSection
-                    }
-                    if data.isOwn {
-                        recapCTASection
-                        competitionPlaceholderSection
+                    if !data.canSeeDetails {
+                        // Sprint 8.12.4 — perfil privado sem follow aprovado:
+                        // Header já mostra avatar/nome/level/streak públicos,
+                        // resto fica trancado.
+                        privacyLockNotice
+                    } else {
+                        summaryGrid
+                        consistencySection
+                        calendarSection
+                        levelsSection
+                        if data.isOwn, let badge = data.highlightBadge {
+                            badgeHighlightSection(badge: badge)
+                        }
+                        if data.isOwn, !data.monthlyChallenges.isEmpty {
+                            monthlyChallengesSection
+                        }
+                        if data.isOwn {
+                            recapCTASection
+                            competitionPlaceholderSection
+                        }
                     }
                     Spacer(minLength: 32)
                 }
@@ -348,6 +355,41 @@ public struct MyCircleView: View {
             )
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Privacy lock (Sprint 8.12.4, paridade canSeeDetails web)
+
+    /// Card centralizado com Lock icon + título + corpo. Mostrado quando
+    /// `data.canSeeDetails == false` (perfil privado sem follow aprovado).
+    private var privacyLockNotice: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 22, weight: .heavy))
+                .frame(width: 56, height: 56)
+                .background(
+                    Circle().fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.14))
+                )
+                .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+
+            Text(L10n.myCirclePrivacyTitle.string)
+                .font(.system(size: 16, weight: .heavy))
+                .foregroundColor(.white)
+
+            Text(L10n.myCirclePrivacyBody.string)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundColor(.white.opacity(0.56))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - I. Competição placeholder (Sprint 8.12.3, paridade web seção G)
