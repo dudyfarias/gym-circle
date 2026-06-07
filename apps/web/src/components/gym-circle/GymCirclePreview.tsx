@@ -413,7 +413,58 @@ export function GymCirclePreview({
     [social.currentUser.id],
   );
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
-  const openBadges = useCallback(() => setBadgesSheetOpen(true), []);
+  // Sprint 8.11.4 — bridge híbrido pra AchievementDetailOverlay. Wrappa o
+  // setter web setAchievementDetail. Quando a flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`
+  // está ativa E o plugin nativo está disponível, abre a tela SwiftUI nativa
+  // (AchievementDetailView). Fallback transparente pro overlay web atual.
+  const openAchievementDetailHybrid = useCallback(
+    async (achievement: Achievement) => {
+      if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
+        try {
+          const { GymCircleNativeBridge } = await import(
+            "./native/GymCircleNativeBridge"
+          );
+          if (await GymCircleNativeBridge.isAvailable()) {
+            await GymCircleNativeBridge.presentAchievementDetail({
+              userId: social.currentUser.id,
+              compositeId: getAchievementCompositeId(achievement),
+            });
+            return;
+          }
+        } catch (err) {
+          console.warn(
+            "[AchievementDetail] native bridge unavailable, falling back to web:",
+            err,
+          );
+        }
+      }
+      setAchievementDetail(achievement);
+    },
+    [social.currentUser.id],
+  );
+  // Sprint 8.11.4 — bridge híbrido pra AchievementsSheet (Hall da Fama).
+  // Substitui openBadges nos call sites que devem abrir o hub completo.
+  const openBadges = useCallback(async () => {
+    if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
+      try {
+        const { GymCircleNativeBridge } = await import(
+          "./native/GymCircleNativeBridge"
+        );
+        if (await GymCircleNativeBridge.isAvailable()) {
+          await GymCircleNativeBridge.presentAchievementsHub({
+            userId: social.currentUser.id,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn(
+          "[AchievementsHub] native bridge unavailable, falling back to web:",
+          err,
+        );
+      }
+    }
+    setBadgesSheetOpen(true);
+  }, [social.currentUser.id]);
   const closeBadges = useCallback(() => setBadgesSheetOpen(false), []);
   const openRecapCoverPicker = useCallback(
     () => setRecapCoverPickerOpen(true),
@@ -1286,7 +1337,7 @@ export function GymCirclePreview({
             // outras surfaces vão consumir nas Sprints 7C.3/7C.4.
             onMarkContextualHintSeen={social.actions.markContextualHintSeen}
             // Sprint 7.5.5 — Featured Achievements row tap abre overlay.
-            onOpenAchievementDetail={setAchievementDetail}
+            onOpenAchievementDetail={openAchievementDetailHybrid}
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
@@ -1595,7 +1646,7 @@ export function GymCirclePreview({
               AchievementDetailOverlay (Sprint 7.5.2). */}
           <AchievementsSheet
             onClose={closeBadges}
-            onOpenAchievementDetail={setAchievementDetail}
+            onOpenAchievementDetail={openAchievementDetailHybrid}
             open={badgesSheetOpen}
             posts={myCircleUserPosts}
             user={myCircleUser}
