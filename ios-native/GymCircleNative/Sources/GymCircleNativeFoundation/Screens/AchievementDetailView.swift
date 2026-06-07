@@ -74,6 +74,11 @@ public struct AchievementDetailView: View {
                     rarityBlock
                         .padding(.top, 12)
 
+                    if !achievement.earned, !achievement.isMysterySecret {
+                        unlockHintBlock
+                            .padding(.top, 16)
+                    }
+
                     Spacer(minLength: 80)
                 }
                 .padding(.horizontal, 20)
@@ -118,11 +123,11 @@ public struct AchievementDetailView: View {
         }
     }
 
-    // MARK: - Artwork
+    // MARK: - Artwork (Sprint 8.12.2 — locked state)
 
     private var artworkLayer: some View {
         ZStack {
-            // Glow ring
+            // Glow ring (só pra earned, paridade web)
             Circle()
                 .fill(spotlightColor)
                 .frame(width: 220, height: 220)
@@ -135,10 +140,34 @@ public struct AchievementDetailView: View {
                 Image(systemName: "questionmark")
                     .font(.system(size: 80, weight: .heavy))
                     .foregroundColor(.white.opacity(0.4))
+            } else if !achievement.earned {
+                // Locked: ícone dim+blur com Lock overlay flutuante.
+                // Paridade ArtworkPlaceholder.locked em AchievementDetailOverlay.tsx
+                ZStack {
+                    BadgeIconNativeView(
+                        iconKey: achievement.iconKey,
+                        earned: false,
+                        size: 140
+                    )
+                    .opacity(0.32)
+                    .blur(radius: 2)
+
+                    // Lock pill central com glass effect
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 24, weight: .heavy))
+                        .foregroundColor(.white.opacity(0.72))
+                        .frame(width: 56, height: 56)
+                        .background(
+                            Circle()
+                                .fill(Color.white.opacity(0.08))
+                                .background(.ultraThinMaterial, in: Circle())
+                        )
+                        .shadow(color: .black.opacity(0.5), radius: 12, y: 4)
+                }
             } else {
                 BadgeIconNativeView(
                     iconKey: achievement.iconKey,
-                    earned: achievement.earned,
+                    earned: true,
                     size: 140
                 )
             }
@@ -271,6 +300,34 @@ public struct AchievementDetailView: View {
             .padding(.vertical, 6)
             .background(Capsule().fill(color.opacity(0.16)))
             .foregroundColor(color)
+    }
+
+    // MARK: - Unlock hint (Sprint 8.12.2)
+
+    /// Bloco "Como desbloquear" — mostra hint visual + descrição completa.
+    /// Aparece só pra achievements não-earned e não-secret. Paridade web
+    /// "Como desbloquear" em AchievementDetailOverlay.tsx.
+    private var unlockHintBlock: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.system(size: 14, weight: .heavy))
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(Color.white.opacity(0.06)))
+                .foregroundColor(.white.opacity(0.56))
+
+            Text(achievement.description)
+                .font(.system(size: 12.5, weight: .semibold))
+                .foregroundColor(.white.opacity(0.72))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Helpers
