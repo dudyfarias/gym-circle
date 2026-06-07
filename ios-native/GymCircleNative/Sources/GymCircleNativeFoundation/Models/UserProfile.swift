@@ -18,6 +18,11 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
     /// Cada string formato "kind:id" (ou "challenge:periodKey:id").
     public let featuredAchievements: [String]
 
+    /// Sprint 8.11.1 — quando o user criou a conta. Usado pra unlockar
+    /// achievement `founder-2026` (`createdAt` em 2026). Opcional pra
+    /// preservar back-compat com inits sintéticos.
+    public let createdAt: Date?
+
     public init(
         id: String,
         userId: String,
@@ -30,7 +35,8 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         currentStreak: Int = 0,
         bestStreak: Int = 0,
         badgeIsActiveToday: Bool = false,
-        featuredAchievements: [String] = []
+        featuredAchievements: [String] = [],
+        createdAt: Date? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -44,6 +50,7 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         self.bestStreak = bestStreak
         self.badgeIsActiveToday = badgeIsActiveToday
         self.featuredAchievements = featuredAchievements
+        self.createdAt = createdAt
     }
 
     enum CodingKeys: String, CodingKey {
@@ -59,6 +66,7 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         case bestStreak = "best_streak"
         case badgeIsActiveToday = "badge_is_active_today"
         case featuredAchievements = "featured_achievements"
+        case createdAt = "created_at"
     }
 
     public init(from decoder: Decoder) throws {
@@ -75,5 +83,13 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         self.bestStreak = try container.decodeIfPresent(Int.self, forKey: .bestStreak) ?? 0
         self.badgeIsActiveToday = try container.decodeIfPresent(Bool.self, forKey: .badgeIsActiveToday) ?? false
         self.featuredAchievements = try container.decodeIfPresent([String].self, forKey: .featuredAchievements) ?? []
+        // Supabase devolve ISO 8601 — usa decoder padrão se configurado, senão tenta parse manual.
+        if let isoString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            self.createdAt = formatter.date(from: isoString) ?? ISO8601DateFormatter().date(from: isoString)
+        } else {
+            self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
+        }
     }
 }

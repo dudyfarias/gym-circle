@@ -43,6 +43,7 @@ public final class GymCircleAppModel: ObservableObject {
     private let myCircleService: MyCircleService?
     private let achievementsService: AchievementsService?
     private let challengesService: ChallengesService?
+    private let profilesService: ProfilesService?
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -71,12 +72,14 @@ public final class GymCircleAppModel: ObservableObject {
         let myCircleService = MyCircleService(client: client)
         let achievementsService = AchievementsService(client: client)
         let challengesService = ChallengesService(client: client)
+        let profilesService = ProfilesService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
             myCircleService: myCircleService,
             achievementsService: achievementsService,
-            challengesService: challengesService
+            challengesService: challengesService,
+            profilesService: profilesService
         )
     }
 
@@ -87,19 +90,21 @@ public final class GymCircleAppModel: ObservableObject {
         api: GymCircleAPI? = nil,
         myCircleService: MyCircleService? = nil,
         achievementsService: AchievementsService? = nil,
-        challengesService: ChallengesService? = nil
+        challengesService: ChallengesService? = nil,
+        profilesService: ProfilesService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
         self.myCircleService = myCircleService
         self.achievementsService = achievementsService
         self.challengesService = challengesService
+        self.profilesService = profilesService
     }
 
     // MARK: - Boot pipeline
 
     /// Restaura session do Keychain. Quando sucesso, dispara
-    /// loadInitialSurfaces + loadMyCircle. Quando guest, popula
+    /// loadProfile + loadInitialSurfaces + loadMyCircle. Quando guest, popula
     /// demo data (modo preview).
     public func boot() async {
         guard let sessionStore else {
@@ -108,6 +113,9 @@ public final class GymCircleAppModel: ObservableObject {
         }
         await sessionStore.restoreSession()
         if sessionStore.isAuthenticated {
+            // Sprint 8.11.1 — profile primeiro pq loadMyCircle usa
+            // displayName/username/avatar/createdAt do profile.
+            await loadProfile()
             await loadInitialSurfaces()
             await loadMyCircle()
         }
@@ -122,8 +130,24 @@ public final class GymCircleAppModel: ObservableObject {
             return
         }
         try await sessionStore.signIn(email: email, password: password)
+        await loadProfile()
         await loadInitialSurfaces()
         await loadMyCircle()
+    }
+
+    // MARK: - Sprint 8.11.1 — profile loader
+
+    /// Busca `profiles` row do user autenticado e popula `@Published profile`.
+    /// Fail-soft: erro só seta `error` mas não interrompe o boot — UI cai
+    /// no fallback `displayName = currentUserEmail`.
+    public func loadProfile() async {
+        guard let profilesService,
+              let userId = sessionStore?.currentUserId else { return }
+        do {
+            profile = try await profilesService.getProfile(userId: userId)
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
     public func signOut() async {
@@ -187,15 +211,18 @@ public final class GymCircleAppModel: ObservableObject {
             }()
 
             // 3. Computa achievements client-side via builder
+            // Sprint 8.11.1 — todos inputs hidratados via MyCircleSummary +
+            // profile real. Antes ficavam hardcoded 0/nil/false, deixando
+            // ~7 achievements sociais permanentemente trancados.
             let builderInput = AchievementBuilder.Input(
-                postsCount: 0, // Sprint 8.x — wire profile_posts count
+                postsCount: summary.postsCount,
                 longestStreak: summary.stats.bestStreak,
                 workoutsThisMonth: summary.stats.workoutsThisMonth,
                 workoutsThisWeek: summary.stats.workoutsThisWeek,
                 activeDaysCount: summary.stats.workoutsThisYear,
-                followersCount: 0, // Sprint 8.x — wire follows count
-                hasUsedStreakRestore: false,
-                createdAt: nil,
+                followersCount: summary.followersCount,
+                hasUsedStreakRestore: summary.hasUsedStreakRestore,
+                createdAt: profile?.createdAt,
                 monthlyChallenges: challenges
             )
             let allAchievements = AchievementBuilder.buildAll(input: builderInput)
@@ -219,7 +246,7 @@ public final class GymCircleAppModel: ObservableObject {
                 avatarURL: profile?.avatarURL.flatMap(URL.init(string:)),
                 stats: summary.stats,
                 calendarDays: CalendarBuilder.buildMonth(
-                    workoutDays: [],
+                    workoutDays: summary.workoutDays,
                     todayKey: Self.todayKey()
                 ),
                 currentLevel: StreakLevel.current(for: summary.stats.currentStreak),
@@ -320,7 +347,8 @@ public final class GymCircleAppModel: ObservableObject {
             bio: "Fundacao SwiftUI do Gym Circle.",
             currentStreak: 7,
             bestStreak: 21,
-            badgeIsActiveToday: true
+            badgeIsActiveToday: true,
+            createdAt: Date(timeIntervalSince1970: 1704067200) // 2026 Jan 1 (founder window)
         )
         profile = demoProfile
         posts = []

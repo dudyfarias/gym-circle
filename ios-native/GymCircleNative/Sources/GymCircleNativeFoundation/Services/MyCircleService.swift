@@ -11,8 +11,13 @@ public actor MyCircleService {
     }
 
     public func getSummary(userId: String, date: Date = Date()) async throws -> MyCircleSummary {
+        // Sprint 8.11.1 — Fan-out: dispara TODAS as queries em paralelo.
+        // Latência total ≈ max(query) em vez de soma.
         async let statsRow = fetchStats(userId: userId)
         async let activityDates = fetchActivityDates(userId: userId, since: startOfYear(for: date))
+        async let postsCount = fetchPostsCount(userId: userId)
+        async let followersCount = fetchFollowersCount(userId: userId)
+        async let streakRestoreInfo = fetchStreakRestoreInfo(userId: userId)
 
         let stats = try await statsRow
         let dates = try await activityDates
@@ -22,6 +27,14 @@ public actor MyCircleService {
         let workoutsThisMonth = uniqueDates.filter { isDateString($0, inSameComponentAs: date, component: .month) }.count
         let workoutsThisYear = uniqueDates.filter { isDateString($0, inSameComponentAs: date, component: .year) }.count
 
+        // Sprint 8.11.2 — datas do mês alvo (já filtradas) pro calendar.
+        let monthDays = uniqueDates.filter { isDateString($0, inSameComponentAs: date, component: .month) }
+
+        // Best effort nas contagens — falha não bloqueia summary.
+        let postsCountValue = (try? await postsCount) ?? 0
+        let followersCountValue = (try? await followersCount) ?? 0
+        let streakRestore = (try? await streakRestoreInfo) ?? false
+
         return MyCircleSummary(
             stats: GymCircleStats(
                 currentStreak: stats?.currentStreak ?? 0,
@@ -29,7 +42,11 @@ public actor MyCircleService {
                 workoutsThisWeek: workoutsThisWeek,
                 workoutsThisMonth: workoutsThisMonth,
                 workoutsThisYear: workoutsThisYear
-            )
+            ),
+            postsCount: postsCountValue,
+            followersCount: followersCountValue,
+            hasUsedStreakRestore: streakRestore,
+            workoutDays: Array(monthDays).sorted()
         )
     }
 
@@ -56,6 +73,42 @@ public actor MyCircleService {
             .gte("activity_date", value: since)
             .execute()
             .value
+    }
+
+    /// Sprint 8.11.1 — count(posts where user_id = userId).
+    /// Usa head request com count=exact pra evitar baixar rows.
+    private func fetchPostsCount(userId: String) async throws -> Int {
+        let response = try await client
+            .from("posts")
+            .select("id", head: true, count: .exact)
+            .eq("user_id", value: userId)
+            .execute()
+        return response.count ?? 0
+    }
+
+    /// Sprint 8.11.1 — count(follows where following_id = userId).
+    /// `following_id` é quem está sendo seguido. Followers = pessoas que
+    /// seguem o user (follower_id apontando pra user).
+    private func fetchFollowersCount(userId: String) async throws -> Int {
+        let response = try await client
+            .from("follows")
+            .select("follower_id", head: true, count: .exact)
+            .eq("following_id", value: userId)
+            .execute()
+        return response.count ?? 0
+    }
+
+    /// Sprint 8.11.1 — true se `user_stats.last_streak_restore_used_at` é
+    /// não-nulo (qualquer uso histórico desbloqueia badge).
+    private func fetchStreakRestoreInfo(userId: String) async throws -> Bool {
+        let rows: [UserStatsRestoreRow] = try await client
+            .from("user_stats")
+            .select("last_streak_restore_used_at")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.lastStreakRestoreUsedAt != nil
     }
 
     private func startOfYear(for date: Date) -> String {
@@ -103,5 +156,15 @@ private struct UserActivityDayRow: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case activityDate = "activity_date"
+    }
+}
+
+/// Sprint 8.11.1 — `user_stats.last_streak_restore_used_at` shape mínimo.
+/// Só lê 1 coluna pra checar "user já usou pelo menos 1 streak restore?".
+private struct UserStatsRestoreRow: Codable, Sendable {
+    let lastStreakRestoreUsedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case lastStreakRestoreUsedAt = "last_streak_restore_used_at"
     }
 }

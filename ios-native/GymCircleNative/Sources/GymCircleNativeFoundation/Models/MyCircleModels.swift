@@ -65,7 +65,32 @@ public struct MyCircleSummary: Codable, Hashable, Sendable {
     public let rings: ConsistencyRings
     public let badges: [Badge]
 
-    public init(stats: GymCircleStats, badges: [Badge] = []) {
+    /// Sprint 8.11.1 — total de posts do user (alimenta achievements
+    /// `first-workout`, `workouts-50`, `prolific-100`). Default 0 preserva
+    /// back-compat com callers anteriores.
+    public let postsCount: Int
+
+    /// Sprint 8.11.1 — total de followers (alimenta `social-10`, `friends-50`,
+    /// `network-100`, `community-200`).
+    public let followersCount: Int
+
+    /// Sprint 8.11.1 — true quando user já usou pelo menos 1 streak restore
+    /// (alimenta `streak-recovered`). Lookup via `user_stats.last_streak_restore_used_at`.
+    public let hasUsedStreakRestore: Bool
+
+    /// Sprint 8.11.1 — datas (yyyy-MM-dd) em que o user treinou no mês alvo.
+    /// Alimenta o calendar mensal (CalendarBuilder). Vazio = calendar
+    /// sem treinos destacados.
+    public let workoutDays: [String]
+
+    public init(
+        stats: GymCircleStats,
+        badges: [Badge] = [],
+        postsCount: Int = 0,
+        followersCount: Int = 0,
+        hasUsedStreakRestore: Bool = false,
+        workoutDays: [String] = []
+    ) {
         self.stats = stats
         rings = ConsistencyRings(
             workoutsThisWeek: stats.workoutsThisWeek,
@@ -73,6 +98,10 @@ public struct MyCircleSummary: Codable, Hashable, Sendable {
             workoutsThisYear: stats.workoutsThisYear
         )
         self.badges = badges
+        self.postsCount = postsCount
+        self.followersCount = followersCount
+        self.hasUsedStreakRestore = hasUsedStreakRestore
+        self.workoutDays = workoutDays
     }
 }
 

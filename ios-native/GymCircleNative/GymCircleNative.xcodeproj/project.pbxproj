@@ -13,6 +13,7 @@
 		1EEF102EFB0EA7E7396B94BB /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7456124A93C3498F4AA6BB2 /* AuthService.swift */; };
 		24F7215A55C676294FD8637E /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */; };
 		33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */; };
+		3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D272642D5EA4B50216927502 /* ProfilesService.swift */; };
 		3FCE9C9BA90B675F9938CB7E /* GymCircleAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */; };
 		425F19777DF07AA72E43F4F2 /* AchievementsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */; };
 		49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55AE3C88470738904E400FD /* AppConfiguration.swift */; };
@@ -71,6 +72,7 @@
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAPI.swift; sourceTree = "<group>"; };
 		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
+		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
@@ -178,6 +180,7 @@
 				61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */,
 				C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */,
 				381506FB324FA418FAD1FEBF /* MyCircleService.swift */,
+				D272642D5EA4B50216927502 /* ProfilesService.swift */,
 				633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */,
 			);
 			path = Services;
@@ -307,6 +310,7 @@
 				4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */,
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
+				3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */,
 				CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */,
 				6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */,
 				079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */,
