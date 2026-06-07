@@ -376,18 +376,44 @@ public struct MonthlyCalendarGridView: View {
     private func dayCell(_ day: CalendarDay) -> some View {
         let isToday = day.dateKey == todayKey
 
+        // Sprint 8.13.1 — mini-foto como bg quando há thumbnailURL.
+        // Paridade Gym Rats style (web Sprint 5.2).
         ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(cellBackground(day))
+            if let thumb = day.thumbnailURL {
+                AsyncImage(url: thumb) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image.resizable().aspectRatio(contentMode: .fill)
+                    default:
+                        Color.white.opacity(0.04)
+                    }
+                }
                 .frame(height: 32)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(isToday ? GymCircleTheme.ColorToken.electricBlue.opacity(0.72) : Color.clear, lineWidth: 2)
+                    // Scrim gradient pra legibilidade do número
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.04), Color.black.opacity(0.42)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 )
+            } else {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(cellBackground(day))
+                    .frame(height: 32)
+            }
+
+            // Today highlight ring (sempre, mesmo com foto)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isToday ? GymCircleTheme.ColorToken.electricBlue.opacity(0.72) : Color.clear, lineWidth: 2)
+                .frame(height: 32)
 
             Text("\(day.day)")
                 .font(.system(size: 11, weight: .heavy))
                 .foregroundColor(cellForeground(day))
+                .shadow(color: day.thumbnailURL != nil ? .black.opacity(0.6) : .clear, radius: 1.5, y: 1)
         }
     }
 
@@ -397,6 +423,8 @@ public struct MonthlyCalendarGridView: View {
     }
 
     private func cellForeground(_ day: CalendarDay) -> Color {
+        // Com foto: texto branco com shadow
+        if day.thumbnailURL != nil { return .white }
         if day.trained { return GymCircleTheme.ColorToken.electricBlue }
         return Color.white.opacity(0.36)
     }

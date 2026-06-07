@@ -159,14 +159,21 @@ public enum CalendarBuilder {
     /// Paridade com `buildMonthWorkoutDays` TS — mínimo necessário pra UI.
     public static func buildMonth(workoutDays: [String], todayKey: String) -> [CalendarDay] {
         let monthKey = String(todayKey.prefix(7))
-        return buildMonth(monthKey: monthKey, workoutDays: workoutDays, todayKey: todayKey)
+        return buildMonth(monthKey: monthKey, workoutDays: workoutDays, todayKey: todayKey, posts: [])
     }
 
     /// Sprint 8.11.3 — variação que aceita `monthKey` explícito ("YYYY-MM").
     /// Usado pela navegação calendar ← → quando user vê meses passados.
     /// `todayKey` continua sendo "hoje" pra ring de today highlight quando
     /// o mês corrente contém hoje.
-    public static func buildMonth(monthKey: String, workoutDays: [String], todayKey: String) -> [CalendarDay] {
+    /// Sprint 8.13.1 — `posts` opcional pra wirear mini-fotos (Gym Rats style).
+    /// Quando informado, dateKey é linkado ao primeiro post correspondente.
+    public static func buildMonth(
+        monthKey: String,
+        workoutDays: [String],
+        todayKey: String,
+        posts: [MonthCalendarPost] = []
+    ) -> [CalendarDay] {
         let parts = monthKey.split(separator: "-")
         guard parts.count == 2,
               let year = Int(parts[0]),
@@ -189,13 +196,21 @@ public enum CalendarBuilder {
         }
         let totalDays = range.count
         let trainedSet = Set(workoutDays)
+        // 1 thumbnail por dia. Primeiro post (lista já ordenada asc) vence.
+        var postByDay: [String: MonthCalendarPost] = [:]
+        for post in posts where postByDay[post.dateKey] == nil {
+            postByDay[post.dateKey] = post
+        }
 
         return (1...totalDays).map { day in
             let dateKey = String(format: "%04d-%02d-%02d", year, month, day)
+            let thumb = postByDay[dateKey]
             return CalendarDay(
                 day: day,
                 dateKey: dateKey,
-                trained: trainedSet.contains(dateKey)
+                trained: trainedSet.contains(dateKey),
+                thumbnailURL: thumb?.imageURL,
+                postId: thumb?.postId
             )
         }
     }

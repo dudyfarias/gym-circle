@@ -54,6 +54,41 @@ public actor MyCircleService {
         try await getSummary(userId: userId, date: date).rings
     }
 
+    /// Sprint 8.13.1 — posts do mês para renderizar thumbnails no calendar.
+    /// Retorna lista (workout_date, post_id, image_url) ordenada por
+    /// workout_date asc. UI agrupa por dia (1 thumbnail por dia, prefere
+    /// o primeiro post quando há mais que 1 no mesmo dia).
+    public func getMonthPosts(userId: String, monthKey: String) async throws -> [MonthCalendarPost] {
+        let parts = monthKey.split(separator: "-")
+        guard parts.count == 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]) else { return [] }
+
+        let monthStart = String(format: "%04d-%02d-01", year, month)
+        let nextMonth = month == 12 ? 1 : month + 1
+        let nextYear = month == 12 ? year + 1 : year
+        let monthEnd = String(format: "%04d-%02d-01", nextYear, nextMonth)
+
+        let rows: [PostThumbnailRow] = try await client
+            .from("posts")
+            .select("id,workout_date,image_url")
+            .eq("user_id", value: userId)
+            .gte("workout_date", value: monthStart)
+            .lt("workout_date", value: monthEnd)
+            .order("workout_date", ascending: true)
+            .execute()
+            .value
+
+        return rows.compactMap { row in
+            guard let url = URL(string: row.imageURL) else { return nil }
+            return MonthCalendarPost(
+                dateKey: row.workoutDate,
+                postId: row.id,
+                imageURL: url
+            )
+        }
+    }
+
     /// Sprint 8.11.3 — workout days de um mês específico (YYYY-MM).
     /// Usado pela navegação calendar ← → no MyCircleView. Range filtrado
     /// no DB pra evitar transferir o ano inteiro só pra mostrar 1 mês.
@@ -193,4 +228,24 @@ private struct UserStatsRestoreRow: Codable, Sendable {
     enum CodingKeys: String, CodingKey {
         case lastStreakRestoreUsedAt = "last_streak_restore_used_at"
     }
+}
+
+/// Sprint 8.13.1 — row de `posts` pra renderizar thumbnail no calendar.
+private struct PostThumbnailRow: Codable, Sendable {
+    let id: String
+    let workoutDate: String
+    let imageURL: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case workoutDate = "workout_date"
+        case imageURL = "image_url"
+    }
+}
+
+/// Sprint 8.13.1 — payload usado por UI calendar (1 thumbnail por dia).
+public struct MonthCalendarPost: Hashable, Sendable {
+    public let dateKey: String  // YYYY-MM-DD
+    public let postId: String
+    public let imageURL: URL
 }

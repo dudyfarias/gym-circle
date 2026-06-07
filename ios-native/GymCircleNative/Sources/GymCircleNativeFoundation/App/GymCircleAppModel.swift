@@ -204,11 +204,17 @@ public final class GymCircleAppModel: ObservableObject {
             // 1. Stats reais (Sprint 8.3)
             let summary = try await myCircleService.getSummary(userId: userId)
 
-            // 2. Monthly challenges (Sprint 8.4)
-            let challenges: [MonthlyChallenge] = await {
+            // 2. Monthly challenges + posts do mês corrente em paralelo
+            // (Sprint 8.4 + 8.13.1)
+            async let challengesTask: [MonthlyChallenge] = {
                 guard let challengesService else { return [] }
                 return (try? await challengesService.loadChallenges(userId: userId)) ?? []
             }()
+            let currentMonth = Self.monthKey(offsetFromToday: 0)
+            async let monthPostsTask: [MonthCalendarPost] =
+                (try? await myCircleService.getMonthPosts(userId: userId, monthKey: currentMonth)) ?? []
+            let challenges = await challengesTask
+            let monthPosts = await monthPostsTask
 
             // 3. Computa achievements client-side via builder
             // Sprint 8.11.1 — todos inputs hidratados via MyCircleSummary +
@@ -246,8 +252,10 @@ public final class GymCircleAppModel: ObservableObject {
                 avatarURL: profile?.avatarURL.flatMap(URL.init(string:)),
                 stats: summary.stats,
                 calendarDays: CalendarBuilder.buildMonth(
+                    monthKey: currentMonth,
                     workoutDays: summary.workoutDays,
-                    todayKey: Self.todayKey()
+                    todayKey: Self.todayKey(),
+                    posts: monthPosts
                 ),
                 currentLevel: StreakLevel.current(for: summary.stats.currentStreak),
                 allLevels: StreakLevel.all,
@@ -276,14 +284,22 @@ public final class GymCircleAppModel: ObservableObject {
 
         let targetMonthKey = Self.monthKey(offsetFromToday: offset)
         do {
-            let days = try await myCircleService.getWorkoutDays(
+            // Sprint 8.13.1 — dispara workoutDays + posts em paralelo.
+            async let daysTask = myCircleService.getWorkoutDays(
                 userId: userId,
                 monthKey: targetMonthKey
             )
+            async let postsTask = myCircleService.getMonthPosts(
+                userId: userId,
+                monthKey: targetMonthKey
+            )
+            let days = try await daysTask
+            let posts = (try? await postsTask) ?? []
             let newCalendar = CalendarBuilder.buildMonth(
                 monthKey: targetMonthKey,
                 workoutDays: days,
-                todayKey: Self.todayKey()
+                todayKey: Self.todayKey(),
+                posts: posts
             )
             data = MyCircleViewData(
                 userId: data.userId,
