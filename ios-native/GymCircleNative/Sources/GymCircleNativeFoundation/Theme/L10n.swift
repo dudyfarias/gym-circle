@@ -59,6 +59,12 @@ public enum L10n {
     case editProfilePrivateToggle
     case editProfilePrivateHint
     case editProfileChangeAvatarSoon
+    case recapStatWorkouts
+    case recapStatStreak
+    case recapStatTopType
+    case recapStatTopGym
+    case recapChangeCover
+    case recapShare
 
     // MARK: - AchievementDetailView
 
@@ -184,6 +190,14 @@ public enum L10n {
                 : "Apenas seguidores aprovados veem seus posts."
         case .editProfileChangeAvatarSoon:
             return isEN ? "Avatar upload coming soon" : "Troca de avatar em breve"
+
+        // Monthly recap
+        case .recapStatWorkouts:  return isEN ? "Workouts"     : "Treinos"
+        case .recapStatStreak:    return isEN ? "Best streak"  : "Sequência"
+        case .recapStatTopType:   return isEN ? "Top type"     : "Tipo+"
+        case .recapStatTopGym:    return isEN ? "Top gym"      : "Lugar+"
+        case .recapChangeCover:   return isEN ? "Change cover" : "Trocar foto"
+        case .recapShare:         return isEN ? "Share"        : "Compartilhar"
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"

@@ -39,6 +39,7 @@
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
 		C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */; };
 		CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */; };
+		CCCA719F1A1B196B53ABCD8A /* MonthlyRecapSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */; };
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
 		CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489ABF91A6CB491B111116DC /* FeedView.swift */; };
 		CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */; };
@@ -83,6 +84,7 @@
 		C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileSheet.swift; sourceTree = "<group>"; };
 		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
+		D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyRecapSheet.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
@@ -145,6 +147,7 @@
 				489ABF91A6CB491B111116DC /* FeedView.swift */,
 				0F5A004267A6D5354857ABFD /* LoginView.swift */,
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
+				D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */,
 				71697375FF0895F613E1090F /* MyCircleView.swift */,
 				C0BB038D99927918121215E6 /* OtherProfileView.swift */,
 				ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */,
@@ -322,6 +325,7 @@
 				7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */,
 				FB1C810F996E874492D37712 /* MainTabView.swift in Sources */,
 				81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */,
+				CCCA719F1A1B196B53ABCD8A /* MonthlyRecapSheet.swift in Sources */,
 				9CABDB82A84408A020396A0C /* MyCircleComponents.swift in Sources */,
 				DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */,
 				4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */,
