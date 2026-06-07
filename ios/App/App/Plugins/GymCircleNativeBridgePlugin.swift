@@ -40,6 +40,10 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "presentAchievementDetail", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "presentCelebration", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "presentAchievementsHub", returnType: CAPPluginReturnPromise),
+        // Sprint 9.1 — Bridge wire-up final
+        CAPPluginMethod(name: "presentOtherProfile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "presentEditProfile", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "presentMonthlyRecap", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise)
     ]
 
@@ -156,6 +160,69 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
             viewController.present(hosting, animated: true) {
                 call.resolve()
             }
+        }
+    }
+
+    // MARK: - Sprint 9.1 — 3 novos métodos
+
+    @objc func presentOtherProfile(_ call: CAPPluginCall) {
+        guard let targetUserId = call.getString("targetUserId"), !targetUserId.isEmpty else {
+            call.reject("targetUserId is required")
+            return
+        }
+        guard let currentUserId = call.getString("currentUserId"), !currentUserId.isEmpty else {
+            call.reject("currentUserId is required")
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let viewController = self.bridge?.viewController else {
+                call.reject("Bridge unavailable")
+                return
+            }
+            let hosting = makeOtherProfileHostingController(
+                targetUserId: targetUserId,
+                currentUserId: currentUserId,
+                onDismiss: { [weak viewController] in viewController?.dismiss(animated: true) }
+            )
+            viewController.present(hosting, animated: true) { call.resolve() }
+        }
+    }
+
+    @objc func presentEditProfile(_ call: CAPPluginCall) {
+        guard let userId = call.getString("userId"), !userId.isEmpty else {
+            call.reject("userId is required")
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let viewController = self.bridge?.viewController else {
+                call.reject("Bridge unavailable")
+                return
+            }
+            let hosting = makeEditProfileHostingController(
+                userId: userId,
+                onDismiss: { [weak viewController] in viewController?.dismiss(animated: true) }
+            )
+            viewController.present(hosting, animated: true) { call.resolve() }
+        }
+    }
+
+    @objc func presentMonthlyRecap(_ call: CAPPluginCall) {
+        guard let userId = call.getString("userId"), !userId.isEmpty else {
+            call.reject("userId is required")
+            return
+        }
+        let monthKey = call.getString("monthKey") // opcional, default = current
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let viewController = self.bridge?.viewController else {
+                call.reject("Bridge unavailable")
+                return
+            }
+            let hosting = makeMonthlyRecapHostingController(
+                userId: userId,
+                monthKey: monthKey,
+                onDismiss: { [weak viewController] in viewController?.dismiss(animated: true) }
+            )
+            viewController.present(hosting, animated: true) { call.resolve() }
         }
     }
 }
@@ -479,6 +546,253 @@ private struct NativeAchievementsHubHost: View {
                 onClose: { detailAchievement = nil }
             )
         }
+    }
+}
+#endif
+
+// MARK: - Sprint 9.1 hosting factories (Other/Edit/Recap)
+
+private func makeOtherProfileHostingController(
+    targetUserId: String,
+    currentUserId: String,
+    onDismiss: @escaping () -> Void
+) -> UIViewController {
+    #if canImport(GymCircleNativeFoundation)
+    let host = NativeOtherProfileHost(
+        targetUserId: targetUserId,
+        currentUserId: currentUserId,
+        onDismiss: onDismiss
+    )
+    let hosting = UIHostingController(rootView: host)
+    #else
+    let view = MyCirclePlaceholderView(userId: targetUserId, isOwn: false, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
+    hosting.modalPresentationStyle = .fullScreen
+    return hosting
+}
+
+private func makeEditProfileHostingController(
+    userId: String,
+    onDismiss: @escaping () -> Void
+) -> UIViewController {
+    #if canImport(GymCircleNativeFoundation)
+    let host = NativeEditProfileHost(userId: userId, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: host)
+    #else
+    let view = MyCirclePlaceholderView(userId: userId, isOwn: true, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
+    hosting.modalPresentationStyle = .formSheet
+    return hosting
+}
+
+private func makeMonthlyRecapHostingController(
+    userId: String,
+    monthKey: String?,
+    onDismiss: @escaping () -> Void
+) -> UIViewController {
+    #if canImport(GymCircleNativeFoundation)
+    let host = NativeMonthlyRecapHost(
+        userId: userId,
+        monthKey: monthKey,
+        onDismiss: onDismiss
+    )
+    let hosting = UIHostingController(rootView: host)
+    #else
+    let view = MyCirclePlaceholderView(userId: userId, isOwn: true, onDismiss: onDismiss)
+    let hosting = UIHostingController(rootView: view)
+    #endif
+    hosting.modalPresentationStyle = .fullScreen
+    return hosting
+}
+
+#if canImport(GymCircleNativeFoundation)
+// MARK: - Sprint 9.1 hosts
+
+/// Container nativo do OtherProfileView. Carrega profile + posts do target
+/// user via ProfilesService + GymCircleAPI. Follow CTA stub (Sprint 9.2+
+/// wirea FollowsService quando criado).
+private struct NativeOtherProfileHost: View {
+    let targetUserId: String
+    let currentUserId: String
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+    @State private var profile: UserProfile?
+    @State private var posts: [ProfilePost] = []
+    @State private var followState: OtherProfileView.FollowState = .none
+
+    init(targetUserId: String, currentUserId: String, onDismiss: @escaping () -> Void) {
+        self.targetUserId = targetUserId
+        self.currentUserId = currentUserId
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        Group {
+            if let profile = profile {
+                OtherProfileView(
+                    profile: profile,
+                    posts: posts,
+                    latestPost: posts.first,
+                    followState: followState,
+                    canSeePosts: !profile.isPrivate || followState == .accepted,
+                    onToggleFollow: {
+                        // Sprint 9.2+: wire FollowsService.toggle aqui.
+                    },
+                    onMessage: { /* Sprint 9.x: deep-link pro web chat */ },
+                    onReport: { /* Sprint 9.x */ },
+                    onBlock: { /* Sprint 9.x */ },
+                    onOpenPost: { _ in /* Sprint 9.x: deep-link pro web post detail */ },
+                    onClose: onDismiss
+                )
+            } else {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    ProgressView().tint(.white)
+                }
+            }
+        }
+        .task {
+            await model.boot()
+            await loadTargetProfile()
+        }
+    }
+
+    private func loadTargetProfile() async {
+        // Best-effort: tenta carregar do mesmo AppModel (mock por ora —
+        // ProfilesService.getProfile já existe mas no AppModel é privado).
+        // Pra MVP do bridge, mostra empty state quando service indisponível.
+        if let loaded = await model.fetchOtherProfile(userId: targetUserId) {
+            self.profile = loaded
+        }
+    }
+}
+
+/// Container nativo do EditProfileSheet. Hidrata com profile real do user
+/// + dispara ProfilesService.updateProfile no save.
+private struct NativeEditProfileHost: View {
+    let userId: String
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+
+    init(userId: String, onDismiss: @escaping () -> Void) {
+        self.userId = userId
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        Group {
+            if let profile = model.profile {
+                EditProfileSheet(
+                    profile: profile,
+                    onSave: { updated in
+                        await model.saveProfile(
+                            displayName: updated.displayName,
+                            bio: updated.bio,
+                            fitnessGoal: updated.fitnessGoal,
+                            isPrivate: updated.isPrivate
+                        )
+                        onDismiss()
+                    },
+                    onClose: onDismiss
+                )
+            } else {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    ProgressView().tint(.white)
+                }
+            }
+        }
+        .task { await model.boot() }
+    }
+}
+
+/// Container nativo do MonthlyRecapSheet. Carrega stats reais + posts do
+/// mês alvo + cover override. Share entrega UIImage pro UIActivityViewController.
+private struct NativeMonthlyRecapHost: View {
+    let userId: String
+    let monthKey: String?
+    let onDismiss: () -> Void
+
+    @StateObject private var model: GymCircleAppModel
+    @State private var recapData: MonthlyRecapSheet.RecapData?
+    @State private var coverPickerOpen = false
+    @State private var monthPosts: [MonthCalendarPost] = []
+
+    init(userId: String, monthKey: String?, onDismiss: @escaping () -> Void) {
+        self.userId = userId
+        self.monthKey = monthKey
+        self.onDismiss = onDismiss
+        _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
+    }
+
+    var body: some View {
+        Group {
+            if let data = recapData {
+                MonthlyRecapSheet(
+                    data: data,
+                    onChangeCover: { coverPickerOpen = true },
+                    onShare: presentShare,
+                    onClose: onDismiss
+                )
+            } else {
+                ZStack {
+                    Color.black.ignoresSafeArea()
+                    ProgressView().tint(.white)
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $coverPickerOpen) {
+            if let data = recapData {
+                RecapCoverPickerSheet(
+                    posts: monthPosts,
+                    monthLabel: data.monthLabel,
+                    onSelect: { postId in
+                        Task {
+                            await model.setRecapCover(monthKey: resolvedMonthKey, postId: postId)
+                            await reloadRecap()
+                            coverPickerOpen = false
+                        }
+                    },
+                    onClose: { coverPickerOpen = false }
+                )
+            }
+        }
+        .task {
+            await model.boot()
+            await reloadRecap()
+        }
+    }
+
+    private var resolvedMonthKey: String {
+        monthKey ?? Self.currentMonthKey()
+    }
+
+    private func reloadRecap() async {
+        let payload = await model.buildMonthlyRecap(monthKey: resolvedMonthKey)
+        self.recapData = payload.data
+        self.monthPosts = payload.posts
+    }
+
+    private func presentShare(_ image: UIImage) {
+        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let root = scene.windows.first?.rootViewController else { return }
+        let activity = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+        var top = root
+        while let presented = top.presentedViewController { top = presented }
+        top.present(activity, animated: true)
+    }
+
+    private static func currentMonthKey() -> String {
+        let cal = Calendar(identifier: .gregorian)
+        let y = cal.component(.year, from: .now)
+        let m = cal.component(.month, from: .now)
+        return String(format: "%04d-%02d", y, m)
     }
 }
 #endif

@@ -398,6 +398,120 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    // MARK: - Sprint 9.1 — Bridge helpers (other profile / save / recap)
+
+    /// Busca profile de outro user (não o autenticado). Usado pelo bridge
+    /// `presentOtherProfile`.
+    public func fetchOtherProfile(userId: String) async -> UserProfile? {
+        guard let profilesService else { return nil }
+        do {
+            return try await profilesService.getProfile(userId: userId)
+        } catch {
+            return nil
+        }
+    }
+
+    /// Wrapper de ProfilesService.updateProfile + reload local @Published.
+    /// Chamado pelo NativeEditProfileHost no save.
+    public func saveProfile(
+        displayName: String?,
+        bio: String?,
+        fitnessGoal: String?,
+        isPrivate: Bool?
+    ) async {
+        guard let profilesService,
+              let userId = sessionStore?.currentUserId else { return }
+        do {
+            try await profilesService.updateProfile(
+                userId: userId,
+                displayName: displayName,
+                bio: bio,
+                fitnessGoal: fitnessGoal,
+                isPrivate: isPrivate
+            )
+            await loadProfile()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Persistir capa escolhida pro recap do mês. Chamado pelo
+    /// NativeMonthlyRecapHost depois do RecapCoverPickerSheet.
+    public func setRecapCover(monthKey: String, postId: String?) async {
+        guard let profilesService,
+              let userId = sessionStore?.currentUserId else { return }
+        do {
+            try await profilesService.setMonthlyRecapCover(
+                userId: userId,
+                monthKey: monthKey,
+                postId: postId
+            )
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Constrói payload pro MonthlyRecapSheet a partir de stats + posts
+    /// do mês alvo. Returns também os posts pra alimentar o
+    /// RecapCoverPickerSheet quando aberto.
+    public func buildMonthlyRecap(monthKey: String) async -> (data: MonthlyRecapSheet.RecapData?, posts: [MonthCalendarPost]) {
+        guard let myCircleService,
+              let userId = sessionStore?.currentUserId else {
+            return (nil, [])
+        }
+
+        async let postsTask = (try? await myCircleService.getMonthPosts(userId: userId, monthKey: monthKey)) ?? []
+        async let workoutDaysTask = (try? await myCircleService.getWorkoutDays(userId: userId, monthKey: monthKey)) ?? []
+        async let coverTask: String? = {
+            guard let profilesService else { return nil }
+            return try? await profilesService.getMonthlyRecapCover(userId: userId, monthKey: monthKey)
+        }()
+
+        let posts = await postsTask
+        let workoutDays = await workoutDaysTask
+        let coverPostId = await coverTask
+
+        let coverURL: URL? = {
+            if let id = coverPostId, let match = posts.first(where: { $0.postId == id }) {
+                return match.imageURL
+            }
+            // Fallback: primeiro post do mês (auto-pick)
+            return posts.first?.imageURL
+        }()
+
+        let monthLabel = Self.monthLabelLong(monthKey: monthKey)
+        let displayName = profile?.displayName ?? profile?.username ?? "Atleta"
+        let username = profile?.username ?? "atleta"
+
+        let data = MonthlyRecapSheet.RecapData(
+            monthLabel: monthLabel,
+            username: username,
+            displayName: displayName,
+            coverImageURL: coverURL,
+            workoutsCount: workoutDays.count,
+            bestStreak: 0, // Sprint 9.x+: computar best streak do mês específico
+            topWorkoutType: nil, // Sprint 9.x+: GROUP BY workout_type ORDER BY count DESC
+            topGymName: nil      // Sprint 9.x+: join gyms table + group
+        )
+        return (data, posts)
+    }
+
+    private static func monthLabelLong(monthKey: String) -> String {
+        let parts = monthKey.split(separator: "-")
+        guard parts.count == 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]) else { return monthKey }
+        var comps = DateComponents()
+        comps.year = year
+        comps.month = month
+        comps.day = 1
+        let date = Calendar(identifier: .gregorian).date(from: comps) ?? .now
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.dateFormat = "LLLL yyyy"
+        return formatter.string(from: date).capitalized
+    }
+
     // MARK: - Backwards-compat
 
     /// Legacy: usado por MainTabView (Sprint 3 read-only) antes do Sprint 8.2

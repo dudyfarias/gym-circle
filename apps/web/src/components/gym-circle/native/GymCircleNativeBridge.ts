@@ -62,6 +62,35 @@ export interface GymCircleNativeBridgePlugin {
    * 6 tabs + sub-seções.
    */
   presentAchievementsHub(opts: { userId: string }): Promise<void>;
+
+  /**
+   * Sprint 9.1 — Apresenta OtherProfileView (perfil de outro user) com
+   * Follow/Msg/Flag/Block + LatestPostPreview + posts grid.
+   *
+   * @param targetUserId  — user dono do perfil sendo visitado
+   * @param currentUserId — user autenticado (pra Follow CTA state)
+   */
+  presentOtherProfile(opts: {
+    targetUserId: string;
+    currentUserId: string;
+  }): Promise<void>;
+
+  /**
+   * Sprint 9.1 — Apresenta EditProfileSheet pro user autenticado.
+   * Save dispara update server-side automaticamente.
+   */
+  presentEditProfile(opts: { userId: string }): Promise<void>;
+
+  /**
+   * Sprint 9.1 — Apresenta MonthlyRecapSheet (canvas poster + share).
+   *
+   * @param userId   — user dono do recap
+   * @param monthKey — opcional "YYYY-MM"; default = mês corrente
+   */
+  presentMonthlyRecap(opts: {
+    userId: string;
+    monthKey?: string;
+  }): Promise<void>;
 }
 
 const GymCircleNativeBridgePluginInstance =
@@ -122,5 +151,23 @@ export const GymCircleNativeBridge = {
 
   async presentAchievementsHub(opts: { userId: string }): Promise<void> {
     return GymCircleNativeBridgePluginInstance.presentAchievementsHub(opts);
+  },
+
+  async presentOtherProfile(opts: {
+    targetUserId: string;
+    currentUserId: string;
+  }): Promise<void> {
+    return GymCircleNativeBridgePluginInstance.presentOtherProfile(opts);
+  },
+
+  async presentEditProfile(opts: { userId: string }): Promise<void> {
+    return GymCircleNativeBridgePluginInstance.presentEditProfile(opts);
+  },
+
+  async presentMonthlyRecap(opts: {
+    userId: string;
+    monthKey?: string;
+  }): Promise<void> {
+    return GymCircleNativeBridgePluginInstance.presentMonthlyRecap(opts);
   },
 };
