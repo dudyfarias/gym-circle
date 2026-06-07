@@ -179,9 +179,13 @@ public class GymCircleNativeBridgePlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("Bridge unavailable")
                 return
             }
+            // Sprint 9.5.4 — passa weak self pra inverse bridge dispatch.
             let hosting = makeOtherProfileHostingController(
                 targetUserId: targetUserId,
                 currentUserId: currentUserId,
+                dispatchWebAction: { [weak self] eventName, payload in
+                    self?.notifyListeners(eventName, data: payload)
+                },
                 onDismiss: { [weak viewController] in viewController?.dismiss(animated: true) }
             )
             viewController.present(hosting, animated: true) { call.resolve() }
@@ -598,12 +602,14 @@ private struct NativeAchievementsHubHost: View {
 private func makeOtherProfileHostingController(
     targetUserId: String,
     currentUserId: String,
+    dispatchWebAction: @escaping (String, [String: Any]) -> Void,
     onDismiss: @escaping () -> Void
 ) -> UIViewController {
     #if canImport(GymCircleNativeFoundation)
     let host = NativeOtherProfileHost(
         targetUserId: targetUserId,
         currentUserId: currentUserId,
+        dispatchWebAction: dispatchWebAction,
         onDismiss: onDismiss
     )
     let hosting = UIHostingController(rootView: host)
@@ -659,6 +665,10 @@ private func makeMonthlyRecapHostingController(
 private struct NativeOtherProfileHost: View {
     let targetUserId: String
     let currentUserId: String
+    /// Sprint 9.5.4 — inverse bridge: SwiftUI host posta eventos pro
+    /// WKWebView via Capacitor notifyListeners. Web app (GymCirclePreview)
+    /// escuta `gymcircle.openChat`, `gymcircle.reportUser`, etc.
+    let dispatchWebAction: (String, [String: Any]) -> Void
     let onDismiss: () -> Void
 
     @StateObject private var model: GymCircleAppModel
@@ -666,9 +676,15 @@ private struct NativeOtherProfileHost: View {
     @State private var posts: [ProfilePost] = []
     @State private var followState: OtherProfileView.FollowState = .none
 
-    init(targetUserId: String, currentUserId: String, onDismiss: @escaping () -> Void) {
+    init(
+        targetUserId: String,
+        currentUserId: String,
+        dispatchWebAction: @escaping (String, [String: Any]) -> Void,
+        onDismiss: @escaping () -> Void
+    ) {
         self.targetUserId = targetUserId
         self.currentUserId = currentUserId
+        self.dispatchWebAction = dispatchWebAction
         self.onDismiss = onDismiss
         _model = StateObject(wrappedValue: NativeMyCircleHost.makeModel())
     }
@@ -683,12 +699,25 @@ private struct NativeOtherProfileHost: View {
                     followState: followState,
                     canSeePosts: !profile.isPrivate || followState == .accepted,
                     onToggleFollow: {
-                        // Sprint 9.2+: wire FollowsService.toggle aqui.
+                        Task {
+                            let now = await model.toggleFollow(targetUserId: targetUserId)
+                            followState = now ? .accepted : .none
+                        }
                     },
-                    onMessage: { /* Sprint 9.x: deep-link pro web chat */ },
-                    onReport: { /* Sprint 9.x */ },
-                    onBlock: { /* Sprint 9.x */ },
-                    onOpenPost: { _ in /* Sprint 9.x: deep-link pro web post detail */ },
+                    onMessage: {
+                        dispatchWebAction("openChat", ["userId": targetUserId])
+                        onDismiss()
+                    },
+                    onReport: {
+                        dispatchWebAction("reportUser", ["userId": targetUserId])
+                    },
+                    onBlock: {
+                        dispatchWebAction("blockUser", ["userId": targetUserId])
+                    },
+                    onOpenPost: { postId in
+                        dispatchWebAction("openPost", ["postId": postId])
+                        onDismiss()
+                    },
                     onClose: onDismiss
                 )
             } else {
@@ -701,16 +730,21 @@ private struct NativeOtherProfileHost: View {
         .task {
             await model.boot()
             await loadTargetProfile()
+            await loadFollowState()
         }
     }
 
     private func loadTargetProfile() async {
-        // Best-effort: tenta carregar do mesmo AppModel (mock por ora —
-        // ProfilesService.getProfile já existe mas no AppModel é privado).
-        // Pra MVP do bridge, mostra empty state quando service indisponível.
         if let loaded = await model.fetchOtherProfile(userId: targetUserId) {
             self.profile = loaded
         }
+    }
+
+    /// Sprint 9.5.4 — hidrata follow state pro Follow CTA renderizar
+    /// `accepted` quando user já segue o target.
+    private func loadFollowState() async {
+        let following = await model.isFollowing(targetUserId: targetUserId)
+        self.followState = following ? .accepted : .none
     }
 }
 

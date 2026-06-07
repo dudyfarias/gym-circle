@@ -91,6 +91,15 @@ export interface GymCircleNativeBridgePlugin {
     userId: string;
     monthKey?: string;
   }): Promise<void>;
+
+  /**
+   * Sprint 9.5.4 — capacitor addListener API. Usado pra escutar
+   * eventos emitidos pelo SwiftUI host (inverse bridge).
+   */
+  addListener(
+    eventName: string,
+    listenerFunc: (data: unknown) => void,
+  ): Promise<{ remove: () => Promise<void> }>;
 }
 
 const GymCircleNativeBridgePluginInstance =
@@ -169,5 +178,28 @@ export const GymCircleNativeBridge = {
     monthKey?: string;
   }): Promise<void> {
     return GymCircleNativeBridgePluginInstance.presentMonthlyRecap(opts);
+  },
+
+  /**
+   * Sprint 9.5.4 — registra listener pra eventos que a tela SwiftUI
+   * dispara de volta pro JS (inverse bridge).
+   *
+   * Eventos emitidos pelo NativeOtherProfileHost:
+   *   - "openChat": { userId } — user tocou em "Mensagem"
+   *   - "reportUser": { userId } — user tocou em "Reportar"
+   *   - "blockUser": { userId } — user tocou em "Bloquear"
+   *   - "openPost": { postId } — user tocou num post do grid
+   *
+   * Retorna função pra remover o listener (cleanup).
+   */
+  async addListener<T = Record<string, unknown>>(
+    eventName: string,
+    handler: (data: T) => void,
+  ): Promise<{ remove: () => Promise<void> }> {
+    const handle = await GymCircleNativeBridgePluginInstance.addListener(
+      eventName,
+      handler as (data: unknown) => void,
+    );
+    return handle as { remove: () => Promise<void> };
   },
 };

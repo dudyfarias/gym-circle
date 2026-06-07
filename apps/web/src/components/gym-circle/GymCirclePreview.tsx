@@ -1132,6 +1132,68 @@ export function GymCirclePreview({
     currentUserPosts,
   ]);
 
+  // Sprint 9.5.4 — listeners pro inverse bridge. SwiftUI OtherProfileView
+  // posta eventos quando user toca em ações que precisam roteamento web
+  // (chat, report, block, openPost). Web app responde abrindo a surface
+  // correspondente. Cleanup automático via remove().
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE !== "true") return;
+    let cleanups: Array<() => Promise<void>> = [];
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { GymCircleNativeBridge } = await import(
+          "./native/GymCircleNativeBridge"
+        );
+        if (!(await GymCircleNativeBridge.isAvailable())) return;
+
+        const openChatHandle = await GymCircleNativeBridge.addListener<{
+          userId: string;
+        }>("openChat", ({ userId }) => {
+          openChatWithUser(userId);
+        });
+        const openPostHandle = await GymCircleNativeBridge.addListener<{
+          postId: string;
+        }>("openPost", ({ postId }) => {
+          setPostDetailFullId(postId);
+        });
+        const reportHandle = await GymCircleNativeBridge.addListener<{
+          userId: string;
+        }>("reportUser", ({ userId }) => {
+          // Sprint 9.x: wire reportUser real (modal de motivo + RPC).
+          console.info("[Native] reportUser:", userId);
+        });
+        const blockHandle = await GymCircleNativeBridge.addListener<{
+          userId: string;
+        }>("blockUser", ({ userId }) => {
+          void social.actions.blockUser?.(userId);
+        });
+
+        if (cancelled) {
+          await Promise.all([
+            openChatHandle.remove(),
+            openPostHandle.remove(),
+            reportHandle.remove(),
+            blockHandle.remove(),
+          ]);
+        } else {
+          cleanups = [
+            () => openChatHandle.remove(),
+            () => openPostHandle.remove(),
+            () => reportHandle.remove(),
+            () => blockHandle.remove(),
+          ];
+        }
+      } catch (err) {
+        console.warn("[Native bridge] listener wire failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      void Promise.all(cleanups.map((fn) => fn()));
+    };
+  }, [social.actions, openChatWithUser]);
+
   // Sprint 8.13.3 — bridge híbrido pra celebration queue.
   // Quando flag NEXT_PUBLIC_USE_NATIVE_MYCIRCLE=true E plugin disponível,
   // despacha cada achievement da queue como presentCelebration nativo

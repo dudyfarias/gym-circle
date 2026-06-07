@@ -44,6 +44,7 @@ public final class GymCircleAppModel: ObservableObject {
     private let achievementsService: AchievementsService?
     private let challengesService: ChallengesService?
     private let profilesService: ProfilesService?
+    private let followsService: FollowsService?
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -73,13 +74,15 @@ public final class GymCircleAppModel: ObservableObject {
         let achievementsService = AchievementsService(client: client)
         let challengesService = ChallengesService(client: client)
         let profilesService = ProfilesService(client: client)
+        let followsService = FollowsService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
             myCircleService: myCircleService,
             achievementsService: achievementsService,
             challengesService: challengesService,
-            profilesService: profilesService
+            profilesService: profilesService,
+            followsService: followsService
         )
     }
 
@@ -91,7 +94,8 @@ public final class GymCircleAppModel: ObservableObject {
         myCircleService: MyCircleService? = nil,
         achievementsService: AchievementsService? = nil,
         challengesService: ChallengesService? = nil,
-        profilesService: ProfilesService? = nil
+        profilesService: ProfilesService? = nil,
+        followsService: FollowsService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -99,6 +103,7 @@ public final class GymCircleAppModel: ObservableObject {
         self.achievementsService = achievementsService
         self.challengesService = challengesService
         self.profilesService = profilesService
+        self.followsService = followsService
     }
 
     // MARK: - Boot pipeline
@@ -399,6 +404,29 @@ public final class GymCircleAppModel: ObservableObject {
     }
 
     // MARK: - Sprint 9.1 — Bridge helpers (other profile / save / recap)
+
+    /// Sprint 9.5.4 — verifica se autenticado segue target user.
+    public func isFollowing(targetUserId: String) async -> Bool {
+        guard let followsService,
+              let myId = sessionStore?.currentUserId else { return false }
+        do {
+            return try await followsService.isFollowing(follower: myId, following: targetUserId)
+        } catch {
+            return false
+        }
+    }
+
+    /// Sprint 9.5.4 — toggle follow/unfollow. Retorna novo estado.
+    public func toggleFollow(targetUserId: String) async -> Bool {
+        guard let followsService,
+              let myId = sessionStore?.currentUserId else { return false }
+        do {
+            return try await followsService.toggle(follower: myId, following: targetUserId)
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
 
     /// Busca profile de outro user (não o autenticado). Usado pelo bridge
     /// `presentOtherProfile`.

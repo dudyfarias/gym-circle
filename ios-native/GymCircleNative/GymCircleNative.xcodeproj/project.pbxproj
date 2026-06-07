@@ -37,6 +37,7 @@
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
+		C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D2F3C03BC2098846FF44D01 /* FollowsService.swift */; };
 		C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */; };
 		CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */; };
 		CCCA719F1A1B196B53ABCD8A /* MonthlyRecapSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */; };
@@ -68,6 +69,7 @@
 		636F3999A2F250111C153818 /* MyCircleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleModels.swift; sourceTree = "<group>"; };
 		641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeIconNativeView.swift; sourceTree = "<group>"; };
 		6C49CF73E5FC4231EF022A24 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
+		6D2F3C03BC2098846FF44D01 /* FollowsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowsService.swift; sourceTree = "<group>"; };
 		71697375FF0895F613E1090F /* MyCircleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleView.swift; sourceTree = "<group>"; };
 		783D161B1E627FB137F94874 /* MyCircleComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleComponents.swift; sourceTree = "<group>"; };
 		7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
@@ -196,6 +198,7 @@
 				9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */,
 				E7456124A93C3498F4AA6BB2 /* AuthService.swift */,
 				61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */,
+				6D2F3C03BC2098846FF44D01 /* FollowsService.swift */,
 				C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */,
 				381506FB324FA418FAD1FEBF /* MyCircleService.swift */,
 				D272642D5EA4B50216927502 /* ProfilesService.swift */,
@@ -316,6 +319,7 @@
 				AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */,
 				5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */,
 				CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */,
+				C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */,
 				33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */,
 				3FCE9C9BA90B675F9938CB7E /* GymCircleAppModel.swift in Sources */,
 				9CA8C13BAC321E232D5BCD2E /* GymCircleNativeApp.swift in Sources */,
