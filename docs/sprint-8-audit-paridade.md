@@ -459,12 +459,69 @@ cinza.
 | Calendar sem ← → | ❌ | ✅ |
 | 3 bridge methods sem call site | ❌ | 🟡 2 de 3 (celebration deferred) |
 
-### Pendente pra Sprint 8.12 (P1+P2)
+### Pendente pra Sprint 8.13+ (P2)
 - Calendar mini-fotos (thumbs como background)
 - Celebration bridge JS wire (queue refactor)
-- 5 achievements faltando (cross-trainer, explorer, etc)
-- FeaturedAchievements paleta **por kind** (não rarity)
-- Privacy lock (canSeeDetails)
-- AchievementDetail locked state + "Como desbloquear" bloco
+- 2 achievements secret faltando: cross-trainer (3+ workout types em
+  7 dias), explorer (5+ gyms em 30 dias) — precisam novas queries
 - ProfileSheet (outros users) SwiftUI
-- EditProfileSheet, MonthlyRecapSheet, RecapCoverPickerSheet
+- EditProfileSheet, MonthlyRecapSheet, RecapCoverPickerSheet, RecapPeriodPickerSheet
+
+---
+
+## 12. Sprint 8.12 — fechamento dos P1 (2026-06-07)
+
+### 8.12.1 — 3 achievements + paleta por kind
+- 3 novos achievements (trophies): active-week, network-100, community-200
+- Total agora: 22 + N challenges (era 19)
+- `ProfileView.featuredCardBackground` agora colore por **kind**
+  (relic=purple, trophy=cyan, medal=gold, badge=white, challenge=green) —
+  paridade `KIND_TONE` no `FeaturedAchievementsRow.tsx`
+
+### 8.12.2 — AchievementDetail locked state + "Como desbloquear"
+- `artworkLayer` agora 3-way: earned / mysterySecret / locked
+- Locked: ícone dim opacity 0.32 + blur 2 + Lock pill central com
+  ultraThinMaterial glass effect
+- `unlockHintBlock` novo: Lock circle 32pt + descrição completa do
+  achievement em card 0.04. Aparece pra não-earned não-secret.
+
+### 8.12.3 — Competição "Em breve" + Recap monthLabel
+- `competitionPlaceholderSection`: trophy + "Competição · Em breve" +
+  descrição. Dashed border 20pt (paridade web seção G "placeholder")
+- Recap CTA usa `L10n.myCircleCompartilharResumoMes(mes)` — "Compartilhar
+  resumo de maio" / "Share May recap"
+- L10n +5 keys (competição/em breve/descrição/outroPeríodo/recapMes)
+
+### 8.12.4 — Privacy lock (canSeeDetails)
+- `MyCircleViewData.canSeeDetails: Bool` (default true)
+- Body checa `if !canSeeDetails`: render apenas header + `privacyLockNotice`
+- `privacyLockNotice` card: lock pill cyan + título "Perfil é privado" +
+  body "Siga esse perfil pra ver..."
+- L10n +2 keys (privacyTitle/Body)
+
+### 8.12.5 — First-visit hint banner
+- Banner top com sparkles icon + texto explicando rings/badges/calendar
+- Persiste seen via UserDefaults com key por userId
+- Botão "Entendi" / "Got it" dismiss + transition opacity/move
+- @State firstVisitHintVisible + onAppear lê UserDefaults
+- L10n +2 keys (firstVisitHint/Dismiss)
+
+### Status final P1
+
+| Item | Antes | Depois |
+|------|-------|--------|
+| 5 achievements faltando | ❌ | 🟡 3 de 5 (2 secret deferred) |
+| FeaturedAchievements paleta divergente (rarity) | ❌ | ✅ por kind |
+| AchievementDetail locked state ausente | ❌ | ✅ |
+| AchievementDetail "Como desbloquear" ausente | ❌ | ✅ |
+| Competição placeholder ausente | ❌ | ✅ |
+| Recap monthLabel estático | ❌ | ✅ |
+| Privacy lock ausente | ❌ | ✅ |
+| First-visit hint ausente | ❌ | ✅ |
+
+### Pendente pra Sprint 8.13 (P2 + 2 secrets restantes)
+- Calendar mini-fotos
+- Celebration bridge JS wire
+- cross-trainer + explorer (precisam workout_type/gym_id distinct queries)
+- ProfileSheet, EditProfileSheet
+- MonthlyRecapSheet/CoverPicker/PeriodPicker
