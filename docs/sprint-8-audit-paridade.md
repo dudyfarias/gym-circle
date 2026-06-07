@@ -519,9 +519,89 @@ cinza.
 | Privacy lock ausente | ❌ | ✅ |
 | First-visit hint ausente | ❌ | ✅ |
 
-### Pendente pra Sprint 8.13 (P2 + 2 secrets restantes)
-- Calendar mini-fotos
-- Celebration bridge JS wire
-- cross-trainer + explorer (precisam workout_type/gym_id distinct queries)
-- ProfileSheet, EditProfileSheet
-- MonthlyRecapSheet/CoverPicker/PeriodPicker
+### Pendente pra Sprint 9+ (telas Capacitor, smoke iPhone)
+- Avatar upload (UIImagePickerController + Supabase Storage)
+- Owner usage de RecapCoverPickerSheet em MyCircleView (wire-up)
+- Stories/Feed/Chat SwiftUI (decisão pra Phase 8+)
+
+---
+
+## 13. Sprint 8.13 — fechamento dos P2 (2026-06-07)
+
+8 sub-fases, 8 commits, ~1,500 linhas Swift + JS:
+
+### 8.13.1 — Calendar mini-fotos
+- `MyCircleService.getMonthPosts(userId, monthKey)` retorna posts ordenados
+- `MonthCalendarPost` struct público
+- `CalendarBuilder.buildMonth(...posts:)` overload com 1 thumb por dia
+- `MonthlyCalendarGridView.dayCell` 3-way: thumbnail/trained/empty +
+  scrim gradient + shadow no número branco
+- AppModel paraleliza monthPosts com challenges no boot
+
+### 8.13.2 — 2 secret achievements
+- `getDistinctWorkoutTypes(sinceDaysAgo:)` + `getDistinctGyms(sinceDaysAgo:)`
+- `AchievementBuilder.Input.distinctWorkoutTypesIn7Days` + `distinctGymsIn30Days`
+- `cross-trainer` (3+ tipos em 7d, rare) + `explorer` (5+ academias em 30d, epic)
+- Total achievements: 24 + N challenges (paridade web 100%)
+
+### 8.13.3 — Celebration bridge JS wire
+- useEffect watcha celebrationQueue + flag NEXT_PUBLIC_USE_NATIVE_MYCIRCLE
+- Itera sequencial chamando presentCelebration nativo
+- NativeCelebrationHost (Sprint 8.9) cuida markCelebrated DB
+- Após despacho zera state, evita overlay web duplicado
+- 4 dos 4 bridge methods wirados (era 1/4 → 3/4 → 4/4)
+
+### 8.13.4 — RecapPeriodPickerSheet
+- 2 modos: grid 3-col 12 meses / lista 5 anos passados
+- `RecapPeriod` struct com periodKey + label + kind
+- Future months disabled, modes chips electric blue
+
+### 8.13.5 — RecapCoverPickerSheet
+- `ProfilesService.getMonthlyRecapCover` / `setMonthlyRecapCover` (read-merge-write)
+- Grid 3-col com AsyncImage, tap highlight border 3pt + check mark
+- Empty state + confirm button capsule
+
+### 8.13.6 — OtherProfileView
+- Header + identity + action row (Follow/Mensagem/Reportar/Bloquear)
+- FollowState enum (none/pending/accepted) com icon/bg/fg state-specific
+- PrivateLockedNotice quando privado + !follow
+- LatestPostPreview + posts grid
+
+### 8.13.7 — EditProfileSheet
+- `ProfilesService.updateProfile(displayName?, bio?, fitnessGoal?, isPrivate?)`
+- Form com fields + bio char counter (240 limit)
+- Private toggle com hint
+- Save async com isSaving ProgressView + saveError display
+- canSave validation (non-empty displayName + bio within limit)
+
+### 8.13.8 — MonthlyRecapSheet (canvas poster + share)
+- posterCanvas 4:5 com AsyncImage cover + gradient scrim + 4 stat cards
+- ImageRenderer @MainActor render 1080x1350 high-res UIImage
+- Share callback entrega UIImage pro caller chamar UIActivityViewController
+- RecapData struct sendable
+
+### Status final P2
+
+| Item | Antes | Depois |
+|------|-------|--------|
+| Calendar mini-fotos | ❌ | ✅ |
+| 2 secrets faltantes | ❌ | ✅ |
+| Celebration bridge JS | ❌ | ✅ |
+| RecapPeriodPickerSheet | ❌ | ✅ |
+| RecapCoverPickerSheet | ❌ | ✅ |
+| ProfileSheet outros users | ❌ | ✅ |
+| EditProfileSheet | ❌ | ✅ |
+| MonthlyRecapSheet poster | ❌ | ✅ |
+
+### L10n totalizando
+- 80+ keys cobrindo 9 telas: MyCircle, AchievementDetail, AchievementsView,
+  AchievementCelebration, ProfileView, OtherProfileView, RecapPeriodPicker,
+  RecapCoverPicker, EditProfileSheet, MonthlyRecapSheet
+- 100% bilíngue PT/EN
+
+### Paridade Web ↔ Nativo
+Após Sprint 8.13, **todas as 9 surfaces principais** da Gym Circle
+têm versão SwiftUI nativa funcional. Wire-up final no `GymCirclePreview.tsx`
+pra acionar OtherProfileView/EditProfileSheet/MonthlyRecapSheet via bridge
+fica pra Sprint 9 (TestFlight prep) — depende de migrations server-side
+estarem aplicadas pra `profiles.monthly_recap_covers` JSONB existir em prod.
