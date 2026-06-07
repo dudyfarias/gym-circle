@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// EditProfileSheet — Sprint 8.13.7 (paridade EditProfileSheet.tsx web).
 ///
@@ -15,6 +16,10 @@ import SwiftUI
 public struct EditProfileSheet: View {
     public let profile: UserProfile
     public let onSave: (UserProfile) async -> Void
+    /// Sprint 9.2 — quando informado, EditProfileSheet faz upload via
+    /// caller (`Data → URL`). Tipicamente injetado pelo NativeEditProfileHost
+    /// que tem acesso ao ProfilesService.uploadAvatar.
+    public let onUploadAvatar: ((Data) async -> String?)?
     public let onClose: () -> Void
 
     @State private var displayName: String
@@ -24,15 +29,23 @@ public struct EditProfileSheet: View {
     @State private var isSaving = false
     @State private var saveError: String?
 
+    // Sprint 9.2 — PhotosPicker state
+    @State private var photoItem: PhotosPickerItem?
+    @State private var pickedAvatarData: Data?
+    @State private var uploadedAvatarURL: String?
+    @State private var isUploadingAvatar = false
+
     private let bioCharLimit = 240
 
     public init(
         profile: UserProfile,
         onSave: @escaping (UserProfile) async -> Void,
+        onUploadAvatar: ((Data) async -> String?)? = nil,
         onClose: @escaping () -> Void
     ) {
         self.profile = profile
         self.onSave = onSave
+        self.onUploadAvatar = onUploadAvatar
         self.onClose = onClose
         _displayName = State(initialValue: profile.displayName ?? "")
         _bio = State(initialValue: profile.bio ?? "")
@@ -101,15 +114,89 @@ public struct EditProfileSheet: View {
         .padding(.vertical, 14)
     }
 
-    // MARK: - Avatar
+    // MARK: - Avatar (Sprint 9.2 — PhotosPicker + upload)
 
+    @ViewBuilder
     private var avatarSection: some View {
         VStack(spacing: 10) {
-            GCAvatar(url: profile.avatarURL, fallback: profile.username, size: 96)
-            Text(L10n.editProfileChangeAvatarSoon.string)
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundColor(.white.opacity(0.42))
+            avatarPreview
+            if onUploadAvatar != nil {
+                PhotosPicker(
+                    selection: $photoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Text(L10n.editProfileChangeAvatar.string)
+                        .font(.system(size: 12, weight: .heavy))
+                        .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+                }
+                .onChange(of: photoItem) { newItem in
+                    Task { await loadPickedPhoto(newItem) }
+                }
+                if isUploadingAvatar {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.6).tint(.white)
+                        Text(L10n.editProfileUploadingAvatar.string)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.62))
+                    }
+                }
+            } else {
+                Text(L10n.editProfileChangeAvatarSoon.string)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.42))
+            }
         }
+    }
+
+    @ViewBuilder
+    private var avatarPreview: some View {
+        // Preview prioritiza: pickedData → uploadedURL → profile.avatarURL
+        if let data = pickedAvatarData, let uiImage = UIImage(data: data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 96, height: 96)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white.opacity(0.12), lineWidth: 1))
+        } else {
+            GCAvatar(url: uploadedAvatarURL ?? profile.avatarURL, fallback: profile.username, size: 96)
+        }
+    }
+
+    private func loadPickedPhoto(_ item: PhotosPickerItem?) async {
+        guard let item, let onUploadAvatar else { return }
+        saveError = nil
+        do {
+            if let data = try await item.loadTransferable(type: Data.self) {
+                pickedAvatarData = data
+                isUploadingAvatar = true
+                defer { isUploadingAvatar = false }
+                let resized = downsampleToJPEG(data: data, maxDimension: 512, quality: 0.85) ?? data
+                if let newURL = await onUploadAvatar(resized) {
+                    uploadedAvatarURL = newURL
+                } else {
+                    saveError = L10n.editProfileUploadAvatarFailed.string
+                }
+            }
+        } catch {
+            saveError = error.localizedDescription
+        }
+    }
+
+    /// Sprint 9.2 — downsample pra evitar uploads >5MB. Avatars público
+    /// 512x512 atende para retina display 256pt físico.
+    private func downsampleToJPEG(data: Data, maxDimension: CGFloat, quality: CGFloat) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        let size = image.size
+        let largestSide = max(size.width, size.height)
+        let scale = min(1, maxDimension / largestSide)
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let resized = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        return resized.jpegData(compressionQuality: quality)
     }
 
     // MARK: - Fields

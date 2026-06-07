@@ -699,6 +699,9 @@ private struct NativeEditProfileHost: View {
                         )
                         onDismiss()
                     },
+                    onUploadAvatar: { data in
+                        await model.uploadAvatar(imageData: data)
+                    },
                     onClose: onDismiss
                 )
             } else {

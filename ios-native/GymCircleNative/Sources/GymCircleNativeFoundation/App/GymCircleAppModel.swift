@@ -435,6 +435,24 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Sprint 9.2 — upload de avatar. Wrapper ProfilesService.uploadAvatar
+    /// + reload profile pra atualizar @Published.
+    public func uploadAvatar(imageData: Data) async -> String? {
+        guard let profilesService,
+              let userId = sessionStore?.currentUserId else { return nil }
+        do {
+            let url = try await profilesService.uploadAvatar(
+                userId: userId,
+                imageData: imageData
+            )
+            await loadProfile()
+            return url
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
     /// Persistir capa escolhida pro recap do mês. Chamado pelo
     /// NativeMonthlyRecapHost depois do RecapCoverPickerSheet.
     public func setRecapCover(monthKey: String, postId: String?) async {

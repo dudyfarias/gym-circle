@@ -72,6 +72,54 @@ public actor ProfilesService {
             .execute()
     }
 
+    /// Sprint 9.2 — upload de avatar pro bucket `avatars`. RLS exige
+    /// path `{user_id}/{filename}`. Após upload retorna public URL e
+    /// atualiza `profiles.avatar_url`.
+    ///
+    /// Usa upsert pra sobrescrever quando user troca de foto (mantém
+    /// 1 path estável por user — evita acumular orphans).
+    public func uploadAvatar(
+        userId: String,
+        imageData: Data,
+        contentType: String = "image/jpeg"
+    ) async throws -> String {
+        let filename = "avatar.jpg" // path estável; upsert sobrescreve
+        let storagePath = "\(userId)/\(filename)"
+
+        // Upsert pro bucket avatars
+        _ = try await client.storage
+            .from("avatars")
+            .upload(
+                storagePath,
+                data: imageData,
+                options: FileOptions(
+                    cacheControl: "3600",
+                    contentType: contentType,
+                    upsert: true
+                )
+            )
+
+        // Public URL (avatars bucket é público pra read)
+        let publicURL = try client.storage
+            .from("avatars")
+            .getPublicURL(path: storagePath)
+
+        // Atualiza profiles.avatar_url com cache buster (timestamp param)
+        // pra forçar reload no client após upload.
+        let urlWithBuster = "\(publicURL.absoluteString)?t=\(Int(Date().timeIntervalSince1970))"
+        struct AvatarPatch: Encodable {
+            let avatarURL: String
+            enum CodingKeys: String, CodingKey { case avatarURL = "avatar_url" }
+        }
+        try await client
+            .from("profiles")
+            .update(AvatarPatch(avatarURL: urlWithBuster))
+            .eq("user_id", value: userId)
+            .execute()
+
+        return urlWithBuster
+    }
+
     /// Sprint 8.13.7 — atualiza campos editáveis do profile.
     /// Apenas campos opcionais não-nil são enviados (PATCH-like).
     public func updateProfile(

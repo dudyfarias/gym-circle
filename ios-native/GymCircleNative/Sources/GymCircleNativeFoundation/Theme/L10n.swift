@@ -59,6 +59,9 @@ public enum L10n {
     case editProfilePrivateToggle
     case editProfilePrivateHint
     case editProfileChangeAvatarSoon
+    case editProfileChangeAvatar
+    case editProfileUploadingAvatar
+    case editProfileUploadAvatarFailed
     case recapStatWorkouts
     case recapStatStreak
     case recapStatTopType
@@ -190,6 +193,14 @@ public enum L10n {
                 : "Apenas seguidores aprovados veem seus posts."
         case .editProfileChangeAvatarSoon:
             return isEN ? "Avatar upload coming soon" : "Troca de avatar em breve"
+        case .editProfileChangeAvatar:
+            return isEN ? "Change avatar" : "Trocar avatar"
+        case .editProfileUploadingAvatar:
+            return isEN ? "Uploading..." : "Enviando..."
+        case .editProfileUploadAvatarFailed:
+            return isEN
+                ? "Avatar upload failed. Try again."
+                : "Falha ao enviar avatar. Tente novamente."
 
         // Monthly recap
         case .recapStatWorkouts:  return isEN ? "Workouts"     : "Treinos"
