@@ -44,6 +44,12 @@ public enum L10n {
     case recapCoverPickerTitle
     case recapCoverPickerEmpty
     case recapCoverPickerConfirm
+    case profileFollow
+    case profileFollowing
+    case profileFollowRequested
+    case profileRequestFollow
+    case profileMessage
+    case profileLastPost
 
     // MARK: - AchievementDetailView
 
@@ -145,6 +151,14 @@ public enum L10n {
                 : "Nenhuma foto neste mês. Posta um treino pra aparecer aqui."
         case .recapCoverPickerConfirm:
             return isEN ? "Use as cover" : "Usar como capa"
+
+        // Other profile actions
+        case .profileFollow:           return isEN ? "Follow"            : "Seguir"
+        case .profileFollowing:        return isEN ? "Following"         : "Seguindo"
+        case .profileFollowRequested:  return isEN ? "Requested"         : "Pendente"
+        case .profileRequestFollow:    return isEN ? "Request"           : "Solicitar"
+        case .profileMessage:          return isEN ? "Message"           : "Mensagem"
+        case .profileLastPost:         return isEN ? "LAST WORKOUT"      : "ÚLTIMO TREINO"
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"

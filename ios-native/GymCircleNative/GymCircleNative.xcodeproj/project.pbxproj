@@ -43,6 +43,7 @@
 		CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */; };
 		DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C49CF73E5FC4231EF022A24 /* L10n.swift */; };
 		DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636F3999A2F250111C153818 /* MyCircleModels.swift */; };
+		EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB038D99927918121215E6 /* OtherProfileView.swift */; };
 		FB1C810F996E874492D37712 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F08F3783EAD0DC084E6E2F /* MainTabView.swift */; };
 /* End PBXBuildFile section */
 
@@ -76,6 +77,7 @@
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapCoverPickerSheet.swift; sourceTree = "<group>"; };
 		BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapPeriodPickerSheet.swift; sourceTree = "<group>"; };
+		C0BB038D99927918121215E6 /* OtherProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherProfileView.swift; sourceTree = "<group>"; };
 		C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAPI.swift; sourceTree = "<group>"; };
 		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 				0F5A004267A6D5354857ABFD /* LoginView.swift */,
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
 				71697375FF0895F613E1090F /* MyCircleView.swift */,
+				C0BB038D99927918121215E6 /* OtherProfileView.swift */,
 				ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */,
 				B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */,
 				BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */,
@@ -319,6 +322,7 @@
 				DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */,
 				4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */,
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
+				EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
 				3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */,
 				A237D22A211DEBC05FFAFE2F /* RecapCoverPickerSheet.swift in Sources */,
