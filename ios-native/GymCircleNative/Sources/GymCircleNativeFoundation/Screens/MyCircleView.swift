@@ -22,6 +22,10 @@ public struct MyCircleView: View {
     public let onTapBadgeHighlight: (() -> Void)?
     public let onTapChallenge: ((MonthlyChallenge) -> Void)?
     public let onTapRecap: (() -> Void)?
+    /// Sprint 9.5.3 — sub-CTA "Outro período" aciona caller pra abrir
+    /// RecapPeriodPickerSheet (escolher mês/ano histórico). Quando nil,
+    /// botão não aparece (back-compat).
+    public let onTapPickPeriod: (() -> Void)?
     /// Sprint 8.11.3 — recebe offset de mês (-1, 0, +1...) pra recarregar
     /// `data.calendarDays`. Quando nil, chevrons não aparecem (back-compat).
     public let onChangeMonth: ((Int) -> Void)?
@@ -40,6 +44,7 @@ public struct MyCircleView: View {
         onTapBadgeHighlight: (() -> Void)? = nil,
         onTapChallenge: ((MonthlyChallenge) -> Void)? = nil,
         onTapRecap: (() -> Void)? = nil,
+        onTapPickPeriod: (() -> Void)? = nil,
         onChangeMonth: ((Int) -> Void)? = nil
     ) {
         self.data = data
@@ -47,6 +52,7 @@ public struct MyCircleView: View {
         self.onTapBadgeHighlight = onTapBadgeHighlight
         self.onTapChallenge = onTapChallenge
         self.onTapRecap = onTapRecap
+        self.onTapPickPeriod = onTapPickPeriod
         self.onChangeMonth = onChangeMonth
     }
 
@@ -380,7 +386,18 @@ public struct MyCircleView: View {
 
     // MARK: - H. Recap CTA
 
+    // Sprint 9.5.3 — recap CTA agora é VStack: CTA principal + sub-CTA "Outro período"
+    @ViewBuilder
     private var recapCTASection: some View {
+        VStack(spacing: 8) {
+            recapCTAPrimary
+            if onTapPickPeriod != nil {
+                recapCTASecondary
+            }
+        }
+    }
+
+    private var recapCTAPrimary: some View {
         Button(action: { onTapRecap?() }) {
             HStack(spacing: 12) {
                 Image(systemName: "square.and.arrow.up")
@@ -420,6 +437,32 @@ public struct MyCircleView: View {
                         RoundedRectangle(cornerRadius: 20, style: .continuous)
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     )
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// Sprint 9.5.3 — sub-CTA "Outro período" abre RecapPeriodPickerSheet.
+    /// Paridade web Sprint 5.10 (CTA secundário abaixo do principal).
+    private var recapCTASecondary: some View {
+        Button(action: { onTapPickPeriod?() }) {
+            HStack {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 12, weight: .heavy))
+                Text(L10n.myCircleOutroPeriodo.string)
+                    .font(.system(size: 12, weight: .heavy))
+                    .tracking(0.4)
+                Spacer()
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 11, weight: .heavy))
+                    .opacity(0.62)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
             )
         }
         .buttonStyle(.plain)

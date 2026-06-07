@@ -291,6 +291,9 @@ private struct NativeMyCircleHost: View {
     @State private var hubOpen = false
     @State private var detailAchievement: Achievement?
     @State private var recapOpen = false
+    // Sprint 9.5.3 — period picker + monthKey selecionado
+    @State private var periodPickerOpen = false
+    @State private var selectedRecapMonthKey: String?
 
     var body: some View {
         MyCircleView(
@@ -306,7 +309,11 @@ private struct NativeMyCircleHost: View {
                     detailAchievement = match
                 }
             },
-            onTapRecap: { recapOpen = true },
+            onTapRecap: {
+                selectedRecapMonthKey = nil
+                recapOpen = true
+            },
+            onTapPickPeriod: { periodPickerOpen = true },
             onChangeMonth: { offset in
                 // Sprint 8.11.3 — recarrega workoutDays do mês escolhido
                 Task { await model.loadCalendarForMonth(offset: offset) }
@@ -331,8 +338,21 @@ private struct NativeMyCircleHost: View {
         .fullScreenCover(isPresented: $recapOpen) {
             NativeMonthlyRecapHost(
                 userId: userId,
-                monthKey: nil,
+                monthKey: selectedRecapMonthKey,
                 onDismiss: { recapOpen = false }
+            )
+        }
+        .fullScreenCover(isPresented: $periodPickerOpen) {
+            RecapPeriodPickerSheet(
+                onSelect: { period in
+                    selectedRecapMonthKey = period.periodKey
+                    periodPickerOpen = false
+                    // Pequeno delay pra animação do cover não conflitar
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        recapOpen = true
+                    }
+                },
+                onClose: { periodPickerOpen = false }
             )
         }
     }
