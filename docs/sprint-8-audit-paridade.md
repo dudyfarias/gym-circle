@@ -1,7 +1,12 @@
 # Sprint 8 — Auditoria de paridade SwiftUI ↔ Web
 
-Data: 2026-06-06
-Status: 🟡 **Funciona como demo, mas NÃO está em paridade com o app Vercel**
+Data: 2026-06-06 (auditoria inicial) · 2026-06-07 (pós Sprint 8.11)
+Status: 🟢 **P0 fechados — paridade funcional + bilíngue PT/EN OK**
+
+> **Update 2026-06-07** — Sprint 8.11 fechou os 7 P0 da auditoria.
+> Calendar agora hidrata com workoutDays reais, achievements sociais
+> destrancam, profile real é carregado, i18n cobre PT/EN, 2 dos 3
+> bridge methods restantes wired no JS. Ver §11 abaixo.
 
 Este doc é o resultado da revisão sistemática que você pediu. O resumo
 honesto: temos a **estrutura visual** das telas nativas, com a maioria
@@ -392,3 +397,74 @@ grep -rn "GymCircleNativeBridge\|presentMyCircleNative" apps/web/src/components/
 # Confirmar strings hardcoded
 grep -c '"' ios-native/GymCircleNative/Sources/GymCircleNativeFoundation/Screens/MyCircleView.swift
 ```
+
+---
+
+## 11. Sprint 8.11 — fechamento dos P0 (2026-06-07)
+
+### 8.11.1 — loadProfile + 4 inputs reais
+- `ProfilesService` novo (getProfile via tabela `profiles`)
+- `UserProfile.createdAt` opcional + decoder ISO 8601
+- `MyCircleSummary` expandido com `postsCount`, `followersCount`,
+  `hasUsedStreakRestore`, `workoutDays`
+- `MyCircleService.getSummary` agora dispara 5 queries em paralelo
+  (stats, activityDates, postsCount, followersCount, streakRestore)
+- `GymCircleAppModel.loadProfile()` + chamado em `boot()` antes de loadMyCircle
+- `AchievementBuilder.Input` populado com dados reais — antes 0/false/nil
+
+**Impacto:** badges sociais (first-workout, friends-50, founder-2026,
+streak-recovered…) destrancam quando o user tem dado real.
+
+### 8.11.2 — workoutDays no calendar
+- `summary.workoutDays` agora popula `CalendarBuilder.buildMonth(workoutDays:)`
+  em vez do `[]` hardcoded.
+
+**Impacto:** Calendar mostra os dias treinados em cyan em vez de SEMPRE
+cinza.
+
+### 8.11.3 — Calendar navegação ← →
+- `CalendarBuilder.buildMonth(monthKey:workoutDays:todayKey:)` aceita mês
+  explícito (back-compat preservada)
+- `MyCircleService.getWorkoutDays(userId, monthKey)` — fetch por mês
+- `GymCircleAppModel.loadCalendarForMonth(offset:)` — recarrega calendar
+- `MyCircleView` com `@State calendarMonthOffset` + chevron buttons +
+  label dinâmico do mês (LLLL yyyy)
+- Bridge plugin wirea `onChangeMonth → loadCalendarForMonth`
+- Mini-fotos (Sprint 5.2 web) deferred pra Sprint 8.12
+
+### 8.11.4 — JS wire bridge methods restantes
+- `openAchievementDetailHybrid` — wrapper async tenta
+  `presentAchievementDetail` nativo antes de fallback web
+- `openBadges` convertido pra async — tenta `presentAchievementsHub` nativo
+- 2 callsites de `onOpenAchievementDetail={setAchievementDetail}` no
+  `GymCirclePreview.tsx` substituídos
+- `presentCelebration` deferred pra Sprint 8.12 (queue refactor profundo)
+
+### 8.11.5 — i18n PT/EN sweep
+- `Theme/L10n.swift` novo — enum com 42 keys, resolver inline PT-BR/EN
+  via `Locale.current.language.languageCode`
+- 5 telas migradas: MyCircleView, AchievementDetailView, AchievementsView,
+  AchievementCelebrationView, ProfileView
+- Decisão: inline em vez de `.strings` bundle (evita mexer em Package.swift
+  Resources; migração futura é trivial)
+
+### Status final P0
+
+| Item | Antes | Depois |
+|------|-------|--------|
+| Calendar sempre vazio | ❌ | ✅ |
+| Badges sociais trancados | ❌ | ✅ |
+| Profile nunca carregado | ❌ | ✅ |
+| Strings 100% PT hardcoded | ❌ | ✅ EN ready |
+| Calendar sem ← → | ❌ | ✅ |
+| 3 bridge methods sem call site | ❌ | 🟡 2 de 3 (celebration deferred) |
+
+### Pendente pra Sprint 8.12 (P1+P2)
+- Calendar mini-fotos (thumbs como background)
+- Celebration bridge JS wire (queue refactor)
+- 5 achievements faltando (cross-trainer, explorer, etc)
+- FeaturedAchievements paleta **por kind** (não rarity)
+- Privacy lock (canSeeDetails)
+- AchievementDetail locked state + "Como desbloquear" bloco
+- ProfileSheet (outros users) SwiftUI
+- EditProfileSheet, MonthlyRecapSheet, RecapCoverPickerSheet
