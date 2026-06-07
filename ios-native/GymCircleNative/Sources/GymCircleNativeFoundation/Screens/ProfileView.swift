@@ -109,16 +109,22 @@ public struct ProfileView: View {
         .buttonStyle(.plain)
     }
 
+    /// Sprint 8.12.1 — paleta por **kind** (não rarity), paridade `KIND_TONE`
+    /// em `FeaturedAchievementsRow.tsx` web:
+    ///   - relic    → purple #A78BFA (mítico)
+    ///   - trophy   → brand cyan (achievement social)
+    ///   - medal    → gold #FBBF24 (streak histórico)
+    ///   - badge    → white sutil (entry-level)
+    ///   - challenge→ green #34D399 (mensal temático)
+    /// Locked cards usam fundo neutro 0.025.
     private func featuredCardBackground(_ a: Achievement) -> Color {
-        guard a.earned, let rarity = a.rarity else {
-            return Color.white.opacity(0.025)
-        }
-        switch rarity {
-        case .legendary: return Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.14)
-        case .epic: return Color(red: 0.66, green: 0.55, blue: 0.98).opacity(0.14)
-        case .rare: return GymCircleTheme.ColorToken.electricBlue.opacity(0.14)
-        case .uncommon: return Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.12)
-        case .common: return Color.white.opacity(0.06)
+        guard a.earned else { return Color.white.opacity(0.025) }
+        switch a.kind {
+        case .relic:     return Color(red: 0.66, green: 0.55, blue: 0.98).opacity(0.12)
+        case .trophy:    return GymCircleTheme.ColorToken.electricBlue.opacity(0.14)
+        case .medal:     return Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.14)
+        case .badge:     return Color.white.opacity(0.06)
+        case .challenge: return Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.12)
         }
     }
 

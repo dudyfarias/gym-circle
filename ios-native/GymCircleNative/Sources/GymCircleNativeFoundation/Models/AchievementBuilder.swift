@@ -180,6 +180,17 @@ public enum AchievementBuilder {
             ),
             Achievement(
                 kind: .trophy,
+                achievementId: "active-week",
+                label: "Semana cheia",
+                description: "Treinou 5+ dias nesta semana.",
+                earned: input.workoutsThisWeek >= 5,
+                iconKey: .calendar,
+                rarity: .common,
+                progress: input.workoutsThisWeek < 5 ? AchievementProgress(current: input.workoutsThisWeek, target: 5) : nil,
+                repeatable: true
+            ),
+            Achievement(
+                kind: .trophy,
                 achievementId: "month-active",
                 label: "Mês ativo",
                 description: "Treinou 15+ dias neste mês.",
@@ -218,6 +229,26 @@ public enum AchievementBuilder {
                 iconKey: .users,
                 rarity: .uncommon,
                 progress: followers < 50 ? AchievementProgress(current: followers, target: 50) : nil
+            ),
+            Achievement(
+                kind: .trophy,
+                achievementId: "network-100",
+                label: "Rede de 100",
+                description: "Tem 100+ seguidores no Gym Circle.",
+                earned: followers >= 100,
+                iconKey: .users,
+                rarity: .rare,
+                progress: followers < 100 ? AchievementProgress(current: followers, target: 100) : nil
+            ),
+            Achievement(
+                kind: .trophy,
+                achievementId: "community-200",
+                label: "Comunidade 200",
+                description: "Tem 200+ seguidores no Gym Circle.",
+                earned: followers >= 200,
+                iconKey: .users,
+                rarity: .epic,
+                progress: followers < 200 ? AchievementProgress(current: followers, target: 200) : nil
             ),
             Achievement(
                 kind: .trophy,
