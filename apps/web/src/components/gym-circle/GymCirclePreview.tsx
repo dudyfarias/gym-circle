@@ -15,7 +15,11 @@ import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
-import { buildMonthlyRecap, type RecapPeriod } from "./social/monthlyRecap";
+import {
+  buildMonthlyRecap,
+  getRecapPeriodKey,
+  type RecapPeriod,
+} from "./social/monthlyRecap";
 import {
   getAchievementCompositeId,
   getAllAchievements,
@@ -371,14 +375,38 @@ export function GymCirclePreview({
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
-  const openProfile = useCallback((userId: string) => {
+  const openProfile = useCallback(async (userId: string) => {
     markPerf("profile_open_start");
+    // Sprint 9.5.1 — bridge híbrido pra OtherProfileView nativo.
+    // Mesma flag NEXT_PUBLIC_USE_NATIVE_MYCIRCLE controla as 4 surfaces.
+    if (
+      process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true" &&
+      userId !== social.currentUser.id // próprio perfil continua web (ProfileScreen)
+    ) {
+      try {
+        const { GymCircleNativeBridge } = await import(
+          "./native/GymCircleNativeBridge"
+        );
+        if (await GymCircleNativeBridge.isAvailable()) {
+          await GymCircleNativeBridge.presentOtherProfile({
+            targetUserId: userId,
+            currentUserId: social.currentUser.id,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn(
+          "[OtherProfile] native bridge unavailable, falling back to web:",
+          err,
+        );
+      }
+    }
     void social.actions.refreshProfilePosts?.(userId);
     setProfileOpenId(userId);
     window.requestAnimationFrame(() => {
       measurePerf("profile_open_ms", "profile_open_start", "profile_open_end");
     });
-  }, [social.actions]);
+  }, [social.actions, social.currentUser.id]);
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
   // Sprint 3.5.3: handlers do MyCircleSheet.
   // Sprint 8.1: estratégia híbrida — quando flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`
@@ -479,7 +507,57 @@ export function GymCirclePreview({
     setChatTargetUserId(userId);
     setActiveScreen("chat");
   }, []);
-  const openEditProfile = useCallback(() => setEditOpen(true), []);
+  // Sprint 9.5.1 — bridge híbrido pra MonthlyRecapSheet nativo.
+  // monthKey opcional — quando ausente bridge usa mês corrente.
+  const openMonthlyRecapHybrid = useCallback(
+    async (monthKey?: string) => {
+      if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
+        try {
+          const { GymCircleNativeBridge } = await import(
+            "./native/GymCircleNativeBridge"
+          );
+          if (await GymCircleNativeBridge.isAvailable()) {
+            await GymCircleNativeBridge.presentMonthlyRecap({
+              userId: social.currentUser.id,
+              ...(monthKey ? { monthKey } : {}),
+            });
+            return;
+          }
+        } catch (err) {
+          console.warn(
+            "[MonthlyRecap] native bridge unavailable, falling back to web:",
+            err,
+          );
+        }
+      }
+      setMonthlyRecapOpen(true);
+    },
+    [social.currentUser.id],
+  );
+  // Sprint 9.5.1 — bridge híbrido pra EditProfileSheet nativo. Sob flag
+  // NEXT_PUBLIC_USE_NATIVE_MYCIRCLE + isAvailable, apresenta a SwiftUI
+  // sheet via presentEditProfile. Fallback web transparente.
+  const openEditProfile = useCallback(async () => {
+    if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
+      try {
+        const { GymCircleNativeBridge } = await import(
+          "./native/GymCircleNativeBridge"
+        );
+        if (await GymCircleNativeBridge.isAvailable()) {
+          await GymCircleNativeBridge.presentEditProfile({
+            userId: social.currentUser.id,
+          });
+          return;
+        }
+      } catch (err) {
+        console.warn(
+          "[EditProfile] native bridge unavailable, falling back to web:",
+          err,
+        );
+      }
+    }
+    setEditOpen(true);
+  }, [social.currentUser.id]);
   const closeEditProfile = useCallback(() => setEditOpen(false), []);
   const openNotifications = useCallback(() => setNotificationsOpen(true), []);
   const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
@@ -1649,7 +1727,7 @@ export function GymCirclePreview({
             onOpenBadges={openBadges}
             onOpenMonthlyRecap={
               myCircleUser?.id === social.currentUser.id
-                ? () => setMonthlyRecapOpen(true)
+                ? () => { void openMonthlyRecapHybrid(); }
                 : undefined
             }
             // Sprint 5.8 — calendar mini-foto tappable abre PostDetail.
@@ -1860,7 +1938,7 @@ export function GymCirclePreview({
             onClose={() => setRecapPeriodPickerOpen(false)}
             onSelect={(period) => {
               setRecapPeriod(period);
-              setMonthlyRecapOpen(true);
+              void openMonthlyRecapHybrid(getRecapPeriodKey(period));
             }}
             open={recapPeriodPickerOpen}
           />
