@@ -29,8 +29,8 @@ public struct ProfileView: View {
                     postsGrid
                 } else {
                     GCEmptyState(
-                        title: "Perfil indisponivel",
-                        subtitle: "Entre na conta para ver seu perfil nativo."
+                        title: L10n.profileIndisponivel.string,
+                        subtitle: L10n.profileEntreParaVer.string
                     )
                 }
             }
@@ -56,9 +56,9 @@ public struct ProfileView: View {
                 }
 
                 HStack(spacing: 12) {
-                    stat("Streak", value: "\(profile.currentStreak)d")
-                    stat("Maior", value: "\(profile.bestStreak)d")
-                    stat("Posts", value: "\(posts.count)")
+                    stat(L10n.profileStreak.string, value: "\(profile.currentStreak)d")
+                    stat(L10n.profileMaior.string, value: "\(profile.bestStreak)d")
+                    stat(L10n.profilePosts.string, value: "\(posts.count)")
                 }
             }
             .frame(maxWidth: .infinity)
@@ -68,7 +68,7 @@ public struct ProfileView: View {
     // Sprint 8.8 — Featured Achievements row (paridade Sprint 7.5.5 web)
     private var featuredRow: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("CONQUISTAS EM DESTAQUE")
+            Text(L10n.profileConquistasDestaque.string)
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(0.8)
                 .foregroundColor(.white.opacity(0.44))

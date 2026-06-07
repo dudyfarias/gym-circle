@@ -61,9 +61,9 @@ public struct AchievementsView: View {
                         if filteredByTab.isEmpty {
                             emptyState
                         } else {
-                            sectionGroup(title: "Conquistados", items: sections.earned)
-                            sectionGroup(title: "Próximos", items: sections.next)
-                            sectionGroup(title: "Bloqueados", items: sections.locked)
+                            sectionGroup(title: L10n.achievementsConquistados.string, items: sections.earned)
+                            sectionGroup(title: L10n.achievementsProximos.string, items: sections.next)
+                            sectionGroup(title: L10n.achievementsBloqueados.string, items: sections.locked)
                         }
                         Spacer(minLength: 32)
                     }
@@ -85,7 +85,7 @@ public struct AchievementsView: View {
                     .foregroundColor(.white)
             }
             Spacer()
-            Text("Hall da Fama")
+            Text(L10n.achievementsHallFama.string)
                 .font(.system(size: 15, weight: .heavy))
                 .foregroundColor(.white)
             Spacer()
@@ -100,7 +100,7 @@ public struct AchievementsView: View {
     private var progressBar: some View {
         VStack(spacing: 8) {
             HStack {
-                Text("\(earnedCount) de \(totalCount) conquistadas")
+                Text(L10n.achievementsXdeY(earned: earnedCount, total: totalCount).string)
                     .font(.system(size: 13, weight: .heavy))
                     .foregroundColor(.white)
                 Spacer()
@@ -134,12 +134,12 @@ public struct AchievementsView: View {
     private var tabChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                tabChip(.all, label: "Tudo")
-                tabChip(.kind(.badge), label: "Badges")
-                tabChip(.kind(.medal), label: "Medalhas")
-                tabChip(.kind(.trophy), label: "Troféus")
-                tabChip(.kind(.relic), label: "Relíquias")
-                tabChip(.kind(.challenge), label: "Desafios")
+                tabChip(.all, label: L10n.achievementsTudo.string)
+                tabChip(.kind(.badge), label: L10n.achievementsBadges.string)
+                tabChip(.kind(.medal), label: L10n.achievementsMedalhas.string)
+                tabChip(.kind(.trophy), label: L10n.achievementsTrofeus.string)
+                tabChip(.kind(.relic), label: L10n.achievementsReliquias.string)
+                tabChip(.kind(.challenge), label: L10n.achievementsDesafios.string)
             }
             .padding(.horizontal, 20)
         }
@@ -207,7 +207,7 @@ public struct AchievementsView: View {
                     .foregroundColor(achievement.earned ? .white : .white.opacity(0.72))
                     .lineLimit(1)
 
-                Text(achievement.isMysterySecret ? "Descubra como desbloquear" : achievement.description)
+                Text(achievement.isMysterySecret ? L10n.detailDescubraDesbloquear.string : achievement.description)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.52))
                     .lineLimit(2)
@@ -256,7 +256,7 @@ public struct AchievementsView: View {
             Image(systemName: "trophy")
                 .font(.system(size: 32))
                 .foregroundColor(.white.opacity(0.32))
-            Text("Nenhuma conquista nesta categoria ainda.")
+            Text(L10n.achievementsVazio.string)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(.white.opacity(0.52))
                 .multilineTextAlignment(.center)

@@ -58,7 +58,7 @@ public struct AchievementCelebrationView: View {
             // Conteúdo central
             VStack(spacing: 0) {
                 if showQueueBadge, let idx = queueIndex, let total = queueTotal {
-                    Text("\(idx) DE \(total)".uppercased())
+                    Text(L10n.celebrationQueueIndex(index: idx, total: total).string)
                         .font(.system(size: 11, weight: .heavy))
                         .tracking(1.2)
                         .foregroundColor(.white.opacity(0.64))
@@ -83,7 +83,7 @@ public struct AchievementCelebrationView: View {
                 }
                 .padding(.vertical, 24)
 
-                Text("VOCÊ DESBLOQUEOU")
+                Text(L10n.detailVoceDesbloqueou.string)
                     .font(.system(size: 12, weight: .heavy))
                     .tracking(2.0)
                     .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
@@ -113,7 +113,7 @@ public struct AchievementCelebrationView: View {
 
                 VStack(spacing: 8) {
                     Button(action: onDismiss) {
-                        Text("Continuar")
+                        Text(L10n.celebrationContinuar.string)
                             .font(.system(size: 14, weight: .heavy))
                             .foregroundColor(.black)
                             .padding(.horizontal, 32)
@@ -124,7 +124,7 @@ public struct AchievementCelebrationView: View {
 
                     if showQueueBadge, let onSkipAll {
                         Button(action: onSkipAll) {
-                            Text("Ver depois")
+                            Text(L10n.celebrationVerDepois.string)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.64))
                                 .padding(.horizontal, 24)

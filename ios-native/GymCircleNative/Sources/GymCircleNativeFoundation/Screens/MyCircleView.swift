@@ -131,12 +131,12 @@ public struct MyCircleView: View {
             columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
             spacing: 8
         ) {
-            SummaryStatCardView(label: "Streak atual", value: "\(data.stats.currentStreak)d")
-            SummaryStatCardView(label: "Maior streak", value: "\(data.stats.bestStreak)d")
-            SummaryStatCardView(label: "Treinos no mês", value: "\(data.stats.workoutsThisMonth)")
-            SummaryStatCardView(label: "Dias no ano", value: "\(data.stats.workoutsThisYear)")
-            SummaryStatCardView(label: "Conquistas", value: "\(data.earnedCount)")
-            SummaryStatCardView(label: "Total", value: "\(data.totalAchievements)")
+            SummaryStatCardView(label: L10n.myCircleStreakAtual.string, value: "\(data.stats.currentStreak)d")
+            SummaryStatCardView(label: L10n.myCircleMaiorStreak.string, value: "\(data.stats.bestStreak)d")
+            SummaryStatCardView(label: L10n.myCircleTreinosMes.string, value: "\(data.stats.workoutsThisMonth)")
+            SummaryStatCardView(label: L10n.myCircleDiasAno.string, value: "\(data.stats.workoutsThisYear)")
+            SummaryStatCardView(label: L10n.myCircleConquistas.string, value: "\(data.earnedCount)")
+            SummaryStatCardView(label: L10n.myCircleTotal.string, value: "\(data.totalAchievements)")
         }
     }
 
@@ -144,23 +144,23 @@ public struct MyCircleView: View {
 
     private var consistencySection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Sua Consistência")
+            sectionTitle(L10n.myCircleSuaConsistencia.string)
 
             VStack(spacing: 14) {
                 RingProgressRowView(
-                    label: "Semana",
+                    label: L10n.myCircleSemana.string,
                     value: "\(data.stats.workoutsThisWeek)/7",
                     progressPercent: Double(data.stats.workoutsThisWeek) / 7.0,
                     color: GymCircleTheme.ColorToken.cyan
                 )
                 RingProgressRowView(
-                    label: "Mês",
+                    label: L10n.myCircleMes.string,
                     value: "\(data.stats.workoutsThisMonth)",
                     progressPercent: Double(data.stats.workoutsThisMonth) / 30.0,
                     color: GymCircleTheme.ColorToken.electricBlue
                 )
                 RingProgressRowView(
-                    label: "Ano",
+                    label: L10n.myCircleAno.string,
                     value: "\(data.stats.workoutsThisYear)",
                     progressPercent: Double(data.stats.workoutsThisYear) / 365.0,
                     color: GymCircleTheme.ColorToken.deepBlue
@@ -179,7 +179,7 @@ public struct MyCircleView: View {
     private var calendarSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                sectionTitle("Calendário do mês")
+                sectionTitle(L10n.myCircleCalendarioMes.string)
                 Spacer()
                 if onChangeMonth != nil {
                     calendarMonthNav
@@ -247,7 +247,7 @@ public struct MyCircleView: View {
 
     private var levelsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Níveis")
+            sectionTitle(L10n.myCircleNiveis.string)
 
             VStack(spacing: 8) {
                 ForEach(data.allLevels) { level in
@@ -272,7 +272,7 @@ public struct MyCircleView: View {
     private func badgeHighlightSection(badge: Achievement) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                sectionTitle("Conquistas")
+                sectionTitle(L10n.myCircleConquistas.string)
                 Spacer()
                 GCText("\(data.earnedCount)/\(data.totalAchievements)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
             }
@@ -289,7 +289,7 @@ public struct MyCircleView: View {
 
     private var monthlyChallengesSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionTitle("Desafios do mês")
+            sectionTitle(L10n.myCircleDesafiosMes.string)
 
             VStack(spacing: 8) {
                 ForEach(data.monthlyChallenges) { challenge in
@@ -316,8 +316,8 @@ public struct MyCircleView: View {
                     .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    GCText("Compartilhar resumo", style: .body, color: GymCircleTheme.ColorToken.primaryText)
-                    GCText("Você escolhe a foto da capa", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    GCText(L10n.myCircleCompartilharResumo.string, style: .body, color: GymCircleTheme.ColorToken.primaryText)
+                    GCText(L10n.myCircleEscolheFoto.string, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 }
 
                 Spacer()

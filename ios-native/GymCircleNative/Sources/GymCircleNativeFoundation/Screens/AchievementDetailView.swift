@@ -152,7 +152,7 @@ public struct AchievementDetailView: View {
     private func progressBlock(progress: AchievementProgress) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("PROGRESSO")
+                Text(L10n.detailProgresso.string)
                     .font(.system(size: 11, weight: .heavy))
                     .tracking(1.0)
                     .foregroundColor(.white.opacity(0.44))
@@ -187,13 +187,13 @@ public struct AchievementDetailView: View {
         VStack(spacing: 0) {
             if let record = userRecord {
                 if let earned = formatDate(record.earnedAt) {
-                    statRow(label: "Conquistado", value: earned)
+                    statRow(label: L10n.detailConquistado.string, value: earned)
                 }
                 if record.count > 1, let lastEarned = formatDate(record.lastEarnedAt) {
                     Divider().background(Color.white.opacity(0.06))
-                    statRow(label: "Total", value: "\(record.count) vezes")
+                    statRow(label: L10n.myCircleTotal.string, value: L10n.detailTotalVezes(record.count).string)
                     Divider().background(Color.white.opacity(0.06))
-                    statRow(label: "Última vez", value: lastEarned)
+                    statRow(label: L10n.detailUltimaVez.string, value: lastEarned)
                 }
             }
         }
@@ -235,15 +235,15 @@ public struct AchievementDetailView: View {
             EmptyView()
         } else if let globalStats {
             if globalStats.earnedCount == 0 {
-                Text("Ninguém conquistou esta ainda. Seja o primeiro!")
+                Text(L10n.detailNinguemConquistou.string)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.56))
             } else if globalStats.earnedCount == 1 && achievement.earned {
-                Text("✦ Você é o primeiro a conquistar esta!")
+                Text(L10n.detailVoceEhPrimeiro.string)
                     .font(.system(size: 12, weight: .heavy))
                     .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
             } else if let formatted = AchievementRarityFormatter.format(globalStats.percent) {
-                Text("Apenas \(formatted) dos usuários possuem esta conquista.")
+                Text(L10n.detailApenasPercent(formatted).string)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundColor(.white.opacity(0.56))
             } else if let rarity = achievement.rarity {
@@ -257,11 +257,11 @@ public struct AchievementDetailView: View {
     private func rarityChip(_ rarity: AchievementRarity) -> some View {
         let (label, color): (String, Color) = {
             switch rarity {
-            case .common: return ("Comum", Color.white.opacity(0.82))
-            case .uncommon: return ("Incomum", Color(red: 0.20, green: 0.83, blue: 0.60))
-            case .rare: return ("Raro", GymCircleTheme.ColorToken.electricBlue)
-            case .epic: return ("Épico", Color(red: 0.66, green: 0.55, blue: 0.98))
-            case .legendary: return ("Lendário", Color(red: 0.98, green: 0.75, blue: 0.14))
+            case .common: return (L10n.rarityComum.string, Color.white.opacity(0.82))
+            case .uncommon: return (L10n.rarityIncomum.string, Color(red: 0.20, green: 0.83, blue: 0.60))
+            case .rare: return (L10n.rarityRaro.string, GymCircleTheme.ColorToken.electricBlue)
+            case .epic: return (L10n.rarityEpico.string, Color(red: 0.66, green: 0.55, blue: 0.98))
+            case .legendary: return (L10n.rarityLendario.string, Color(red: 0.98, green: 0.75, blue: 0.14))
             }
         }()
         return Text(label.uppercased())
@@ -286,7 +286,7 @@ public struct AchievementDetailView: View {
     }
 
     private var eyebrowText: String {
-        achievement.earned ? "VOCÊ DESBLOQUEOU" : "EM PROGRESSO"
+        achievement.earned ? L10n.detailVoceDesbloqueou.string : L10n.detailEmProgresso.string
     }
 
     private var closeButton: some View {
