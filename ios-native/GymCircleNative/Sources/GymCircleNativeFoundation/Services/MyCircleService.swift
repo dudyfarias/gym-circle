@@ -88,6 +88,97 @@ public actor MyCircleService {
         return Set(rows.compactMap(\.gymId)).count
     }
 
+    /// Sprint 9.5.5 — best streak (sequência consecutiva máxima) dentro do
+    /// mês alvo. Algoritmo: pega user_activity_days do mês, ordena, conta
+    /// runs consecutivas em dias adjacentes.
+    public func getBestStreakInMonth(userId: String, monthKey: String) async throws -> Int {
+        let days = try await getWorkoutDays(userId: userId, monthKey: monthKey)
+        guard !days.isEmpty else { return 0 }
+
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        let sortedDates = days.compactMap { formatter.date(from: $0) }.sorted()
+        guard !sortedDates.isEmpty else { return 0 }
+
+        var best = 1
+        var current = 1
+        let cal = Calendar(identifier: .gregorian)
+        for i in 1..<sortedDates.count {
+            if let diff = cal.dateComponents([.day], from: sortedDates[i - 1], to: sortedDates[i]).day,
+               diff == 1 {
+                current += 1
+                best = max(best, current)
+            } else {
+                current = 1
+            }
+        }
+        return best
+    }
+
+    /// Sprint 9.5.5 — workout type mais frequente no mês alvo.
+    /// Group + count + sort client-side (simples, baixo volume típico).
+    public func getTopWorkoutType(userId: String, monthKey: String) async throws -> String? {
+        let parts = monthKey.split(separator: "-")
+        guard parts.count == 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]) else { return nil }
+
+        let monthStart = String(format: "%04d-%02d-01", year, month)
+        let nextMonth = month == 12 ? 1 : month + 1
+        let nextYear = month == 12 ? year + 1 : year
+        let monthEnd = String(format: "%04d-%02d-01", nextYear, nextMonth)
+
+        let rows: [PostWorkoutTypeRow] = try await client
+            .from("posts")
+            .select("workout_type")
+            .eq("user_id", value: userId)
+            .gte("workout_date", value: monthStart)
+            .lt("workout_date", value: monthEnd)
+            .execute()
+            .value
+
+        var counts: [String: Int] = [:]
+        for row in rows where !row.workoutType.isEmpty {
+            counts[row.workoutType, default: 0] += 1
+        }
+        return counts.max(by: { $0.value < $1.value })?.key
+    }
+
+    /// Sprint 9.5.5 — gym mais frequente no mês. Retorna nome via join
+    /// com `gyms` table. Quando gym_id é null em todos posts, retorna nil.
+    public func getTopGymName(userId: String, monthKey: String) async throws -> String? {
+        let parts = monthKey.split(separator: "-")
+        guard parts.count == 2,
+              let year = Int(parts[0]),
+              let month = Int(parts[1]) else { return nil }
+
+        let monthStart = String(format: "%04d-%02d-01", year, month)
+        let nextMonth = month == 12 ? 1 : month + 1
+        let nextYear = month == 12 ? year + 1 : year
+        let monthEnd = String(format: "%04d-%02d-01", nextYear, nextMonth)
+
+        // PostgREST embed: posts → gyms(name) via FK gym_id
+        let rows: [PostGymJoinRow] = try await client
+            .from("posts")
+            .select("gym_id,gyms(name)")
+            .eq("user_id", value: userId)
+            .gte("workout_date", value: monthStart)
+            .lt("workout_date", value: monthEnd)
+            .execute()
+            .value
+
+        var counts: [String: Int] = [:]
+        for row in rows {
+            guard let name = row.gym?.name else { continue }
+            counts[name, default: 0] += 1
+        }
+        return counts.max(by: { $0.value < $1.value })?.key
+    }
+
     /// Sprint 8.13.1 — posts do mês para renderizar thumbnails no calendar.
     /// Retorna lista (workout_date, post_id, image_url) ordenada por
     /// workout_date asc. UI agrupa por dia (1 thumbnail por dia, prefere
@@ -293,4 +384,19 @@ private struct PostWorkoutTypeRow: Codable, Sendable {
 private struct PostGymRow: Codable, Sendable {
     let gymId: String?
     enum CodingKeys: String, CodingKey { case gymId = "gym_id" }
+}
+
+/// Sprint 9.5.5 — joined post + gym name pra top gym query.
+private struct PostGymJoinRow: Codable, Sendable {
+    let gymId: String?
+    let gym: GymNameRow?
+
+    enum CodingKeys: String, CodingKey {
+        case gymId = "gym_id"
+        case gym = "gyms"
+    }
+}
+
+private struct GymNameRow: Codable, Sendable {
+    let name: String
 }

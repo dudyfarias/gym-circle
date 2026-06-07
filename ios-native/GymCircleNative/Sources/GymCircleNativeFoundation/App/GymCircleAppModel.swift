@@ -506,16 +506,23 @@ public final class GymCircleAppModel: ObservableObject {
             return (nil, [])
         }
 
+        // Sprint 9.5.5 — fan-out 6 queries em paralelo pra hidratar TUDO
         async let postsTask = (try? await myCircleService.getMonthPosts(userId: userId, monthKey: monthKey)) ?? []
         async let workoutDaysTask = (try? await myCircleService.getWorkoutDays(userId: userId, monthKey: monthKey)) ?? []
         async let coverTask: String? = {
             guard let profilesService else { return nil }
             return try? await profilesService.getMonthlyRecapCover(userId: userId, monthKey: monthKey)
         }()
+        async let bestStreakTask: Int = (try? await myCircleService.getBestStreakInMonth(userId: userId, monthKey: monthKey)) ?? 0
+        async let topTypeTask: String? = try? await myCircleService.getTopWorkoutType(userId: userId, monthKey: monthKey)
+        async let topGymTask: String? = try? await myCircleService.getTopGymName(userId: userId, monthKey: monthKey)
 
         let posts = await postsTask
         let workoutDays = await workoutDaysTask
         let coverPostId = await coverTask
+        let bestStreak = await bestStreakTask
+        let topType = await topTypeTask
+        let topGym = await topGymTask
 
         let coverURL: URL? = {
             if let id = coverPostId, let match = posts.first(where: { $0.postId == id }) {
@@ -535,9 +542,9 @@ public final class GymCircleAppModel: ObservableObject {
             displayName: displayName,
             coverImageURL: coverURL,
             workoutsCount: workoutDays.count,
-            bestStreak: 0, // Sprint 9.x+: computar best streak do mês específico
-            topWorkoutType: nil, // Sprint 9.x+: GROUP BY workout_type ORDER BY count DESC
-            topGymName: nil      // Sprint 9.x+: join gyms table + group
+            bestStreak: bestStreak,
+            topWorkoutType: topType,
+            topGymName: topGym
         )
         return (data, posts)
     }
