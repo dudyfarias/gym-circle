@@ -41,6 +41,9 @@ public enum L10n {
     case myCirclePrivacyBody
     case myCircleFirstVisitHint
     case myCircleFirstVisitDismiss
+    case recapCoverPickerTitle
+    case recapCoverPickerEmpty
+    case recapCoverPickerConfirm
 
     // MARK: - AchievementDetailView
 
@@ -132,6 +135,16 @@ public enum L10n {
                 : "Os anéis acompanham sua consistência, badges celebram streaks e o calendário mostra cada dia de treino."
         case .myCircleFirstVisitDismiss:
             return isEN ? "Got it" : "Entendi"
+
+        // Recap cover picker
+        case .recapCoverPickerTitle:
+            return isEN ? "Pick a cover photo" : "Escolha a foto da capa"
+        case .recapCoverPickerEmpty:
+            return isEN
+                ? "No photos in this month yet. Post a workout to see them here."
+                : "Nenhuma foto neste mês. Posta um treino pra aparecer aqui."
+        case .recapCoverPickerConfirm:
+            return isEN ? "Use as cover" : "Usar como capa"
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"
