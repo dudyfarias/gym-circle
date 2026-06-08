@@ -45,6 +45,8 @@ public final class GymCircleAppModel: ObservableObject {
     private let challengesService: ChallengesService?
     private let profilesService: ProfilesService?
     private let followsService: FollowsService?
+    // Sprint 10.1 — substitui hardcoded hasStory: false pelo dado real.
+    private let storiesService: StoriesService?
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -75,6 +77,7 @@ public final class GymCircleAppModel: ObservableObject {
         let challengesService = ChallengesService(client: client)
         let profilesService = ProfilesService(client: client)
         let followsService = FollowsService(client: client)
+        let storiesService = StoriesService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -82,7 +85,8 @@ public final class GymCircleAppModel: ObservableObject {
             achievementsService: achievementsService,
             challengesService: challengesService,
             profilesService: profilesService,
-            followsService: followsService
+            followsService: followsService,
+            storiesService: storiesService
         )
     }
 
@@ -95,7 +99,8 @@ public final class GymCircleAppModel: ObservableObject {
         achievementsService: AchievementsService? = nil,
         challengesService: ChallengesService? = nil,
         profilesService: ProfilesService? = nil,
-        followsService: FollowsService? = nil
+        followsService: FollowsService? = nil,
+        storiesService: StoriesService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -104,6 +109,7 @@ public final class GymCircleAppModel: ObservableObject {
         self.challengesService = challengesService
         self.profilesService = profilesService
         self.followsService = followsService
+        self.storiesService = storiesService
     }
 
     // MARK: - Boot pipeline
@@ -224,10 +230,18 @@ public final class GymCircleAppModel: ObservableObject {
                 (try? await myCircleService.getDistinctWorkoutTypes(userId: userId, sinceDaysAgo: 7)) ?? 0
             async let distinctGymsTask: Int =
                 (try? await myCircleService.getDistinctGyms(userId: userId, sinceDaysAgo: 30)) ?? 0
+            // Sprint 10.1 — story ring no avatar (P0 #1 fechado).
+            // own profile: storyViewed sempre false (você sempre "vê" suas
+            // próprias stories — UX ring brand fica até expirar).
+            async let hasStoryTask: Bool = {
+                guard let storiesService else { return false }
+                return (try? await storiesService.hasActiveStory(userId: userId)) ?? false
+            }()
             let challenges = await challengesTask
             let monthPosts = await monthPostsTask
             let distinctTypes = await distinctTypesTask
             let distinctGyms = await distinctGymsTask
+            let hasStory = await hasStoryTask
 
             // 3. Computa achievements client-side via builder
             // Sprint 8.11.1 — todos inputs hidratados via MyCircleSummary +
@@ -280,7 +294,8 @@ public final class GymCircleAppModel: ObservableObject {
                 totalAchievements: totalCount,
                 monthlyChallenges: challenges,
                 streakLitToday: profile?.badgeIsActiveToday ?? false,
-                hasStory: false, // Sprint 9.x — wire via StoriesService quando criado
+                // Sprint 10.1 — own profile sempre storyViewed=false (UX ring brand persiste).
+                hasStory: hasStory,
                 storyViewed: false
             )
         } catch {
