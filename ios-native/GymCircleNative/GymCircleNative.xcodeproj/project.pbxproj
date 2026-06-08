@@ -47,6 +47,7 @@
 		DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C49CF73E5FC4231EF022A24 /* L10n.swift */; };
 		DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636F3999A2F250111C153818 /* MyCircleModels.swift */; };
 		EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB038D99927918121215E6 /* OtherProfileView.swift */; };
+		F8C55A06AC9AC3691FDD15D5 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */; };
 		FB1C810F996E874492D37712 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F08F3783EAD0DC084E6E2F /* MainTabView.swift */; };
 /* End PBXBuildFile section */
 
@@ -88,6 +89,7 @@
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
 		D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyRecapSheet.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
 		F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleTheme.swift; sourceTree = "<group>"; };
@@ -187,6 +189,7 @@
 			isa = PBXGroup;
 			children = (
 				F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */,
+				D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */,
 				6C49CF73E5FC4231EF022A24 /* L10n.swift */,
 			);
 			path = Theme;
@@ -325,6 +328,7 @@
 				9CA8C13BAC321E232D5BCD2E /* GymCircleNativeApp.swift in Sources */,
 				CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */,
 				12816EF8CCF3450B4AD7E4E3 /* GymCircleTheme.swift in Sources */,
+				F8C55A06AC9AC3691FDD15D5 /* Haptics.swift in Sources */,
 				DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */,
 				7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */,
 				FB1C810F996E874492D37712 /* MainTabView.swift in Sources */,

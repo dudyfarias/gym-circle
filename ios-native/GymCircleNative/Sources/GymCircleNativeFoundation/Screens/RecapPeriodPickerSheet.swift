@@ -86,7 +86,10 @@ public struct RecapPeriodPickerSheet: View {
 
     private func modeChip(_ mode: PickerMode, label: String) -> some View {
         let isActive = activeMode == mode
-        return Button(action: { activeMode = mode }) {
+        return Button(action: {
+            if !isActive { Haptics.selection() } // Sprint 9.6.2
+            activeMode = mode
+        }) {
             Text(label.uppercased())
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(0.6)

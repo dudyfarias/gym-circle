@@ -75,9 +75,9 @@ public struct BadgeIconNativeView: View {
         case .trophy: return GymCircleTheme.ColorToken.cyan
         case .flame: return GymCircleTheme.ColorToken.electricBlue
         case .calendar: return GymCircleTheme.ColorToken.deepBlue
-        case .users: return Color(red: 0.66, green: 0.55, blue: 0.98)   // purple
-        case .share: return Color(red: 0.20, green: 0.83, blue: 0.60)    // green
-        case .shield: return Color(red: 0.98, green: 0.75, blue: 0.14)   // gold
+        case .users: return GymCircleTheme.ColorToken.rarityEpic         // purple-400 #A78BFA
+        case .share: return GymCircleTheme.ColorToken.rarityUncommon     // green-400 #34D399
+        case .shield: return GymCircleTheme.ColorToken.rarityLegendary   // gold-400 #FBBF24
         case .sunrise: return Color(red: 0.98, green: 0.57, blue: 0.24)  // orange
         case .moon: return Color(red: 0.51, green: 0.55, blue: 0.97)     // indigo
         case .shuffle: return Color(red: 0.96, green: 0.45, blue: 0.71)  // pink

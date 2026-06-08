@@ -57,6 +57,11 @@ public struct MyCircleView: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityAddTraits(.isModal) // Sprint 9.6.1
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             GymCircleTheme.ColorToken.appBackground
                 .ignoresSafeArea()
@@ -155,6 +160,7 @@ public struct MyCircleView: View {
     }
 
     private func dismissFirstVisitHint() {
+        Haptics.selection()
         UserDefaults.standard.set(true, forKey: firstVisitHintKey)
         withAnimation(.easeOut(duration: 0.24)) {
             firstVisitHintVisible = false
@@ -281,6 +287,7 @@ public struct MyCircleView: View {
                     .foregroundColor(.white.opacity(0.72))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(Text("Mês anterior")) // Sprint 9.6.1
 
             Text(currentMonthLabel)
                 .font(.system(size: 12, weight: .heavy))
@@ -296,6 +303,7 @@ public struct MyCircleView: View {
             }
             .buttonStyle(.plain)
             .disabled(calendarMonthOffset >= 0) // não navega pra futuro
+            .accessibilityLabel(Text("Próximo mês")) // Sprint 9.6.1
         }
     }
 
@@ -316,6 +324,8 @@ public struct MyCircleView: View {
     private func changeMonth(by delta: Int) {
         let newOffset = calendarMonthOffset + delta
         guard newOffset <= 0 else { return } // sem futuro
+        // Sprint 9.6.2 — paridade web simulateHaptic("brand").
+        Haptics.selection()
         calendarMonthOffset = newOffset
         onChangeMonth?(newOffset)
     }

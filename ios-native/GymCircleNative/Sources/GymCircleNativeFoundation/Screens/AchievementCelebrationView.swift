@@ -37,9 +37,23 @@ public struct AchievementCelebrationView: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text("\(L10n.detailVoceDesbloqueou.string): \(achievement.label)"))
+            .accessibilityHint(Text(achievement.description))
+            .accessibilityAddTraits(.isModal)
+    }
+
+    private var accessibleBody: some View {
         ZStack {
             // Backdrop
-            Color.black.opacity(0.72).ignoresSafeArea()
+            // Sprint 9.6.5 — backdrop com blur ultraThinMaterial pra paridade
+            // com web `backdrop-blur-2xl` premium Apple Fitness feel.
+            ZStack {
+                Color.black.opacity(0.72)
+                Rectangle().fill(.ultraThinMaterial).opacity(0.55)
+            }
+            .ignoresSafeArea()
 
             // Spotlight radial
             RadialGradient(
@@ -225,12 +239,12 @@ public struct AchievementCelebrationView: View {
                 return Intensity(
                     particles: 200,
                     colors: [
-                        Color(red: 0.98, green: 0.75, blue: 0.14),
+                        GymCircleTheme.ColorToken.rarityLegendary,
                         Color(red: 0.96, green: 0.62, blue: 0.04),
                         Color(red: 0.99, green: 0.83, blue: 0.31),
                         .white
                     ],
-                    glowColor: Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.42),
+                    glowColor: GymCircleTheme.ColorToken.rarityLegendary.opacity(0.42),
                     autoDismissSeconds: 6.5,
                     haptic: .success
                 )
@@ -238,12 +252,12 @@ public struct AchievementCelebrationView: View {
                 return Intensity(
                     particles: 140,
                     colors: [
-                        Color(red: 0.66, green: 0.55, blue: 0.98),
+                        GymCircleTheme.ColorToken.rarityEpic,
                         Color(red: 0.77, green: 0.71, blue: 0.99),
                         Color(red: 0.55, green: 0.36, blue: 0.96),
                         .white
                     ],
-                    glowColor: Color(red: 0.66, green: 0.55, blue: 0.98).opacity(0.40),
+                    glowColor: GymCircleTheme.ColorToken.rarityEpic.opacity(0.40),
                     autoDismissSeconds: 5.5,
                     haptic: .impactHeavy
                 )
@@ -264,12 +278,12 @@ public struct AchievementCelebrationView: View {
                 return Intensity(
                     particles: 55,
                     colors: [
-                        Color(red: 0.20, green: 0.83, blue: 0.60),
+                        GymCircleTheme.ColorToken.rarityUncommon,
                         Color(red: 0.65, green: 0.95, blue: 0.82),
                         Color(red: 0.06, green: 0.72, blue: 0.50),
                         .white
                     ],
-                    glowColor: Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.32),
+                    glowColor: GymCircleTheme.ColorToken.rarityUncommon.opacity(0.32),
                     autoDismissSeconds: 4.2,
                     haptic: .impactMedium
                 )

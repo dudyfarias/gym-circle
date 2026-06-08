@@ -97,7 +97,10 @@ public struct RecapCoverPickerSheet: View {
 
     private func photoCell(_ post: MonthCalendarPost) -> some View {
         let isSelected = selectedPostId == post.postId
-        return Button(action: { selectedPostId = post.postId }) {
+        return Button(action: {
+            if !isSelected { Haptics.selection() } // Sprint 9.6.2
+            selectedPostId = post.postId
+        }) {
             ZStack(alignment: .topTrailing) {
                 AsyncImage(url: post.imageURL) { phase in
                     switch phase {

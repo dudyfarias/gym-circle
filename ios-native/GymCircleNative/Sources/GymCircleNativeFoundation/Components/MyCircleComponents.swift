@@ -189,14 +189,19 @@ public struct BadgeHighlightCardView: View {
             .foregroundColor(tone)
     }
 
+    // Sprint 9.6.6 — status pill com paleta colorida (paridade web Sprint 5.9):
+    //   earned    → brand cyan
+    //   next      → brand cyan dim
+    //   locked    → white dim
+    // i18n via L10n.detailConquistado, achievementsProximos, achievementsBloqueados.
     private var statusInfo: (String, Color) {
         if badge.earned {
-            return ("Conquistado", GymCircleTheme.ColorToken.electricBlue)
+            return (L10n.detailConquistado.string, GymCircleTheme.ColorToken.electricBlue)
         }
         if isNext {
-            return ("Próximo", GymCircleTheme.ColorToken.electricBlue.opacity(0.8))
+            return (L10n.achievementsProximos.string, GymCircleTheme.ColorToken.electricBlue.opacity(0.8))
         }
-        return ("Bloqueado", Color.white.opacity(0.52))
+        return (L10n.achievementsBloqueados.string, Color.white.opacity(0.52))
     }
 }
 
@@ -342,12 +347,22 @@ public struct MonthlyCalendarGridView: View {
         self.todayKey = todayKey
     }
 
-    private let weekdaysShort = ["S", "T", "Q", "Q", "S", "S", "D"]
+    /// Sprint 9.6.4 — weekday symbols locale-aware. Base segunda (paridade web
+    /// `leadingBlanks` formula). `Calendar.current.veryShortWeekdaySymbols`
+    /// retorna ["S","M","T","W","T","F","S"] (EN base domingo). Rotacionamos
+    /// pra começar em segunda: [1,2,3,4,5,6,0].
+    private var weekdaysShort: [String] {
+        let cal = Calendar.current
+        let symbols = cal.veryShortWeekdaySymbols // EN: ["S","M","T","W","T","F","S"], PT: ["D","S","T","Q","Q","S","S"]
+        // Rotaciona pra base segunda: [Mon..Sun]
+        let mondayBased = Array(symbols[1...]) + symbols[0...0]
+        return mondayBased.map { $0.uppercased() }
+    }
 
     public var body: some View {
         VStack(spacing: 8) {
             HStack(spacing: 4) {
-                ForEach(weekdaysShort, id: \.self) { day in
+                ForEach(Array(weekdaysShort.enumerated()), id: \.offset) { _, day in
                     Text(day)
                         .font(.system(size: 10, weight: .heavy))
                         .foregroundColor(GymCircleTheme.ColorToken.secondaryText.opacity(0.6))
@@ -415,6 +430,12 @@ public struct MonthlyCalendarGridView: View {
                 .foregroundColor(cellForeground(day))
                 .shadow(color: day.thumbnailURL != nil ? .black.opacity(0.6) : .clear, radius: 1.5, y: 1)
         }
+        // Sprint 9.6.1 — a11y label "Treinou dia X" / "Não treinou dia X"
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(day.trained
+            ? "Treinou dia \(day.day)"
+            : "Não treinou dia \(day.day)"))
+        .accessibilityAddTraits(isToday ? [.isHeader] : [])
     }
 
     private func cellBackground(_ day: CalendarDay) -> Color {

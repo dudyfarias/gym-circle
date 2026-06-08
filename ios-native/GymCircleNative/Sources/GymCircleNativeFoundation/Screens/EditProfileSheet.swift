@@ -301,7 +301,11 @@ public struct EditProfileSheet: View {
     }
 
     private func handleSave() async {
-        guard canSave else { return }
+        guard canSave else {
+            Haptics.error() // Sprint 9.6.2
+            return
+        }
+        Haptics.impactLight()
         isSaving = true
         saveError = nil
         defer { isSaving = false }

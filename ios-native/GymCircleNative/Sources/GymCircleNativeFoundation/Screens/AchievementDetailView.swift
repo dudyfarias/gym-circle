@@ -26,6 +26,12 @@ public struct AchievementDetailView: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityAddTraits(.isModal)
+            .accessibilityLabel(Text("\(achievement.label) — \(achievement.description)"))
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             backgroundLayer
 
@@ -87,6 +93,8 @@ public struct AchievementDetailView: View {
             closeButton
         }
         .onAppear {
+            // Sprint 9.6.2 — paridade web simulateHaptic("brand") on mount.
+            Haptics.selection()
             withAnimation { animateIn = true }
         }
     }
@@ -114,12 +122,13 @@ public struct AchievementDetailView: View {
     }
 
     private var spotlightColor: Color {
+        // Sprint 9.6.3 — usa tokens GymCircleTheme.
         switch achievement.rarity ?? .common {
-        case .legendary: return Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.32)
-        case .epic: return Color(red: 0.66, green: 0.55, blue: 0.98).opacity(0.32)
-        case .rare: return GymCircleTheme.ColorToken.electricBlue.opacity(0.32)
-        case .uncommon: return Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.28)
-        case .common: return GymCircleTheme.ColorToken.electricBlue.opacity(0.22)
+        case .legendary: return GymCircleTheme.ColorToken.rarityLegendary.opacity(0.32)
+        case .epic:      return GymCircleTheme.ColorToken.rarityEpic.opacity(0.32)
+        case .rare:      return GymCircleTheme.ColorToken.electricBlue.opacity(0.32)
+        case .uncommon:  return GymCircleTheme.ColorToken.rarityUncommon.opacity(0.28)
+        case .common:    return GymCircleTheme.ColorToken.electricBlue.opacity(0.22)
         }
     }
 
@@ -284,13 +293,14 @@ public struct AchievementDetailView: View {
     }
 
     private func rarityChip(_ rarity: AchievementRarity) -> some View {
+        // Sprint 9.6.3 — tokens centralizados.
         let (label, color): (String, Color) = {
             switch rarity {
-            case .common: return (L10n.rarityComum.string, Color.white.opacity(0.82))
-            case .uncommon: return (L10n.rarityIncomum.string, Color(red: 0.20, green: 0.83, blue: 0.60))
-            case .rare: return (L10n.rarityRaro.string, GymCircleTheme.ColorToken.electricBlue)
-            case .epic: return (L10n.rarityEpico.string, Color(red: 0.66, green: 0.55, blue: 0.98))
-            case .legendary: return (L10n.rarityLendario.string, Color(red: 0.98, green: 0.75, blue: 0.14))
+            case .common:    return (L10n.rarityComum.string, Color.white.opacity(0.82))
+            case .uncommon:  return (L10n.rarityIncomum.string, GymCircleTheme.ColorToken.rarityUncommon)
+            case .rare:      return (L10n.rarityRaro.string, GymCircleTheme.ColorToken.electricBlue)
+            case .epic:      return (L10n.rarityEpico.string, GymCircleTheme.ColorToken.rarityEpic)
+            case .legendary: return (L10n.rarityLendario.string, GymCircleTheme.ColorToken.rarityLegendary)
             }
         }()
         return Text(label.uppercased())
@@ -355,6 +365,7 @@ public struct AchievementDetailView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
+            .accessibilityLabel(Text("Voltar")) // Sprint 9.6.1
             .padding(.leading, 16)
             .padding(.top, 16)
 

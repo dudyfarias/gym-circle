@@ -13,15 +13,20 @@ public enum GymCircleTheme {
         public static let deepBlue = Color(red: 0.0, green: 0.4, blue: 1.0)
         public static let quietBlue = Color(red: 0.188, green: 0.835, blue: 1.0).opacity(0.12)
 
-        // Sprint 8.2 — paleta gamification por raridade + categoria
+        // Sprint 8.2 + 9.6.3 — paleta gamification por raridade + categoria.
+        // RGB exatos hex web (Tailwind):
+        //   gold-400 #FBBF24 = 251/255, 191/255, 36/255 = 0.9843, 0.7490, 0.1411
+        //   purple-400 #A78BFA = 167/255, 139/255, 250/255 = 0.6549, 0.5451, 0.9804
+        //   green-400 #34D399 = 52/255, 211/255, 153/255 = 0.2039, 0.8275, 0.6000
+        //   cyan-400 #22D3EE = 34/255, 211/255, 238/255 = 0.1333, 0.8275, 0.9333
         public static let rarityCommon = Color(white: 0.78)
-        public static let rarityUncommon = Color(red: 0.20, green: 0.83, blue: 0.60)   // green-400
+        public static let rarityUncommon = Color(red: 0.2039, green: 0.8275, blue: 0.6000)
         public static let rarityRare = electricBlue
-        public static let rarityEpic = Color(red: 0.66, green: 0.55, blue: 0.98)        // purple-400
-        public static let rarityLegendary = Color(red: 0.98, green: 0.75, blue: 0.14)   // gold-400
+        public static let rarityEpic = Color(red: 0.6549, green: 0.5451, blue: 0.9804)
+        public static let rarityLegendary = Color(red: 0.9843, green: 0.7490, blue: 0.1411)
 
         // Sprint 8.2 — challenge difficulty tones
-        public static let difficultyEasy = Color(red: 0.13, green: 0.83, blue: 0.93)    // cyan-400
+        public static let difficultyEasy = Color(red: 0.1333, green: 0.8275, blue: 0.9333)
         public static let difficultyMedium = electricBlue
         public static let difficultyHard = rarityEpic
         public static let difficultyLegendary = rarityLegendary

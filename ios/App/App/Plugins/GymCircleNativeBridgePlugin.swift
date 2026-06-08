@@ -699,9 +699,11 @@ private struct NativeOtherProfileHost: View {
                     followState: followState,
                     canSeePosts: !profile.isPrivate || followState == .accepted,
                     onToggleFollow: {
+                        Haptics.impactLight() // Sprint 9.6.2
                         Task {
                             let now = await model.toggleFollow(targetUserId: targetUserId)
                             followState = now ? .accepted : .none
+                            if now { Haptics.success() }
                         }
                     },
                     onMessage: {

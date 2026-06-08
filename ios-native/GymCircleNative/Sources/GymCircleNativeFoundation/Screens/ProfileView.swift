@@ -119,12 +119,13 @@ public struct ProfileView: View {
     /// Locked cards usam fundo neutro 0.025.
     private func featuredCardBackground(_ a: Achievement) -> Color {
         guard a.earned else { return Color.white.opacity(0.025) }
+        // Sprint 9.6.3 — usa tokens GymCircleTheme pra eliminar drift de cor.
         switch a.kind {
-        case .relic:     return Color(red: 0.66, green: 0.55, blue: 0.98).opacity(0.12)
+        case .relic:     return GymCircleTheme.ColorToken.rarityEpic.opacity(0.12)
         case .trophy:    return GymCircleTheme.ColorToken.electricBlue.opacity(0.14)
-        case .medal:     return Color(red: 0.98, green: 0.75, blue: 0.14).opacity(0.14)
+        case .medal:     return GymCircleTheme.ColorToken.rarityLegendary.opacity(0.14)
         case .badge:     return Color.white.opacity(0.06)
-        case .challenge: return Color(red: 0.20, green: 0.83, blue: 0.60).opacity(0.12)
+        case .challenge: return GymCircleTheme.ColorToken.rarityUncommon.opacity(0.12)
         }
     }
 

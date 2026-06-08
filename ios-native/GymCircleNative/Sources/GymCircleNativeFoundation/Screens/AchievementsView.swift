@@ -47,6 +47,12 @@ public struct AchievementsView: View {
     }
 
     public var body: some View {
+        // Sprint 9.6.1 — a11y modal trait pra VoiceOver reconhecer overlay.
+        accessibleBody
+            .accessibilityAddTraits(.isModal)
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
 
@@ -84,6 +90,7 @@ public struct AchievementsView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
+            .accessibilityLabel(Text("Fechar")) // Sprint 9.6.1
             Spacer()
             Text(L10n.achievementsHallFama.string)
                 .font(.system(size: 15, weight: .heavy))
@@ -148,7 +155,10 @@ public struct AchievementsView: View {
 
     private func tabChip(_ tab: TabKey, label: String) -> some View {
         let isActive = activeTab == tab
-        return Button(action: { activeTab = tab }) {
+        return Button(action: {
+            if !isActive { Haptics.selection() } // Sprint 9.6.2
+            activeTab = tab
+        }) {
             Text(label.uppercased())
                 .font(.system(size: 11, weight: .heavy))
                 .tracking(0.6)
