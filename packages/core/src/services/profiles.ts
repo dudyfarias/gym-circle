@@ -38,6 +38,27 @@ export function profileService(client: GymCircleClient) {
       return data;
     },
 
+    /**
+     * Sprint 10.5 — fetch batch de profiles por user_ids.
+     * Usado pra hidratar dinamicamente actors de notificações que não
+     * estão no cache `social.users` (paridade Instagram: notifs sempre
+     * mostram nome+avatar de quem interagiu, mesmo de users novos).
+     * Retorna apenas profiles visíveis (RLS `profiles_select_visible`
+     * já filtra blocked / deactivated).
+     */
+    async byUserIds(userIds: string[]): Promise<ProfileRow[]> {
+      const uniqueIds = Array.from(
+        new Set(userIds.filter((id): id is string => Boolean(id))),
+      );
+      if (uniqueIds.length === 0) return [];
+      const { data, error } = await client
+        .from("profiles")
+        .select("*")
+        .in("user_id", uniqueIds);
+      if (error) throw error;
+      return data ?? [];
+    },
+
     async update(userId: string, patch: ProfileUpdate): Promise<ProfileRow> {
       const cleanPatch = Object.fromEntries(
         Object.entries(patch).filter(([, value]) => value !== undefined),

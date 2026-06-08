@@ -18,6 +18,7 @@ import { useGymCircleServices } from "@gym-circle/core/hooks";
 import {
   isSocialBellNotificationKind,
   type NotificationRow,
+  type ProfileRow,
   type SocialBellNotificationKind,
 } from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
@@ -26,6 +27,91 @@ import {
   normalizeFollowActionResult,
 } from "./social/followCta";
 import type { EnrichedUser, FollowActionResult, FollowStatus } from "./social/types";
+
+// ---------------------------------------------------------------------
+// Sprint 10.5 — Hidratação dinâmica de actors de notificação.
+//
+// O `users` prop vem do parent (`usersById`) hidratado uma vez no boot.
+// Notificações que chegam DEPOIS do boot (user novo seguiu, curtiu, etc)
+// têm actor_id ausente nesse dict → cai no fallback "Alguém" + avatar "?".
+//
+// Fix: após carregar a lista de notifs, coletar os actor_id sem
+// correspondência e fazer fetch batch via profilesService.byUserIds().
+// Mantemos um state local `actorsExtra` que merge no render.
+// ---------------------------------------------------------------------
+
+const ACCENT_PALETTE = [
+  "var(--gc-brand)",
+  "var(--gc-consistency-month)",
+  "var(--gc-blue)",
+  "var(--gc-consistency-year)",
+  "var(--gc-consistency-daily)",
+  "var(--gc-consistency-mid)",
+];
+
+function accentForId(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return ACCENT_PALETTE[Math.abs(hash) % ACCENT_PALETTE.length];
+}
+
+/**
+ * Converte ProfileRow num EnrichedUser "magro" pra display de notif.
+ * Campos não relevantes pra notif (stats, achievements, etc) recebem
+ * defaults seguros. Se o user for selecionado, abre o ProfileSheet
+ * completo que faz seu próprio fetch — não vamos cair em UI broken.
+ */
+function actorFromProfileRow(row: ProfileRow): EnrichedUser {
+  return {
+    id: row.user_id,
+    createdAt: row.created_at ?? undefined,
+    name: row.display_name ?? row.username ?? "Gym Circle",
+    username: row.username ?? "usuario",
+    accent: accentForId(row.user_id),
+    avatarUrl: row.avatar_url ?? null,
+    bio: row.bio ?? "",
+    goal: row.fitness_goal ?? "",
+    instagramUsername: row.instagram_username ?? null,
+    birthDate: row.birth_date ?? null,
+    age: null,
+    isBirthday: false,
+    sports: row.sports ?? [],
+    onboardingCompletedAt: null,
+    profileCompletionNoticeDismissed: false,
+    alphaTermsAcceptedAt: null,
+    privacyPolicyAcceptedAt: null,
+    accountStatus: row.account_status ?? "active",
+    suspendedAt: null,
+    reactivationSentAt: null,
+    reactivationExpiresAt: null,
+    mainGymId: row.main_gym_id ?? null,
+    location: "",
+    gyms: [],
+    preferredTimes: row.preferred_training_times ?? [],
+    currentStreak: 0,
+    longestStreak: 0,
+    lastWorkoutDate: "",
+    workoutsThisWeek: 0,
+    workoutsThisMonth: 0,
+    activeDaysCount: 0,
+    streakRestoresAvailable: 0,
+    lastStreakRestoreUsedAt: null,
+    lastStreakRestoreEarnedAt: null,
+    streakRestoreDeadlineAt: null,
+    streakRestoreMissedDate: null,
+    streakRestoreStatus: null,
+    checkInsCount: 0,
+    achievements: [],
+    followersCount: 0,
+    followingCount: 0,
+    isFollowing: false,
+    followStatus: "none",
+    isPrivate: row.is_private ?? false,
+    workoutDays: [],
+    streakLitToday: false,
+    streakPresenceSource: "none",
+  };
+}
 
 type NotificationsSheetProps = {
   open: boolean;
@@ -115,6 +201,8 @@ export function NotificationsSheet({
   const { t } = useTranslation();
   const services = useGymCircleServices();
   const [items, setItems] = useState<NotificationRow[]>([]);
+  // Sprint 10.5 — actors hidratados dinamicamente além do `users` prop.
+  const [actorsExtra, setActorsExtra] = useState<Record<string, EnrichedUser>>({});
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(() => Date.now());
   const [followBackBusyId, setFollowBackBusyId] = useState<string | null>(null);
@@ -330,6 +418,47 @@ export function NotificationsSheet({
     };
   }, [services, currentUserId, open, refresh]);
 
+  // Sprint 10.5 — hidrata actor_ids que faltam no `users` prop.
+  // Dispara quando items muda. Idempotente: só busca ids ainda ausentes
+  // em users + actorsExtra. Falha graceful: erros ficam silenciosos pq
+  // o fallback "Alguém" continua visível, nunca quebra a tela.
+  useEffect(() => {
+    if (!open || items.length === 0) return;
+    const wanted = new Set<string>();
+    for (const n of items) {
+      if (!n.actor_id) continue;
+      if (users[n.actor_id]) continue;
+      if (actorsExtra[n.actor_id]) continue;
+      wanted.add(n.actor_id);
+    }
+    if (wanted.size === 0) return;
+    let cancelled = false;
+    void services.profiles
+      .byUserIds(Array.from(wanted))
+      .then((rows) => {
+        if (cancelled || rows.length === 0) return;
+        setActorsExtra((current) => {
+          const next = { ...current };
+          for (const row of rows) {
+            next[row.user_id] = actorFromProfileRow(row);
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        // ignore: fallback "Alguém" continua exibido
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [items, open, services.profiles, users, actorsExtra]);
+
+  // Sprint 10.5 — merge final usado em todas as renderizações.
+  const mergedUsers = useMemo<Record<string, EnrichedUser>>(
+    () => ({ ...users, ...actorsExtra }),
+    [users, actorsExtra],
+  );
+
   // Marca todas como lidas quando o sheet abre
   useEffect(() => {
     if (!open) return;
@@ -388,7 +517,7 @@ export function NotificationsSheet({
                   now={now}
                   title={t("notificationsSheet.sections.today")}
                   items={grouped.today}
-                  users={users}
+                  users={mergedUsers}
                   onSelectUser={onSelectUser}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
@@ -408,7 +537,7 @@ export function NotificationsSheet({
                   now={now}
                   title={t("notificationsSheet.sections.earlier")}
                   items={grouped.earlier}
-                  users={users}
+                  users={mergedUsers}
                   onSelectUser={onSelectUser}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
