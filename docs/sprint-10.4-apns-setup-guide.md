@@ -1,10 +1,22 @@
 # Sprint 10.4 — APNS Push Setup Guide
 
-Edge Function `send-push` está **deployed e ativa** em prod
-(`qajjpjmybmqqwflytcpr`), aguardando 5 secrets configurados via
-Supabase Dashboard pra começar a despachar pushes via APNS.
+Edge Function `send-push` está **deployed + ACTIVE** em prod
+(`qajjpjmybmqqwflytcpr`), **5 secrets APNS configurados** (Sprint 10.4
+finalizada em 8 jun 2026 — Key ID `N5KCS4NUP2`, Team `C37DC7SJC5`,
+Bundle `com.gymcircle.app`, environment `sandbox`).
+
+**Smoke test pipeline:** HTTP 200 + `{"sent":0,"failed":0,"reason":"no_active_tokens"}`.
 
 Endpoint: `https://qajjpjmybmqqwflytcpr.functions.supabase.co/send-push`
+
+Pra disparar push real, basta TestFlight liberar o app em iPhone:
+`NativePushController` registra o token, próxima chamada `send-push`
+envia. Pra promover pra App Store prod: trocar `APNS_ENVIRONMENT` pra
+`production`.
+
+Este guia abaixo fica como **referência histórica + steps caso precise
+trocar chave** (ex: rotação de credencial Apple) ou setar do zero em
+outro ambiente.
 
 ---
 
