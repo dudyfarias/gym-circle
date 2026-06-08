@@ -23,6 +23,12 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
     /// preservar back-compat com inits sintéticos.
     public let createdAt: Date?
 
+    /// Sprint 9.7.1 — campos editáveis adicionais (paridade EditProfileSheet web).
+    public let instagramUsername: String?
+    public let birthDate: Date?
+    public let sports: [String]
+    public let preferredTrainingTimes: [String]
+
     public init(
         id: String,
         userId: String,
@@ -36,7 +42,11 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         bestStreak: Int = 0,
         badgeIsActiveToday: Bool = false,
         featuredAchievements: [String] = [],
-        createdAt: Date? = nil
+        createdAt: Date? = nil,
+        instagramUsername: String? = nil,
+        birthDate: Date? = nil,
+        sports: [String] = [],
+        preferredTrainingTimes: [String] = []
     ) {
         self.id = id
         self.userId = userId
@@ -51,6 +61,10 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         self.badgeIsActiveToday = badgeIsActiveToday
         self.featuredAchievements = featuredAchievements
         self.createdAt = createdAt
+        self.instagramUsername = instagramUsername
+        self.birthDate = birthDate
+        self.sports = sports
+        self.preferredTrainingTimes = preferredTrainingTimes
     }
 
     enum CodingKeys: String, CodingKey {
@@ -67,6 +81,10 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         case badgeIsActiveToday = "badge_is_active_today"
         case featuredAchievements = "featured_achievements"
         case createdAt = "created_at"
+        case instagramUsername = "instagram_username"
+        case birthDate = "birth_date"
+        case sports
+        case preferredTrainingTimes = "preferred_training_times"
     }
 
     public init(from decoder: Decoder) throws {
@@ -91,5 +109,18 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         } else {
             self.createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         }
+        // Sprint 9.7.1 — 4 novos campos
+        self.instagramUsername = try container.decodeIfPresent(String.self, forKey: .instagramUsername)
+        if let isoString = try container.decodeIfPresent(String.self, forKey: .birthDate) {
+            let formatter = DateFormatter()
+            formatter.calendar = Calendar(identifier: .gregorian)
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.dateFormat = "yyyy-MM-dd"
+            self.birthDate = formatter.date(from: isoString)
+        } else {
+            self.birthDate = nil
+        }
+        self.sports = (try container.decodeIfPresent([String].self, forKey: .sports)) ?? []
+        self.preferredTrainingTimes = (try container.decodeIfPresent([String].self, forKey: .preferredTrainingTimes)) ?? []
     }
 }

@@ -441,11 +441,17 @@ public final class GymCircleAppModel: ObservableObject {
 
     /// Wrapper de ProfilesService.updateProfile + reload local @Published.
     /// Chamado pelo NativeEditProfileHost no save.
+    /// Sprint 9.7.1 — agora também aceita instagramUsername, birthDate,
+    /// sports, preferredTrainingTimes.
     public func saveProfile(
         displayName: String?,
         bio: String?,
         fitnessGoal: String?,
-        isPrivate: Bool?
+        isPrivate: Bool?,
+        instagramUsername: String? = nil,
+        birthDate: Date? = nil,
+        sports: [String]? = nil,
+        preferredTrainingTimes: [String]? = nil
     ) async {
         guard let profilesService,
               let userId = sessionStore?.currentUserId else { return }
@@ -455,7 +461,11 @@ public final class GymCircleAppModel: ObservableObject {
                 displayName: displayName,
                 bio: bio,
                 fitnessGoal: fitnessGoal,
-                isPrivate: isPrivate
+                isPrivate: isPrivate,
+                instagramUsername: instagramUsername,
+                birthDate: birthDate,
+                sports: sports,
+                preferredTrainingTimes: preferredTrainingTimes
             )
             await loadProfile()
         } catch {

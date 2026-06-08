@@ -16,26 +16,43 @@ import PhotosUI
 public struct EditProfileSheet: View {
     public let profile: UserProfile
     public let onSave: (UserProfile) async -> Void
-    /// Sprint 9.2 — quando informado, EditProfileSheet faz upload via
-    /// caller (`Data → URL`). Tipicamente injetado pelo NativeEditProfileHost
-    /// que tem acesso ao ProfilesService.uploadAvatar.
     public let onUploadAvatar: ((Data) async -> String?)?
     public let onClose: () -> Void
 
     @State private var displayName: String
+    @State private var username: String
     @State private var bio: String
     @State private var fitnessGoal: String
+    @State private var instagram: String
+    @State private var sportsText: String
+    @State private var birthDate: Date
+    @State private var hasBirthDate: Bool
+    @State private var preferredTimes: Set<String>
     @State private var isPrivate: Bool
     @State private var isSaving = false
     @State private var saveError: String?
 
-    // Sprint 9.2 — PhotosPicker state
     @State private var photoItem: PhotosPickerItem?
     @State private var pickedAvatarData: Data?
     @State private var uploadedAvatarURL: String?
     @State private var isUploadingAvatar = false
 
-    private let bioCharLimit = 240
+    // Sprint 9.7.1 — paridade web maxLengths
+    private let displayNameLimit = 60
+    private let usernameLimit = 32
+    private let bioCharLimit = 200    // era 240 antes; web é 200
+    private let goalLimit = 60
+    private let instagramLimit = 30
+    private let sportsLimit = 140
+
+    // Sprint 9.7.1 — 5 time slots (paridade web TIME_ID_TO_KEY)
+    static let timeSlots: [(id: String, labelEN: String, labelPT: String)] = [
+        ("morning",    "Morning",    "Manhã"),
+        ("lunch",      "Lunch",      "Almoço"),
+        ("afternoon",  "Afternoon",  "Tarde"),
+        ("evening",    "Evening",    "Noite"),
+        ("late_night", "Late night", "Madrugada")
+    ]
 
     public init(
         profile: UserProfile,
@@ -48,8 +65,14 @@ public struct EditProfileSheet: View {
         self.onUploadAvatar = onUploadAvatar
         self.onClose = onClose
         _displayName = State(initialValue: profile.displayName ?? "")
+        _username = State(initialValue: profile.username)
         _bio = State(initialValue: profile.bio ?? "")
         _fitnessGoal = State(initialValue: profile.fitnessGoal ?? "")
+        _instagram = State(initialValue: profile.instagramUsername ?? "")
+        _sportsText = State(initialValue: profile.sports.joined(separator: ", "))
+        _birthDate = State(initialValue: profile.birthDate ?? Calendar.current.date(byAdding: .year, value: -25, to: Date()) ?? Date())
+        _hasBirthDate = State(initialValue: profile.birthDate != nil)
+        _preferredTimes = State(initialValue: Set(profile.preferredTrainingTimes))
         _isPrivate = State(initialValue: profile.isPrivate)
     }
 
@@ -204,31 +227,69 @@ public struct EditProfileSheet: View {
     private var fieldsSection: some View {
         VStack(spacing: 14) {
             fieldRow(label: L10n.editProfileDisplayName.string) {
-                TextField("", text: $displayName)
-                    .textFieldStyle(.plain)
-                    .foregroundColor(.white)
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
+                styledTextField(text: $displayName, limit: displayNameLimit)
             }
+
+            // Sprint 9.7.1 — Username com validation regex inline
+            usernameField
 
             fieldRow(label: L10n.editProfileFitnessGoal.string) {
-                TextField("", text: $fitnessGoal)
-                    .textFieldStyle(.plain)
-                    .foregroundColor(.white)
-                    .font(.system(size: 14, weight: .semibold))
-                    .padding(12)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                    )
+                styledTextField(text: $fitnessGoal, limit: goalLimit)
             }
 
+            // Sprint 9.7.1 — Instagram com @ prefix
+            fieldRow(label: L10n.editProfileInstagram.string) {
+                HStack(spacing: 0) {
+                    Text("@")
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundColor(.white.opacity(0.42))
+                        .padding(.leading, 12)
+                    TextField("", text: $instagram)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(.white)
+                        .font(.system(size: 14, weight: .semibold))
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(.vertical, 12)
+                        .padding(.trailing, 12)
+                        .onChange(of: instagram) { newValue in
+                            // normalize: strip @, lowercase, truncate
+                            var cleaned = newValue.lowercased().replacingOccurrences(of: "@", with: "")
+                            if cleaned.count > instagramLimit {
+                                cleaned = String(cleaned.prefix(instagramLimit))
+                            }
+                            if cleaned != newValue { instagram = cleaned }
+                        }
+                }
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+            }
+
+            // Sprint 9.7.1 — Sports CSV
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(L10n.editProfileSports.string.uppercased())
+                        .font(.system(size: 11, weight: .heavy))
+                        .tracking(0.6)
+                        .foregroundColor(.white.opacity(0.44))
+                    Spacer()
+                    Text(L10n.editProfileSportsHint.string)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.42))
+                }
+                styledTextField(text: $sportsText, limit: sportsLimit)
+            }
+
+            // Sprint 9.7.1 — Birth date com Toggle + DatePicker
+            birthDateField
+
+            // Sprint 9.7.1 — Preferred times chips multi-select
+            preferredTimesField
+
+            // Bio
             VStack(alignment: .leading, spacing: 6) {
                 HStack {
                     Text(L10n.editProfileBio.string.uppercased())
@@ -254,6 +315,156 @@ public struct EditProfileSheet: View {
                     )
             }
         }
+    }
+
+    // Sprint 9.7.1 — username com validation inline
+    private var usernameField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(L10n.editProfileUsername.string.uppercased())
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundColor(.white.opacity(0.44))
+                Spacer()
+                if !isUsernameValid {
+                    Text(L10n.editProfileUsernameInvalid.string)
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(Color(red: 1.0, green: 0.42, blue: 0.42))
+                }
+            }
+            HStack(spacing: 0) {
+                Text("@")
+                    .font(.system(size: 14, weight: .heavy))
+                    .foregroundColor(.white.opacity(0.42))
+                    .padding(.leading, 12)
+                TextField("", text: $username)
+                    .textFieldStyle(.plain)
+                    .foregroundColor(.white)
+                    .font(.system(size: 14, weight: .semibold))
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(.vertical, 12)
+                    .padding(.trailing, 12)
+                    .onChange(of: username) { newValue in
+                        // sanitize a-z0-9_.
+                        var cleaned = newValue.lowercased()
+                            .replacingOccurrences(of: " ", with: "")
+                        cleaned.removeAll { ch in
+                            !(ch.isLetter || ch.isNumber || ch == "_" || ch == ".")
+                        }
+                        if cleaned.count > usernameLimit {
+                            cleaned = String(cleaned.prefix(usernameLimit))
+                        }
+                        if cleaned != newValue { username = cleaned }
+                    }
+            }
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isUsernameValid ? Color.white.opacity(0.08) : Color(red: 1.0, green: 0.42, blue: 0.42).opacity(0.4), lineWidth: 1)
+            )
+        }
+    }
+
+    private var birthDateField: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(L10n.editProfileBirthDate.string.uppercased())
+                    .font(.system(size: 11, weight: .heavy))
+                    .tracking(0.6)
+                    .foregroundColor(.white.opacity(0.44))
+                Spacer()
+                Toggle("", isOn: $hasBirthDate)
+                    .labelsHidden()
+                    .tint(GymCircleTheme.ColorToken.electricBlue)
+                    .scaleEffect(0.8)
+            }
+            if hasBirthDate {
+                DatePicker(
+                    "",
+                    selection: $birthDate,
+                    in: ...Date(),
+                    displayedComponents: [.date]
+                )
+                .datePickerStyle(.compact)
+                .labelsHidden()
+                .colorScheme(.dark)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+            }
+        }
+    }
+
+    private var preferredTimesField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L10n.editProfilePreferredTimes.string.uppercased())
+                .font(.system(size: 11, weight: .heavy))
+                .tracking(0.6)
+                .foregroundColor(.white.opacity(0.44))
+            FlowChipsLayout {
+                ForEach(Self.timeSlots, id: \.id) { slot in
+                    timeChip(id: slot.id, label: localizedTimeLabel(slot))
+                }
+            }
+        }
+    }
+
+    private func localizedTimeLabel(_ slot: (id: String, labelEN: String, labelPT: String)) -> String {
+        let isEN = Locale.current.language.languageCode?.identifier.hasPrefix("en") ?? false
+        return isEN ? slot.labelEN : slot.labelPT
+    }
+
+    private func timeChip(id: String, label: String) -> some View {
+        let isActive = preferredTimes.contains(id)
+        return Button(action: {
+            Haptics.selection()
+            if isActive { preferredTimes.remove(id) } else { preferredTimes.insert(id) }
+        }) {
+            Text(label)
+                .font(.system(size: 12, weight: .heavy))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(
+                    Capsule().fill(isActive ? GymCircleTheme.ColorToken.electricBlue.opacity(0.16) : Color.white.opacity(0.05))
+                )
+                .foregroundColor(isActive ? GymCircleTheme.ColorToken.electricBlue : .white.opacity(0.62))
+                .overlay(
+                    Capsule().stroke(isActive ? GymCircleTheme.ColorToken.electricBlue.opacity(0.32) : Color.clear, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+    }
+
+    private func styledTextField(text: Binding<String>, limit: Int) -> some View {
+        TextField("", text: text)
+            .textFieldStyle(.plain)
+            .foregroundColor(.white)
+            .font(.system(size: 14, weight: .semibold))
+            .padding(12)
+            .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.04)))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .onChange(of: text.wrappedValue) { newValue in
+                if newValue.count > limit {
+                    text.wrappedValue = String(newValue.prefix(limit))
+                }
+            }
+    }
+
+    // Sprint 9.7.1 — username regex check
+    private var isUsernameValid: Bool {
+        let trimmed = username.trimmingCharacters(in: .whitespaces)
+        guard trimmed.count >= 3, trimmed.count <= usernameLimit else { return false }
+        let regex = try? NSRegularExpression(pattern: "^[a-z0-9_.]+$")
+        return regex?.firstMatch(in: trimmed, range: NSRange(location: 0, length: trimmed.utf16.count)) != nil
     }
 
     private func fieldRow<Content: View>(label: String, @ViewBuilder _ content: () -> Content) -> some View {
@@ -298,6 +509,7 @@ public struct EditProfileSheet: View {
     private var canSave: Bool {
         !displayName.trimmingCharacters(in: .whitespaces).isEmpty
             && bio.count <= bioCharLimit
+            && isUsernameValid // Sprint 9.7.1
     }
 
     private func handleSave() async {
@@ -310,10 +522,16 @@ public struct EditProfileSheet: View {
         saveError = nil
         defer { isSaving = false }
 
+        // Sprint 9.7.1 — sports parse CSV → trimmed array
+        let sportsArr = sportsText
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+
         let updated = UserProfile(
             id: profile.id,
             userId: profile.userId,
-            username: profile.username,
+            username: username.trimmingCharacters(in: .whitespaces),
             displayName: displayName.trimmingCharacters(in: .whitespaces),
             avatarURL: profile.avatarURL,
             bio: bio.trimmingCharacters(in: .whitespaces),
@@ -323,8 +541,59 @@ public struct EditProfileSheet: View {
             bestStreak: profile.bestStreak,
             badgeIsActiveToday: profile.badgeIsActiveToday,
             featuredAchievements: profile.featuredAchievements,
-            createdAt: profile.createdAt
+            createdAt: profile.createdAt,
+            instagramUsername: instagram.isEmpty ? nil : instagram,
+            birthDate: hasBirthDate ? birthDate : nil,
+            sports: sportsArr,
+            preferredTrainingTimes: Array(preferredTimes)
         )
         await onSave(updated)
+    }
+}
+
+/// Sprint 9.7.1 — Flow layout simples pra chips multi-select.
+/// Quebra linha quando largura excede o disponível.
+private struct FlowChipsLayout: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        let spacing: CGFloat = 8
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var maxRowWidth: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth + size.width > maxWidth && rowWidth > 0 {
+                totalHeight += rowHeight + spacing
+                maxRowWidth = max(maxRowWidth, rowWidth - spacing)
+                rowWidth = 0
+                rowHeight = 0
+            }
+            rowWidth += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        totalHeight += rowHeight
+        maxRowWidth = max(maxRowWidth, rowWidth - spacing)
+        return CGSize(width: maxRowWidth, height: totalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let maxWidth = bounds.width
+        let spacing: CGFloat = 8
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX && x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+            _ = maxWidth
+        }
     }
 }

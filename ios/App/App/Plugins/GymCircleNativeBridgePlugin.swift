@@ -770,11 +770,16 @@ private struct NativeEditProfileHost: View {
                 EditProfileSheet(
                     profile: profile,
                     onSave: { updated in
+                        // Sprint 9.7.1 — passa todos os 8 campos editáveis
                         await model.saveProfile(
                             displayName: updated.displayName,
                             bio: updated.bio,
                             fitnessGoal: updated.fitnessGoal,
-                            isPrivate: updated.isPrivate
+                            isPrivate: updated.isPrivate,
+                            instagramUsername: updated.instagramUsername,
+                            birthDate: updated.birthDate,
+                            sports: updated.sports,
+                            preferredTrainingTimes: updated.preferredTrainingTimes
                         )
                         onDismiss()
                     },

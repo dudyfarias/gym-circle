@@ -22,7 +22,7 @@ public actor ProfilesService {
     public func getProfile(userId: String) async throws -> UserProfile? {
         let rows: [UserProfile] = try await client
             .from("profiles")
-            .select("id,user_id,username,display_name,avatar_url,bio,fitness_goal,is_private,featured_achievements,created_at")
+            .select("id,user_id,username,display_name,avatar_url,bio,fitness_goal,is_private,featured_achievements,created_at,instagram_username,birth_date,sports,preferred_training_times")
             .eq("user_id", value: userId)
             .limit(1)
             .execute()
@@ -120,33 +120,54 @@ public actor ProfilesService {
         return urlWithBuster
     }
 
-    /// Sprint 8.13.7 — atualiza campos editáveis do profile.
-    /// Apenas campos opcionais não-nil são enviados (PATCH-like).
+    /// Sprint 8.13.7 + 9.7.1 — atualiza campos editáveis do profile.
+    /// Apenas campos não-nil são enviados (PATCH-like). Para arrays
+    /// (sports, preferredTrainingTimes) caller passa nil pra não alterar.
     public func updateProfile(
         userId: String,
         displayName: String? = nil,
         bio: String? = nil,
         fitnessGoal: String? = nil,
-        isPrivate: Bool? = nil
+        isPrivate: Bool? = nil,
+        instagramUsername: String? = nil,
+        birthDate: Date? = nil,
+        sports: [String]? = nil,
+        preferredTrainingTimes: [String]? = nil
     ) async throws {
         struct UpdatePayload: Encodable {
             var displayName: String?
             var bio: String?
             var fitnessGoal: String?
             var isPrivate: Bool?
+            var instagramUsername: String?
+            var birthDate: String?
+            var sports: [String]?
+            var preferredTrainingTimes: [String]?
 
             enum CodingKeys: String, CodingKey {
                 case displayName = "display_name"
                 case bio
                 case fitnessGoal = "fitness_goal"
                 case isPrivate = "is_private"
+                case instagramUsername = "instagram_username"
+                case birthDate = "birth_date"
+                case sports
+                case preferredTrainingTimes = "preferred_training_times"
             }
         }
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = Calendar(identifier: .gregorian)
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.dateFormat = "yyyy-MM-dd"
         let payload = UpdatePayload(
             displayName: displayName,
             bio: bio,
             fitnessGoal: fitnessGoal,
-            isPrivate: isPrivate
+            isPrivate: isPrivate,
+            instagramUsername: instagramUsername,
+            birthDate: birthDate.map(dateFormatter.string(from:)),
+            sports: sports,
+            preferredTrainingTimes: preferredTrainingTimes
         )
         try await client
             .from("profiles")

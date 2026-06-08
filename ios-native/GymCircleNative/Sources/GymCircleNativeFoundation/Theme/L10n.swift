@@ -67,6 +67,14 @@ public enum L10n {
     case editProfileChangeAvatar
     case editProfileUploadingAvatar
     case editProfileUploadAvatarFailed
+    // Sprint 9.7.1
+    case editProfileUsername
+    case editProfileUsernameInvalid
+    case editProfileInstagram
+    case editProfileSports
+    case editProfileSportsHint
+    case editProfileBirthDate
+    case editProfilePreferredTimes
     case recapStatWorkouts
     case recapStatStreak
     case recapStatTopType
@@ -229,6 +237,21 @@ public enum L10n {
             return isEN
                 ? "Avatar upload failed. Try again."
                 : "Falha ao enviar avatar. Tente novamente."
+        // Sprint 9.7.1
+        case .editProfileUsername:
+            return isEN ? "Username" : "Nome de usuário"
+        case .editProfileUsernameInvalid:
+            return isEN ? "INVALID" : "INVÁLIDO"
+        case .editProfileInstagram:
+            return isEN ? "Instagram username" : "Usuário do Instagram"
+        case .editProfileSports:
+            return isEN ? "Sports" : "Esportes"
+        case .editProfileSportsHint:
+            return isEN ? "comma-separated" : "separados por vírgula"
+        case .editProfileBirthDate:
+            return isEN ? "Birth date" : "Data de nascimento"
+        case .editProfilePreferredTimes:
+            return isEN ? "Preferred training times" : "Horários preferidos de treino"
 
         // Monthly recap
         case .recapStatWorkouts:  return isEN ? "Workouts"     : "Treinos"
