@@ -21,15 +21,19 @@ public actor StoriesService {
 
     /// Retorna true se o user tem PELO MENOS 1 story não-expirada.
     /// Usa head + count pra evitar trazer rows (response body vazio).
+    /// Sprint 9.9.6 — withRetry: chamada em paralelo no loadMyCircle;
+    /// falha graceful ainda retorna false (cai via try? do AppModel).
     public func hasActiveStory(userId: String) async throws -> Bool {
-        let nowISO = ISO8601DateFormatter().string(from: .now)
-        let response = try await client
-            .from("stories")
-            .select("id", head: true, count: .exact)
-            .eq("user_id", value: userId)
-            .gt("expires_at", value: nowISO)
-            .execute()
-        return (response.count ?? 0) > 0
+        try await withRetry {
+            let nowISO = ISO8601DateFormatter().string(from: .now)
+            let response = try await self.client
+                .from("stories")
+                .select("id", head: true, count: .exact)
+                .eq("user_id", value: userId)
+                .gt("expires_at", value: nowISO)
+                .execute()
+            return (response.count ?? 0) > 0
+        }
     }
 
     /// Paridade Instagram: ring fica cinza assim que viewer abre QUALQUER

@@ -66,12 +66,16 @@ public actor AchievementsService {
         if let cached = globalStatsCache[achievementId], cached.expiresAt > .now {
             return cached.stats
         }
-        let params = GlobalStatsParams(p_achievement_id: achievementId)
-        let rows: [AchievementGlobalStats] = try await client
-            .rpc("get_achievement_global_stats", params: params)
-            .execute()
-            .value
-        let stats = rows.first ?? AchievementGlobalStats(earnedCount: 0, totalUsers: 0)
+        // Sprint 9.9.6 — retry no RPC. RPCs server-side podem falhar
+        // por blip de rede; vale tentar 3x antes de cair pro fallback (0,0).
+        let stats: AchievementGlobalStats = try await withRetry {
+            let params = GlobalStatsParams(p_achievement_id: achievementId)
+            let rows: [AchievementGlobalStats] = try await self.client
+                .rpc("get_achievement_global_stats", params: params)
+                .execute()
+                .value
+            return rows.first ?? AchievementGlobalStats(earnedCount: 0, totalUsers: 0)
+        }
         globalStatsCache[achievementId] = CachedStats(
             stats: stats,
             expiresAt: .now.addingTimeInterval(globalStatsCacheTTL)

@@ -194,15 +194,19 @@ public actor MyCircleService {
         let nextYear = month == 12 ? year + 1 : year
         let monthEnd = String(format: "%04d-%02d-01", nextYear, nextMonth)
 
-        let rows: [PostThumbnailRow] = try await client
-            .from("posts")
-            .select("id,workout_date,image_url")
-            .eq("user_id", value: userId)
-            .gte("workout_date", value: monthStart)
-            .lt("workout_date", value: monthEnd)
-            .order("workout_date", ascending: true)
-            .execute()
-            .value
+        // Sprint 9.9.6 — withRetry: getMonthPosts alimenta calendar mini-fotos
+        // + RecapCoverPicker. Falha cru deixaria o calendar vazio sem warning.
+        let rows: [PostThumbnailRow] = try await withRetry {
+            try await self.client
+                .from("posts")
+                .select("id,workout_date,image_url")
+                .eq("user_id", value: userId)
+                .gte("workout_date", value: monthStart)
+                .lt("workout_date", value: monthEnd)
+                .order("workout_date", ascending: true)
+                .execute()
+                .value
+        }
 
         return rows.compactMap { row in
             guard let url = URL(string: row.imageURL) else { return nil }

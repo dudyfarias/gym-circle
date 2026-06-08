@@ -19,15 +19,19 @@ public actor ProfilesService {
 
     /// Busca o profile row do user autenticado. Retorna nil quando linha
     /// não encontrada (usuário recém-criado ou sem trigger ainda).
+    /// Sprint 9.9.6 — withRetry: profile é boot-critical, blip de rede
+    /// não pode quebrar o login flow.
     public func getProfile(userId: String) async throws -> UserProfile? {
-        let rows: [UserProfile] = try await client
-            .from("profiles")
-            .select("id,user_id,username,display_name,avatar_url,bio,fitness_goal,is_private,featured_achievements,created_at,instagram_username,birth_date,sports,preferred_training_times")
-            .eq("user_id", value: userId)
-            .limit(1)
-            .execute()
-            .value
-        return rows.first
+        try await withRetry {
+            let rows: [UserProfile] = try await self.client
+                .from("profiles")
+                .select("id,user_id,username,display_name,avatar_url,bio,fitness_goal,is_private,featured_achievements,created_at,instagram_username,birth_date,sports,preferred_training_times")
+                .eq("user_id", value: userId)
+                .limit(1)
+                .execute()
+                .value
+            return rows.first
+        }
     }
 
     /// Sprint 8.13.5 — busca foto de capa que o user escolheu pro Monthly Recap
