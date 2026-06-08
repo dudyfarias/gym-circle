@@ -37,7 +37,7 @@ antes/durante TestFlight e v1.2**.
 | 2 | **LoginView strings hardcoded** | LoginView.swift L20-21 ("Gym Circle"/"Train together") | 15min | App em EN mostra "Train together" em PT também |
 | 3 | **A11y labels hardcoded PT** | 5 telas: `"Fechar"` literal | 30min | EN VoiceOver lê "Fechar" em vez de "Close" — review fail Apple |
 | 4 | **"SEMANA" hardcoded** | ActivityRingsView L38 | 5min | EN mostra "SEMANA" em vez de "WEEK" |
-| 5 | ~~**Push Notifications zero setup**~~ | **Sprint 10.3 fechou client-side**. Server trigger (Edge function) pendente pra v1.1.2 | 2h done + 2h follow-up | Token registration + 2 listeners runtime wirados. Edge function que dispara push quando achievement unlock / challenge complete ainda falta |
+| 5 | ~~**Push Notifications zero setup**~~ | **Sprint 10.3 (client) + 10.4 (server) fechados**. Aguarda apenas 5 secrets APNS no Dashboard | 4h done | Edge Function `send-push` deployed e ativa. JWT ES256 + APNS HTTP/2 + revoke automático de 410. Setup guide em `docs/sprint-10.4-apns-setup-guide.md` |
 
 ### 🟠 P1 — Qualidade técnica relevante
 
