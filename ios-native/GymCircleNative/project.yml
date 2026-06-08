@@ -54,11 +54,37 @@ targets:
           CODE_SIGNING_ALLOWED: "NO"
         Release:
           CODE_SIGNING_ALLOWED: "NO"
+
+  # Sprint 9.9.7 — unit-test target (P1 #6).
+  GymCircleNativeTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Tests/GymCircleNativeFoundationTests
+    dependencies:
+      - target: GymCircleNative
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev.tests
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_VERSION: "5.9"
+      configs:
+        Debug:
+          CODE_SIGNING_ALLOWED: "NO"
+        Release:
+          CODE_SIGNING_ALLOWED: "NO"
+
 schemes:
   GymCircleNative:
     build:
       targets:
         GymCircleNative: all
+        GymCircleNativeTests: [test]
+    test:
+      config: Debug
+      targets:
+        - GymCircleNativeTests
     run:
       config: Debug
     archive:

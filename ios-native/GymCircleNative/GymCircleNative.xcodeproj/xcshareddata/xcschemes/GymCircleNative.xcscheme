@@ -21,6 +21,20 @@
                ReferencedContainer = "container:GymCircleNative.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D27C7FD7DEC69E10A24A29B6"
+               BuildableName = "GymCircleNativeTests.xctest"
+               BlueprintName = "GymCircleNativeTests"
+               ReferencedContainer = "container:GymCircleNative.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -39,7 +53,20 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "D27C7FD7DEC69E10A24A29B6"
+               BuildableName = "GymCircleNativeTests.xctest"
+               BlueprintName = "GymCircleNativeTests"
+               ReferencedContainer = "container:GymCircleNative.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

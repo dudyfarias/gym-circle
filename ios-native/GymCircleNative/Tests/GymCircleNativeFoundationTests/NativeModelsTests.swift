@@ -1,5 +1,5 @@
 import XCTest
-@testable import GymCircleNativeFoundation
+@testable import GymCircleNative
 
 final class NativeModelsTests: XCTestCase {
     func testFeedPostUsesThumbnailBeforePosterAndOriginalMedia() {
