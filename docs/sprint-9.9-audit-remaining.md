@@ -83,26 +83,45 @@ antes/durante TestFlight e v1.2**.
 
 ## 3. Pendências server-side
 
-### Migrations a aplicar em prod
+### Migrations — ✅ Sprint 9.9.8 verificou (8 jun 2026)
 
-```bash
-# Verificar quais migrations Sprint 7.5 + 8.x ainda não aplicadas em prod:
-supabase/migrations/20260603120000_monthly_recap_covers.sql       # Sprint 5.5
-supabase/migrations/20260603140000_contextual_hints_seen.sql      # Sprint 7C.1
-supabase/migrations/20260603160000_monthly_challenges.sql         # Sprint 7.5.6
-supabase/migrations/20260603160100_user_monthly_challenge_progress.sql
-supabase/migrations/20260603160200_user_achievements.sql
-supabase/migrations/20260603160300_profiles_featured_achievements.sql
-supabase/migrations/20260603160400_seed_monthly_challenges_2026_06.sql
-supabase/migrations/20260603160500_achievement_global_stats_rpc.sql
-supabase/migrations/20260603160600_backfill_user_achievements_server_side.sql
-supabase/migrations/20260603160700_monthly_challenges_secret_and_config.sql
-supabase/migrations/20260603160800_seed_monthly_challenges_2026_06_brasil.sql
-supabase/migrations/20260603160900_user_achievements_celebrated_at.sql
-```
+**Status real (via Supabase MCP, project `qajjpjmybmqqwflytcpr`):**
 
-**Action item:** rodar `supabase db push` ou aplicar via Dashboard antes
-de subir TestFlight pra users testarem.
+Schema 100% sincronizado. Os 7 candidatos identificados no audit inicial
+(store_hardening, story_social_interactions, require_gym_location,
+social_workout_participants, streak_restore, notification_bell_social_only,
+performance_surface_rpcs) tiveram seus objetos verificados via
+`information_schema` / `pg_proc` / `pg_constraint` — **todos presentes
+em prod**. As migrations foram aplicadas via Dashboard / push direto
+em sessões anteriores; o nome no migrations history divergiu do filename
+local (ex: `gym_circle_store_hardening` em prod vs `store_hardening` local).
+
+Conclusão: nenhuma migration pra aplicar antes do TestFlight.
+
+### Advisors pendentes (não bloqueantes — v1.2)
+
+Snapshot dos advisors Supabase rodado em 8 jun 2026:
+
+**Security (12 WARN):**
+- 12 funções SECURITY DEFINER expostas a anon/authenticated.
+  Maioria intencional (RPCs com `auth.uid()` check interno:
+  `get_achievement_global_stats`, `use_streak_restore`,
+  `delete_my_account`, `refresh_my_stats`, `sync_my_streak_restores`,
+  `resolve_email_for_username`). Auditoria caso-a-caso = sprint dedicada.
+- `auth_leaked_password_protection` desabilitado. **Quick win**: toggle
+  no Dashboard → Auth → Settings → Password Policy.
+
+**Performance (40+ INFO/WARN):**
+- 5 RLS policies re-avaliam `auth.uid()` por row (paridade `(select
+  auth.uid())` recomendada): `user_monthly_challenge_progress` (3 policies),
+  `user_achievements` (2 policies). Escala = lento. Fix simples.
+- 11 FKs sem index covering: `conversations.created_by`,
+  `notifications.actor_id/post_id/comment_id`, `reports.*`,
+  `post_participants.tagged_by_user_id`, etc.
+- 30+ unused indexes (gyms, profiles, posts, stories, push_subscriptions,
+  etc). Candidatos a drop em sprint de cleanup.
+- 2 multiple permissive policies (`reports`, `user_blocks`).
+- Auth DB connection strategy: absolute (10) — recomendado percentage.
 
 ### Storage policies
 
@@ -238,11 +257,13 @@ MyCircleView.swift:calendar chevrons  "Mês anterior" / "Próximo mês"
 
 **Esses ~1h fecham os items mais críticos pra evitar review rejection:**
 
-1. ✅ A11y labels via L10n (`commonClose`, etc)
-2. ✅ LoginView strings → L10n
-3. ✅ "SEMANA" → L10n
-4. ✅ Bridge plugin docs cleanup
-5. ✅ Migration prod check (aplicar 12 migrations pendentes via Supabase Dashboard)
+1. ✅ A11y labels via L10n (`commonClose`, etc) — Sprint 9.9.1
+2. ✅ LoginView strings → L10n — Sprint 9.9.1
+3. ✅ "SEMANA" → L10n — Sprint 9.9.1
+4. ✅ Bridge plugin docs cleanup — Sprint 9.9.3
+5. ✅ Migration prod check — Sprint 9.9.8 (schema 100% alinhado, sem
+   gap real; "12 migrations pendentes" eram registros de history table,
+   não DDL ausente — verificado via Supabase MCP)
 
 ---
 
