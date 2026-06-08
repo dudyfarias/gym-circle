@@ -17,8 +17,8 @@ public struct LoginView: View {
             Spacer()
 
             VStack(spacing: 8) {
-                GCText("Gym Circle", style: .title)
-                GCText("Train together", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                GCText("Gym Circle", style: .title) // nome do produto (não traduz)
+                GCText(L10n.loginTagline.string, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
             }
 
             GCCard {

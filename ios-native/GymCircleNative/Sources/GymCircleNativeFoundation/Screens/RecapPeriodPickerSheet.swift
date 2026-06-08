@@ -67,7 +67,7 @@ public struct RecapPeriodPickerSheet: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
-            .accessibilityLabel(Text("Fechar"))
+            .accessibilityLabel(Text(L10n.commonClose.string))
             Spacer()
             Text(L10n.myCircleOutroPeriodo.string)
                 .font(.system(size: 15, weight: .heavy))

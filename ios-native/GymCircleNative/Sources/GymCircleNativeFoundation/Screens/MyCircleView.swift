@@ -210,7 +210,7 @@ public struct MyCircleView: View {
                     : .default,
                     value: flameAnimating
                 )
-            Text("\(data.stats.currentStreak) dias")
+            Text("\(data.stats.currentStreak) \(L10n.streakDays.string)")
                 .font(.system(size: 12, weight: .heavy))
         }
         .padding(.horizontal, 10)
@@ -314,7 +314,7 @@ public struct MyCircleView: View {
                     .foregroundColor(.white.opacity(0.72))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(Text("Mês anterior")) // Sprint 9.6.1
+            .accessibilityLabel(Text(L10n.calendarPrevMonth.string))
 
             Text(currentMonthLabel)
                 .font(.system(size: 12, weight: .heavy))
@@ -330,7 +330,7 @@ public struct MyCircleView: View {
             }
             .buttonStyle(.plain)
             .disabled(calendarMonthOffset >= 0) // não navega pra futuro
-            .accessibilityLabel(Text("Próximo mês")) // Sprint 9.6.1
+            .accessibilityLabel(Text(L10n.calendarNextMonth.string))
         }
     }
 

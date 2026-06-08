@@ -70,11 +70,34 @@ public enum L10n {
     // Sprint 9.7.1
     case editProfileUsername
     case editProfileUsernameInvalid
+    case editProfileUsernameHint
+    case editProfileUsernameTooShort
+    case editProfileUsernameInvalidChars
     case editProfileInstagram
     case editProfileSports
     case editProfileSportsHint
     case editProfileBirthDate
     case editProfilePreferredTimes
+    case editProfileBirthDateNone
+    case editProfileSaveSuccess
+    case editProfileGenericError
+    // Sprint 9.9.1 — common a11y + UI labels
+    case commonClose
+    case commonBack
+    case commonNext
+    case commonPrev
+    case calendarPrevMonth
+    case calendarNextMonth
+    case loginTagline
+    case ringsWeek
+    case streakDays
+    // StreakLevel labels
+    case levelIniciante
+    case levelConsistente
+    case levelElite
+    case levelLendario
+    case levelShortNovo
+    case levelShortLenda
     case recapStatWorkouts
     case recapStatStreak
     case recapStatTopType
@@ -242,6 +265,16 @@ public enum L10n {
             return isEN ? "Username" : "Nome de usuário"
         case .editProfileUsernameInvalid:
             return isEN ? "INVALID" : "INVÁLIDO"
+        case .editProfileUsernameHint:
+            return isEN
+                ? "3-32 chars: lowercase letters, numbers, _ or ."
+                : "3-32 caracteres: letras minúsculas, números, _ ou ."
+        case .editProfileUsernameTooShort:
+            return isEN ? "At least 3 characters" : "Mínimo 3 caracteres"
+        case .editProfileUsernameInvalidChars:
+            return isEN
+                ? "Only lowercase letters, numbers, _ and . allowed"
+                : "Apenas letras minúsculas, números, _ e . são permitidos"
         case .editProfileInstagram:
             return isEN ? "Instagram username" : "Usuário do Instagram"
         case .editProfileSports:
@@ -252,6 +285,32 @@ public enum L10n {
             return isEN ? "Birth date" : "Data de nascimento"
         case .editProfilePreferredTimes:
             return isEN ? "Preferred training times" : "Horários preferidos de treino"
+        case .editProfileBirthDateNone:
+            return isEN ? "Not set" : "Não definida"
+        case .editProfileSaveSuccess:
+            return isEN ? "Profile updated" : "Perfil atualizado"
+        case .editProfileGenericError:
+            return isEN
+                ? "Couldn't save changes. Try again."
+                : "Não foi possível salvar. Tente novamente."
+
+        // Sprint 9.9.1 — common
+        case .commonClose:        return isEN ? "Close"     : "Fechar"
+        case .commonBack:         return isEN ? "Back"      : "Voltar"
+        case .commonNext:         return isEN ? "Next"      : "Próximo"
+        case .commonPrev:         return isEN ? "Previous"  : "Anterior"
+        case .calendarPrevMonth:  return isEN ? "Previous month" : "Mês anterior"
+        case .calendarNextMonth:  return isEN ? "Next month"     : "Próximo mês"
+        case .loginTagline:       return isEN ? "Train together" : "Treine junto"
+        case .ringsWeek:          return isEN ? "WEEK"      : "SEMANA"
+        case .streakDays:         return isEN ? "days"      : "dias"
+        // StreakLevel
+        case .levelIniciante:     return isEN ? "Beginner"    : "Iniciante"
+        case .levelConsistente:   return isEN ? "Consistent"  : "Consistente"
+        case .levelElite:         return isEN ? "Elite"       : "Elite"
+        case .levelLendario:      return isEN ? "Legendary"   : "Lendário"
+        case .levelShortNovo:     return isEN ? "New"   : "Novo"
+        case .levelShortLenda:    return isEN ? "Legend": "Lenda"
 
         // Monthly recap
         case .recapStatWorkouts:  return isEN ? "Workouts"     : "Treinos"

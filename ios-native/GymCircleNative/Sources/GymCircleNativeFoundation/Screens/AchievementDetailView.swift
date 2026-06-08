@@ -366,7 +366,7 @@ public struct AchievementDetailView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
-            .accessibilityLabel(Text("Voltar")) // Sprint 9.6.1
+            .accessibilityLabel(Text(L10n.commonBack.string))
             .padding(.leading, 16)
             .padding(.top, 16)
 

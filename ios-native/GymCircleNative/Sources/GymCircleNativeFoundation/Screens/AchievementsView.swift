@@ -90,7 +90,7 @@ public struct AchievementsView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
-            .accessibilityLabel(Text("Fechar")) // Sprint 9.6.1
+            .accessibilityLabel(Text(L10n.commonClose.string))
             Spacer()
             Text(L10n.achievementsHallFama.string)
                 .font(.system(size: 15, weight: .heavy))

@@ -121,12 +121,16 @@ public struct StreakLevel: Identifiable, Codable, Hashable, Sendable {
     public let minDays: Int
     public let nextLevelAt: Int?
 
-    public static let all: [StreakLevel] = [
-        StreakLevel(id: .iniciante, label: "Iniciante", shortLabel: "Novo", minDays: 0, nextLevelAt: 4),
-        StreakLevel(id: .consistente, label: "Consistente", shortLabel: "Consistente", minDays: 4, nextLevelAt: 14),
-        StreakLevel(id: .elite, label: "Elite", shortLabel: "Elite", minDays: 14, nextLevelAt: 30),
-        StreakLevel(id: .lendario, label: "Lendário", shortLabel: "Lenda", minDays: 30, nextLevelAt: nil)
-    ]
+    /// Sprint 9.9.1 — agora `static var` (computed) pra re-render com locale
+    /// atual quando user trocar idioma no device. Labels vêm de L10n.
+    public static var all: [StreakLevel] {
+        [
+            StreakLevel(id: .iniciante,   label: L10n.levelIniciante.string,   shortLabel: L10n.levelShortNovo.string,   minDays: 0,  nextLevelAt: 4),
+            StreakLevel(id: .consistente, label: L10n.levelConsistente.string, shortLabel: L10n.levelConsistente.string, minDays: 4,  nextLevelAt: 14),
+            StreakLevel(id: .elite,       label: L10n.levelElite.string,       shortLabel: L10n.levelElite.string,       minDays: 14, nextLevelAt: 30),
+            StreakLevel(id: .lendario,    label: L10n.levelLendario.string,    shortLabel: L10n.levelShortLenda.string,  minDays: 30, nextLevelAt: nil)
+        ]
+    }
 
     /// Resolve o level corrente baseado em dias de streak.
     public static func current(for days: Int) -> StreakLevel {

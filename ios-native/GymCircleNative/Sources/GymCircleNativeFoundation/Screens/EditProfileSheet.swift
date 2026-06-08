@@ -79,6 +79,12 @@ public struct EditProfileSheet: View {
     public var body: some View {
         accessibleBody
             .accessibilityAddTraits(.isModal) // Sprint 9.8.5
+            .onAppear {
+                // Sprint 9.9.2 — reset error/upload state quando reabre
+                // (paridade web useEffect(open) reset).
+                saveError = nil
+                isUploadingAvatar = false
+            }
     }
 
     private var accessibleBody: some View {
@@ -226,7 +232,10 @@ public struct EditProfileSheet: View {
                 }
             }
         } catch {
-            saveError = error.localizedDescription
+            // Sprint 9.9.2 — fallback localizado quando description vem vazia
+            // (alguns erros NSError trazem string vazia ou em inglês cru).
+            let desc = error.localizedDescription.trimmingCharacters(in: .whitespaces)
+            saveError = desc.isEmpty ? L10n.editProfileGenericError.string : desc
         }
     }
 
@@ -336,11 +345,18 @@ public struct EditProfileSheet: View {
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(Color.white.opacity(0.08), lineWidth: 1)
                     )
+                    // Sprint 9.9.2 — enforce limit pra consistência com outros campos
+                    // (displayName/fitnessGoal/sports já enforçam via styledTextField).
+                    .onChange(of: bio) { newValue in
+                        if newValue.count > bioCharLimit {
+                            bio = String(newValue.prefix(bioCharLimit))
+                        }
+                    }
             }
         }
     }
 
-    // Sprint 9.7.1 — username com validation inline
+    // Sprint 9.7.1 + 9.9.2 — username com validation inline + mensagem específica
     private var usernameField: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -349,11 +365,9 @@ public struct EditProfileSheet: View {
                     .tracking(0.6)
                     .foregroundColor(.white.opacity(0.44))
                 Spacer()
-                if !isUsernameValid {
-                    Text(L10n.editProfileUsernameInvalid.string)
-                        .font(.system(size: 10, weight: .heavy))
-                        .foregroundColor(Color(red: 1.0, green: 0.42, blue: 0.42))
-                }
+                Text("\(username.count)/\(usernameLimit)")
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundColor(.white.opacity(0.42))
             }
             HStack(spacing: 0) {
                 Text("@")
@@ -386,7 +400,27 @@ public struct EditProfileSheet: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isUsernameValid ? Color.white.opacity(0.08) : Color(red: 1.0, green: 0.42, blue: 0.42).opacity(0.4), lineWidth: 1)
             )
+            // Sprint 9.9.2 — mensagem específica de validation
+            Text(usernameValidationMessage)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(isUsernameValid ? .white.opacity(0.42) : Color(red: 1.0, green: 0.42, blue: 0.42))
+                .padding(.top, 2)
         }
+    }
+
+    /// Sprint 9.9.2 — mensagem específica conforme estado da validation.
+    private var usernameValidationMessage: String {
+        let trimmed = username.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            return L10n.editProfileUsernameHint.string
+        }
+        if trimmed.count < 3 {
+            return L10n.editProfileUsernameTooShort.string
+        }
+        if !isUsernameValid {
+            return L10n.editProfileUsernameInvalidChars.string
+        }
+        return L10n.editProfileUsernameHint.string
     }
 
     private var birthDateField: some View {
@@ -419,6 +453,20 @@ public struct EditProfileSheet: View {
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
+            } else {
+                // Sprint 9.9.2 — placeholder "Não definido" quando toggle off
+                // (paridade web: campo vazio com hint visual).
+                Text(L10n.editProfileBirthDateNone.string)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.42))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.02)))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                    )
             }
         }
     }
@@ -571,6 +619,9 @@ public struct EditProfileSheet: View {
             preferredTrainingTimes: Array(preferredTimes)
         )
         await onSave(updated)
+        // Sprint 9.9.2 — haptic confirma pipeline rodou (callback é fire-and-forget,
+        // erro real fica visível via saveError quando bridge JS propaga).
+        Haptics.success()
     }
 }
 

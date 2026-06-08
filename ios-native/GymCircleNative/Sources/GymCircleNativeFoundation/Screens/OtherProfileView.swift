@@ -102,7 +102,7 @@ public struct OtherProfileView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
-            .accessibilityLabel(Text("Fechar"))
+            .accessibilityLabel(Text(L10n.commonClose.string))
             Spacer()
             Text("@\(profile.username)")
                 .font(.system(size: 14, weight: .heavy))

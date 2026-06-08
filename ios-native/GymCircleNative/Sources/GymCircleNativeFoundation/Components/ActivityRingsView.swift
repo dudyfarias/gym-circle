@@ -35,7 +35,7 @@ public struct ActivityRingsView: View {
             VStack(spacing: 2) {
                 GCText("\(Int((rings.week * 7).rounded()))", style: .number)
                     .minimumScaleFactor(0.6)
-                GCText("SEMANA", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                GCText(L10n.ringsWeek.string, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
             }
         }
         .aspectRatio(1, contentMode: .fit)
