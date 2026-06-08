@@ -680,8 +680,7 @@ private struct NativeOtherProfileHost: View {
     let onDismiss: () -> Void
 
     @StateObject private var model: GymCircleAppModel
-    @State private var profile: UserProfile?
-    @State private var posts: [ProfilePost] = []
+    @State private var summary: OtherProfileSummary?
     @State private var followState: OtherProfileView.FollowState = .none
 
     init(
@@ -699,13 +698,22 @@ private struct NativeOtherProfileHost: View {
 
     var body: some View {
         Group {
-            if let profile = profile {
+            if let summary = summary {
+                // Sprint 11.1 — usa summary agregada (bio + counts reais
+                // + posts hidratados). Antes o profile vinha sem stats e
+                // posts era state vazio.
+                let profile = summary.profile
                 OtherProfileView(
                     profile: profile,
-                    posts: posts,
-                    latestPost: posts.first,
+                    posts: summary.posts,
+                    latestPost: summary.posts.first,
                     followState: followState,
                     canSeePosts: !profile.isPrivate || followState == .accepted,
+                    postsCount: summary.postsCount,
+                    followersCount: summary.followersCount,
+                    followingCount: summary.followingCount,
+                    realCurrentStreak: summary.currentStreak,
+                    realBestStreak: summary.bestStreak,
                     onToggleFollow: {
                         Haptics.impactLight() // Sprint 9.6.2
                         Task {
@@ -739,22 +747,18 @@ private struct NativeOtherProfileHost: View {
         }
         .task {
             await model.boot()
-            await loadTargetProfile()
-            await loadFollowState()
+            await loadSummary()
         }
     }
 
-    private func loadTargetProfile() async {
-        if let loaded = await model.fetchOtherProfile(userId: targetUserId) {
-            self.profile = loaded
+    /// Sprint 11.1 — hidrata tudo numa única call (profile + stats +
+    /// posts + counts + isFollowing). Substitui loadTargetProfile +
+    /// loadFollowState que vinha trazendo dados parciais.
+    private func loadSummary() async {
+        if let loaded = await model.fetchOtherProfileSummary(userId: targetUserId) {
+            self.summary = loaded
+            self.followState = loaded.isFollowingAuthor ? .accepted : .none
         }
-    }
-
-    /// Sprint 9.5.4 — hidrata follow state pro Follow CTA renderizar
-    /// `accepted` quando user já segue o target.
-    private func loadFollowState() async {
-        let following = await model.isFollowing(targetUserId: targetUserId)
-        self.followState = following ? .accepted : .none
     }
 }
 

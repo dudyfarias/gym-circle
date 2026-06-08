@@ -24,6 +24,12 @@ public struct OtherProfileView: View {
     public let latestPost: ProfilePost?
     public let followState: FollowState
     public let canSeePosts: Bool
+    // Sprint 11.1 — contadores reais (antes vinham 0 sempre)
+    public let postsCount: Int
+    public let followersCount: Int
+    public let followingCount: Int
+    public let realCurrentStreak: Int
+    public let realBestStreak: Int
     public let onToggleFollow: () -> Void
     public let onMessage: () -> Void
     public let onReport: () -> Void
@@ -37,6 +43,11 @@ public struct OtherProfileView: View {
         latestPost: ProfilePost? = nil,
         followState: FollowState = .none,
         canSeePosts: Bool = true,
+        postsCount: Int = 0,
+        followersCount: Int = 0,
+        followingCount: Int = 0,
+        realCurrentStreak: Int = 0,
+        realBestStreak: Int = 0,
         onToggleFollow: @escaping () -> Void,
         onMessage: @escaping () -> Void,
         onReport: @escaping () -> Void,
@@ -49,6 +60,11 @@ public struct OtherProfileView: View {
         self.latestPost = latestPost
         self.followState = followState
         self.canSeePosts = canSeePosts
+        self.postsCount = postsCount
+        self.followersCount = followersCount
+        self.followingCount = followingCount
+        self.realCurrentStreak = realCurrentStreak
+        self.realBestStreak = realBestStreak
         self.onToggleFollow = onToggleFollow
         self.onMessage = onMessage
         self.onReport = onReport
@@ -139,12 +155,44 @@ public struct OtherProfileView: View {
                     .padding(.horizontal, 24)
             }
 
+            // Sprint 11.1 — Stats Instagram-style com counts reais
+            // (posts, seguidores, seguindo). Streak/best moveram pra
+            // linha menor abaixo pra preservar info de consistência.
             HStack(spacing: 16) {
-                stat(L10n.profileStreak.string, value: "\(profile.currentStreak)d")
-                stat(L10n.profileMaior.string, value: "\(profile.bestStreak)d")
-                stat(L10n.profilePosts.string, value: "\(posts.count)")
+                stat(L10n.profilePosts.string, value: formatCount(postsCount))
+                stat(L10n.profileFollowers.string, value: formatCount(followersCount))
+                stat(L10n.profileFollowing.string, value: formatCount(followingCount))
             }
             .padding(.top, 4)
+
+            if realCurrentStreak > 0 || realBestStreak > 0 {
+                HStack(spacing: 12) {
+                    statSecondary(L10n.profileStreak.string, value: "\(realCurrentStreak)d")
+                    Text("•")
+                        .font(.system(size: 11, weight: .heavy))
+                        .foregroundColor(.white.opacity(0.32))
+                    statSecondary(L10n.profileMaior.string, value: "\(realBestStreak)d")
+                }
+                .padding(.top, 2)
+            }
+        }
+    }
+
+    /// Sprint 11.1 — formato compacto pra contadores grandes (1.2k em vez de 1234).
+    private func formatCount(_ n: Int) -> String {
+        if n >= 1_000_000 {
+            return String(format: "%.1fM", Double(n) / 1_000_000).replacingOccurrences(of: ".0M", with: "M")
+        }
+        if n >= 1_000 {
+            return String(format: "%.1fk", Double(n) / 1_000).replacingOccurrences(of: ".0k", with: "k")
+        }
+        return "\(n)"
+    }
+
+    private func statSecondary(_ title: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            GCText(value, style: .caption, color: GymCircleTheme.ColorToken.cyan)
+            GCText(title.lowercased(), style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
         }
     }
 
@@ -174,7 +222,7 @@ public struct OtherProfileView: View {
                 .background(Capsule().fill(followBgColor))
                 .foregroundColor(followFgColor)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
 
             Button(action: onMessage) {
                 HStack(spacing: 6) {
@@ -189,7 +237,7 @@ public struct OtherProfileView: View {
                 .background(Capsule().fill(Color.white.opacity(0.06)))
                 .foregroundColor(.white)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
 
             iconCircleButton(systemName: "flag", color: .white.opacity(0.62), action: onReport)
             iconCircleButton(systemName: "nosign", color: Color(red: 1, green: 0.42, blue: 0.42), action: onBlock)
@@ -204,7 +252,7 @@ public struct OtherProfileView: View {
                 .background(Circle().fill(Color.white.opacity(0.04)).overlay(Circle().stroke(Color.white.opacity(0.1), lineWidth: 1)))
                 .foregroundColor(color)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     private var followIcon: String {
@@ -345,7 +393,7 @@ public struct OtherProfileView: View {
                     .padding(12)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     // MARK: - Posts grid
@@ -356,7 +404,7 @@ public struct OtherProfileView: View {
                 Button(action: { onOpenPost?(post.id) }) {
                     MediaView(url: post.displayMediaURL, aspectRatio: 1)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

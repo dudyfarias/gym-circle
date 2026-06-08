@@ -106,7 +106,7 @@ public struct RecapPeriodPickerSheet: View {
                 )
                 .foregroundColor(isActive ? .black : .white.opacity(0.68))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     // MARK: - Months grid
@@ -141,7 +141,7 @@ public struct RecapPeriodPickerSheet: View {
                             .fill(Color.white.opacity(isFuture ? 0.02 : 0.05))
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
                 .disabled(isFuture)
             }
         }
@@ -176,7 +176,7 @@ public struct RecapPeriodPickerSheet: View {
                             .fill(Color.white.opacity(0.05))
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
         }
     }

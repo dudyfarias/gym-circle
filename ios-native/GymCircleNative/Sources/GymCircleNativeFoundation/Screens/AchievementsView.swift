@@ -171,7 +171,7 @@ public struct AchievementsView: View {
                 )
                 .foregroundColor(isActive ? .black : .white.opacity(0.68))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     // MARK: - Section groups
@@ -258,7 +258,7 @@ public struct AchievementsView: View {
                     .fill(cardBackground(achievement))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     private func cardBackground(_ a: Achievement) -> Color {

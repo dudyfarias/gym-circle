@@ -114,7 +114,7 @@ public struct RecapCoverPickerSheet: View {
                     )
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .disabled(savingAuto || savingPostId != nil)
     }
 
@@ -240,7 +240,7 @@ public struct RecapCoverPickerSheet: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .disabled(savingPostId != nil || savingAuto)
     }
 
@@ -280,7 +280,7 @@ public struct RecapCoverPickerSheet: View {
                 .background(Capsule().fill(GymCircleTheme.ColorToken.electricBlue))
                 .padding(.horizontal, 20)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .padding(.vertical, 12)
             .disabled(savingPostId != nil || savingAuto)
         }

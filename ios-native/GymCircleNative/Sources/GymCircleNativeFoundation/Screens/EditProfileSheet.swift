@@ -124,7 +124,7 @@ public struct EditProfileSheet: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(.white.opacity(0.72))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             Spacer()
             Text(L10n.editProfileTitle.string)
                 .font(.system(size: 15, weight: .heavy))
@@ -141,7 +141,7 @@ public struct EditProfileSheet: View {
                         .foregroundColor(canSave ? GymCircleTheme.ColorToken.electricBlue : .white.opacity(0.32))
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .disabled(!canSave || isSaving)
         }
         .padding(.horizontal, 20)
@@ -514,7 +514,7 @@ public struct EditProfileSheet: View {
                     Capsule().stroke(isActive ? GymCircleTheme.ColorToken.electricBlue.opacity(0.32) : Color.clear, lineWidth: 1)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
     }
 

@@ -149,7 +149,7 @@ public struct MonthlyRecapSheet: View {
             .background(Capsule().fill(Color.white.opacity(0.06)))
             .foregroundColor(.white.opacity(0.82))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     // MARK: - Poster (renderable)
@@ -340,7 +340,7 @@ public struct MonthlyRecapSheet: View {
                 .background(Capsule().fill(GymCircleTheme.ColorToken.electricBlue.opacity(sharing ? 0.6 : 1.0)))
                 .foregroundColor(.black)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .disabled(sharing)
             .accessibilityLabel(Text(L10n.recapShare.string))
 
@@ -356,7 +356,7 @@ public struct MonthlyRecapSheet: View {
                     )
                     .foregroundColor(.white)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .disabled(sharing)
             .accessibilityLabel(Text(L10n.recapDownload.string))
         }

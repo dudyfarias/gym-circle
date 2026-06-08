@@ -43,6 +43,69 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         thumbnailURL ?? posterURL ?? imageURL
     }
 
+    /// Sprint 11.1 — init público explícito pra construção manual em
+    /// ProfilesService.getOtherProfileSummary (hidrata posts com author
+    /// info do profile target).
+    public init(
+        id: String,
+        userId: String,
+        imageURL: String,
+        thumbnailURL: String?,
+        posterURL: String?,
+        mediaWidth: Int?,
+        mediaHeight: Int?,
+        mediaDurationSeconds: Double?,
+        blurDataURL: String?,
+        mediaType: FeedMediaType?,
+        caption: String?,
+        gymId: String?,
+        workoutType: String?,
+        workoutDate: String?,
+        createdAt: String,
+        locationSource: String?,
+        locationName: String?,
+        likesCount: Int,
+        commentsCount: Int,
+        username: String,
+        displayName: String?,
+        avatarURL: String?,
+        authorCurrentStreak: Int?,
+        authorBestStreak: Int?,
+        authorBadgeActive: Bool?,
+        likedByMe: Bool?,
+        isFollowingAuthor: Bool?,
+        visibility: String?
+    ) {
+        self.id = id
+        self.userId = userId
+        self.imageURL = imageURL
+        self.thumbnailURL = thumbnailURL
+        self.posterURL = posterURL
+        self.mediaWidth = mediaWidth
+        self.mediaHeight = mediaHeight
+        self.mediaDurationSeconds = mediaDurationSeconds
+        self.blurDataURL = blurDataURL
+        self.mediaType = mediaType
+        self.caption = caption
+        self.gymId = gymId
+        self.workoutType = workoutType
+        self.workoutDate = workoutDate
+        self.createdAt = createdAt
+        self.locationSource = locationSource
+        self.locationName = locationName
+        self.likesCount = likesCount
+        self.commentsCount = commentsCount
+        self.username = username
+        self.displayName = displayName
+        self.avatarURL = avatarURL
+        self.authorCurrentStreak = authorCurrentStreak
+        self.authorBestStreak = authorBestStreak
+        self.authorBadgeActive = authorBadgeActive
+        self.likedByMe = likedByMe
+        self.isFollowingAuthor = isFollowingAuthor
+        self.visibility = visibility
+    }
+
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"

@@ -106,7 +106,7 @@ public struct ProfileView: View {
                     .fill(featuredCardBackground(achievement))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     /// Sprint 8.12.1 — paleta por **kind** (não rarity), paridade `KIND_TONE`

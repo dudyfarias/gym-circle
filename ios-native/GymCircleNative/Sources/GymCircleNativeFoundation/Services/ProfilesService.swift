@@ -17,6 +17,197 @@ public actor ProfilesService {
         self.client = client
     }
 
+    // MARK: - Sprint 11.1 — Other profile summary (bug fix bio + counts)
+
+    /// Agrega profile + stats + posts + counts pro OtherProfileView.
+    /// Faz 6 queries em paralelo via async let — latência total ≈ max(q),
+    /// não soma. Bio e contadores vinham faltando porque getProfile() só
+    /// trazia `profiles` row; streak/best vem de `user_stats` e
+    /// followers/following/posts são counts agregados.
+    public func getOtherProfileSummary(
+        userId: String,
+        currentUserId: String,
+        postsLimit: Int = 12
+    ) async throws -> OtherProfileSummary? {
+        async let profileTask: UserProfile? = self.getProfile(userId: userId)
+        async let statsTask: ProfileStatsRow? = self.fetchProfileStats(userId: userId)
+        async let postsTask: [ProfilePostLite] = self.fetchProfilePosts(userId: userId, limit: postsLimit)
+        async let postsCountTask: Int = self.countPosts(userId: userId)
+        async let followersTask: Int = self.countFollowers(userId: userId)
+        async let followingTask: Int = self.countFollowing(userId: userId)
+        async let isFollowingTask: Bool = self.isFollowing(targetUserId: userId, followerId: currentUserId)
+
+        guard let profile = try await profileTask else { return nil }
+        let stats = (try? await statsTask)
+        let liteRows = (try? await postsTask) ?? []
+        let postsCount = (try? await postsCountTask) ?? 0
+        let followersCount = (try? await followersTask) ?? 0
+        let followingCount = (try? await followingTask) ?? 0
+        let isFollowingAuthor = (try? await isFollowingTask) ?? false
+
+        // Hidrata cada ProfilePostLite num FeedPost com author info do profile
+        let posts: [ProfilePost] = liteRows.map { row in
+            FeedPost(
+                id: row.id,
+                userId: profile.userId,
+                imageURL: row.imageURL,
+                thumbnailURL: row.thumbnailURL,
+                posterURL: row.posterURL,
+                mediaWidth: nil,
+                mediaHeight: nil,
+                mediaDurationSeconds: nil,
+                blurDataURL: nil,
+                mediaType: row.mediaType.flatMap(FeedMediaType.init(rawValue:)),
+                caption: row.caption,
+                gymId: nil,
+                workoutType: row.workoutType,
+                workoutDate: row.workoutDate,
+                createdAt: row.createdAt,
+                locationSource: nil,
+                locationName: nil,
+                likesCount: row.likesCount ?? 0,
+                commentsCount: row.commentsCount ?? 0,
+                username: profile.username,
+                displayName: profile.displayName,
+                avatarURL: profile.avatarURL,
+                authorCurrentStreak: stats?.currentStreak ?? 0,
+                authorBestStreak: stats?.bestStreak ?? 0,
+                authorBadgeActive: stats?.badgeIsActiveToday ?? false,
+                likedByMe: false,
+                isFollowingAuthor: isFollowingAuthor,
+                visibility: nil
+            )
+        }
+
+        return OtherProfileSummary(
+            profile: profile,
+            posts: posts,
+            postsCount: postsCount,
+            followersCount: followersCount,
+            followingCount: followingCount,
+            currentStreak: stats?.currentStreak ?? 0,
+            bestStreak: stats?.bestStreak ?? 0,
+            workoutsThisMonth: stats?.workoutsThisMonth ?? 0,
+            isFollowingAuthor: isFollowingAuthor
+        )
+    }
+
+    // MARK: - Sprint 11.1 helpers (private)
+
+    private struct ProfileStatsRow: Decodable {
+        let currentStreak: Int
+        let bestStreak: Int
+        let workoutsThisMonth: Int
+        let badgeIsActiveToday: Bool
+        enum CodingKeys: String, CodingKey {
+            case currentStreak = "current_streak"
+            case bestStreak = "best_streak"
+            case workoutsThisMonth = "workouts_this_month"
+            case badgeIsActiveToday = "badge_is_active_today"
+        }
+    }
+
+    private struct ProfilePostLite: Decodable {
+        let id: String
+        let imageURL: String
+        let thumbnailURL: String?
+        let posterURL: String?
+        let mediaType: String?
+        let caption: String?
+        let workoutType: String?
+        let workoutDate: String?
+        let createdAt: String
+        let likesCount: Int?
+        let commentsCount: Int?
+        enum CodingKeys: String, CodingKey {
+            case id
+            case imageURL = "image_url"
+            case thumbnailURL = "thumbnail_url"
+            case posterURL = "poster_url"
+            case mediaType = "media_type"
+            case caption
+            case workoutType = "workout_type"
+            case workoutDate = "workout_date"
+            case createdAt = "created_at"
+            case likesCount = "likes_count"
+            case commentsCount = "comments_count"
+        }
+    }
+
+    private func fetchProfileStats(userId: String) async throws -> ProfileStatsRow? {
+        let rows: [ProfileStatsRow] = try await withRetry {
+            try await self.client
+                .from("user_stats")
+                .select("current_streak,best_streak,workouts_this_month,badge_is_active_today")
+                .eq("user_id", value: userId)
+                .limit(1)
+                .execute()
+                .value
+        }
+        return rows.first
+    }
+
+    private func fetchProfilePosts(userId: String, limit: Int) async throws -> [ProfilePostLite] {
+        try await withRetry {
+            try await self.client
+                .from("posts")
+                .select("id,image_url,thumbnail_url,poster_url,media_type,caption,workout_type,workout_date,created_at,likes_count,comments_count")
+                .eq("user_id", value: userId)
+                .order("created_at", ascending: false)
+                .limit(limit)
+                .execute()
+                .value
+        }
+    }
+
+    private func countPosts(userId: String) async throws -> Int {
+        let response = try await withRetry {
+            try await self.client
+                .from("posts")
+                .select("id", head: true, count: .exact)
+                .eq("user_id", value: userId)
+                .execute()
+        }
+        return response.count ?? 0
+    }
+
+    private func countFollowers(userId: String) async throws -> Int {
+        let response = try await withRetry {
+            try await self.client
+                .from("follows")
+                .select("follower_id", head: true, count: .exact)
+                .eq("following_id", value: userId)
+                .eq("status", value: "accepted")
+                .execute()
+        }
+        return response.count ?? 0
+    }
+
+    private func countFollowing(userId: String) async throws -> Int {
+        let response = try await withRetry {
+            try await self.client
+                .from("follows")
+                .select("following_id", head: true, count: .exact)
+                .eq("follower_id", value: userId)
+                .eq("status", value: "accepted")
+                .execute()
+        }
+        return response.count ?? 0
+    }
+
+    private func isFollowing(targetUserId: String, followerId: String) async throws -> Bool {
+        let response = try await withRetry {
+            try await self.client
+                .from("follows")
+                .select("follower_id", head: true, count: .exact)
+                .eq("follower_id", value: followerId)
+                .eq("following_id", value: targetUserId)
+                .eq("status", value: "accepted")
+                .execute()
+        }
+        return (response.count ?? 0) > 0
+    }
+
     /// Busca o profile row do user autenticado. Retorna nil quando linha
     /// não encontrada (usuário recém-criado ou sem trigger ainda).
     /// Sprint 9.9.6 — withRetry: profile é boot-critical, blip de rede

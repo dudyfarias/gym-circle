@@ -51,6 +51,7 @@ public enum L10n {
     case recapCoverPickerErrorSave
     case profileFollow
     case profileFollowing
+    case profileFollowers
     case profileFollowRequested
     case profileRequestFollow
     case profileMessage
@@ -232,6 +233,7 @@ public enum L10n {
         // Other profile actions
         case .profileFollow:           return isEN ? "Follow"            : "Seguir"
         case .profileFollowing:        return isEN ? "Following"         : "Seguindo"
+        case .profileFollowers:        return isEN ? "Followers"         : "Seguidores"
         case .profileFollowRequested:  return isEN ? "Requested"         : "Pendente"
         case .profileRequestFollow:    return isEN ? "Request"           : "Solicitar"
         case .profileMessage:          return isEN ? "Message"           : "Mensagem"

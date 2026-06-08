@@ -23,6 +23,7 @@
 		5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52D40B4007DAC206C665780 /* FeedPost.swift */; };
 		5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */; };
 		5EEBF3147E247A6E731BA17D /* AchievementDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */; };
+		660226AA88621F665F2A4A5F /* PressableButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */; };
 		6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20940CB53959FF53CFF9C75 /* StoriesViews.swift */; };
 		6F3FB4F0BD0F20D0D460B61B /* RetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70CEB07821E09F169BDBDA40 /* RetryTests.swift */; };
 		70EB9C329DE1DA414347C6A3 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */; };
@@ -40,6 +41,7 @@
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
 		BBE4C5ED1604B5BF51F36B23 /* NativeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */; };
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
+		C256C624C303F3E8ED1E4320 /* OtherProfileSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
 		C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D2F3C03BC2098846FF44D01 /* FollowsService.swift */; };
 		C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */; };
@@ -97,6 +99,7 @@
 		783D161B1E627FB137F94874 /* MyCircleComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleComponents.swift; sourceTree = "<group>"; };
 		7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		7E02612239E7BC217D0CE54E /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
+		89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressableButtonStyle.swift; sourceTree = "<group>"; };
 		938F0854F909B3772AE14447 /* AchievementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementModels.swift; sourceTree = "<group>"; };
 		96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAppModel.swift; sourceTree = "<group>"; };
 		9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsService.swift; sourceTree = "<group>"; };
@@ -112,6 +115,7 @@
 		D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyRecapSheet.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherProfileSummary.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
 		F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleTheme.swift; sourceTree = "<group>"; };
@@ -155,6 +159,7 @@
 				641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */,
 				069AF1E053D24164413598B0 /* BaseComponents.swift */,
 				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
+				89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -220,6 +225,7 @@
 				A52D40B4007DAC206C665780 /* FeedPost.swift */,
 				F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */,
 				636F3999A2F250111C153818 /* MyCircleModels.swift */,
+				E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */,
 				15CF77117635F0D69B78BE8C /* StoryModels.swift */,
 				4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */,
 			);
@@ -414,7 +420,9 @@
 				DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */,
 				4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */,
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
+				C256C624C303F3E8ED1E4320 /* OtherProfileSummary.swift in Sources */,
 				EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */,
+				660226AA88621F665F2A4A5F /* PressableButtonStyle.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
 				3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */,
 				A237D22A211DEBC05FFAFE2F /* RecapCoverPickerSheet.swift in Sources */,

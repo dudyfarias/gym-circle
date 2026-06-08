@@ -142,7 +142,7 @@ public struct MyCircleView: View {
                         .tracking(0.4)
                         .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
             }
 
             Spacer(minLength: 0)
@@ -313,7 +313,7 @@ public struct MyCircleView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white.opacity(0.72))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .accessibilityLabel(Text(L10n.calendarPrevMonth.string))
 
             Text(currentMonthLabel)
@@ -328,7 +328,7 @@ public struct MyCircleView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(calendarMonthOffset >= 0 ? .white.opacity(0.32) : .white.opacity(0.72))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(PressableButtonStyle())
             .disabled(calendarMonthOffset >= 0) // não navega pra futuro
             .accessibilityLabel(Text(L10n.calendarNextMonth.string))
         }
@@ -415,7 +415,7 @@ public struct MyCircleView: View {
                     Button(action: { onTapChallenge?(challenge) }) {
                         MonthlyChallengeRowView(challenge: challenge)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(PressableButtonStyle())
                 }
             }
         }
@@ -476,7 +476,7 @@ public struct MyCircleView: View {
                     )
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     /// Sprint 9.5.3 — sub-CTA "Outro período" abre RecapPeriodPickerSheet.
@@ -502,7 +502,7 @@ public struct MyCircleView: View {
                     .fill(Color.white.opacity(0.04))
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableButtonStyle())
     }
 
     // MARK: - Privacy lock (Sprint 8.12.4, paridade canSeeDetails web)

@@ -457,6 +457,22 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Sprint 11.1 — agrega profile + stats + posts + counts pra
+    /// OtherProfileView. Substitui o fetchOtherProfile + posts vazio +
+    /// streak/best 0 que causavam o bug "bio sumida + counts errados".
+    public func fetchOtherProfileSummary(userId: String) async -> OtherProfileSummary? {
+        guard let profilesService,
+              let currentUserId = sessionStore?.currentUserId else { return nil }
+        do {
+            return try await profilesService.getOtherProfileSummary(
+                userId: userId,
+                currentUserId: currentUserId
+            )
+        } catch {
+            return nil
+        }
+    }
+
     /// Wrapper de ProfilesService.updateProfile + reload local @Published.
     /// Chamado pelo NativeEditProfileHost no save.
     /// Sprint 9.7.1 — agora também aceita instagramUsername, birthDate,
