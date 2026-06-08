@@ -37,7 +37,7 @@ antes/durante TestFlight e v1.2**.
 | 2 | **LoginView strings hardcoded** | LoginView.swift L20-21 ("Gym Circle"/"Train together") | 15min | App em EN mostra "Train together" em PT também |
 | 3 | **A11y labels hardcoded PT** | 5 telas: `"Fechar"` literal | 30min | EN VoiceOver lê "Fechar" em vez de "Close" — review fail Apple |
 | 4 | **"SEMANA" hardcoded** | ActivityRingsView L38 | 5min | EN mostra "SEMANA" em vez de "WEEK" |
-| 5 | **Push Notifications zero setup** | nada em ios/App nem JS | 2h | Capacitor plugin instalado mas sem permissão request, sem handler. Achievements unlock + monthly challenge complete deveriam notificar |
+| 5 | ~~**Push Notifications zero setup**~~ | **Sprint 10.3 fechou client-side**. Server trigger (Edge function) pendente pra v1.1.2 | 2h done + 2h follow-up | Token registration + 2 listeners runtime wirados. Edge function que dispara push quando achievement unlock / challenge complete ainda falta |
 
 ### 🟠 P1 — Qualidade técnica relevante
 
