@@ -8,7 +8,7 @@ import SwiftUI
 // import GymCircleNativeFoundation
 // import Supabase
 
-/// Sprint 8.1 — Capacitor Plugin Bridge.
+/// Sprint 8.1 — Capacitor Plugin Bridge (Sprint 9.9.3 — docs atualizados).
 ///
 /// Permite que código JavaScript (Next.js dentro do WKWebView) presente
 /// surfaces SwiftUI nativas via UIHostingController. Estratégia híbrida
@@ -19,12 +19,19 @@ import SwiftUI
 ///
 /// JS API correspondente: apps/web/src/native/GymCircleNativeBridge.ts
 ///
-/// Status do plugin:
-///   - presentMyCircleNative: placeholder funcional (mostra UIHostingController
-///     com texto stub enquanto Sprint 8.2 implementa MyCircleView completa)
-///   - presentAchievementDetail: stub — Sprint 8.4
-///   - presentCelebration: stub — Sprint 8.6
-///   - presentAchievementsHub: stub — Sprint 8.5
+/// Status do plugin (Sprint 9.5+ — todos implementados real, sem stubs):
+///   - presentMyCircleNative      → MyCircleView completa (Sprint 8.2)
+///   - presentAchievementDetail   → AchievementDetailView (Sprint 8.5)
+///   - presentCelebration         → AchievementCelebrationView (Sprint 8.7)
+///   - presentAchievementsHub     → AchievementsView Hall da Fama (Sprint 8.6)
+///   - presentOtherProfile        → OtherProfileView com actions (Sprint 9.1+9.5.4)
+///   - presentEditProfile         → EditProfileSheet (Sprint 9.1+9.7.1+9.9.2)
+///   - presentMonthlyRecap        → MonthlyRecapSheet canvas+share (Sprint 8.13.8)
+///   - isAvailable                → boolean check pro JS fallback
+///
+/// Inverse bridge (Swift → JS) via notifyListeners:
+///   - openChat, openPost, reportUser, blockUser (Sprint 9.5.4)
+///   - celebrationDismiss, achievementDetailDismiss (Sprint 8.13.3)
 ///
 /// NOTA AO BUILD: este arquivo só compila quando o Swift Package
 /// GymCircleNativeFoundation está adicionado ao Xcode Workspace. Veja
@@ -660,8 +667,9 @@ private func makeMonthlyRecapHostingController(
 // MARK: - Sprint 9.1 hosts
 
 /// Container nativo do OtherProfileView. Carrega profile + posts do target
-/// user via ProfilesService + GymCircleAPI. Follow CTA stub (Sprint 9.2+
-/// wirea FollowsService quando criado).
+/// user via ProfilesService + GymCircleAPI. Follow/unfollow real via
+/// FollowsService (Sprint 9.5.4). Actions message/report/block propagam
+/// pro JS via Capacitor inverse bridge (notifyListeners).
 private struct NativeOtherProfileHost: View {
     let targetUserId: String
     let currentUserId: String

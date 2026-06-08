@@ -221,6 +221,12 @@ public struct EditProfileSheet: View {
         saveError = nil
         do {
             if let data = try await item.loadTransferable(type: Data.self) {
+                // Sprint 9.9.4 — diff check: skip upload se user reescolheu
+                // a mesma foto. PhotosPicker pode disparar onChange mesmo
+                // pra asset idêntica. Data conforms Equatable (byte compare).
+                if let previous = pickedAvatarData, previous == data {
+                    return
+                }
                 pickedAvatarData = data
                 isUploadingAvatar = true
                 defer { isUploadingAvatar = false }

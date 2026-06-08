@@ -15,6 +15,17 @@ import Supabase
 public actor AchievementsService {
     private let client: SupabaseClient
 
+    // Sprint 9.9.5 — TTL cache pra getGlobalStats. Stats globais variam
+    // pouco numa sessão (mudam só quando outros users desbloqueiam).
+    // 5min TTL evita refetch em cada open do AchievementDetailView sem
+    // ficar stale demais. Actor isolation = thread-safe sem lock manual.
+    private struct CachedStats {
+        let stats: AchievementGlobalStats
+        let expiresAt: Date
+    }
+    private var globalStatsCache: [String: CachedStats] = [:]
+    private let globalStatsCacheTTL: TimeInterval = 5 * 60
+
     public init(client: SupabaseClient) {
         self.client = client
     }
@@ -48,13 +59,31 @@ public actor AchievementsService {
     }
 
     /// Stats globais (% de users que têm) — Sprint 7.5.8 RPC.
+    /// Sprint 9.9.5 — cache TTL 5min evita refetch redundante por open
+    /// do AchievementDetailView. Caller invalida via `invalidateGlobalStatsCache()`
+    /// quando user desbloqueia algo (raridade própria do achievement muda).
     public func getGlobalStats(achievementId: String) async throws -> AchievementGlobalStats {
+        if let cached = globalStatsCache[achievementId], cached.expiresAt > .now {
+            return cached.stats
+        }
         let params = GlobalStatsParams(p_achievement_id: achievementId)
         let rows: [AchievementGlobalStats] = try await client
             .rpc("get_achievement_global_stats", params: params)
             .execute()
             .value
-        return rows.first ?? AchievementGlobalStats(earnedCount: 0, totalUsers: 0)
+        let stats = rows.first ?? AchievementGlobalStats(earnedCount: 0, totalUsers: 0)
+        globalStatsCache[achievementId] = CachedStats(
+            stats: stats,
+            expiresAt: .now.addingTimeInterval(globalStatsCacheTTL)
+        )
+        return stats
+    }
+
+    /// Sprint 9.9.5 — drop do cache. Chamado quando o user desbloqueia
+    /// achievement novo (seu próprio earnedCount muda → raridade mexe).
+    /// Também pode ser usado pra force-refresh manual.
+    public func invalidateGlobalStatsCache() {
+        globalStatsCache.removeAll()
     }
 
     /// Featured achievements equipados (composite IDs) no profile do user.
