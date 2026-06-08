@@ -73,6 +73,14 @@ public enum L10n {
     case recapStatTopGym
     case recapChangeCover
     case recapShare
+    // Sprint 9.7.2
+    case recapEyebrow
+    case recapTitle
+    case recapHint
+    case recapTagline
+    case recapHeroSuffix
+    case recapShareGenerating
+    case recapDownload
     // Sprint 9.7.4 — Monthly Challenges difficulty
     case challengeDifficultyEasy
     case challengeDifficultyMedium
@@ -229,6 +237,24 @@ public enum L10n {
         case .recapStatTopGym:    return isEN ? "Top gym"      : "Lugar+"
         case .recapChangeCover:   return isEN ? "Change cover" : "Trocar foto"
         case .recapShare:         return isEN ? "Share"        : "Compartilhar"
+
+        // Sprint 9.7.2
+        case .recapEyebrow:
+            return isEN ? "Monthly recap" : "Resumo do mês"
+        case .recapTitle:
+            return isEN ? "Your month, shareable" : "Seu mês compartilhável"
+        case .recapHint:
+            return isEN
+                ? "Tap share to send to friends or social. The image is generated locally on your device."
+                : "Toque em compartilhar para enviar aos amigos ou redes. A imagem é gerada localmente no seu device."
+        case .recapTagline:
+            return isEN ? "Gym Circle" : "Gym Circle"
+        case .recapHeroSuffix:
+            return isEN ? "Workouts in month" : "Dias de treino no mês"
+        case .recapShareGenerating:
+            return isEN ? "Generating..." : "Gerando..."
+        case .recapDownload:
+            return isEN ? "Download" : "Baixar"
 
         // Sprint 9.7.4 — Monthly Challenges
         case .challengeDifficultyEasy:      return isEN ? "Easy"      : "Fácil"

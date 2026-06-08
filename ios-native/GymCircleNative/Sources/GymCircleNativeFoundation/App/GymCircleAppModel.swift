@@ -540,15 +540,29 @@ public final class GymCircleAppModel: ObservableObject {
         let displayName = profile?.displayName ?? profile?.username ?? "Atleta"
         let username = profile?.username ?? "atleta"
 
+        // Sprint 9.7.2 — progresses dos 3 anéis (week=7d, month=dias do mês, year=365).
+        // Para meses passados usamos stats fechadas do mês corrente: simplificação MVP.
+        let stats = myCircleData?.stats ?? GymCircleStats()
+        let weekDen: Double = 7
+        let monthDen: Double = 30
+        let yearDen: Double = 365
+        let weekProgress = min(1, Double(stats.workoutsThisWeek) / weekDen)
+        let monthProgress = min(1, Double(workoutDays.count) / monthDen)
+        let yearProgress = min(1, Double(stats.workoutsThisYear) / yearDen)
+
         let data = MonthlyRecapSheet.RecapData(
             monthLabel: monthLabel,
+            shortMonthLabel: monthLabel.split(separator: " ").first.map(String.init) ?? monthLabel,
             username: username,
             displayName: displayName,
             coverImageURL: coverURL,
             workoutsCount: workoutDays.count,
             bestStreak: bestStreak,
             topWorkoutType: topType,
-            topGymName: topGym
+            topGymName: topGym,
+            weekProgress: weekProgress,
+            monthProgress: monthProgress,
+            yearProgress: yearProgress
         )
         return (data, posts)
     }
