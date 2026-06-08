@@ -253,8 +253,14 @@ public struct MonthlyChallengeRowView: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(challenge.isCompleted ? difficultyTone.opacity(0.08) : Color.white.opacity(0.035))
                 .overlay(
+                    // Sprint 9.7.4 — completed ganha border colored (paridade web)
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.white.opacity(0.06), lineWidth: 1)
+                        .stroke(
+                            challenge.isCompleted
+                                ? difficultyTone.opacity(0.16)
+                                : Color.white.opacity(0.06),
+                            lineWidth: 1
+                        )
                 )
         )
     }
@@ -295,7 +301,8 @@ public struct MonthlyChallengeRowView: View {
     }
 
     private var displayDescription: String {
-        challenge.isMystery ? "Desafio secreto — descubra como conquistar." : challenge.description
+        // Sprint 9.7.4 — L10n
+        challenge.isMystery ? L10n.challengeSecretHint.string : challenge.description
     }
 
     private var titleColor: Color {
@@ -315,12 +322,13 @@ public struct MonthlyChallengeRowView: View {
             .foregroundColor(difficultyTone)
     }
 
+    // Sprint 9.7.4 — L10n PT/EN
     private var difficultyLabel: String {
         switch challenge.difficulty {
-        case .easy: return "Fácil"
-        case .medium: return "Médio"
-        case .hard: return "Difícil"
-        case .legendary: return "Lendário"
+        case .easy:      return L10n.challengeDifficultyEasy.string
+        case .medium:    return L10n.challengeDifficultyMedium.string
+        case .hard:      return L10n.challengeDifficultyHard.string
+        case .legendary: return L10n.challengeDifficultyLegendary.string
         }
     }
 

@@ -118,11 +118,13 @@ public struct AchievementsView: View {
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.white.opacity(0.06))
+                    // Sprint 9.7.3 — 3-stop gradient paridade web (#8CFBFF→#30D5FF→#0066FF)
                     Capsule()
                         .fill(LinearGradient(
                             colors: [
-                                Color(red: 0.55, green: 0.98, blue: 1.0),
-                                Color(red: 0.0, green: 0.4, blue: 1.0)
+                                Color(red: 0.5490, green: 0.9843, blue: 1.0),    // #8CFBFF
+                                GymCircleTheme.ColorToken.electricBlue,           // #30D5FF
+                                Color(red: 0.0, green: 0.4, blue: 1.0)            // #0066FF
                             ],
                             startPoint: .leading,
                             endPoint: .trailing
@@ -212,10 +214,16 @@ public struct AchievementsView: View {
                     )
                 }
 
-                Text(achievement.isMysterySecret ? "???" : achievement.label)
-                    .font(.system(size: 13, weight: .heavy))
-                    .foregroundColor(achievement.earned ? .white : .white.opacity(0.72))
-                    .lineLimit(1)
+                // Sprint 9.7.3 — KindBadge chip ao lado do label (paridade web)
+                HStack(spacing: 6) {
+                    Text(achievement.isMysterySecret ? "???" : achievement.label)
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundColor(achievement.earned ? .white : .white.opacity(0.72))
+                        .lineLimit(1)
+                    if !achievement.isMysterySecret {
+                        kindBadge(achievement.kind)
+                    }
+                }
 
                 Text(achievement.isMysterySecret ? L10n.detailDescubraDesbloquear.string : achievement.description)
                     .font(.system(size: 11, weight: .semibold))
@@ -257,6 +265,30 @@ public struct AchievementsView: View {
         if a.isMysterySecret { return Color.white.opacity(0.03) }
         if a.earned { return Color.white.opacity(0.05) }
         return Color.white.opacity(0.025)
+    }
+
+    // Sprint 9.7.3 — KindBadge mini-chip por categoria (paridade web KIND_TONE).
+    // BADGE = white, MEDAL = gold, TROPHY = brand, RELIC = purple, CHALLENGE = green.
+    @ViewBuilder
+    private func kindBadge(_ kind: AchievementKind) -> some View {
+        let (label, color) = kindBadgeInfo(kind)
+        Text(label)
+            .font(.system(size: 8.5, weight: .heavy))
+            .tracking(0.4)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(color.opacity(0.16)))
+            .foregroundColor(color)
+    }
+
+    private func kindBadgeInfo(_ kind: AchievementKind) -> (String, Color) {
+        switch kind {
+        case .badge:     return (L10n.achievementsBadges.string.uppercased(), Color.white.opacity(0.68))
+        case .medal:     return (L10n.achievementsMedalhas.string.uppercased(), GymCircleTheme.ColorToken.rarityLegendary)
+        case .trophy:    return (L10n.achievementsTrofeus.string.uppercased(), GymCircleTheme.ColorToken.electricBlue)
+        case .relic:     return (L10n.achievementsReliquias.string.uppercased(), GymCircleTheme.ColorToken.rarityEpic)
+        case .challenge: return (L10n.achievementsDesafios.string.uppercased(), GymCircleTheme.ColorToken.rarityUncommon)
+        }
     }
 
     // MARK: - Empty

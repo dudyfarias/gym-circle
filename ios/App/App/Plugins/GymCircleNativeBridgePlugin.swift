@@ -835,11 +835,10 @@ private struct NativeMonthlyRecapHost: View {
                     posts: monthPosts,
                     monthLabel: data.monthLabel,
                     onSelect: { postId in
-                        Task {
-                            await model.setRecapCover(monthKey: resolvedMonthKey, postId: postId)
-                            await reloadRecap()
-                            coverPickerOpen = false
-                        }
+                        // Sprint 9.7.5 — nova API async Bool
+                        let ok = await model.setRecapCover(monthKey: resolvedMonthKey, postId: postId)
+                        if ok { await reloadRecap() }
+                        return ok
                     },
                     onClose: { coverPickerOpen = false }
                 )

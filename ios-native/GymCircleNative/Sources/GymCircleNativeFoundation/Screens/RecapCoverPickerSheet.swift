@@ -12,16 +12,22 @@ public struct RecapCoverPickerSheet: View {
     public let posts: [MonthCalendarPost]
     public let currentCoverId: String?
     public let monthLabel: String
-    public let onSelect: (String) -> Void
+    /// Sprint 9.7.5 — callback agora aceita nil pra "auto-pick" (reset
+    /// override). Web tem essa feature (`onSelect(null)`).
+    public let onSelect: (String?) async -> Bool
     public let onClose: () -> Void
 
     @State private var selectedPostId: String?
+    // Sprint 9.7.5 — feedback inline durante persistência
+    @State private var savingPostId: String?
+    @State private var savingAuto: Bool = false
+    @State private var saveError: String?
 
     public init(
         posts: [MonthCalendarPost],
         currentCoverId: String? = nil,
         monthLabel: String,
-        onSelect: @escaping (String) -> Void,
+        onSelect: @escaping (String?) async -> Bool,
         onClose: @escaping () -> Void
     ) {
         self.posts = posts
@@ -40,22 +46,106 @@ public struct RecapCoverPickerSheet: View {
                 header
                 Divider().background(Color.white.opacity(0.06))
 
-                if posts.isEmpty {
-                    Spacer()
-                    emptyState
-                    Spacer()
-                } else {
-                    ScrollView {
-                        photosGrid
-                            .padding(20)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        // Sprint 9.7.5 — botão "auto" sempre visível (paridade web)
+                        autoButton
+                        if let err = saveError {
+                            errorPill(err)
+                        }
+                        if posts.isEmpty {
+                            emptyState
+                        } else {
+                            photosGrid
+                        }
                     }
+                    .padding(20)
                 }
 
-                if let pid = selectedPostId {
+                if let pid = selectedPostId, savingAuto == false {
                     confirmBar(postId: pid)
                 }
             }
         }
+    }
+
+    // MARK: - Auto / Error pill
+
+    /// Sprint 9.7.5 — "Usar foto automática" (reset override).
+    private var autoButton: some View {
+        Button(action: { Task { await persist(nil) } }) {
+            HStack(spacing: 8) {
+                Image(systemName: "wand.and.stars")
+                    .font(.system(size: 13, weight: .heavy))
+                if savingAuto {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.7)
+                }
+                Text(savingAuto
+                     ? L10n.recapCoverPickerSaving.string
+                     : L10n.recapCoverPickerAuto.string)
+                    .font(.system(size: 13, weight: .heavy))
+                Spacer()
+                if currentCoverId == nil && !savingAuto {
+                    Text(L10n.recapCoverPickerSelected.string.uppercased())
+                        .font(.system(size: 9, weight: .heavy))
+                        .tracking(0.4)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.18)))
+                        .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .foregroundColor(.white)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.05))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(currentCoverId == nil ? GymCircleTheme.ColorToken.electricBlue.opacity(0.32) : Color.white.opacity(0.08), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(savingAuto || savingPostId != nil)
+    }
+
+    private func errorPill(_ msg: String) -> some View {
+        Text(msg)
+            .font(.system(size: 11, weight: .heavy))
+            .foregroundColor(Color(red: 1.0, green: 0.42, blue: 0.42))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color(red: 1.0, green: 0.42, blue: 0.42).opacity(0.10))
+            )
+    }
+
+    // MARK: - Persist (Sprint 9.7.5)
+
+    @MainActor
+    private func persist(_ postId: String?) async {
+        saveError = nil
+        if let pid = postId {
+            savingPostId = pid
+        } else {
+            savingAuto = true
+        }
+        let ok = await onSelect(postId)
+        if ok {
+            Haptics.success()
+            onClose() // auto-close pós sucesso (paridade web)
+        } else {
+            Haptics.error()
+            saveError = L10n.recapCoverPickerErrorSave.string
+        }
+        savingPostId = nil
+        savingAuto = false
     }
 
     // MARK: - Header
@@ -97,6 +187,7 @@ public struct RecapCoverPickerSheet: View {
 
     private func photoCell(_ post: MonthCalendarPost) -> some View {
         let isSelected = selectedPostId == post.postId
+        let isSaving = savingPostId == post.postId
         return Button(action: {
             if !isSelected { Haptics.selection() } // Sprint 9.6.2
             selectedPostId = post.postId
@@ -127,9 +218,24 @@ public struct RecapCoverPickerSheet: View {
                         .background(Circle().fill(.black.opacity(0.5)))
                         .padding(6)
                 }
+
+                // Sprint 9.7.5 — overlay "Salvando..." durante persistência (paridade web)
+                if isSaving {
+                    ZStack {
+                        Color.black.opacity(0.5)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(spacing: 6) {
+                            ProgressView().tint(.white)
+                            Text(L10n.recapCoverPickerSaving.string)
+                                .font(.system(size: 10, weight: .heavy))
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
             }
         }
         .buttonStyle(.plain)
+        .disabled(savingPostId != nil || savingAuto)
     }
 
     // MARK: - Empty
@@ -152,17 +258,25 @@ public struct RecapCoverPickerSheet: View {
     private func confirmBar(postId: String) -> some View {
         VStack(spacing: 0) {
             Divider().background(Color.white.opacity(0.06))
-            Button(action: { onSelect(postId) }) {
-                Text(L10n.recapCoverPickerConfirm.string)
-                    .font(.system(size: 14, weight: .heavy))
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Capsule().fill(GymCircleTheme.ColorToken.electricBlue))
-                    .padding(.horizontal, 20)
+            Button(action: { Task { await persist(postId) } }) {
+                HStack(spacing: 8) {
+                    if savingPostId == postId {
+                        ProgressView().tint(.black).scaleEffect(0.7)
+                    }
+                    Text(savingPostId == postId
+                         ? L10n.recapCoverPickerSaving.string
+                         : L10n.recapCoverPickerConfirm.string)
+                        .font(.system(size: 14, weight: .heavy))
+                        .foregroundColor(.black)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Capsule().fill(GymCircleTheme.ColorToken.electricBlue))
+                .padding(.horizontal, 20)
             }
             .buttonStyle(.plain)
             .padding(.vertical, 12)
+            .disabled(savingPostId != nil || savingAuto)
         }
         .background(GymCircleTheme.ColorToken.appBackground)
     }

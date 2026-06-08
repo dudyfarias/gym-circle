@@ -483,17 +483,21 @@ public final class GymCircleAppModel: ObservableObject {
 
     /// Persistir capa escolhida pro recap do mês. Chamado pelo
     /// NativeMonthlyRecapHost depois do RecapCoverPickerSheet.
-    public func setRecapCover(monthKey: String, postId: String?) async {
+    /// Sprint 9.7.5 — retorna Bool pra caller saber se persistiu.
+    @discardableResult
+    public func setRecapCover(monthKey: String, postId: String?) async -> Bool {
         guard let profilesService,
-              let userId = sessionStore?.currentUserId else { return }
+              let userId = sessionStore?.currentUserId else { return false }
         do {
             try await profilesService.setMonthlyRecapCover(
                 userId: userId,
                 monthKey: monthKey,
                 postId: postId
             )
+            return true
         } catch {
             self.error = error.localizedDescription
+            return false
         }
     }
 

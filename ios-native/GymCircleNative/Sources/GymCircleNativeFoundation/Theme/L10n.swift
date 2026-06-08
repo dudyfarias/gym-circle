@@ -44,6 +44,11 @@ public enum L10n {
     case recapCoverPickerTitle
     case recapCoverPickerEmpty
     case recapCoverPickerConfirm
+    // Sprint 9.7.5
+    case recapCoverPickerAuto
+    case recapCoverPickerSaving
+    case recapCoverPickerSelected
+    case recapCoverPickerErrorSave
     case profileFollow
     case profileFollowing
     case profileFollowRequested
@@ -68,6 +73,12 @@ public enum L10n {
     case recapStatTopGym
     case recapChangeCover
     case recapShare
+    // Sprint 9.7.4 — Monthly Challenges difficulty
+    case challengeDifficultyEasy
+    case challengeDifficultyMedium
+    case challengeDifficultyHard
+    case challengeDifficultyLegendary
+    case challengeSecretHint
 
     // MARK: - AchievementDetailView
 
@@ -169,6 +180,15 @@ public enum L10n {
                 : "Nenhuma foto neste mês. Posta um treino pra aparecer aqui."
         case .recapCoverPickerConfirm:
             return isEN ? "Use as cover" : "Usar como capa"
+        // Sprint 9.7.5
+        case .recapCoverPickerAuto:
+            return isEN ? "Use automatic photo" : "Usar foto automática"
+        case .recapCoverPickerSaving:
+            return isEN ? "Saving..." : "Salvando..."
+        case .recapCoverPickerSelected:
+            return isEN ? "Selected" : "Selecionado"
+        case .recapCoverPickerErrorSave:
+            return isEN ? "Save failed. Try again." : "Falha ao salvar. Tente novamente."
 
         // Other profile actions
         case .profileFollow:           return isEN ? "Follow"            : "Seguir"
@@ -209,6 +229,16 @@ public enum L10n {
         case .recapStatTopGym:    return isEN ? "Top gym"      : "Lugar+"
         case .recapChangeCover:   return isEN ? "Change cover" : "Trocar foto"
         case .recapShare:         return isEN ? "Share"        : "Compartilhar"
+
+        // Sprint 9.7.4 — Monthly Challenges
+        case .challengeDifficultyEasy:      return isEN ? "Easy"      : "Fácil"
+        case .challengeDifficultyMedium:    return isEN ? "Medium"    : "Médio"
+        case .challengeDifficultyHard:      return isEN ? "Hard"      : "Difícil"
+        case .challengeDifficultyLegendary: return isEN ? "Legendary" : "Lendário"
+        case .challengeSecretHint:
+            return isEN
+                ? "Secret challenge — discover how to unlock."
+                : "Desafio secreto — descubra como conquistar."
 
         // Detail
         case .detailVoceDesbloqueou: return isEN ? "YOU UNLOCKED" : "VOCÊ DESBLOQUEOU"
