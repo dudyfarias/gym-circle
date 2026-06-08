@@ -244,6 +244,14 @@ public struct MyCircleViewData: Sendable {
     /// (paridade `canSeeDetails` em MyCircleSheet.tsx).
     public let canSeeDetails: Bool
 
+    /// Sprint 9.8.3 — true quando user treinou hoje (paridade `streakLitToday` web).
+    /// Renderiza StreakBadge com pulse flame anim + orange tint.
+    public let streakLitToday: Bool
+    /// Sprint 9.8.3 — story disponível pro user? (paridade hasStory web)
+    public let hasStory: Bool
+    /// Sprint 9.8.3 — story já visto? (dim ring quando true)
+    public let storyViewed: Bool
+
     public init(
         userId: String,
         isOwn: Bool,
@@ -259,7 +267,10 @@ public struct MyCircleViewData: Sendable {
         earnedCount: Int = 0,
         totalAchievements: Int = 0,
         monthlyChallenges: [MonthlyChallenge] = [],
-        canSeeDetails: Bool = true
+        canSeeDetails: Bool = true,
+        streakLitToday: Bool = false,
+        hasStory: Bool = false,
+        storyViewed: Bool = false
     ) {
         self.userId = userId
         self.isOwn = isOwn
@@ -276,6 +287,9 @@ public struct MyCircleViewData: Sendable {
         self.totalAchievements = totalAchievements
         self.monthlyChallenges = monthlyChallenges
         self.canSeeDetails = canSeeDetails
+        self.streakLitToday = streakLitToday
+        self.hasStory = hasStory
+        self.storyViewed = storyViewed
     }
 
     /// Dados de demonstração pra preview + bridge placeholder antes da

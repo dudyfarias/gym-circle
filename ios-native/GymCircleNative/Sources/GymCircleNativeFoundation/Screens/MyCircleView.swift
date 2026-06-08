@@ -171,11 +171,16 @@ public struct MyCircleView: View {
 
     private var headerSection: some View {
         VStack(spacing: 12) {
-            ActivityRingsView(rings: ConsistencyRings(
-                workoutsThisWeek: data.stats.workoutsThisWeek,
-                workoutsThisMonth: data.stats.workoutsThisMonth,
-                workoutsThisYear: data.stats.workoutsThisYear
-            ))
+            // Sprint 9.8.3 — passa hasStory/storyViewed pro ring gradient
+            ActivityRingsView(
+                rings: ConsistencyRings(
+                    workoutsThisWeek: data.stats.workoutsThisWeek,
+                    workoutsThisMonth: data.stats.workoutsThisMonth,
+                    workoutsThisYear: data.stats.workoutsThisYear
+                ),
+                hasStory: data.hasStory,
+                storyViewed: data.storyViewed
+            )
             .frame(width: 130, height: 130)
 
             VStack(spacing: 4) {
@@ -190,17 +195,39 @@ public struct MyCircleView: View {
         }
     }
 
+    // Sprint 9.8.3 — pulse anim quando isLit (treinou hoje).
+    @State private var flameAnimating: Bool = false
+
     private var streakBadge: some View {
-        HStack(spacing: 6) {
+        let isLit = data.streakLitToday
+        return HStack(spacing: 6) {
             Image(systemName: "flame.fill")
                 .font(.system(size: 12, weight: .heavy))
+                .scaleEffect(isLit && flameAnimating ? 1.18 : 1.0)
+                .animation(
+                    isLit
+                    ? .easeInOut(duration: 0.9).repeatForever(autoreverses: true)
+                    : .default,
+                    value: flameAnimating
+                )
             Text("\(data.stats.currentStreak) dias")
                 .font(.system(size: 12, weight: .heavy))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(Capsule().fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.16)))
-        .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+        .background(Capsule().fill(
+            isLit
+            ? Color(red: 1.0, green: 0.6, blue: 0.28).opacity(0.18) // orange glow
+            : GymCircleTheme.ColorToken.electricBlue.opacity(0.16)
+        ))
+        .foregroundColor(
+            isLit
+            ? Color(red: 1.0, green: 0.6, blue: 0.28)
+            : GymCircleTheme.ColorToken.electricBlue
+        )
+        .onAppear {
+            if isLit { flameAnimating = true }
+        }
     }
 
     private var levelBadge: some View {

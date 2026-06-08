@@ -58,6 +58,11 @@ public struct OtherProfileView: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityAddTraits(.isModal) // Sprint 9.8.5
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
 
@@ -97,6 +102,7 @@ public struct OtherProfileView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
+            .accessibilityLabel(Text("Fechar"))
             Spacer()
             Text("@\(profile.username)")
                 .font(.system(size: 14, weight: .heavy))
@@ -252,6 +258,12 @@ public struct OtherProfileView: View {
                 .foregroundColor(.white.opacity(0.56))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 12)
+
+            // Sprint 9.8.4 — latestPost preview (paridade UX "público vê só último treino")
+            if let latest = latestPost {
+                privateLatestPostPreview(latest)
+                    .padding(.top, 8)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(24)
@@ -263,6 +275,40 @@ public struct OtherProfileView: View {
                         .stroke(Color.white.opacity(0.08), lineWidth: 1)
                 )
         )
+    }
+
+    /// Sprint 9.8.4 — preview do último post no PrivateLockedNotice.
+    /// Permite o user ter um "vislumbre" antes de solicitar follow.
+    private func privateLatestPostPreview(_ post: ProfilePost) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            AsyncImage(url: URL(string: post.displayMediaURL)) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().aspectRatio(contentMode: .fill)
+                default:
+                    Color.white.opacity(0.04)
+                }
+            }
+            .frame(width: 220, height: 220)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.55)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+            Text(L10n.profileLastPost.string)
+                .font(.system(size: 10, weight: .heavy))
+                .tracking(0.8)
+                .foregroundColor(.white)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(.black.opacity(0.5)))
+                .padding(10)
+        }
+        .frame(width: 220, height: 220)
     }
 
     // MARK: - Latest post preview

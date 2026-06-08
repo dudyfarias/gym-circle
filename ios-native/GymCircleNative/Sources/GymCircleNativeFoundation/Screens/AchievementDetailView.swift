@@ -42,12 +42,13 @@ public struct AchievementDetailView: View {
                     artworkLayer
                         .padding(.vertical, 16)
 
+                    // Sprint 9.8.2 — stagger 0/80/160ms paridade web (era 200/300/400)
                     Text(eyebrowText)
                         .font(.system(size: 12, weight: .heavy))
                         .tracking(2.0)
                         .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
                         .opacity(animateIn ? 1 : 0)
-                        .animation(.easeOut(duration: 0.5).delay(0.2), value: animateIn)
+                        .animation(.easeOut(duration: 0.5), value: animateIn)
 
                     Text(displayLabel)
                         .font(.system(size: 28, weight: .black))
@@ -56,7 +57,7 @@ public struct AchievementDetailView: View {
                         .multilineTextAlignment(.center)
                         .opacity(animateIn ? 1 : 0)
                         .offset(y: animateIn ? 0 : 12)
-                        .animation(.easeOut(duration: 0.5).delay(0.3), value: animateIn)
+                        .animation(.easeOut(duration: 0.5).delay(0.08), value: animateIn)
 
                     Text(displayDescription)
                         .font(.system(size: 14, weight: .semibold))
@@ -65,7 +66,7 @@ public struct AchievementDetailView: View {
                         .padding(.horizontal, 32)
                         .opacity(animateIn ? 1 : 0)
                         .offset(y: animateIn ? 0 : 12)
-                        .animation(.easeOut(duration: 0.5).delay(0.4), value: animateIn)
+                        .animation(.easeOut(duration: 0.5).delay(0.16), value: animateIn)
 
                     if let progress = achievement.progress, !achievement.earned, !achievement.isMysterySecret {
                         progressBlock(progress: progress)

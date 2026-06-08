@@ -278,7 +278,10 @@ public final class GymCircleAppModel: ObservableObject {
                 nextBadge: highlight,
                 earnedCount: earnedCount,
                 totalAchievements: totalCount,
-                monthlyChallenges: challenges
+                monthlyChallenges: challenges,
+                streakLitToday: profile?.badgeIsActiveToday ?? false,
+                hasStory: false, // Sprint 9.x — wire via StoriesService quando criado
+                storyViewed: false
             )
         } catch {
             self.error = error.localizedDescription

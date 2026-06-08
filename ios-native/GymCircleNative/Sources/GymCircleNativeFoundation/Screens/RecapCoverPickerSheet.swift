@@ -39,6 +39,11 @@ public struct RecapCoverPickerSheet: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityAddTraits(.isModal) // Sprint 9.8.5
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
 
@@ -159,6 +164,7 @@ public struct RecapCoverPickerSheet: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
+            .accessibilityLabel(Text("Fechar"))
             Spacer()
             VStack(spacing: 2) {
                 Text(L10n.recapCoverPickerTitle.string)

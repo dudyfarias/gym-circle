@@ -77,6 +77,11 @@ public struct EditProfileSheet: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityAddTraits(.isModal) // Sprint 9.8.5
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
 
@@ -142,29 +147,16 @@ public struct EditProfileSheet: View {
     @ViewBuilder
     private var avatarSection: some View {
         VStack(spacing: 10) {
+            // Sprint 9.8.6 — avatar com camera badge integrado (paridade web)
             avatarPreview
-            if onUploadAvatar != nil {
-                PhotosPicker(
-                    selection: $photoItem,
-                    matching: .images,
-                    photoLibrary: .shared()
-                ) {
-                    Text(L10n.editProfileChangeAvatar.string)
-                        .font(.system(size: 12, weight: .heavy))
-                        .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+            if isUploadingAvatar {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.6).tint(.white)
+                    Text(L10n.editProfileUploadingAvatar.string)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.62))
                 }
-                .onChange(of: photoItem) { newItem in
-                    Task { await loadPickedPhoto(newItem) }
-                }
-                if isUploadingAvatar {
-                    HStack(spacing: 6) {
-                        ProgressView().scaleEffect(0.6).tint(.white)
-                        Text(L10n.editProfileUploadingAvatar.string)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.62))
-                    }
-                }
-            } else {
+            } else if onUploadAvatar == nil {
                 Text(L10n.editProfileChangeAvatarSoon.string)
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.42))
@@ -174,6 +166,37 @@ public struct EditProfileSheet: View {
 
     @ViewBuilder
     private var avatarPreview: some View {
+        // Sprint 9.8.6 — wrapping ZStack pra adicionar camera badge bottom-right
+        ZStack(alignment: .bottomTrailing) {
+            avatarImage
+            if onUploadAvatar != nil {
+                // Camera badge brand glow (paridade web 44pt brand bg)
+                PhotosPicker(
+                    selection: $photoItem,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 14, weight: .heavy))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle()
+                                .fill(GymCircleTheme.ColorToken.electricBlue)
+                                .shadow(color: GymCircleTheme.ColorToken.electricBlue.opacity(0.5), radius: 8)
+                        )
+                        .foregroundColor(.black)
+                }
+                .onChange(of: photoItem) { newItem in
+                    Task { await loadPickedPhoto(newItem) }
+                }
+                .offset(x: 4, y: 4)
+                .accessibilityLabel(Text(L10n.editProfileChangeAvatar.string))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var avatarImage: some View {
         // Preview prioritiza: pickedData → uploadedURL → profile.avatarURL
         if let data = pickedAvatarData, let uiImage = UIImage(data: data) {
             Image(uiImage: uiImage)

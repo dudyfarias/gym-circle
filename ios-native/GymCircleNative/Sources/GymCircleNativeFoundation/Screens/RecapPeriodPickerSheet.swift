@@ -29,6 +29,11 @@ public struct RecapPeriodPickerSheet: View {
     }
 
     public var body: some View {
+        accessibleBody
+            .accessibilityAddTraits(.isModal) // Sprint 9.8.5
+    }
+
+    private var accessibleBody: some View {
         ZStack(alignment: .top) {
             GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
 
@@ -62,6 +67,7 @@ public struct RecapPeriodPickerSheet: View {
                     .background(Circle().fill(Color.white.opacity(0.06)))
                     .foregroundColor(.white)
             }
+            .accessibilityLabel(Text("Fechar"))
             Spacer()
             Text(L10n.myCircleOutroPeriodo.string)
                 .font(.system(size: 15, weight: .heavy))
