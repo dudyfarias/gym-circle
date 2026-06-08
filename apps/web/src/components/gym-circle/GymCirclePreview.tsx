@@ -1160,8 +1160,11 @@ export function GymCirclePreview({
         const reportHandle = await GymCircleNativeBridge.addListener<{
           userId: string;
         }>("reportUser", ({ userId }) => {
-          // Sprint 9.x: wire reportUser real (modal de motivo + RPC).
-          console.info("[Native] reportUser:", userId);
+          // Sprint 10.5 — wire pro report real (reason fixa "other" por
+          // agora; modal de motivo customizado fica pra sprint dedicada).
+          // social.actions.reportUser persiste em reports + dispara
+          // moderation pipeline server-side.
+          void social.actions.reportUser?.(userId, "other");
         });
         const blockHandle = await GymCircleNativeBridge.addListener<{
           userId: string;
