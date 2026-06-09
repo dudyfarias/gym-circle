@@ -29,6 +29,43 @@ export function followService(client: GymCircleClient) {
     },
 
     /**
+     * Sprint 11.3 — busca em lote o status de follow do `followerId` pra
+     * vários alvos de uma vez. Retorna um mapa { targetId: status }.
+     * IDs sem linha em `follows` ficam de fora do mapa (caller trata como
+     * "none"). Usado pelo sino de notificações pra renderizar o CTA
+     * follow-back correto ("Seguindo" vs "Seguir") independente do cache
+     * de users — antes o actor hidratado tardiamente vinha com status
+     * "none" hardcoded.
+     */
+    async statusesFor(
+      followerId: string,
+      followingIds: string[],
+    ): Promise<Record<string, FollowStatus>> {
+      const uniqueIds = Array.from(
+        new Set(followingIds.filter((id): id is string => Boolean(id))),
+      );
+      if (uniqueIds.length === 0) return {};
+      const { data, error } = await client
+        .from("follows")
+        .select("following_id, status")
+        .eq("follower_id", followerId)
+        .in("following_id", uniqueIds);
+      if (error) throw error;
+      const map: Record<string, FollowStatus> = {};
+      for (const row of data ?? []) {
+        const followingId = (row as { following_id?: string }).following_id;
+        const status = (row as { status?: string }).status;
+        if (
+          followingId &&
+          (status === "none" || status === "pending" || status === "accepted")
+        ) {
+          map[followingId] = status;
+        }
+      }
+      return map;
+    },
+
+    /**
      * Tenta criar a relação. O trigger BEFORE INSERT decide se vira pending
      * ou accepted com base no is_private do alvo. Devolve o status final.
      */

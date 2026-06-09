@@ -209,6 +209,13 @@ export function NotificationsSheet({
   const [followBackOverrides, setFollowBackOverrides] = useState<
     Record<string, FollowStatus>
   >({});
+  // Sprint 11.3 — status real de follow do currentUser pra cada actor de
+  // notificação de follow. Baseline pro CTA follow-back: sem isso, actors
+  // hidratados tardiamente (ou com followStatus stale no cache de users)
+  // mostravam "Seguir" mesmo quando o user já seguia de volta.
+  const [dbFollowStatus, setDbFollowStatus] = useState<
+    Record<string, FollowStatus>
+  >({});
   const [tagActionBusyId, setTagActionBusyId] = useState<string | null>(null);
   const [tagDecisionOverrides, setTagDecisionOverrides] = useState<TagDecisionOverrides>(
     {},
@@ -453,10 +460,48 @@ export function NotificationsSheet({
     };
   }, [items, open, services.profiles, users, actorsExtra]);
 
+  // Sprint 11.3 — busca o status de follow real do currentUser pra todos
+  // os actors de notificações de follow. Vira baseline do CTA follow-back
+  // (override < click otimista). Dispara quando items muda; idempotente
+  // pq sobrescreve o mapa inteiro com o snapshot fresco do DB.
+  useEffect(() => {
+    if (!open || items.length === 0) return;
+    const followActorIds = Array.from(
+      new Set(
+        items
+          .filter((n) => normalizeNotificationKind(n.kind) === "follow")
+          .map((n) => n.actor_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    if (followActorIds.length === 0) return;
+    let cancelled = false;
+    void services.follows
+      .statusesFor(currentUserId, followActorIds)
+      .then((map) => {
+        if (cancelled) return;
+        setDbFollowStatus(map);
+      })
+      .catch(() => {
+        // ignore: cai no fallback actor.followStatus (graceful)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [items, open, services.follows, currentUserId]);
+
   // Sprint 10.5 — merge final usado em todas as renderizações.
   const mergedUsers = useMemo<Record<string, EnrichedUser>>(
     () => ({ ...users, ...actorsExtra }),
     [users, actorsExtra],
+  );
+
+  // Sprint 11.3 — override efetivo: DB status (baseline) sob o override
+  // otimista do clique (followBackOverrides). Click vence pra refletir a
+  // ação imediata; senão usa o snapshot do DB.
+  const effectiveFollowOverrides = useMemo<Record<string, FollowStatus>>(
+    () => ({ ...dbFollowStatus, ...followBackOverrides }),
+    [dbFollowStatus, followBackOverrides],
   );
 
   // Marca todas como lidas quando o sheet abre
@@ -521,7 +566,7 @@ export function NotificationsSheet({
                   onSelectUser={onSelectUser}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
-                  followBackOverrides={followBackOverrides}
+                  followBackOverrides={effectiveFollowOverrides}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
                   onAcceptPostTag={acceptPostTag}
@@ -541,7 +586,7 @@ export function NotificationsSheet({
                   onSelectUser={onSelectUser}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
-                  followBackOverrides={followBackOverrides}
+                  followBackOverrides={effectiveFollowOverrides}
                   onAcceptFollowRequest={onAcceptFollowRequest}
                   onRejectFollowRequest={onRejectFollowRequest}
                   onAcceptPostTag={acceptPostTag}
