@@ -374,7 +374,7 @@ export function CommentsBottomSheet({
             />
           </div>
           <button
-            className="gc-pressable mt-1 text-[11px] font-black uppercase tracking-wide text-white/40 hover:text-white/72"
+            className="gc-pressable mt-1 text-[11px] font-black text-white/40 hover:text-white/72"
             onClick={() => startReply(threadParentId, comment.author.username)}
             type="button"
           >
