@@ -617,6 +617,59 @@ export type Database = {
           },
         ]
       }
+      post_media: {
+        Row: {
+          blur_data_url: string | null
+          created_at: string
+          id: string
+          image_url: string
+          media_duration_seconds: number | null
+          media_height: number | null
+          media_type: string
+          media_width: number | null
+          poster_url: string | null
+          position: number
+          post_id: string
+          thumbnail_url: string | null
+        }
+        Insert: {
+          blur_data_url?: string | null
+          created_at?: string
+          id?: string
+          image_url: string
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_type?: string
+          media_width?: number | null
+          poster_url?: string | null
+          position: number
+          post_id: string
+          thumbnail_url?: string | null
+        }
+        Update: {
+          blur_data_url?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          media_duration_seconds?: number | null
+          media_height?: number | null
+          media_type?: string
+          media_width?: number | null
+          poster_url?: string | null
+          position?: number
+          post_id?: string
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           caption: string | null
@@ -640,6 +693,7 @@ export type Database = {
           user_id: string
           workout_date: string
           workout_type: string | null
+          workout_types: string[] | null
         }
         Insert: {
           caption?: string | null
@@ -663,6 +717,7 @@ export type Database = {
           user_id: string
           workout_date?: string
           workout_type?: string | null
+          workout_types?: string[] | null
         }
         Update: {
           caption?: string | null
@@ -686,6 +741,7 @@ export type Database = {
           user_id?: string
           workout_date?: string
           workout_type?: string | null
+          workout_types?: string[] | null
         }
         Relationships: [
           {

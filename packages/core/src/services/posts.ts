@@ -4,6 +4,7 @@ import type {
   FeedPostRow,
   PostCommentLikeRow,
   PostCommentRow,
+  PostMediaRow,
   PostMuteRow,
   PostRow,
 } from "../domain/types";
@@ -38,6 +39,11 @@ export function postService(client: GymCircleClient) {
           caption: input.caption.trim() || null,
           gym_id: input.gymId,
           workout_type: input.workoutType?.trim() || null,
+          // Sprint 13 — até 5 tags; primária (workout_type) mantida acima.
+          workout_types:
+            input.workoutTypes && input.workoutTypes.length > 0
+              ? input.workoutTypes
+              : null,
           workout_date: input.workoutDate,
           location_source: locationSource,
           location_name: locationSource === "none" ? null : input.locationName?.trim() || null,
@@ -49,7 +55,51 @@ export function postService(client: GymCircleClient) {
         .select("*")
         .single();
       if (error) throw error;
-      return data as PostRow;
+      const post = data as PostRow;
+
+      // Sprint 13 — carrossel: grava as N mídias em post_media (a capa = item 0
+      // já está em posts.*). Só quando há >1 item; single fica só na capa, igual
+      // antes (posts antigos seguem sem linhas em post_media).
+      const media = input.media;
+      if (media && media.length > 1) {
+        const rows = media.map((m, i) => ({
+          post_id: post.id,
+          position: i,
+          media_type: m.mediaType,
+          image_url: m.imageUrl,
+          thumbnail_url: m.thumbnailUrl?.trim() || null,
+          poster_url: m.posterUrl?.trim() || null,
+          blur_data_url: m.blurDataUrl?.trim() || null,
+          media_width: m.mediaWidth ?? null,
+          media_height: m.mediaHeight ?? null,
+          media_duration_seconds: m.mediaDurationSeconds ?? null,
+        }));
+        const { error: mediaErr } = await client.from("post_media").insert(rows);
+        // Best-effort: o post + capa já estão commitados. Se as linhas extras
+        // falharem, o post degrada pra single (capa) em vez de derrubar a
+        // publicação (e evita post duplicado num retry do usuário).
+        if (mediaErr) {
+          console.warn("post_media insert falhou (post fica single):", mediaErr);
+        }
+      }
+      return post;
+    },
+
+    /**
+     * Sprint 13 — busca em lote as mídias do carrossel pros posts visíveis.
+     * Ordenado por post + position. Posts sem linhas = single (cai na capa).
+     */
+    async mediaForPosts(postIds: string[]): Promise<PostMediaRow[]> {
+      const ids = Array.from(new Set(postIds.filter(Boolean)));
+      if (ids.length === 0) return [];
+      const { data, error } = await client
+        .from("post_media")
+        .select("*")
+        .in("post_id", ids)
+        .order("post_id", { ascending: true })
+        .order("position", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as PostMediaRow[];
     },
 
     async remove(postId: string): Promise<void> {

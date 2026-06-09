@@ -17,6 +17,7 @@ export type StoryParticipantRow =
   Database["public"]["Tables"]["story_participants"]["Row"];
 export type StoryViewRow = Database["public"]["Tables"]["story_views"]["Row"];
 export type PostMuteRow = Database["public"]["Tables"]["post_mutes"]["Row"];
+export type PostMediaRow = Database["public"]["Tables"]["post_media"]["Row"];
 export type PostCommentRow = Database["public"]["Tables"]["post_comments"]["Row"];
 export type CheckinRow = Database["public"]["Tables"]["checkins"]["Row"];
 export type UserActivityDayRow =
@@ -113,6 +114,21 @@ export type FeedPostRow =
     blur_data_url?: string | null;
   };
 
+/**
+ * Sprint 13 — um item de mídia do carrossel. Os campos espelham as colunas de
+ * mídia do post (capa = item 0). Usado pra montar post_media na criação.
+ */
+export type PostMediaInput = {
+  mediaType: PostMediaType;
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  blurDataUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+};
+
 export type CreatePostInput = {
   imageUrl: string;
   mediaType: PostMediaType;
@@ -124,6 +140,11 @@ export type CreatePostInput = {
   blurDataUrl?: string | null;
   caption: string;
   workoutType?: string | null;
+  // Sprint 13 — até 5 tags; workoutType (singular) = primeira (retrocompat).
+  workoutTypes?: string[] | null;
+  // Sprint 13 — carrossel: lista ordenada COMPLETA (inclui a capa = item 0).
+  // Quando length > 1, vira linhas em post_media. Ausente/1 = post single.
+  media?: PostMediaInput[];
   gymId: string | null;
   workoutDate?: string;
   locationSource?: PostLocationSource;
