@@ -226,11 +226,15 @@ export function postService(client: GymCircleClient) {
       return data;
     },
 
-    async deleteComment(commentId: string, userId: string): Promise<void> {
+    async deleteComment(commentId: string, _userId: string): Promise<void> {
+      // Sprint 12.2 — deleta por id e deixa a RLS decidir
+      // (post_comments_delete_author_or_owner): o AUTOR apaga o próprio OU o
+      // DONO do post modera qualquer comentário do seu post. Filtrar por
+      // user_id no client impediria a moderação do dono.
       const { error } = await client
         .from("post_comments")
         .delete()
-        .match({ id: commentId, user_id: userId });
+        .eq("id", commentId);
       if (error) throw error;
     },
 

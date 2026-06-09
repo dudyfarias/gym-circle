@@ -3486,7 +3486,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         const wasMine = agg.postComments.some(
           (comment) => comment.id === commentId && comment.user_id === currentUserId,
         );
-        if (!wasMine) return;
+        // Sprint 12.2 — dono do post também pode apagar (moderação). Posts
+        // próprios estão no feedPosts (get_home_feed inclui os do próprio user),
+        // então dá pra detectar a posse localmente. A RLS é o guard real.
+        const ownsPost = agg.feedPosts.some(
+          (post) => post.id === postId && post.user_id === currentUserId,
+        );
+        if (!wasMine && !ownsPost) return;
 
         setAgg((current) => ({
           ...current,

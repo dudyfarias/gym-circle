@@ -323,6 +323,10 @@ export function CommentsBottomSheet({
     const canLikeComment =
       comment.userId !== currentUserId && Boolean(onLikeComment);
     const isOwn = comment.userId === currentUserId;
+    // Sprint 12.2 — apaga via swipe se for o autor do comentário OU o dono do
+    // post (moderação). A RLS post_comments_delete_author_or_owner confirma.
+    const isPostOwner = activePost.userId === currentUserId;
+    const canDelete = (isOwn || isPostOwner) && Boolean(onDeleteComment);
 
     const content = (
       <div
@@ -412,13 +416,16 @@ export function CommentsBottomSheet({
       </div>
     );
 
-    if (!isOwn || !onDeleteComment) {
+    if (!canDelete || !onDeleteComment) {
       return <div key={comment.id}>{content}</div>;
     }
     return (
       <SwipeRevealDelete
         className="rounded-[18px]"
-        contentClassName="rounded-[18px]"
+        // bg-[#0c0d0e] (cor do sheet) torna a camada que desliza OPACA — sem
+        // isso a lixeira `absolute` atrás vazava pelo conteúdo transparente e
+        // ficava visível o tempo todo. Agora só aparece ao arrastar p/ esquerda.
+        contentClassName="rounded-[18px] bg-[#0c0d0e]"
         deleteLabel={t("comments.delete")}
         key={comment.id}
         onDelete={() => onDeleteComment(activePost.id, comment.id)}
