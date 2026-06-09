@@ -22,6 +22,7 @@ import {
 import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
+import { MediaCarousel } from "./MediaCarousel";
 import { PinchZoomImage } from "./PinchZoomImage";
 import { StreakBadge } from "./StreakBadge";
 
@@ -289,6 +290,15 @@ function SocialPostCardComponent({
         </div>
       </div>
 
+      {/* Sprint 13 — carrossel só quando há >1 mídia. 1 mídia renderiza
+          EXATAMENTE como antes (zero mudança de comportamento). */}
+      {post.media && post.media.length > 1 ? (
+        <MediaCarousel
+          altText={t("feed.post.openProfile", { name: post.author.name })}
+          media={post.media}
+          priority={post.author.username === "edu.fit"}
+        />
+      ) : (
       <div
         className={[
           "relative overflow-hidden bg-black",
@@ -332,6 +342,7 @@ function SocialPostCardComponent({
           </div>
         ) : null}
       </div>
+      )}
 
       <div className="space-y-3 px-4 py-3.5">
         {/* Sprint 5 — Action row. Quando embebido no CommentsBottomSheet
