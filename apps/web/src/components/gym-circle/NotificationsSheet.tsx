@@ -119,6 +119,9 @@ type NotificationsSheetProps = {
   currentUserId: string;
   users: Record<string, EnrichedUser>;
   onSelectUser?: (userId: string) => void;
+  // Sprint 11.4 — abre o post alvo da notificação (like/comment/post_tag/
+  // mention). O parent passa openPostDetailFull + fecha o sino.
+  onOpenPost?: (postId: string) => void;
   onFollowBack?: (userId: string) => void | FollowActionResult | Promise<void | FollowActionResult>;
   onAcceptFollowRequest?: (requesterId: string) => void | Promise<void>;
   onRejectFollowRequest?: (requesterId: string) => void | Promise<void>;
@@ -190,6 +193,7 @@ export function NotificationsSheet({
   currentUserId,
   users,
   onSelectUser,
+  onOpenPost,
   onFollowBack,
   onAcceptFollowRequest,
   onRejectFollowRequest,
@@ -564,6 +568,7 @@ export function NotificationsSheet({
                   items={grouped.today}
                   users={mergedUsers}
                   onSelectUser={onSelectUser}
+                  onOpenPost={onOpenPost}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
                   followBackOverrides={effectiveFollowOverrides}
@@ -584,6 +589,7 @@ export function NotificationsSheet({
                   items={grouped.earlier}
                   users={mergedUsers}
                   onSelectUser={onSelectUser}
+                  onOpenPost={onOpenPost}
                   onFollowBack={followBack}
                   followBackBusyId={followBackBusyId}
                   followBackOverrides={effectiveFollowOverrides}
@@ -611,6 +617,7 @@ function Section({
   users,
   now,
   onSelectUser,
+  onOpenPost,
   onFollowBack,
   followBackBusyId,
   followBackOverrides,
@@ -628,6 +635,7 @@ function Section({
   users: Record<string, EnrichedUser>;
   now: number;
   onSelectUser?: (userId: string) => void;
+  onOpenPost?: (postId: string) => void;
   onFollowBack?: (userId: string) => void | FollowActionResult | Promise<void | FollowActionResult>;
   followBackBusyId?: string | null;
   followBackOverrides?: Record<string, FollowStatus>;
@@ -658,6 +666,19 @@ function Section({
           const isStoryTag = kind === "story_tag" && Boolean(n.story_id);
           const tagDecision = tagDecisionOverrides?.[n.id];
           const tagActionBusy = tagActionBusyId === n.id;
+          // Sprint 11.4 — like/comment/mention/post_tag carregam post_id.
+          // Tocar no texto/corpo da notificação abre essa publicação.
+          // post_tag pendente mantém os botões aceitar/recusar (sem
+          // navegar até decidir); só vira link quando já aceito.
+          const postTarget =
+            n.post_id &&
+            (kind === "like" ||
+              kind === "comment" ||
+              kind === "mention" ||
+              (kind === "post_tag" && tagDecision === "accepted"))
+              ? n.post_id
+              : null;
+          const canOpenPost = Boolean(postTarget && onOpenPost);
           const showPostTagActions = Boolean(
             isPostTag &&
               tagDecision !== "accepted" &&
@@ -735,12 +756,37 @@ function Section({
                     >
                       {actor?.name ?? t("notificationsSheet.actorFallback")}
                     </button>{" "}
-                    <span className="font-semibold text-white/64">{t(KIND_LABEL_KEY[kind])}</span>
+                    {/* Sprint 11.4 — o rótulo ("curtiu seu treino" /
+                        "comentou seu treino") vira link pro post quando há
+                        post_id. Botão separado do nome — sem aninhar. */}
+                    {canOpenPost && postTarget ? (
+                      <button
+                        className="gc-pressable font-semibold text-white/64 hover:text-white/82"
+                        onClick={() => onOpenPost?.(postTarget)}
+                        type="button"
+                      >
+                        {t(KIND_LABEL_KEY[kind])}
+                      </button>
+                    ) : (
+                      <span className="font-semibold text-white/64">
+                        {t(KIND_LABEL_KEY[kind])}
+                      </span>
+                    )}
                   </p>
                   {n.body ? (
-                    <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
-                      &ldquo;{n.body}&rdquo;
-                    </p>
+                    canOpenPost && postTarget ? (
+                      <button
+                        className="gc-pressable mt-0.5 block max-w-full truncate text-left text-[12px] font-semibold text-white/52 hover:text-white/72"
+                        onClick={() => onOpenPost?.(postTarget)}
+                        type="button"
+                      >
+                        &ldquo;{n.body}&rdquo;
+                      </button>
+                    ) : (
+                      <p className="mt-0.5 truncate text-[12px] font-semibold text-white/52">
+                        &ldquo;{n.body}&rdquo;
+                      </p>
+                    )
                   ) : null}
                 </div>
                 <div className="flex flex-col items-end gap-1">

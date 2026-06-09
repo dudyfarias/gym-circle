@@ -2032,6 +2032,11 @@ export function GymCirclePreview({
               setNotificationsOpen(false);
               openProfile(userId);
             }}
+            onOpenPost={(postId) => {
+              // Sprint 11.4 — notificação like/comment abre a publicação.
+              setNotificationsOpen(false);
+              openPostDetailFull(postId);
+            }}
             open={notificationsOpen}
             users={usersById}
           />
