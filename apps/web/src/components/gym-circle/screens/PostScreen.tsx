@@ -136,6 +136,11 @@ export function PostScreen({
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  // Sprint 12.3 — trava re-entrância do picker. O `uploading` só cobre o upload,
+  // não a fase "câmera/galeria aberta": sem isso, um segundo toque (ou reabrir)
+  // dispara outro present e dá race no WKWebView iOS (câmera fecha sozinha +
+  // botão trava). Ref (não state) pra não re-renderizar e pegar o valor na hora.
+  const pickerBusyRef = useRef(false);
 
   const resolvedWorkoutType = useMemo(() => {
     if (workoutType === "Outro") {
@@ -309,23 +314,42 @@ export function PostScreen({
   }
 
   async function openNativeCamera() {
+    // Guard de re-entrância: ignora toques enquanto um picker já está aberto
+    // ou um upload em curso (evita double-present → race no WKWebView).
+    if (pickerBusyRef.current || uploading) return;
+    pickerBusyRef.current = true;
     void HapticsService.selection();
-    const nativeMedia = await NativeMediaPickerService.takePhoto();
-    if (nativeMedia?.file) {
-      await uploadSelectedFile(nativeMedia.file);
-      return;
+    try {
+      if (await NativeMediaPickerService.isNativePlatform()) {
+        // Nativo: usa SÓ o plugin. null = usuário cancelou/negou → não faz
+        // nada. NÃO cair no <input capture> HTML aqui: apresentá-lo logo após
+        // dispensar a câmera nativa quebra a apresentação do WKWebView (câmera
+        // abre e fecha sozinha em ~1s, e o botão para de responder).
+        const nativeMedia = await NativeMediaPickerService.takePhoto();
+        if (nativeMedia?.file) await uploadSelectedFile(nativeMedia.file);
+      } else {
+        // Web/PWA: sem plugin nativo → input HTML com capture é o caminho certo.
+        cameraInputRef.current?.click();
+      }
+    } finally {
+      pickerBusyRef.current = false;
     }
-    cameraInputRef.current?.click();
   }
 
   async function openNativeGallery() {
+    if (pickerBusyRef.current || uploading) return;
+    pickerBusyRef.current = true;
     void HapticsService.selection();
-    const nativeMedia = await NativeMediaPickerService.pickWorkoutMedia();
-    if (nativeMedia?.file) {
-      await uploadSelectedFile(nativeMedia.file);
-      return;
+    try {
+      if (await NativeMediaPickerService.isNativePlatform()) {
+        const nativeMedia = await NativeMediaPickerService.pickWorkoutMedia();
+        if (nativeMedia?.file) await uploadSelectedFile(nativeMedia.file);
+      } else {
+        fileInputRef.current?.click();
+      }
+    } finally {
+      pickerBusyRef.current = false;
     }
-    fileInputRef.current?.click();
   }
 
   function removeLocation() {

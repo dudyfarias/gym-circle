@@ -137,4 +137,8 @@ export const NativeMediaPickerService = {
   takePhoto: () => runNativePicker("take-photo"),
   captureVideo: () => runNativePicker("capture-video"),
   normalizeMediaResult: mediaResultToFile,
+  // Sprint 12.3 — o caller precisa distinguir "não-nativo" (cai no <input>
+  // HTML) de "nativo que retornou null = cancelou/negou" (NÃO deve abrir o
+  // input HTML — causa race + deadlock de apresentação no WKWebView iOS).
+  isNativePlatform: isNativeCapacitor,
 };
