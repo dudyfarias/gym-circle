@@ -88,6 +88,21 @@ export type EnrichedUser = GymUser & StreakPresence;
 
 export type PostMediaType = "image" | "video";
 
+/**
+ * Sprint 13 — um item de mídia do carrossel (foto ou vídeo). O feed renderiza
+ * `EnrichedPost.media[]` (sempre ≥1; cai na capa quando o post é single).
+ */
+export type PostMediaItem = {
+  mediaType: PostMediaType;
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  blurDataUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+};
+
 export type PostLocationSource = "none" | "gym" | "current" | "custom";
 
 export type GymLocationOption = {
@@ -138,6 +153,10 @@ export type GymPost = {
   mediaType: PostMediaType;
   caption: string;
   workoutType: string | null;
+  // Sprint 13 — até 5 tags (workoutType = primeira, retrocompat).
+  workoutTypes?: string[] | null;
+  // Sprint 13 — carrossel: lista ordenada de mídias (≥1; 1 = post single).
+  media?: PostMediaItem[];
   gymName: string;
   gymId: string;
   locationSource: PostLocationSource;
@@ -278,6 +297,11 @@ export type PostDestinations = {
 export type CreateWorkoutPostInput = {
   caption: string;
   workoutType?: string | null;
+  // Sprint 13 — até 5 tags; workoutType (singular) = primeira.
+  workoutTypes?: string[] | null;
+  // Sprint 13 — carrossel: lista ordenada COMPLETA (item 0 = capa = imageUrl
+  // abaixo). >1 vira post_media. Ausente/1 = post single.
+  media?: PostMediaItem[];
   gymName?: string;
   gymId?: string | null;
   imageUrl: string;

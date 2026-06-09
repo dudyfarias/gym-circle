@@ -14,6 +14,7 @@ import type {
   NotificationRow,
   PostCommentLikeRow,
   PostCommentRow,
+  PostMediaRow,
   PostLikeRow,
   PostParticipantRow,
   ProfileRow,
@@ -82,6 +83,8 @@ import type {
   CreateWorkoutPostInput,
   EditPostInput,
   EnrichedPost,
+  GymPost,
+  PostMediaType,
   EnrichedStory,
   EnrichedUser,
   FeedbackMessage,
@@ -188,6 +191,8 @@ type AggregateState = {
   postLikes: PostLikeRow[];
   postCommentLikes: PostCommentLikeRow[];
   postComments: PostCommentRow[];
+  /** Sprint 13 — mídias do carrossel por post (vazio = post single, cai na capa). */
+  postMedia: PostMediaRow[];
   checkinsToday: CheckinRow[];
   myActivityDays: UserActivityDayRow[];
   myNotifications: NotificationRow[];
@@ -255,6 +260,7 @@ const EMPTY: AggregateState = {
   postLikes: [],
   postCommentLikes: [],
   postComments: [],
+  postMedia: [],
   checkinsToday: [],
   myActivityDays: [],
   myNotifications: [],
@@ -1449,6 +1455,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         blockedUserIds,
         mutedPostUserIds,
       }));
+      // Sprint 13 — carrossel: busca as mídias extras SEM bloquear o paint do
+      // feed (capas já renderizam). Os slides do carrossel entram logo depois.
+      if (postIds.length) {
+        void services.posts
+          .mediaForPosts(postIds)
+          .then((rows) => {
+            if (mountedRef.current) {
+              setAgg((c) => ({ ...c, postMedia: rows }));
+            }
+          })
+          .catch(() => undefined);
+      }
       writeNativeHomeCache(currentUserId, {
         profiles: surfaceProfiles,
         stats: surfaceStats,
@@ -2327,6 +2345,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         ],
       }));
 
+      // Sprint 13 — carrossel: mídias dos posts paginados (append, sem bloquear).
+      if (postIds.length) {
+        void services.posts
+          .mediaForPosts(postIds)
+          .then((rows) => {
+            if (mountedRef.current) {
+              setAgg((c) => ({ ...c, postMedia: [...c.postMedia, ...rows] }));
+            }
+          })
+          .catch(() => undefined);
+      }
+
       // Sprint 3.6.4: hidrata profileExtras dos novos users que apareceram
       // no batch atual. Sem await — em background.
       const newUserIds = feedPosts
@@ -2855,6 +2885,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       list.push(l);
       likesByPost.set(l.post_id, list);
     }
+    // Sprint 13 — carrossel: agrupa post_media por post (já vem ordenado por
+    // position do fetch).
+    const mediaByPost = new Map<string, PostMediaRow[]>();
+    for (const m of agg.postMedia) {
+      const list = mediaByPost.get(m.post_id) ?? [];
+      list.push(m);
+      mediaByPost.set(m.post_id, list);
+    }
 
     return visibleRows
       // Histórico de perfil usa tudo que a RLS/view deixa o usuário ver.
@@ -2867,6 +2905,33 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .map((row) => {
         const author = enrichedAll.get(row.user_id) ?? currentUser;
         const likesCount = row.likes_count ?? 0;
+        // Sprint 13 — carrossel: media[] sempre ≥1. Usa post_media (ordenado por
+        // position) quando existe; senão cai na capa (posts.*), idêntico a antes.
+        const mediaRows = mediaByPost.get(row.id) ?? [];
+        const media: GymPost["media"] =
+          mediaRows.length > 0
+            ? mediaRows.map((m) => ({
+                mediaType: (m.media_type ?? "image") as PostMediaType,
+                imageUrl: m.image_url,
+                thumbnailUrl: m.thumbnail_url ?? null,
+                posterUrl: m.poster_url ?? null,
+                blurDataUrl: m.blur_data_url ?? null,
+                mediaWidth: m.media_width ?? null,
+                mediaHeight: m.media_height ?? null,
+                mediaDurationSeconds: m.media_duration_seconds ?? null,
+              }))
+            : [
+                {
+                  mediaType: (row.media_type ?? "image") as PostMediaType,
+                  imageUrl: row.image_url,
+                  thumbnailUrl: row.thumbnail_url ?? null,
+                  posterUrl: row.poster_url ?? null,
+                  blurDataUrl: row.blur_data_url ?? null,
+                  mediaWidth: row.media_width ?? null,
+                  mediaHeight: row.media_height ?? null,
+                  mediaDurationSeconds: row.media_duration_seconds ?? null,
+                },
+              ];
         const postComments = commentsByPost.get(row.id) ?? [];
         // Sprint 12.1 — o preview inline do feed mostra só comentários de TOPO
         // (sem replies órfãs). O sheet usa commentThread (lista completa).
@@ -2938,6 +3003,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           mediaType: row.media_type ?? "image",
           caption: row.caption ?? "",
           workoutType: row.workout_type ?? null,
+          // Sprint 13 — até 5 tags (primária acima); carrossel media[] (≥1).
+          workoutTypes:
+            (row as { workout_types?: string[] | null }).workout_types ?? null,
+          media,
           gymName: row.location_name ?? agg.gyms.find((g) => g.id === row.gym_id)?.name ?? "",
           gymId: row.gym_id ?? "",
           locationSource: row.location_source ?? "none",
@@ -3838,6 +3907,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             caption: input.caption,
             gymId: input.gymId ?? null,
             workoutType: input.workoutType ?? null,
+            // Sprint 13 — carrossel + tags. media[] (>1) vira post_media; o
+            // story (abaixo) continua usando input.imageUrl = capa = item 0.
+            workoutTypes: input.workoutTypes ?? null,
+            media: input.media ?? undefined,
             locationSource: input.locationSource ?? "none",
             locationName: input.locationName ?? null,
             locationLatitude: input.locationLatitude ?? null,
