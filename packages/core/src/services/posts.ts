@@ -201,12 +201,25 @@ export function postService(client: GymCircleClient) {
       if (error) throw error;
     },
 
-    async comment(postId: string, userId: string, body: string): Promise<PostCommentRow> {
+    async comment(
+      postId: string,
+      userId: string,
+      body: string,
+      parentCommentId?: string | null,
+    ): Promise<PostCommentRow> {
       const trimmed = body.trim();
       if (!trimmed) throw new Error("comentário vazio");
+      // parent_comment_id: threading 1 nível (estilo Instagram). O trigger
+      // notify_post_comment decide o destino da notificação (autor do
+      // comentário-pai pra reply, dono do post pra top-level).
       const { data, error } = await client
         .from("post_comments")
-        .insert({ post_id: postId, user_id: userId, body: trimmed })
+        .insert({
+          post_id: postId,
+          user_id: userId,
+          body: trimmed,
+          parent_comment_id: parentCommentId ?? null,
+        })
         .select("*")
         .single();
       if (error) throw error;

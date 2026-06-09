@@ -20,7 +20,7 @@ import {
 } from "./keyboardDetection";
 import { MentionText } from "./MentionText";
 import { simulateHaptic } from "./social/haptics";
-import type { EnrichedPost, EnrichedUser } from "./social/types";
+import type { EnrichedComment, EnrichedPost, EnrichedUser } from "./social/types";
 
 /**
  * CommentsBottomSheet — Sprint 3 / Fase 3.3.
@@ -59,7 +59,11 @@ type CommentsBottomSheetProps = {
   currentUser?: EnrichedUser;
   formatTime: (createdAt: string) => string;
   onClose: () => void;
-  onCommentPost: (postId: string, body: string) => void | Promise<void>;
+  onCommentPost: (
+    postId: string,
+    body: string,
+    parentCommentId?: string | null,
+  ) => void | Promise<void>;
   onDeleteComment?: (postId: string, commentId: string) => void | Promise<void>;
   onLikeComment?: (postId: string, commentId: string) => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
@@ -111,6 +115,15 @@ export function CommentsBottomSheet({
   const [caretIndex, setCaretIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  // Sprint 12.1 — alvo da resposta (threading 1 nível, estilo Instagram).
+  const [replyTarget, setReplyTarget] = useState<{
+    parentCommentId: string;
+    username: string;
+  } | null>(null);
+  // Quais comentários-pai têm a lista de respostas expandida ("Ver N respostas").
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(
+    () => new Set(),
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset envolve no handler de close — evitamos `setState` dentro de useEffect
@@ -121,7 +134,45 @@ export function CommentsBottomSheet({
     setDraft("");
     setCaretIndex(0);
     setKeyboardOpen(false);
+    setReplyTarget(null);
+    setExpandedReplies(new Set());
     onClose();
+  }
+
+  // Sprint 12.1 — inicia uma resposta: fixa o alvo, prefilla "@username " e foca.
+  // threadParentId é sempre o comentário de TOPO (replies achatam em 1 nível).
+  function startReply(threadParentId: string, username: string) {
+    setReplyTarget({ parentCommentId: threadParentId, username });
+    setExpandedReplies((prev) => {
+      const next = new Set(prev);
+      next.add(threadParentId);
+      return next;
+    });
+    const mention = `@${username} `;
+    setDraft(mention);
+    setCaretIndex(mention.length);
+    simulateHaptic("brand");
+    window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(mention.length, mention.length);
+    });
+  }
+
+  function cancelReply() {
+    if (replyTarget) {
+      const mention = `@${replyTarget.username} `;
+      if (draft === mention) setDraft("");
+    }
+    setReplyTarget(null);
+  }
+
+  function toggleReplies(parentCommentId: string) {
+    setExpandedReplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(parentCommentId)) next.delete(parentCommentId);
+      else next.add(parentCommentId);
+      return next;
+    });
   }
 
   // Keyboard detection híbrida: Capacitor nativo + visualViewport fallback.
@@ -187,7 +238,19 @@ export function CommentsBottomSheet({
 
   if (!post) return null;
 
-  const commentsCount = post.commentsCount ?? post.commentPreviews.length;
+  // Sprint 12.1 — usa a lista COMPLETA (commentThread) pra render threaded; cai
+  // de volta em commentPreviews quando o hook não popula (mock/demo de marketing).
+  const allComments = post.commentThread ?? post.commentPreviews;
+  const topLevelComments = allComments.filter((c) => !c.parentCommentId);
+  const repliesByParent = new Map<string, EnrichedComment[]>();
+  for (const c of allComments) {
+    if (!c.parentCommentId) continue;
+    const list = repliesByParent.get(c.parentCommentId) ?? [];
+    list.push(c);
+    repliesByParent.set(c.parentCommentId, list);
+  }
+
+  const commentsCount = post.commentsCount ?? allComments.length;
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -200,9 +263,10 @@ export function CommentsBottomSheet({
     // assíncrono (otimista local + supabase ack depois).
     simulateHaptic("success");
     try {
-      await onCommentPost(post.id, body);
+      await onCommentPost(post.id, body, replyTarget?.parentCommentId ?? null);
       setDraft("");
       setCaretIndex(0);
+      setReplyTarget(null);
     } finally {
       setSubmitting(false);
     }
@@ -239,6 +303,130 @@ export function CommentsBottomSheet({
       inputRef.current?.focus();
       inputRef.current?.setSelectionRange(nextCaret, nextCaret);
     });
+  }
+
+  // post já é não-nulo aqui (early return acima). Captura local pra fechar sobre
+  // ele dentro de renderCommentRow sem reclamar de narrowing em closure aninhada.
+  const activePost = post;
+
+  // Sprint 12.1 — render de UM comentário (reusado por top-level e resposta).
+  // threadParentId é sempre o comentário de TOPO (replies achatam em 1 nível,
+  // estilo Instagram); isReply controla indentação. Mantém swipe-to-delete pros
+  // próprios. Username + @menções sempre em negrito (font-black / MentionText).
+  function renderCommentRow(
+    comment: EnrichedComment,
+    threadParentId: string,
+    isReply: boolean,
+  ) {
+    const commentLikesCount = comment.likesCount ?? 0;
+    const commentLiked = Boolean(comment.likedByCurrentUser);
+    const canLikeComment =
+      comment.userId !== currentUserId && Boolean(onLikeComment);
+    const isOwn = comment.userId === currentUserId;
+
+    const content = (
+      <div
+        className={[
+          "flex items-start gap-2.5 px-1 py-1",
+          isReply ? "pl-11" : "",
+        ].join(" ")}
+      >
+        <button
+          aria-label={t("feed.post.openProfile", { name: comment.author.name })}
+          className="gc-pressable shrink-0"
+          onClick={() => onSelectUser?.(comment.author.id)}
+          type="button"
+        >
+          <Avatar
+            accent={comment.author.accent}
+            name={comment.author.name}
+            size="sm"
+            src={comment.author.avatarUrl ?? undefined}
+          />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="inline-flex min-w-0 items-center gap-1.5 align-middle">
+            <button
+              className="gc-pressable text-[13px] font-black text-white"
+              onClick={() => onSelectUser?.(comment.author.id)}
+              type="button"
+            >
+              {comment.author.username}
+            </button>
+            <StreakBadge
+              isLit={comment.author.streakLitToday}
+              size="xs"
+              streak={comment.author.currentStreak}
+            />
+            <span className="text-[11px] font-bold text-white/36">
+              {formatTime(comment.createdAt)}
+            </span>
+          </div>
+          <div className="text-[13px] font-semibold leading-5 text-white/80">
+            <MentionText
+              onSelectUser={onSelectUser}
+              resolveUser={resolveUser}
+              text={comment.body}
+            />
+          </div>
+          <button
+            className="gc-pressable mt-1 text-[11px] font-black uppercase tracking-wide text-white/40 hover:text-white/72"
+            onClick={() => startReply(threadParentId, comment.author.username)}
+            type="button"
+          >
+            {t("comments.reply")}
+          </button>
+        </div>
+        {canLikeComment ? (
+          <button
+            aria-label={commentLiked ? t("comments.unlike") : t("comments.like")}
+            className={[
+              "gc-pressable grid min-h-9 min-w-9 place-items-center rounded-full",
+              commentLiked
+                ? "text-[var(--gc-blue)] drop-shadow-[0_0_14px_rgba(48,213,255,0.42)]"
+                : "text-white/40",
+            ].join(" ")}
+            onClick={() => {
+              simulateHaptic("like");
+              void onLikeComment?.(activePost.id, comment.id);
+            }}
+            type="button"
+          >
+            <span className="flex items-center gap-1">
+              <Heart
+                fill={commentLiked ? "currentColor" : "none"}
+                size={14}
+                strokeWidth={2.4}
+              />
+              {commentLikesCount > 0 ? (
+                <span className="text-[10px] font-black">{commentLikesCount}</span>
+              ) : null}
+            </span>
+          </button>
+        ) : commentLikesCount > 0 ? (
+          <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/20 px-2 text-[10px] font-black text-white/34">
+            <Heart size={12} strokeWidth={2.4} />
+            {commentLikesCount}
+          </span>
+        ) : null}
+      </div>
+    );
+
+    if (!isOwn || !onDeleteComment) {
+      return <div key={comment.id}>{content}</div>;
+    }
+    return (
+      <SwipeRevealDelete
+        className="rounded-[18px]"
+        contentClassName="rounded-[18px]"
+        deleteLabel={t("comments.delete")}
+        key={comment.id}
+        onDelete={() => onDeleteComment(activePost.id, comment.id)}
+        revealWidth={58}
+      >
+        {content}
+      </SwipeRevealDelete>
+    );
   }
 
   // Padding-bottom dinâmico:
@@ -328,7 +516,7 @@ export function CommentsBottomSheet({
             ) : null}
           </div>
           <div className="px-4 py-4">
-          {post.commentPreviews.length === 0 ? (
+          {topLevelComments.length === 0 ? (
             <div className="grid h-full place-items-center">
               <EmptyState
                 detail={t("comments.empty.detail")}
@@ -337,115 +525,44 @@ export function CommentsBottomSheet({
             </div>
           ) : (
             <div className="space-y-3">
-              {post.commentPreviews.map((comment) => {
-                const commentLikesCount = comment.likesCount ?? 0;
-                const commentLiked = Boolean(comment.likedByCurrentUser);
-                const canLikeComment =
-                  comment.userId !== currentUserId && Boolean(onLikeComment);
-                const isOwn = comment.userId === currentUserId;
-
-                const content = (
-                  <div className="flex items-start gap-3 px-1 py-1">
-                    <button
-                      aria-label={t("feed.post.openProfile", { name: comment.author.name })}
-                      className="gc-pressable shrink-0"
-                      onClick={() => onSelectUser?.(comment.author.id)}
-                      type="button"
-                    >
-                      <Avatar
-                        accent={comment.author.accent}
-                        name={comment.author.name}
-                        size="sm"
-                        src={comment.author.avatarUrl ?? undefined}
-                      />
-                    </button>
-                    <div className="min-w-0 flex-1">
-                      <div className="inline-flex min-w-0 items-center gap-1.5 align-middle">
+              {topLevelComments.map((comment) => {
+                const replies = repliesByParent.get(comment.id) ?? [];
+                const isExpanded = expandedReplies.has(comment.id);
+                return (
+                  <div className="space-y-1.5" key={comment.id}>
+                    {renderCommentRow(comment, comment.id, false)}
+                    {replies.length > 0 ? (
+                      isExpanded ? (
+                        <div className="space-y-1.5">
+                          {replies.map((reply) =>
+                            renderCommentRow(reply, comment.id, true),
+                          )}
+                          <button
+                            className="gc-pressable pl-11 text-[12px] font-bold text-white/40 hover:text-white/64"
+                            onClick={() => toggleReplies(comment.id)}
+                            type="button"
+                          >
+                            {t("comments.hideReplies")}
+                          </button>
+                        </div>
+                      ) : (
                         <button
-                          className="gc-pressable text-[13px] font-black text-white"
-                          onClick={() => onSelectUser?.(comment.author.id)}
+                          className="gc-pressable flex items-center gap-2 pl-11 text-[12px] font-bold text-white/46 hover:text-white/70"
+                          onClick={() => toggleReplies(comment.id)}
                           type="button"
                         >
-                          {comment.author.username}
+                          <span className="h-px w-6 bg-white/18" />
+                          {t("comments.viewReplies", { count: replies.length })}
                         </button>
-                        <StreakBadge
-                          isLit={comment.author.streakLitToday}
-                          size="xs"
-                          streak={comment.author.currentStreak}
-                        />
-                        <span className="text-[11px] font-bold text-white/36">
-                          {formatTime(comment.createdAt)}
-                        </span>
-                      </div>
-                      <div className="text-[13px] font-semibold leading-5 text-white/80">
-                        <MentionText
-                          onSelectUser={onSelectUser}
-                          resolveUser={resolveUser}
-                          text={comment.body}
-                        />
-                      </div>
-                    </div>
-                    {canLikeComment ? (
-                      <button
-                        aria-label={
-                          commentLiked
-                            ? t("comments.unlike")
-                            : t("comments.like")
-                        }
-                        className={[
-                          "gc-pressable grid min-h-9 min-w-9 place-items-center rounded-full",
-                          commentLiked
-                            ? "text-[var(--gc-blue)] drop-shadow-[0_0_14px_rgba(48,213,255,0.42)]"
-                            : "text-white/40",
-                        ].join(" ")}
-                        onClick={() => {
-                          simulateHaptic("like");
-                          void onLikeComment?.(post.id, comment.id);
-                        }}
-                        type="button"
-                      >
-                        <span className="flex items-center gap-1">
-                          <Heart
-                            fill={commentLiked ? "currentColor" : "none"}
-                            size={14}
-                            strokeWidth={2.4}
-                          />
-                          {commentLikesCount > 0 ? (
-                            <span className="text-[10px] font-black">
-                              {commentLikesCount}
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    ) : commentLikesCount > 0 ? (
-                      <span className="inline-flex min-h-8 items-center gap-1 rounded-full bg-black/20 px-2 text-[10px] font-black text-white/34">
-                        <Heart size={12} strokeWidth={2.4} />
-                        {commentLikesCount}
-                      </span>
+                      )
                     ) : null}
                   </div>
                 );
-
-                if (!isOwn || !onDeleteComment) {
-                  return <div key={comment.id}>{content}</div>;
-                }
-                return (
-                  <SwipeRevealDelete
-                    className="rounded-[18px]"
-                    contentClassName="rounded-[18px]"
-                    deleteLabel={t("comments.delete")}
-                    key={comment.id}
-                    onDelete={() => onDeleteComment(post.id, comment.id)}
-                    revealWidth={58}
-                  >
-                    {content}
-                  </SwipeRevealDelete>
-                );
               })}
-              {commentsCount > post.commentPreviews.length ? (
+              {commentsCount > allComments.length ? (
                 <p className="pt-1 text-center text-[12px] font-bold text-white/36">
                   {t("comments.showingOf", {
-                    shown: post.commentPreviews.length,
+                    shown: allComments.length,
                     total: commentsCount.toLocaleString(),
                   })}
                 </p>
@@ -472,6 +589,23 @@ export function CommentsBottomSheet({
             ))}
           </div>
         </div>
+
+        {/* Sprint 12.1 — banner "Respondendo @fulano" quando há resposta em curso */}
+        {replyTarget ? (
+          <div className="flex items-center justify-between gap-2 border-t border-white/[0.06] bg-[var(--gc-brand)]/[0.05] px-4 py-2">
+            <span className="truncate text-[12px] font-bold text-white/58">
+              {t("comments.replyingTo", { username: replyTarget.username })}
+            </span>
+            <button
+              aria-label={t("comments.cancelReply")}
+              className="gc-pressable grid size-7 shrink-0 place-items-center rounded-full bg-white/[0.08] text-white/64"
+              onClick={cancelReply}
+              type="button"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        ) : null}
 
         {/* Input form */}
         <form

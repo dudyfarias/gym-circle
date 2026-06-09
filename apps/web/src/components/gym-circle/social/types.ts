@@ -108,6 +108,8 @@ export type GymComment = {
   createdAt: string;
   likesCount?: number;
   likedByCurrentUser?: boolean;
+  /** Sprint 12.1 — threading 1 nível (estilo Instagram). null = comentário de topo. */
+  parentCommentId?: string | null;
 };
 
 export type ParticipantStatus = "pending" | "accepted" | "rejected";
@@ -191,6 +193,14 @@ export type EnrichedComment = GymComment & {
 export type EnrichedPost = GymPost & {
   author: EnrichedUser;
   commentPreviews: EnrichedComment[];
+  /**
+   * Sprint 12.1 — lista COMPLETA de comentários já enriquecidos (com author),
+   * usada pelo CommentsBottomSheet pra render threaded (top-level + replies).
+   * Diferente de `commentPreviews` (capado em ~3 pro preview inline do feed).
+   * Populada pelo hook real (useSupabaseSocial); o mock cai de volta em
+   * commentPreviews.
+   */
+  commentThread?: EnrichedComment[];
   likedByPreview: EnrichedUser[];
   likedByUsers?: EnrichedUser[];
   acceptedParticipants?: EnrichedUser[];
@@ -324,7 +334,13 @@ export type EditPostInput = {
 
 export type SocialActions = {
   likePost: (postId: string) => void | Promise<void>;
-  commentPost: (postId: string, body: string) => void | Promise<void>;
+  // Sprint 12.1 — parentCommentId opcional: quando presente, é uma resposta
+  // (threading 1 nível). O trigger no DB direciona a notificação.
+  commentPost: (
+    postId: string,
+    body: string,
+    parentCommentId?: string | null,
+  ) => void | Promise<void>;
   deleteComment?: (postId: string, commentId: string) => void | Promise<void>;
   likeComment?: (postId: string, commentId: string) => void | Promise<void>;
   sharePostToChat?: (postId: string, receiverId: string) => Promise<void>;

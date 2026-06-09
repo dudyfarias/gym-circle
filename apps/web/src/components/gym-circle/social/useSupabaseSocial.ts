@@ -2840,6 +2840,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         userId: c.user_id,
         body: c.body,
         createdAt: c.created_at,
+        // parent_comment_id ainda não está no Database type gerado (coluna nova
+        // da Sprint 12.1) — cast localizado até o próximo generate de tipos.
+        parentCommentId:
+          (c as { parent_comment_id?: string | null }).parent_comment_id ?? null,
         likesCount: commentLikes.length,
         likedByCurrentUser: commentLikes.some((like) => like.user_id === currentUserId),
         author: enrichedAll.get(c.user_id) ?? fallbackAuthor,
@@ -2864,8 +2868,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         const author = enrichedAll.get(row.user_id) ?? currentUser;
         const likesCount = row.likes_count ?? 0;
         const postComments = commentsByPost.get(row.id) ?? [];
-        const latestCommentPreviews = postComments.slice(-2);
-        const ownOlderPreview = [...postComments]
+        // Sprint 12.1 — o preview inline do feed mostra só comentários de TOPO
+        // (sem replies órfãs). O sheet usa commentThread (lista completa).
+        const topLevelPostComments = postComments.filter(
+          (c) =>
+            !(c as { parent_comment_id?: string | null }).parent_comment_id,
+        );
+        const latestCommentPreviews = topLevelPostComments.slice(-2);
+        const ownOlderPreview = [...topLevelPostComments]
           .reverse()
           .find(
             (comment) =>
@@ -2947,6 +2957,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           })),
           author,
           commentPreviews,
+          // Sprint 12.1 — lista completa enriquecida pro CommentsBottomSheet
+          // (threaded). Mesma fonte de `comments` acima, mas tipada como
+          // EnrichedComment[] (com author) pra render de replies + likes.
+          commentThread: postComments.map((c) => enrichComment(c, author)),
           likedByPreview,
           likedByUsers,
           participants,
@@ -3463,10 +3477,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           showFeedback("like", "Curtida enviada");
         }
       },
-      async commentPost(postId: string, body: string) {
-        await services.posts.comment(postId, currentUserId, body);
+      async commentPost(postId: string, body: string, parentCommentId?: string | null) {
+        await services.posts.comment(postId, currentUserId, body, parentCommentId);
         await refreshPostDetails(postId);
-        showFeedback("comment", "Comentário publicado");
+        showFeedback("comment", parentCommentId ? "Resposta enviada" : "Comentário publicado");
       },
       async deleteComment(postId: string, commentId: string) {
         const wasMine = agg.postComments.some(

@@ -4,6 +4,8 @@ import type { GymCircleClient } from "./supabase";
 export const SOCIAL_BELL_NOTIFICATION_KINDS = [
   "like",
   "comment",
+  "comment_like",
+  "comment_reply",
   "follow",
   "mention",
   "follow_request",

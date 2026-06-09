@@ -105,7 +105,13 @@
     "close": "Fechar comentários",
     "inputAria": "Comentário",
     "headerCount_one": "{{formatted}} comentário",
-    "headerCount_other": "{{formatted}} comentários"
+    "headerCount_other": "{{formatted}} comentários",
+    "reply": "Responder",
+    "replyingTo": "Respondendo {{username}}",
+    "cancelReply": "Cancelar resposta",
+    "viewReplies_one": "Ver {{count}} resposta",
+    "viewReplies_other": "Ver {{count}} respostas",
+    "hideReplies": "Ocultar respostas"
   },
   "stories": {
     "yourStory": "Seu story",
@@ -615,6 +621,8 @@
     "kinds": {
       "like": "curtiu seu treino",
       "comment": "comentou seu treino",
+      "commentLike": "curtiu seu comentário",
+      "commentReply": "respondeu seu comentário",
       "follow": "começou a seguir você",
       "mention": "mencionou você",
       "followRequest": "quer te seguir",

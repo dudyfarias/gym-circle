@@ -137,6 +137,8 @@ type TagDecisionOverrides = Record<string, TagDecision>;
 const KIND_ICON = {
   like: Heart,
   comment: MessageCircle,
+  comment_like: Heart,
+  comment_reply: MessageCircle,
   follow: UserPlus,
   mention: AtSign,
   follow_request: BellRing,
@@ -149,6 +151,8 @@ const KIND_ICON = {
 const KIND_LABEL_KEY = {
   like: "notificationsSheet.kinds.like",
   comment: "notificationsSheet.kinds.comment",
+  comment_like: "notificationsSheet.kinds.commentLike",
+  comment_reply: "notificationsSheet.kinds.commentReply",
   follow: "notificationsSheet.kinds.follow",
   mention: "notificationsSheet.kinds.mention",
   follow_request: "notificationsSheet.kinds.followRequest",
@@ -163,6 +167,8 @@ type TFn = (key: string, options?: Record<string, unknown>) => string;
 const KIND_TONE = {
   like: "text-[var(--gc-consistency-month)]",
   comment: "text-[var(--gc-brand)]",
+  comment_like: "text-[var(--gc-consistency-month)]",
+  comment_reply: "text-[var(--gc-brand)]",
   follow: "text-[var(--gc-consistency-month)]",
   mention: "text-[var(--gc-consistency-daily)]",
   follow_request: "text-[var(--gc-brand)]",
@@ -666,14 +672,16 @@ function Section({
           const isStoryTag = kind === "story_tag" && Boolean(n.story_id);
           const tagDecision = tagDecisionOverrides?.[n.id];
           const tagActionBusy = tagActionBusyId === n.id;
-          // Sprint 11.4 — like/comment/mention/post_tag carregam post_id.
-          // Tocar no texto/corpo da notificação abre essa publicação.
-          // post_tag pendente mantém os botões aceitar/recusar (sem
-          // navegar até decidir); só vira link quando já aceito.
+          // Sprint 11.4/12.1 — like/comment/comment_like/comment_reply/mention/
+          // post_tag carregam post_id. Tocar no texto/corpo da notificação abre
+          // essa publicação. post_tag pendente mantém os botões aceitar/recusar
+          // (sem navegar até decidir); só vira link quando já aceito.
           const postTarget =
             n.post_id &&
             (kind === "like" ||
               kind === "comment" ||
+              kind === "comment_like" ||
+              kind === "comment_reply" ||
               kind === "mention" ||
               (kind === "post_tag" && tagDecision === "accepted"))
               ? n.post_id

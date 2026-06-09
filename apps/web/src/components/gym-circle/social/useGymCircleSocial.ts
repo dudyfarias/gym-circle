@@ -780,7 +780,9 @@ export function useGymCircleSocial() {
         dispatch({ type: "like-post", postId });
         showFeedback("like", "Curtida enviada");
       },
-      commentPost(postId: string, body: string) {
+      // Sprint 12.1 — aceita parentCommentId pra casar com SocialActions; o mock
+      // (demo de marketing) não faz threading real, então o param é ignorado.
+      commentPost(postId: string, body: string, _parentCommentId?: string | null) {
         dispatch({ type: "comment-post", postId, body });
         showFeedback("comment", "Comentário publicado");
       },

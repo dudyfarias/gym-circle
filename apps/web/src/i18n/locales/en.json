@@ -105,7 +105,13 @@
     "close": "Close comments",
     "inputAria": "Comment",
     "headerCount_one": "{{formatted}} comment",
-    "headerCount_other": "{{formatted}} comments"
+    "headerCount_other": "{{formatted}} comments",
+    "reply": "Reply",
+    "replyingTo": "Replying to {{username}}",
+    "cancelReply": "Cancel reply",
+    "viewReplies_one": "View {{count}} reply",
+    "viewReplies_other": "View {{count}} replies",
+    "hideReplies": "Hide replies"
   },
   "stories": {
     "yourStory": "Your story",
@@ -615,6 +621,8 @@
     "kinds": {
       "like": "liked your workout",
       "comment": "commented on your workout",
+      "commentLike": "liked your comment",
+      "commentReply": "replied to your comment",
       "follow": "started following you",
       "mention": "mentioned you",
       "followRequest": "wants to follow you",

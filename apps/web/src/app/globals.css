@@ -85,6 +85,12 @@ html {
   background: #000;
   scroll-behavior: smooth;
   overscroll-behavior: none;
+  /* Sprint 12.1 — trava o "font boosting" do WebView iOS. Sem isso, o iOS
+     auto-infla blocos de texto "longos" (ex.: corpo do comentário) e ignora os
+     curtos (legenda "30 Min") → comentário parecia maior que a legenda mesmo
+     com CSS idêntico. 100% = respeita exatamente o tamanho declarado. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
