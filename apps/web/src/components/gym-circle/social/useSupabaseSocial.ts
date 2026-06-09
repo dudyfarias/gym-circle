@@ -2047,6 +2047,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followersCountRes,
         followingCountRes,
         profileActivityRes,
+        profileRowRes,
       ] = await Promise.all([
         services.client.rpc("get_profile_posts", {
           p_user_id: userId,
@@ -2076,6 +2077,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .eq("user_id", userId)
           .order("activity_date", { ascending: false })
           .limit(400),
+        // Sprint 11.2 — fetch direto do profile row. Antes o profile só
+        // era hidratado a partir dos posts (profileRowFromSurface), então
+        // users com ZERO posts (ex: alguém que só te seguiu) nunca
+        // entravam em `usersById` e a ProfileSheet abria vazia (user=null).
+        // RLS profiles_select_visible já filtra blocked/deactivated.
+        services.client
+          .from("profiles")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle(),
       ]);
       if (profilePostsRes.error) {
         logSurfaceFallback("profile posts", profilePostsRes.error);
@@ -2097,11 +2108,22 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         logSurfaceFallback("profile activity days", profileActivityRes.error);
       }
 
+      if (profileRowRes.error) {
+        logSurfaceFallback("profile row", profileRowRes.error);
+      }
+
       const profileSurfaceRows = (profilePostsRes.data ?? []) as SurfacePostRow[];
       const profileFeedPosts = profileSurfaceRows.map(feedPostRowFromSurface);
-      const profileSurfaceProfiles = profileSurfaceRows
-        .map(profileRowFromSurface)
-        .filter((profile): profile is ProfileRow => Boolean(profile));
+      // Sprint 11.2 — profile row direto entra PRIMEIRO (fonte canônica),
+      // depois os parciais extraídos dos posts. mergeProfileRows resolve
+      // conflitos preferindo campos não-nulos, então o row direto garante
+      // que o user é hidratado mesmo sem nenhum post.
+      const directProfileRow =
+        (profileRowRes.data as unknown as ProfileRow | null) ?? null;
+      const profileSurfaceProfiles = [
+        directProfileRow,
+        ...profileSurfaceRows.map(profileRowFromSurface),
+      ].filter((profile): profile is ProfileRow => Boolean(profile));
       // Cast defensivo: supabase-js .maybeSingle() retorna tipo unionado
       // com PostgrestError. Mesmo que TS consiga inferir em alguns casos,
       // ir via `unknown` evita brechas em mudanças futuras da lib.

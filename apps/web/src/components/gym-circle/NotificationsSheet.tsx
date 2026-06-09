@@ -662,7 +662,14 @@ function Section({
                     name: actor?.name ?? t("notificationsSheet.actorFallback"),
                   })}
                   className="gc-pressable shrink-0"
-                  onClick={() => actor && onSelectUser?.(actor.id)}
+                  // Sprint 11.2 — abre por actor_id direto (não depende do
+                  // objeto `actor` estar hidratado). A ProfileSheet faz seu
+                  // próprio fetch por ID; gatear em `actor` deixava o tap
+                  // morto enquanto a hidratação async não completava (ou
+                  // nunca, se RLS bloqueasse o profile no batch).
+                  onClick={() => {
+                    if (n.actor_id) onSelectUser?.(n.actor_id);
+                  }}
                   type="button"
                 >
                   <Avatar
@@ -675,7 +682,10 @@ function Section({
                   <p className="text-[13px] font-bold text-white/82">
                     <button
                       className="gc-pressable text-white"
-                      onClick={() => actor && onSelectUser?.(actor.id)}
+                      // Sprint 11.2 — abre por actor_id direto (ver comment no avatar acima)
+                      onClick={() => {
+                        if (n.actor_id) onSelectUser?.(n.actor_id);
+                      }}
                       type="button"
                     >
                       {actor?.name ?? t("notificationsSheet.actorFallback")}
