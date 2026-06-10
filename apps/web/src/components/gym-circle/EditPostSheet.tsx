@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 import { Check, Plus, UserPlus, X } from "lucide-react";
 import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
-import { NativeMediaPickerService } from "./native/NativeMediaPickerService";
 import type {
   EditPostInput,
   EnrichedPost,
@@ -101,7 +100,6 @@ export function EditPostSheet({
   const [mediaChanged, setMediaChanged] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const pickerBusyRef = useRef(false);
 
   async function uploadOne(file: File): Promise<PostMediaItem | null> {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
@@ -152,19 +150,12 @@ export function EditPostSheet({
     setMediaChanged(true);
   }
 
-  async function openGallery() {
-    if (pickerBusyRef.current || uploading || mediaItems.length >= MAX_MEDIA) return;
-    pickerBusyRef.current = true;
-    try {
-      if (await NativeMediaPickerService.isNativePlatform()) {
-        const results = await NativeMediaPickerService.pickWorkoutMediaMultiple();
-        if (results.length > 0) await addFiles(results.map((r) => r.file));
-      } else {
-        fileInputRef.current?.click();
-      }
-    } finally {
-      pickerBusyRef.current = false;
-    }
+  function openGallery() {
+    if (uploading || mediaItems.length >= MAX_MEDIA) return;
+    // Sprint 14.2 — galeria via <input multiple> (PHPicker nativo do iOS direto,
+    // sem o overhead/lentidão do plugin chooseFromGallery). handleFileChange
+    // faz o upload.
+    fileInputRef.current?.click();
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {

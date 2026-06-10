@@ -417,24 +417,15 @@ export function PostScreen({
     }
   }
 
-  async function openNativeGallery() {
-    if (pickerBusyRef.current || uploading) return;
-    pickerBusyRef.current = true;
+  function openNativeGallery() {
+    if (uploading) return;
     void HapticsService.selection();
-    try {
-      if (await NativeMediaPickerService.isNativePlatform()) {
-        // Sprint 13 — galeria = carrossel: seleção MÚLTIPLA (foto+vídeo), append.
-        const results = await NativeMediaPickerService.pickWorkoutMediaMultiple();
-        if (results.length > 0) {
-          await uploadGalleryFiles(results.map((r) => r.file));
-        }
-      } else {
-        // Web/PWA: <input multiple> → handleFileChange decide single vs multi.
-        fileInputRef.current?.click();
-      }
-    } finally {
-      pickerBusyRef.current = false;
-    }
+    // Sprint 14.2 — galeria via <input multiple>: o WKWebView abre o PHPicker
+    // NATIVO do iOS direto e devolve os File[] sem o overhead do plugin
+    // chooseFromGallery (re-encode quality + copy + metadata = lentidão) e sem
+    // o bug de file:// (o WebView entrega o File pronto). handleFileChange
+    // decide single vs carrossel. Vale web + nativo (mesmo caminho).
+    fileInputRef.current?.click();
   }
 
   function removeLocation() {
