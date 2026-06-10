@@ -354,6 +354,9 @@ export type EditPostInput = {
   caption?: string | null;
   workoutType?: string | null;
   taggedUserIds?: string[];
+  // Sprint 14 — lista COMPLETA de mídias desejada (add/remover, até 10). Quando
+  // presente, substitui as mídias do post (capa = item 0).
+  media?: PostMediaItem[];
 };
 
 export type SocialActions = {

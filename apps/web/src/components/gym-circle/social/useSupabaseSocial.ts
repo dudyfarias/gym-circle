@@ -4010,6 +4010,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         if (input.caption !== undefined) patch.caption = input.caption;
         if (input.workoutType !== undefined) patch.workout_type = input.workoutType;
         await services.posts.update(postId, patch);
+        // Sprint 14 — editar mídias (add/remover até 10). setMedia substitui
+        // post_media + atualiza a capa. refresh() abaixo recarrega media[].
+        if (input.media) {
+          await services.posts.setMedia(postId, input.media);
+        }
         const taggedUserIds = input.taggedUserIds ?? [];
         if (taggedUserIds.length > 0) {
           await services.participants.requestPostTags(postId, currentUserId, taggedUserIds);

@@ -1,11 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, UserPlus, X } from "lucide-react";
+import { Check, Plus, UserPlus, X } from "lucide-react";
+import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
-import type { EditPostInput, EnrichedPost, EnrichedUser } from "./social/types";
+import { NativeMediaPickerService } from "./native/NativeMediaPickerService";
+import type {
+  EditPostInput,
+  EnrichedPost,
+  EnrichedUser,
+  PostMediaItem,
+  PostMediaType,
+} from "./social/types";
+
+// Sprint 14 — limite do carrossel (igual ao composer).
+const MAX_MEDIA = 10;
+
+type UploadResult = {
+  imageUrl: string;
+  thumbnailUrl?: string | null;
+  posterUrl?: string | null;
+  mediaWidth?: number | null;
+  mediaHeight?: number | null;
+  mediaDurationSeconds?: number | null;
+  blurDataUrl?: string | null;
+};
 
 type EditPostSheetProps = {
   open: boolean;
@@ -13,6 +34,8 @@ type EditPostSheetProps = {
   taggableUsers?: EnrichedUser[];
   onClose: () => void;
   onSave: (postId: string, input: EditPostInput) => Promise<void>;
+  // Sprint 14 — necessário pra adicionar novas mídias ao post.
+  onUploadImage?: (file: File) => Promise<string | UploadResult>;
 };
 
 // Workout types: value PT-BR é source-of-truth no DB.
@@ -36,12 +59,34 @@ function normalizeSearch(value: string) {
     .trim();
 }
 
+function getMediaType(file: File): PostMediaType {
+  return file.type.startsWith("video/") ? "video" : "image";
+}
+
+// Sprint 14 — lista de mídias atual do post (post.media já vem ≥1; senão, capa).
+function postToMediaItems(post: EnrichedPost): PostMediaItem[] {
+  if (post.media && post.media.length > 0) return post.media;
+  return [
+    {
+      mediaType: post.mediaType,
+      imageUrl: post.imageUrl,
+      thumbnailUrl: post.thumbnailUrl ?? null,
+      posterUrl: post.posterUrl ?? null,
+      blurDataUrl: post.blurDataUrl ?? null,
+      mediaWidth: post.mediaWidth ?? null,
+      mediaHeight: post.mediaHeight ?? null,
+      mediaDurationSeconds: post.mediaDurationSeconds ?? null,
+    },
+  ];
+}
+
 export function EditPostSheet({
   open,
   post,
   taggableUsers = [],
   onClose,
   onSave,
+  onUploadImage,
 }: EditPostSheetProps) {
   const { t } = useTranslation();
   const [caption, setCaption] = useState("");
@@ -50,6 +95,82 @@ export function EditPostSheet({
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sprint 14 — mídias editáveis. mediaChanged evita reescrever (e perder) o
+  // carrossel quando o user só edita legenda/tipo.
+  const [mediaItems, setMediaItems] = useState<PostMediaItem[]>([]);
+  const [mediaChanged, setMediaChanged] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pickerBusyRef = useRef(false);
+
+  async function uploadOne(file: File): Promise<PostMediaItem | null> {
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      return null;
+    }
+    const type = getMediaType(file);
+    const uploaded = onUploadImage
+      ? await onUploadImage(file)
+      : URL.createObjectURL(file);
+    if (typeof uploaded === "string") return { mediaType: type, imageUrl: uploaded };
+    return {
+      mediaType: type,
+      imageUrl: uploaded.imageUrl,
+      thumbnailUrl: uploaded.thumbnailUrl ?? null,
+      posterUrl: uploaded.posterUrl ?? null,
+      mediaWidth: uploaded.mediaWidth ?? null,
+      mediaHeight: uploaded.mediaHeight ?? null,
+      mediaDurationSeconds: uploaded.mediaDurationSeconds ?? null,
+      blurDataUrl: uploaded.blurDataUrl ?? null,
+    };
+  }
+
+  async function addFiles(files: File[]) {
+    if (files.length === 0) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const room = Math.max(0, MAX_MEDIA - mediaItems.length);
+      const picked: PostMediaItem[] = [];
+      for (const f of files.slice(0, room)) {
+        const item = await uploadOne(f);
+        if (item) picked.push(item);
+      }
+      if (picked.length > 0) {
+        setMediaItems((prev) => [...prev, ...picked].slice(0, MAX_MEDIA));
+        setMediaChanged(true);
+      }
+    } catch (err) {
+      setError((err as Error).message ?? t("editPost.errors.save"));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function removeMediaAt(index: number) {
+    setMediaItems((prev) => prev.filter((_, i) => i !== index));
+    setMediaChanged(true);
+  }
+
+  async function openGallery() {
+    if (pickerBusyRef.current || uploading || mediaItems.length >= MAX_MEDIA) return;
+    pickerBusyRef.current = true;
+    try {
+      if (await NativeMediaPickerService.isNativePlatform()) {
+        const results = await NativeMediaPickerService.pickWorkoutMediaMultiple();
+        if (results.length > 0) await addFiles(results.map((r) => r.file));
+      } else {
+        fileInputRef.current?.click();
+      }
+    } finally {
+      pickerBusyRef.current = false;
+    }
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length > 0) await addFiles(files);
+  }
 
   useEffect(() => {
     if (!open || !post) return;
@@ -59,6 +180,8 @@ export function EditPostSheet({
       setFriendQuery("");
       setTaggedUserIds([]);
       setError(null);
+      setMediaItems(postToMediaItems(post));
+      setMediaChanged(false);
     }, 0);
     return () => window.clearTimeout(id);
   }, [open, post]);
@@ -103,6 +226,9 @@ export function EditPostSheet({
         caption: caption.trim() ? caption.trim() : null,
         workoutType: workoutType.trim() ? workoutType.trim() : null,
         taggedUserIds: taggedUserIds.length > 0 ? taggedUserIds : undefined,
+        // Sprint 14 — só manda media se o user mexeu (evita reescrever/perder
+        // o carrossel quando edita só legenda/tipo).
+        media: mediaChanged ? mediaItems : undefined,
       });
       onClose();
     } catch (err) {
@@ -130,39 +256,77 @@ export function EditPostSheet({
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
-          <div
-            className={[
-              "relative overflow-hidden rounded-[24px] bg-black",
-              post.mediaType === "video" ? "aspect-[4/5]" : "",
-            ].join(" ")}
-          >
-            {post.mediaType === "video" ? (
-              <video
-                className="h-full w-full object-cover"
-                controls={false}
-                muted
-                playsInline
-                poster={post.posterUrl ?? post.thumbnailUrl ?? undefined}
-                preload="metadata"
-                src={post.imageUrl}
-              />
-            ) : (
+          {/* Sprint 14 — mídias EDITÁVEIS: carrossel + remover + adicionar até 10. */}
+          <input
+            accept="image/*,video/*"
+            className="hidden"
+            multiple
+            onChange={handleFileChange}
+            ref={fileInputRef}
+            type="file"
+          />
+          <div className="overflow-hidden rounded-[24px] bg-black">
+            {mediaItems.length > 1 ? (
+              <MediaCarousel altText={t("editPost.mediaAlt")} media={mediaItems} />
+            ) : mediaItems.length === 1 && mediaItems[0].mediaType === "video" ? (
+              <div className="relative aspect-[4/5]">
+                <video
+                  className="h-full w-full object-cover"
+                  controls={false}
+                  muted
+                  playsInline
+                  poster={
+                    mediaItems[0].posterUrl ?? mediaItems[0].thumbnailUrl ?? undefined
+                  }
+                  preload="metadata"
+                  src={mediaItems[0].imageUrl}
+                />
+              </div>
+            ) : mediaItems.length === 1 ? (
               <PinchZoomImage
                 alt={t("editPost.mediaAlt")}
-                blurDataUrl={post.blurDataUrl}
+                blurDataUrl={mediaItems[0].blurDataUrl ?? undefined}
                 className="w-full"
-                hqSrc={
-                  post.thumbnailUrl && post.imageUrl !== post.thumbnailUrl
-                    ? post.imageUrl
-                    : undefined
-                }
                 sizes="(max-width: 480px) 100vw, 480px"
-                src={post.thumbnailUrl ?? post.imageUrl}
+                src={mediaItems[0].thumbnailUrl ?? mediaItems[0].imageUrl}
               />
-            )}
-            <div className="absolute bottom-2 left-2 rounded-full bg-black/64 px-3 py-1.5 text-[11px] font-bold text-white/72 backdrop-blur-md">
-              {t("editPost.mediaLocked")}
-            </div>
+            ) : null}
+          </div>
+          <div className="gc-scrollbar flex gap-2 overflow-x-auto pb-1">
+            {mediaItems.map((item, index) => (
+              <div
+                className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
+                key={index}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt=""
+                  className="h-full w-full object-cover"
+                  src={item.thumbnailUrl ?? item.imageUrl}
+                />
+                {mediaItems.length > 1 ? (
+                  <button
+                    aria-label={t("postScreen.media.remove")}
+                    className="gc-pressable absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/72 text-white"
+                    onClick={() => removeMediaAt(index)}
+                    type="button"
+                  >
+                    <X size={11} />
+                  </button>
+                ) : null}
+              </div>
+            ))}
+            {mediaItems.length < MAX_MEDIA ? (
+              <button
+                aria-label={t("postScreen.media.addMore")}
+                className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
+                disabled={uploading}
+                onClick={openGallery}
+                type="button"
+              >
+                <Plus size={18} />
+              </button>
+            ) : null}
           </div>
 
           <label className="block">

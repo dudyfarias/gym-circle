@@ -4,6 +4,7 @@ import type {
   FeedPostRow,
   PostCommentLikeRow,
   PostCommentRow,
+  PostMediaInput,
   PostMediaRow,
   PostMuteRow,
   PostRow,
@@ -100,6 +101,57 @@ export function postService(client: GymCircleClient) {
         .order("position", { ascending: true });
       if (error) throw error;
       return (data ?? []) as PostMediaRow[];
+    },
+
+    /**
+     * Sprint 14 — define a lista COMPLETA de mídias de um post (editar:
+     * adicionar/remover, até 10). Substitui post_media e mantém a capa (posts.*)
+     * = item 0. Único método pra add/remove/reorder. RLS: dono (posts_update_self
+     * + post_media_insert/delete).
+     */
+    async setMedia(postId: string, items: PostMediaInput[]): Promise<void> {
+      const { error: delErr } = await client
+        .from("post_media")
+        .delete()
+        .eq("post_id", postId);
+      if (delErr) throw delErr;
+
+      // post_media só existe quando há >1 (single fica só na capa).
+      if (items.length > 1) {
+        const rows = items.slice(0, 10).map((m, i) => ({
+          post_id: postId,
+          position: i,
+          media_type: m.mediaType,
+          image_url: m.imageUrl,
+          thumbnail_url: m.thumbnailUrl?.trim() || null,
+          poster_url: m.posterUrl?.trim() || null,
+          blur_data_url: m.blurDataUrl?.trim() || null,
+          media_width: m.mediaWidth ?? null,
+          media_height: m.mediaHeight ?? null,
+          media_duration_seconds: m.mediaDurationSeconds ?? null,
+        }));
+        const { error: insErr } = await client.from("post_media").insert(rows);
+        if (insErr) throw insErr;
+      }
+
+      // Capa = item 0 (mantém feed/grids/recap antigos lendo posts.*).
+      const cover = items[0];
+      if (cover) {
+        const { error: upErr } = await client
+          .from("posts")
+          .update({
+            image_url: cover.imageUrl,
+            media_type: cover.mediaType,
+            thumbnail_url: cover.thumbnailUrl?.trim() || null,
+            poster_url: cover.posterUrl?.trim() || null,
+            blur_data_url: cover.blurDataUrl?.trim() || null,
+            media_width: cover.mediaWidth ?? null,
+            media_height: cover.mediaHeight ?? null,
+            media_duration_seconds: cover.mediaDurationSeconds ?? null,
+          })
+          .eq("id", postId);
+        if (upErr) throw upErr;
+      }
     },
 
     async remove(postId: string): Promise<void> {

@@ -2152,6 +2152,7 @@ export function GymCirclePreview({
             <EditPostSheet
               onClose={closeEditPost}
               onSave={editPost}
+              onUploadImage={onUploadImage}
               open={editPostId !== null}
               post={editPostTarget}
               taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}

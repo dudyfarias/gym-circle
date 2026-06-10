@@ -50,38 +50,41 @@ export function MediaCarousel({ media, altText, priority }: MediaCarouselProps) 
   }
 
   return (
-    <div className="relative">
-      <div
-        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        data-gc-no-screen-swipe
-        onScroll={handleScroll}
-        ref={trackRef}
-      >
-        {media.map((item, index) => (
-          <div className="w-full shrink-0 snap-center snap-always" key={index}>
-            <MediaSlide
-              altText={altText}
-              inCarousel
-              isActive={index === active}
-              item={item}
-              priority={priority && index === 0}
-            />
-          </div>
-        ))}
+    <div>
+      <div className="relative">
+        <div
+          className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          data-gc-no-screen-swipe
+          onScroll={handleScroll}
+          ref={trackRef}
+        >
+          {media.map((item, index) => (
+            <div className="w-full shrink-0 snap-center snap-always" key={index}>
+              <MediaSlide
+                altText={altText}
+                inCarousel
+                isActive={index === active}
+                item={item}
+                priority={priority && index === 0}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Contador i/N (canto, discreto) */}
+        <div className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/56 px-2 py-0.5 text-[11px] font-black text-white backdrop-blur-md">
+          {active + 1}/{media.length}
+        </div>
       </div>
 
-      {/* Contador i/N */}
-      <div className="pointer-events-none absolute right-3 top-3 rounded-full bg-black/56 px-2 py-0.5 text-[11px] font-black text-white backdrop-blur-md">
-        {active + 1}/{media.length}
-      </div>
-
-      {/* Dots */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-1.5">
+      {/* Dots ABAIXO da mídia (estilo Instagram): azul = atual, cinza = resto.
+          Quantidade = nº de mídias. */}
+      <div className="flex items-center justify-center gap-1.5 pt-2.5">
         {media.map((_, index) => (
           <span
             className={[
-              "h-1.5 rounded-full transition-all duration-200",
-              index === active ? "w-4 bg-white" : "w-1.5 bg-white/45",
+              "size-1.5 rounded-full transition-colors duration-200",
+              index === active ? "bg-[var(--gc-blue)]" : "bg-white/28",
             ].join(" ")}
             key={index}
           />
