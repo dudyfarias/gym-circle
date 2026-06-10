@@ -41,3 +41,6 @@ supabase/.branches
 
 # Claude Code local artifacts (worktrees, projects, settings)
 .claude
+
+# Local App Store screenshots (never commit — repo rule)
+screenshots/

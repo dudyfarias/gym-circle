@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+if [ "${ALLOW_NON_MAIN_PUSH:-}" = "1" ]; then
+  exit 0
+fi
+
+branch="$(git branch --show-current)"
+if [ "$branch" != "main" ]; then
+  echo "[Gym Circle guard] Refusing to push from branch '$branch'. Switch to main first." >&2
+  echo "[Gym Circle guard] Emergency override: ALLOW_NON_MAIN_PUSH=1 git push ..." >&2
+  exit 1
+fi
+
+exit 0
+
