@@ -1,3 +1,4 @@
+export * from "./AchievementArtifact3D";
 export * from "./AchievementBadge";
 export * from "./ActivityCircle";
 export * from "./BadgeIcon";

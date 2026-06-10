@@ -883,6 +883,20 @@
       "earned": "Earned · {{count}}",
       "next": "Up next · {{count}}",
       "locked": "Locked · {{count}}"
+    },
+    "nextUp": "Next achievement",
+    "progressOf": "{{current}} of {{target}}",
+    "featuredTitle": "Featured",
+    "timesEarned_one": "Earned {{count}} time",
+    "timesEarned_other": "Earned {{count}} times",
+    "showAll": "Show all",
+    "categoryCount": "{{earned}} of {{total}}",
+    "categoryDescription": {
+      "badge": "First-time feats and special moments.",
+      "medal": "Consistency milestones — bronze, silver and gold.",
+      "trophy": "Big training and community feats.",
+      "relic": "The rarest achievements in Gym Circle.",
+      "challenge": "Exclusive monthly challenges. They don't come back."
     }
   },
   "achievementDetail": {

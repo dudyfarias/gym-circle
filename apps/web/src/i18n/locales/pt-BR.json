@@ -883,6 +883,20 @@
       "earned": "Conquistados · {{count}}",
       "next": "Próximos · {{count}}",
       "locked": "Bloqueados · {{count}}"
+    },
+    "nextUp": "Próxima conquista",
+    "progressOf": "{{current}} de {{target}}",
+    "featuredTitle": "Em destaque",
+    "timesEarned_one": "Conquistado {{count}} vez",
+    "timesEarned_other": "Conquistado {{count}} vezes",
+    "showAll": "Mostrar tudo",
+    "categoryCount": "{{earned}} de {{total}}",
+    "categoryDescription": {
+      "badge": "Conquistas de primeiras vezes e momentos especiais.",
+      "medal": "Marcos de consistência — bronze, prata e ouro.",
+      "trophy": "Grandes feitos de treino e comunidade.",
+      "relic": "As conquistas mais raras do Gym Circle.",
+      "challenge": "Desafios mensais exclusivos. Não voltam."
     }
   },
   "achievementDetail": {
