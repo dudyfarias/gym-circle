@@ -117,6 +117,48 @@ export async function getAchievementGlobalPercent(
 }
 
 /**
+ * Sprint 15 — metadados de earned por user (datas + contagens), chaveados
+ * pelo composite id. Alimenta o Hall da Fama estilo Apple Fitness ("Conquistado
+ * N vezes", "label · 08/05/2026", ordenação por recência). RLS de
+ * user_achievements é public_read, então funciona pro hall de terceiros.
+ * Fire-and-forget no caller: falha → Map vazio e a UI degrada pra "X de Y".
+ */
+export type UserAchievementMeta = {
+  earnedAt: string | null;
+  lastEarnedAt: string | null;
+  count: number;
+};
+
+export async function loadUserAchievementMeta(
+  client: SupabaseClient,
+  userId: string,
+): Promise<Map<string, UserAchievementMeta>> {
+  const map = new Map<string, UserAchievementMeta>();
+  try {
+    const { data, error } = await client
+      .from("user_achievements")
+      .select("achievement_id, earned_at, last_earned_at, count")
+      .eq("user_id", userId);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{
+      achievement_id: string;
+      earned_at: string | null;
+      last_earned_at: string | null;
+      count: number | null;
+    }>) {
+      map.set(row.achievement_id, {
+        earnedAt: row.earned_at ?? null,
+        lastEarnedAt: row.last_earned_at ?? row.earned_at ?? null,
+        count: row.count ?? 1,
+      });
+    }
+  } catch (err) {
+    console.warn("[achievementsStats] loadUserAchievementMeta failed:", err);
+  }
+  return map;
+}
+
+/**
  * Backfill no boot: insere em user_achievements os achievements earned
  * que ainda não estão lá. Idempotente, fire-and-forget.
  *

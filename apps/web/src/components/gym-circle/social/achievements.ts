@@ -154,6 +154,8 @@ type AchievementsInput = {
     trophyId?: string;
     progress: number;
     completedAt: string | null;
+    /** Sprint 15 — desafio secreto: UI mostra "???" enquanto não completo. */
+    isSecret?: boolean;
   }>;
 };
 
@@ -527,6 +529,9 @@ function buildChallenges(
     iconKey: "trophy",
     difficulty: c.difficulty,
     trophyId: c.trophyId,
+    // Sprint 15 — propaga secret: sem isso o título de desafio secreto vazava
+    // no Hall da Fama (UI mostra "???" pra secret não-conquistado).
+    secret: c.isSecret,
     rarity:
       c.difficulty === "legendary"
         ? "legendary"
