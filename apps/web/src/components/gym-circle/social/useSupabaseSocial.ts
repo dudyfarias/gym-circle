@@ -2069,10 +2069,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         profileActivityRes,
         profileRowRes,
       ] = await Promise.all([
+        // p_limit 50 = teto da RPC (least(...,50)). Alimenta grid do
+        // perfil + mini-fotos do calendário; meses mais antigos que a
+        // janela ficam sem foto (dia ainda marca via activity_days) —
+        // fetch por mês na navegação do calendário fica como follow-up
+        // (paridade com o MyCircleService nativo, que já consulta
+        // posts por mês).
         services.client.rpc("get_profile_posts", {
           p_user_id: userId,
           p_cursor_created_at: null,
-          p_limit: 30,
+          p_limit: 50,
         }),
         services.client
           .from("user_stats_live")

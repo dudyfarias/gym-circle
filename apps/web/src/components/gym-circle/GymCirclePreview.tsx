@@ -436,9 +436,14 @@ export function GymCirclePreview({
           );
         }
       }
+      // Fix calendário — garante os posts do user-alvo hidratados (mini-
+      // fotos + tap), sem depender da janela do feed nem de ter passado
+      // pelo ProfileSheet antes. Fire-and-forget: sheet abre na hora e as
+      // fotos entram quando o merge chegar.
+      void social.actions.refreshProfilePosts?.(userId);
       setMyCircleUserId(userId);
     },
-    [social.currentUser.id],
+    [social.actions, social.currentUser.id],
   );
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   // Sprint 8.11.4 — bridge híbrido pra AchievementDetailOverlay. Wrappa o
@@ -1049,6 +1054,20 @@ export function GymCirclePreview({
   // Sprint 7.5.8 — Lazy backfill de user_achievements no boot. Compara
   // achievements derivados (getAllAchievements) com o que está no DB e
   // popula faltantes. Idempotente. Best-effort (errors logged, não
+  // Fix calendário — hidrata os posts do PRÓPRIO user no boot. O feed
+  // inicial traz só os 30 posts mais recentes de TODO MUNDO (você + quem
+  // você segue); posts antigos seus caíam fora dessa janela e o
+  // calendário do MyCircle mostrava o dia treinado sem a mini-foto (e
+  // sem tap), como se o post tivesse sumido — mesmo gap no grid do
+  // perfil e no recompute de desafios. O fetch dedicado
+  // (refreshProfilePosts → get_profile_posts) traz seus posts direto,
+  // independente do volume do feed. Merge idempotente (mergeRowsByKey).
+  useEffect(() => {
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId) return;
+    void social.actions.refreshProfilePosts?.(currentUserId);
+  }, [social.currentUser?.id]);
+
   // bloqueia UI). Sem isso, a RPC get_achievement_global_stats sempre
   // retornaria 0% — UI mostraria "Apenas 0% dos usuários" pra tudo.
   useEffect(() => {
