@@ -12,6 +12,7 @@ import type {
   FollowRow,
   GymRow,
   NotificationRow,
+  PostRow,
   PostCommentLikeRow,
   PostCommentRow,
   PostMediaRow,
@@ -887,6 +888,45 @@ function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
   };
 }
 
+function feedPostRowFromPostRow(row: PostRow): FeedPostRow {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    image_url: row.image_url,
+    thumbnail_url: row.thumbnail_url ?? null,
+    poster_url: row.poster_url ?? null,
+    media_width: row.media_width ?? null,
+    media_height: row.media_height ?? null,
+    media_duration_seconds: row.media_duration_seconds ?? null,
+    blur_data_url: row.blur_data_url ?? null,
+    media_type: row.media_type === "video" ? "video" : "image",
+    caption: row.caption ?? null,
+    gym_id: row.gym_id ?? null,
+    workout_type: row.workout_type ?? null,
+    workout_date: row.workout_date,
+    created_at: row.created_at,
+    location_source:
+      row.location_source === "gym" ||
+      row.location_source === "current" ||
+      row.location_source === "custom"
+        ? row.location_source
+        : "none",
+    location_name: row.location_name ?? null,
+    location_latitude: row.location_latitude ?? null,
+    location_longitude: row.location_longitude ?? null,
+    location_google_maps_url: row.location_google_maps_url ?? null,
+    likes_count: 0,
+    comments_count: 0,
+    username: null,
+    display_name: null,
+    avatar_url: null,
+    author_current_streak: 0,
+    author_best_streak: 0,
+    author_badge_active: false,
+    workout_types: row.workout_types ?? null,
+  } as FeedPostRow;
+}
+
 function storyRowFromSurface(row: StoryTrayRow): StoryRow | null {
   const id = row.id ?? row.first_story_id ?? row.first_unseen_story_id;
   const userId = row.user_id ?? row.author_id;
@@ -1302,6 +1342,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const refreshTimerRef = useRef<number | null>(null);
   const chatRealtimeTimerRef = useRef<number | null>(null);
   const chatHydratedRef = useRef(false);
+  // Fix calendário — cache month-scoped de posts do MyCircle. A chave é
+  // `${userId}:${YYYY-MM}`; evita reconsultar ao navegar ← → em meses já vistos.
+  const profilePostMonthsLoadedRef = useRef(new Set<string>());
+  const profilePostMonthFetchInFlightRef = useRef(new Set<string>());
 
   useEffect(() => {
     aggRef.current = agg;
@@ -2223,6 +2267,89 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
     },
     [currentUserId, services],
+  );
+
+  /**
+   * Fix calendário — paridade com o MyCircleService nativo. A navegação do
+   * calendário hidrata os posts do mês visível diretamente por workout_date,
+   * sem depender do teto de 50 rows da RPC get_profile_posts.
+   */
+  const ensureProfilePostsForMonth = useCallback(
+    async (userId: string, monthKey: string) => {
+      if (!/^\d{4}-\d{2}$/.test(monthKey)) return;
+      const cacheKey = `${userId}:${monthKey}`;
+      if (
+        profilePostMonthsLoadedRef.current.has(cacheKey) ||
+        profilePostMonthFetchInFlightRef.current.has(cacheKey)
+      ) {
+        return;
+      }
+
+      const [year, month] = monthKey.split("-").map(Number);
+      const nextMonth = new Date(year, month, 1);
+      const monthStart = `${monthKey}-01`;
+      const monthEnd = `${nextMonth.getFullYear()}-${String(
+        nextMonth.getMonth() + 1,
+      ).padStart(2, "0")}-01`;
+
+      profilePostMonthFetchInFlightRef.current.add(cacheKey);
+      try {
+        const res = await services.client
+          .from("posts")
+          .select(
+            [
+              "id",
+              "user_id",
+              "image_url",
+              "thumbnail_url",
+              "poster_url",
+              "media_width",
+              "media_height",
+              "media_duration_seconds",
+              "blur_data_url",
+              "media_type",
+              "caption",
+              "gym_id",
+              "workout_type",
+              "workout_types",
+              "workout_date",
+              "created_at",
+              "location_source",
+              "location_name",
+              "location_latitude",
+              "location_longitude",
+              "location_google_maps_url",
+            ].join(","),
+          )
+          .eq("user_id", userId)
+          .gte("workout_date", monthStart)
+          .lt("workout_date", monthEnd)
+          .order("workout_date", { ascending: false })
+          .order("created_at", { ascending: false });
+
+        if (res.error) {
+          logSurfaceFallback("profile posts month", res.error);
+          return;
+        }
+
+        const feedRows = ((res.data ?? []) as unknown as PostRow[]).map(
+          feedPostRowFromPostRow,
+        );
+        if (!mountedRef.current) return;
+        setAgg((current) => ({
+          ...current,
+          profileFeedPosts: mergeRowsByKey(
+            current.profileFeedPosts,
+            feedRows,
+            (post) => post.id,
+          ),
+        }));
+        profilePostMonthsLoadedRef.current.add(cacheKey);
+      } finally {
+        profilePostMonthFetchInFlightRef.current.delete(cacheKey);
+      }
+    },
+    [services],
   );
 
   const refreshPostDetails = useCallback(
@@ -4381,6 +4508,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       refreshChat,
       refreshPostDetails,
       refreshProfilePosts,
+      ensureProfilePostsForMonth,
       loadMoreFeed,
     }),
     [
@@ -4399,6 +4527,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       refreshConversationMessages,
       refreshPostDetails,
       refreshProfilePosts,
+      ensureProfilePostsForMonth,
       refreshStoryViewerItems,
       loadMoreFeed,
       showFeedback,

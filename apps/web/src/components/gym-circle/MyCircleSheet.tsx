@@ -114,6 +114,14 @@ type MyCircleSheetProps = {
    * AchievementDetailOverlay (mesmo handler do perfil/hall).
    */
   onOpenAchievementDetail?: (achievement: Achievement) => void;
+  /**
+   * Fix calendário — avisa o parent qual mês (YYYY-MM) ficou visível
+   * (abertura do sheet + navegação ← →). O parent garante os posts desse
+   * mês hidratados (ensureProfilePostsForMonth) pras mini-fotos de meses
+   * antigos não sumirem em users com 50+ posts. Os dias marcados não
+   * dependem disso (user_activity_days é fetch completo).
+   */
+  onVisibleMonthChange?: (monthKey: string) => void;
 };
 
 export function MyCircleSheet({
@@ -133,6 +141,7 @@ export function MyCircleSheet({
   onMarkContextualHintSeen,
   monthlyChallenges,
   onOpenAchievementDetail,
+  onVisibleMonthChange,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -142,15 +151,19 @@ export function MyCircleSheet({
     year: today.getFullYear(),
     month: today.getMonth(),
   });
+  const visibleMonthKey = `${calendarMonth.year}-${String(
+    calendarMonth.month + 1,
+  ).padStart(2, "0")}`;
 
   useEffect(() => {
-    if (!open) {
-      setCalendarMonth({
-        year: today.getFullYear(),
-        month: today.getMonth(),
-      });
+    if (
+      open &&
+      user &&
+      (isOwn || !user.isPrivate || user.followStatus === "accepted")
+    ) {
+      onVisibleMonthChange?.(visibleMonthKey);
     }
-  }, [open, today]);
+  }, [isOwn, onVisibleMonthChange, open, user, visibleMonthKey]);
 
   if (!open || !user) return null;
 
@@ -205,7 +218,15 @@ export function MyCircleSheet({
   ).getDay(); // 0=dom, 1=seg, ..., 6=sáb
   const leadingBlanks = (firstDayOfWeek + 6) % 7; // converte pra base segunda (0=seg, 6=dom)
 
+  function resetCalendarMonth() {
+    setCalendarMonth({
+      year: today.getFullYear(),
+      month: today.getMonth(),
+    });
+  }
+
   function handleClose() {
+    resetCalendarMonth();
     onClose();
   }
 

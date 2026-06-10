@@ -399,6 +399,12 @@ export type SocialActions = {
   refreshChat?: () => Promise<void>;
   refreshPostDetails?: (postId: string) => Promise<void>;
   refreshProfilePosts?: (userId: string) => Promise<void>;
+  /**
+   * Fix calendário — busca posts do mês visível (YYYY-MM) do MyCircle
+   * diretamente por workout_date, garantindo mini-fotos de meses antigos
+   * pra users com 50+ posts. Idempotente por user+mês.
+   */
+  ensureProfilePostsForMonth?: (userId: string, monthKey: string) => Promise<void>;
   markChatThreadRead?: (userId: string) => Promise<void>;
   markChatConversationRead?: (conversationId: string) => Promise<void>;
   deleteChatConversation?: (userId: string) => Promise<void>;

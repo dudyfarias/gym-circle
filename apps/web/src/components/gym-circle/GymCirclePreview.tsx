@@ -446,6 +446,13 @@ export function GymCirclePreview({
     [social.actions, social.currentUser.id],
   );
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
+  const handleMyCircleVisibleMonthChange = useCallback(
+    (monthKey: string) => {
+      if (!myCircleUserId) return;
+      void social.actions.ensureProfilePostsForMonth?.(myCircleUserId, monthKey);
+    },
+    [myCircleUserId, social.actions],
+  );
   // Sprint 8.11.4 — bridge híbrido pra AchievementDetailOverlay. Wrappa o
   // setter web setAchievementDetail. Quando a flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`
   // está ativa E o plugin nativo está disponível, abre a tela SwiftUI nativa
@@ -1838,6 +1845,7 @@ export function GymCirclePreview({
                 ? () => setRecapPeriodPickerOpen(true)
                 : undefined
             }
+            onVisibleMonthChange={handleMyCircleVisibleMonthChange}
             // Sprint 7C.3 — banner "primeira visita" do hub usa o sistema
             // ContextualHint (Sprint 7C.1) pra persistir dismiss cross-device.
             onMarkContextualHintSeen={social.actions.markContextualHintSeen}
