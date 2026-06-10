@@ -50,12 +50,40 @@ async function mediaResultToFile(
   },
   kind: NativeMediaKind,
 ): Promise<NativeMediaResult | null> {
-  const sourceUrl = media.webPath ?? media.uri;
-  if (!sourceUrl) return null;
+  // Sprint 14.1 — resolução robusta do arquivo. No WKWebView (iOS) `fetch` num
+  // `file://` é BLOQUEADO; só `webPath` (capacitor://) ou
+  // `Capacitor.convertFileSrc(uri)` são fetchables. O multi-select da galeria
+  // às vezes devolve o item só com `uri` nativa → sem isso o fetch morria no
+  // catch e nenhuma foto subia. Tenta os candidatos em ordem.
+  const candidates: string[] = [];
+  if (media.webPath) candidates.push(media.webPath);
+  if (media.uri) {
+    try {
+      const { Capacitor } = await import("@capacitor/core");
+      const converted = Capacitor.convertFileSrc(media.uri);
+      if (converted && converted !== media.uri) candidates.push(converted);
+    } catch {
+      // sem @capacitor/core (web) — segue só com os que já temos.
+    }
+    candidates.push(media.uri);
+  }
+  if (candidates.length === 0) return null;
+
+  let blob: Blob | null = null;
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) continue;
+      blob = await response.blob();
+      if (blob.size > 0) break;
+      blob = null;
+    } catch {
+      // tenta o próximo candidato
+    }
+  }
+  if (!blob) return null;
 
   try {
-    const response = await fetch(sourceUrl);
-    const blob = await response.blob();
     const mimeType = blob.type || mimeFor(media.metadata?.format, kind);
     const ext = extensionFor(media.metadata?.format ?? mimeType, kind);
     const file = new File([blob], `gym-circle-${Date.now()}.${ext}`, {
