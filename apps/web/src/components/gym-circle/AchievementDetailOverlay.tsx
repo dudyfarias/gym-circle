@@ -3,7 +3,7 @@
 import { ChevronLeft, HelpCircle, Lock, Share2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BadgeIcon } from "./design-system";
+import { AchievementArtifact3D } from "./design-system";
 import { simulateHaptic } from "./social/haptics";
 import {
   getAchievementCompositeId,
@@ -389,34 +389,14 @@ function ArtworkPlaceholder({
       </span>
     );
   }
-  if (locked) {
-    return (
-      <div className="relative">
-        <div className="opacity-32 blur-[2px]">
-          <BadgeIcon
-            className="size-44 rounded-[40px]"
-            earned={false}
-            iconKey={achievement.iconKey}
-            size={86}
-          />
-        </div>
-        <span
-          aria-hidden
-          className="absolute inset-0 grid place-items-center"
-        >
-          <span className="grid size-14 place-items-center rounded-full bg-white/[0.08] text-white/72 shadow-[0_8px_24px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-            <Lock size={24} strokeWidth={2.4} />
-          </span>
-        </span>
-      </div>
-    );
-  }
+  // Sprint 15 — artefato 3D (port da release). Locked: o próprio componente
+  // aplica grayscale + opacity + cadeado CSS; earned flutua (float).
   return (
-    <BadgeIcon
-      className="size-44 rounded-[40px]"
-      earned
-      iconKey={achievement.iconKey}
-      size={86}
+    <AchievementArtifact3D
+      achievement={achievement}
+      float={!locked}
+      muted={locked}
+      size="lg"
     />
   );
 }

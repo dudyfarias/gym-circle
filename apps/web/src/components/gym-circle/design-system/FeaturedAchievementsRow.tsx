@@ -2,7 +2,7 @@
 
 import { HelpCircle, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { BadgeIcon } from "./BadgeIcon";
+import { AchievementArtifact3D } from "./AchievementArtifact3D";
 import type {
   Achievement,
   AchievementKind,
@@ -105,15 +105,9 @@ function FeaturedCard({
           <HelpCircle size={18} strokeWidth={2.4} />
         </span>
       ) : achievement.earned ? (
-        <BadgeIcon
-          className={[
-            "size-9",
-            tone.glow,
-          ].join(" ")}
-          earned
-          iconKey={achievement.iconKey}
-          size={20}
-        />
+        // Sprint 15 — artefato 3D no destaque do perfil (glow do card via
+        // KIND_TONE; o halo interno fica off pra não duplicar brilho).
+        <AchievementArtifact3D achievement={achievement} glow={false} size="sm" />
       ) : (
         <span className="grid size-9 place-items-center rounded-[12px] bg-white/[0.04] text-white/40">
           <Lock size={16} strokeWidth={2.4} />
