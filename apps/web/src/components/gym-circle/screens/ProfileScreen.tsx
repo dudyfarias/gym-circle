@@ -22,8 +22,7 @@ import {
 } from "../design-system";
 import {
   getAllAchievements,
-  parseAchievementCompositeId,
-  suggestFeaturedAchievements,
+  resolveFeaturedAchievements,
   type Achievement,
 } from "../social/achievements";
 import type { ProfileCompletionItem } from "../social/profile";
@@ -78,6 +77,11 @@ type ProfileScreenProps = {
    * card da Featured Achievements row.
    */
   onOpenAchievementDetail?: (achievement: Achievement) => void;
+  /**
+   * Sprint 15.5 — abre o Hall da Fama (overlay) pelo botão no canto do
+   * header das Conquistas em destaque.
+   */
+  onOpenAchievements?: () => void;
 };
 
 /**
@@ -106,6 +110,7 @@ export function ProfileScreen({
   onDismissProfileCompletionNotice,
   onMarkContextualHintSeen,
   onOpenAchievementDetail,
+  onOpenAchievements,
 }: ProfileScreenProps) {
   const { t } = useTranslation();
   const profileCompletion = calculateProfileCompletion(currentUser);
@@ -151,24 +156,12 @@ export function ProfileScreen({
       gymId: post.gymId,
     })),
   });
-  const featuredAchievements: Achievement[] = (() => {
-    const equipped = currentUser.featuredAchievements ?? [];
-    if (equipped.length > 0) {
-      // Mode (a): user manualmente equipou — lookup por composite ID
-      const resolved: Achievement[] = [];
-      for (const compositeId of equipped) {
-        const parsed = parseAchievementCompositeId(compositeId);
-        if (!parsed) continue;
-        const match = allAchievements.find(
-          (a) => a.kind === parsed.kind && a.id === parsed.id,
-        );
-        if (match && match.earned) resolved.push(match);
-      }
-      if (resolved.length > 0) return resolved;
-    }
-    // Mode (b): fallback auto-suggest top 3 earned por raridade
-    return suggestFeaturedAchievements(allAchievements, 3);
-  })();
+  // Sprint 15.5 — lógica extraída pro helper compartilhado (MyCircleSheet
+  // usa a MESMA regra equipped → suggest).
+  const featuredAchievements: Achievement[] = resolveFeaturedAchievements(
+    allAchievements,
+    currentUser.featuredAchievements,
+  );
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -230,6 +223,7 @@ export function ProfileScreen({
       <FeaturedAchievementsRow
         achievements={featuredAchievements}
         onOpenDetail={onOpenAchievementDetail}
+        onOpenHall={onOpenAchievements}
       />
 
       {/* Sprint 7C.2 — Substitui o banner grande por chips inline

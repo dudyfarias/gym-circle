@@ -1525,6 +1525,8 @@ export function GymCirclePreview({
             onMarkContextualHintSeen={social.actions.markContextualHintSeen}
             // Sprint 7.5.5 — Featured Achievements row tap abre overlay.
             onOpenAchievementDetail={openAchievementDetailHybrid}
+            // Sprint 15.5 — botão no header da row abre o Hall da Fama.
+            onOpenAchievements={openBadges}
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
@@ -1790,6 +1792,9 @@ export function GymCirclePreview({
             }
             onClose={closeMyCircle}
             onOpenBadges={openBadges}
+            // Sprint 15.5 — tap em artefato das Conquistas em destaque abre
+            // o detail (mesmo handler do perfil/hall).
+            onOpenAchievementDetail={openAchievementDetailHybrid}
             onOpenMonthlyRecap={
               myCircleUser?.id === social.currentUser.id
                 ? () => { void openMonthlyRecapHybrid(); }
@@ -1834,16 +1839,19 @@ export function GymCirclePreview({
           <AchievementsSheet
             // Sprint 15 — desafios do mês entram no hall (categoria Desafios)
             // só pro próprio user, mesma regra do MyCircleSheet acima.
+            // Sprint 15.5 — o hall também abre direto do PERFIL (botão nas
+            // Conquistas em destaque), onde myCircleUser ainda é null →
+            // fallback pro próprio user (a tab Perfil é sempre o current user).
             monthlyChallenges={
-              myCircleUser?.id === social.currentUser.id
+              (myCircleUser ?? social.currentUser).id === social.currentUser.id
                 ? monthlyChallenges
                 : undefined
             }
             onClose={closeBadges}
             onOpenAchievementDetail={openAchievementDetailHybrid}
             open={badgesSheetOpen}
-            posts={myCircleUserPosts}
-            user={myCircleUser}
+            posts={myCircleUser ? myCircleUserPosts : currentUserPosts}
+            user={myCircleUser ?? social.currentUser}
           />
           {/* Sprint 5.11 — overlay full-screen do post (estilo Instagram).
               Aberto via tap em foto do grid (Profile, ProfileSheet, calendar

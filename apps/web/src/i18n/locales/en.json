@@ -160,16 +160,6 @@
         "lendario": "Legendary"
       }
     },
-    "badges": {
-      "title": "Badges",
-      "earned": "earned",
-      "locked": "locked",
-      "nextStatus": "Next",
-      "nextHint": "Almost there for {{name}}",
-      "count": "{{earned}}/{{total}}",
-      "secretMystery": "Secret badge — figure out how to unlock",
-      "secretHint": "Figure out how to unlock this badge"
-    },
     "recap": {
       "cta": "Share {{month}} recap",
       "ctaShort": "Share recap",
@@ -271,7 +261,8 @@
     },
     "featuredAchievements": {
       "title": "Featured achievements",
-      "secret": "Secret achievement"
+      "secret": "Secret achievement",
+      "empty": "Your achievements will show up here."
     },
     "streakRestore": {
       "title": "Restore streak?",

@@ -640,3 +640,31 @@ export function suggestFeaturedAchievements(
     .sort((a, b) => priorityScore(b) - priorityScore(a))
     .slice(0, count);
 }
+
+/**
+ * Sprint 15.5 — resolve as "Conquistas em destaque" de um user na MESMA
+ * regra em todas as superfícies (ProfileScreen, MyCircleSheet):
+ *   (a) user equipou manualmente (profile.featuredAchievements, composite
+ *       ids) → lookup + filtra só earned;
+ *   (b) fallback → suggestFeaturedAchievements (top N por raridade).
+ */
+export function resolveFeaturedAchievements(
+  achievements: Achievement[],
+  equippedCompositeIds: ReadonlyArray<string> | null | undefined,
+  count: number = 3,
+): Achievement[] {
+  const equipped = equippedCompositeIds ?? [];
+  if (equipped.length > 0) {
+    const resolved: Achievement[] = [];
+    for (const compositeId of equipped) {
+      const parsed = parseAchievementCompositeId(compositeId);
+      if (!parsed) continue;
+      const match = achievements.find(
+        (a) => a.kind === parsed.kind && a.id === parsed.id,
+      );
+      if (match && match.earned) resolved.push(match);
+    }
+    if (resolved.length > 0) return resolved.slice(0, count);
+  }
+  return suggestFeaturedAchievements(achievements, count);
+}

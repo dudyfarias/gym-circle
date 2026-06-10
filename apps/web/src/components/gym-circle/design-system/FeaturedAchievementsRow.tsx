@@ -1,6 +1,6 @@
 "use client";
 
-import { HelpCircle, Lock } from "lucide-react";
+import { ChevronRight, HelpCircle, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AchievementArtifact3D } from "./AchievementArtifact3D";
 import type {
@@ -32,30 +32,58 @@ type FeaturedAchievementsRowProps = {
   achievements: ReadonlyArray<Achievement>;
   /** Opcional: tap em qualquer card. */
   onOpenDetail?: (achievement: Achievement) => void;
+  /**
+   * Sprint 15.5 — botão pill cinza no canto superior direito do header que
+   * abre o Hall da Fama (overlay). Quando presente, a seção renderiza mesmo
+   * com lista vazia (header + hint) pra entrada do hall nunca sumir.
+   */
+  onOpenHall?: () => void;
+  /** Espaçamento extra do caller (ex: mt-8 nas seções do MyCircle). */
+  className?: string;
 };
 
 export function FeaturedAchievementsRow({
   achievements,
   onOpenDetail,
+  onOpenHall,
+  className = "",
 }: FeaturedAchievementsRowProps) {
   const { t } = useTranslation();
 
-  if (achievements.length === 0) return null;
+  if (achievements.length === 0 && !onOpenHall) return null;
 
   return (
-    <section className="mt-4">
-      <h3 className="mb-2 text-[11px] font-black uppercase tracking-[0.06em] text-white/44">
-        {t("profile.featuredAchievements.title")}
-      </h3>
-      <div className="grid grid-cols-3 gap-2">
-        {achievements.slice(0, 3).map((achievement) => (
-          <FeaturedCard
-            achievement={achievement}
-            key={`${achievement.kind}-${achievement.id}`}
-            onTap={onOpenDetail ? () => onOpenDetail(achievement) : undefined}
-          />
-        ))}
+    <section className={["mt-4", className].join(" ")}>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-[11px] font-black uppercase tracking-[0.06em] text-white/44">
+          {t("profile.featuredAchievements.title")}
+        </h3>
+        {onOpenHall ? (
+          <button
+            aria-label={t("achievementsSheet.title")}
+            className="gc-pressable grid size-8 place-items-center rounded-full bg-white/[0.06] text-white/72"
+            onClick={onOpenHall}
+            type="button"
+          >
+            <ChevronRight size={16} strokeWidth={2.6} />
+          </button>
+        ) : null}
       </div>
+      {achievements.length > 0 ? (
+        <div className="grid grid-cols-3 gap-2">
+          {achievements.slice(0, 3).map((achievement) => (
+            <FeaturedCard
+              achievement={achievement}
+              key={`${achievement.kind}-${achievement.id}`}
+              onTap={onOpenDetail ? () => onOpenDetail(achievement) : undefined}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-[16px] bg-white/[0.025] px-3 py-3 text-[12px] font-bold text-white/44">
+          {t("profile.featuredAchievements.empty")}
+        </p>
+      )}
     </section>
   );
 }
