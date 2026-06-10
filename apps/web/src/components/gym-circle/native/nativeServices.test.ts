@@ -12,6 +12,12 @@ import { NativeMediaPickerService } from "./NativeMediaPickerService";
 import { PushNotificationsService } from "./PushNotificationsService";
 import type { PushService } from "@gym-circle/core";
 
+vi.mock("@capacitor/filesystem", () => ({
+  Filesystem: {
+    readFile: vi.fn(async () => ({ data: "Y2FtZXJhLWltYWdl" })),
+  },
+}));
+
 function createStorage(): StorageLike {
   const map = new Map<string, string>();
   return {
@@ -54,6 +60,21 @@ describe("Native Feel services", () => {
   it("falls back safely when native media picker is unavailable", async () => {
     await expect(NativeMediaPickerService.takePhoto()).resolves.toBeNull();
     await expect(NativeMediaPickerService.pickWorkoutMedia()).resolves.toBeNull();
+  });
+
+  it("normalizes native camera media through Filesystem when webPath fetch fails", async () => {
+    const result = await NativeMediaPickerService.normalizeMediaResult(
+      {
+        uri: "file:///tmp/captured-photo.jpg",
+        metadata: { format: "jpeg", resolution: "640x480" },
+      },
+      "image",
+    );
+
+    expect(result?.file.type).toBe("image/jpeg");
+    expect(result?.width).toBe(640);
+    expect(result?.height).toBe(480);
+    await expect(result?.file.text()).resolves.toBe("camera-image");
   });
 
   it("plays web vibration fallback when native haptics are unavailable", async () => {

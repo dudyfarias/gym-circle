@@ -40,8 +40,10 @@ async function isNativeCapacitor() {
 
 async function mediaResultToFile(
   media: {
+    path?: string;
     uri?: string;
     webPath?: string;
+    thumbnail?: string;
     metadata?: {
       duration?: number;
       format?: string;
@@ -57,17 +59,17 @@ async function mediaResultToFile(
   // catch e nenhuma foto subia. Tenta os candidatos em ordem.
   const candidates: string[] = [];
   if (media.webPath) candidates.push(media.webPath);
-  if (media.uri) {
+  const nativeUri = media.uri ?? media.path ?? null;
+  if (nativeUri) {
     try {
       const { Capacitor } = await import("@capacitor/core");
-      const converted = Capacitor.convertFileSrc(media.uri);
-      if (converted && converted !== media.uri) candidates.push(converted);
+      const converted = Capacitor.convertFileSrc(nativeUri);
+      if (converted && converted !== nativeUri) candidates.push(converted);
     } catch {
       // sem @capacitor/core (web) — segue só com os que já temos.
     }
-    candidates.push(media.uri);
+    candidates.push(nativeUri);
   }
-  if (candidates.length === 0) return null;
 
   let blob: Blob | null = null;
   for (const url of candidates) {
@@ -81,6 +83,15 @@ async function mediaResultToFile(
       // tenta o próximo candidato
     }
   }
+
+  if (!blob && nativeUri) {
+    blob = await readNativeUriAsBlob(nativeUri, mimeFor(media.metadata?.format, kind));
+  }
+
+  if (!blob && kind === "image" && media.thumbnail) {
+    blob = blobFromBase64(media.thumbnail, mimeFor(media.metadata?.format, kind));
+  }
+
   if (!blob) return null;
 
   try {
@@ -100,6 +111,37 @@ async function mediaResultToFile(
       height: Number.isFinite(height) ? height : null,
       durationSeconds: media.metadata?.duration ?? null,
     };
+  } catch {
+    return null;
+  }
+}
+
+function blobFromBase64(value: string, mimeType: string): Blob | null {
+  try {
+    const rawBase64 = value.startsWith("data:")
+      ? (value.split(",", 2)[1] ?? "")
+      : value;
+    if (!rawBase64) return null;
+
+    const binary = globalThis.atob(rawBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: mimeType });
+  } catch {
+    return null;
+  }
+}
+
+async function readNativeUriAsBlob(uri: string, mimeType: string): Promise<Blob | null> {
+  try {
+    const { Filesystem } = await import("@capacitor/filesystem");
+    const result = await Filesystem.readFile({ path: uri });
+    if (result.data instanceof Blob) {
+      return result.data.type ? result.data : new Blob([result.data], { type: mimeType });
+    }
+    return blobFromBase64(result.data, mimeType);
   } catch {
     return null;
   }
