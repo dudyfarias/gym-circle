@@ -121,7 +121,8 @@ export function PostScreen({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [cataloging, setCataloging] = useState(false);
-  const [workoutType, setWorkoutType] = useState("");
+  // Sprint 13 — até 5 tags (multi-select de chips). Guarda os VALORES escolhidos.
+  const [selectedWorkoutValues, setSelectedWorkoutValues] = useState<string[]>([]);
   const [customWorkoutType, setCustomWorkoutType] = useState("");
   const [locationMode, setLocationMode] = useState<SelectableLocationSource>("none");
   const [selectedGymId, setSelectedGymId] = useState("");
@@ -152,18 +153,21 @@ export function PostScreen({
   // botão trava). Ref (não state) pra não re-renderizar e pegar o valor na hora.
   const pickerBusyRef = useRef(false);
 
-  const resolvedWorkoutType = useMemo(() => {
-    if (workoutType === "Outro") {
-      return customWorkoutType.trim() || null;
+  // Sprint 13 — resolve as tags escolhidas (chips + "Outro" custom), cap 5. A
+  // primeira (resolvedWorkoutType) vira a primária em posts.workout_type.
+  const resolvedWorkoutTypes = useMemo<string[]>(() => {
+    const out: string[] = [];
+    for (const value of selectedWorkoutValues) {
+      if (value === "Outro") {
+        const custom = customWorkoutType.trim();
+        if (custom) out.push(custom);
+      } else if (value.trim()) {
+        out.push(value.trim());
+      }
     }
-    return workoutType.trim() || null;
-  }, [customWorkoutType, workoutType]);
-  // Sprint 13 — workout_types[] (até 5). A UI hoje seleciona 1; quando o
-  // multi-select de chips entrar, é só este memo coletar o array completo.
-  const resolvedWorkoutTypes = useMemo<string[]>(
-    () => (resolvedWorkoutType ? [resolvedWorkoutType] : []),
-    [resolvedWorkoutType],
-  );
+    return out.slice(0, 5);
+  }, [customWorkoutType, selectedWorkoutValues]);
+  const resolvedWorkoutType = resolvedWorkoutTypes[0] ?? null;
 
   const registeredGyms = useMemo<GymLocationOption[]>(() => {
     // Mescla 3 fontes priorizando dados ricos:
@@ -765,18 +769,39 @@ export function PostScreen({
                 <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
                   {t("postScreen.workoutType.label")}
                 </p>
-                <select
-                  className="mt-2 h-11 w-full rounded-[14px] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none"
-                  onChange={(event) => setWorkoutType(event.target.value)}
-                  value={workoutType}
-                >
-                  {workoutTypes.map((type) => (
-                    <option className="bg-black" key={type.key} value={type.value}>
-                      {t(`postScreen.workoutType.options.${type.key}`)}
-                    </option>
-                  ))}
-                </select>
-                {workoutType === "Outro" ? (
+                {/* Sprint 13 — multi-select de até 5 tags (chips toggle). */}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {workoutTypes.map((type) => {
+                    const selected = selectedWorkoutValues.includes(type.value);
+                    const full = selectedWorkoutValues.length >= 5;
+                    return (
+                      <button
+                        className={[
+                          "gc-pressable rounded-full px-3 py-1.5 text-[13px] font-bold transition-colors disabled:opacity-35",
+                          selected
+                            ? "bg-[var(--gc-brand)] text-black"
+                            : "bg-white/[0.05] text-white/72",
+                        ].join(" ")}
+                        disabled={!selected && full}
+                        key={type.key}
+                        onClick={() => {
+                          void HapticsService.selection();
+                          setSelectedWorkoutValues((prev) =>
+                            prev.includes(type.value)
+                              ? prev.filter((v) => v !== type.value)
+                              : prev.length >= 5
+                                ? prev
+                                : [...prev, type.value],
+                          );
+                        }}
+                        type="button"
+                      >
+                        {t(`postScreen.workoutType.options.${type.key}`)}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedWorkoutValues.includes("Outro") ? (
                   <input
                     className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
                     onChange={(event) => setCustomWorkoutType(event.target.value)}
