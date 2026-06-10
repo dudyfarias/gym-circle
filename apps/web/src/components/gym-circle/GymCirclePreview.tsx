@@ -1832,6 +1832,13 @@ export function GymCirclePreview({
               + 3 sub-seções por estado. Tap em qualquer card abre o
               AchievementDetailOverlay (Sprint 7.5.2). */}
           <AchievementsSheet
+            // Sprint 15 — desafios do mês entram no hall (categoria Desafios)
+            // só pro próprio user, mesma regra do MyCircleSheet acima.
+            monthlyChallenges={
+              myCircleUser?.id === social.currentUser.id
+                ? monthlyChallenges
+                : undefined
+            }
             onClose={closeBadges}
             onOpenAchievementDetail={openAchievementDetailHybrid}
             open={badgesSheetOpen}
