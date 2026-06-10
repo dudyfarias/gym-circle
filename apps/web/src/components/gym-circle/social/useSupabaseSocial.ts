@@ -65,6 +65,8 @@ import {
   isBirthdayFromBirthDate,
 } from "./profile";
 import {
+  getMainUserGymForProfile,
+  getOrderedGymNamesForProfile,
   mergeProfileRows,
   profileRowFromPartial,
   profileRowFromSurface,
@@ -2640,10 +2642,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const stats = statsByUser.get(profile.user_id);
       const birthDate = profile.birth_date ?? null;
       const userGyms = userGymsByUser.get(profile.user_id) ?? [];
-      const gymNames = userGyms
-        .map((ug) => gymsById.get(ug.gym_id)?.name)
-        .filter((n): n is string => Boolean(n));
-      const mainUserGym = userGyms.find((ug) => ug.is_main);
+      const gymNames = getOrderedGymNamesForProfile(profile, userGyms, gymsById);
+      const mainUserGym = getMainUserGymForProfile(profile, userGyms);
       const preferredTimes =
         profile.preferred_training_times?.length
           ? profile.preferred_training_times

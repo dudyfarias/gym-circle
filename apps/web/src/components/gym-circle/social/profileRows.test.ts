@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ProfileRow } from "@gym-circle/core";
+import type { GymRow, ProfileRow, UserGymRow } from "@gym-circle/core";
 import {
+  getOrderedGymNamesForProfile,
   isProfilePreview,
   mergeProfileRows,
   profileRowFromPartial,
@@ -122,4 +123,49 @@ describe("profile row merging", () => {
     expect(merged.is_private).toBe(true);
     expect(merged.profile_completion_notice_dismissed).toBe(true);
   });
+
+  it("orders profile gyms by profiles.main_gym_id before user_gyms order", () => {
+    const profile = fullProfile({
+      user_id: "dudy-user",
+      main_gym_id: "saint-thomas",
+    });
+    const userGyms = [
+      userGym("dudy-user", "mansao-maromba", false),
+      userGym("dudy-user", "saint-thomas", true),
+    ];
+    const gymsById = new Map<string, GymRow>([
+      ["mansao-maromba", gym("mansao-maromba", "Mansao Maromba")],
+      ["saint-thomas", gym("saint-thomas", "Saint Thomas")],
+    ]);
+
+    expect(getOrderedGymNamesForProfile(profile, userGyms, gymsById)).toEqual([
+      "Saint Thomas",
+      "Mansao Maromba",
+    ]);
+  });
 });
+
+function gym(id: string, name: string): GymRow {
+  return {
+    id,
+    name,
+    address: null,
+    city: null,
+    state: null,
+    latitude: null,
+    longitude: null,
+    created_at: "2026-05-01T10:00:00.000Z",
+  } as GymRow;
+}
+
+function userGym(userId: string, gymId: string, isMain: boolean): UserGymRow {
+  return {
+    id: `${userId}-${gymId}`,
+    user_id: userId,
+    gym_id: gymId,
+    is_main: isMain,
+    preferred_days: [],
+    preferred_times: [],
+    created_at: "2026-05-01T10:00:00.000Z",
+  } as UserGymRow;
+}

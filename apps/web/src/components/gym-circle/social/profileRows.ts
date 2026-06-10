@@ -1,4 +1,4 @@
-import type { ProfileRow } from "@gym-circle/core";
+import type { GymRow, ProfileRow, UserGymRow } from "@gym-circle/core";
 
 const PREVIEW_CREATED_AT = new Date(0).toISOString();
 const PREVIEW_USERNAME = "usuario";
@@ -122,4 +122,38 @@ export function mergeProfileRows(rows: ProfileRow[], nextRows: ProfileRow[]): Pr
   }
 
   return Array.from(map.values());
+}
+
+export function getMainUserGymForProfile(
+  profile: Pick<ProfileRow, "main_gym_id">,
+  userGyms: UserGymRow[],
+): UserGymRow | undefined {
+  if (profile.main_gym_id) {
+    const byProfileMainGym = userGyms.find((ug) => ug.gym_id === profile.main_gym_id);
+    if (byProfileMainGym) return byProfileMainGym;
+  }
+  return userGyms.find((ug) => ug.is_main);
+}
+
+export function getOrderedGymNamesForProfile(
+  profile: Pick<ProfileRow, "main_gym_id">,
+  userGyms: UserGymRow[],
+  gymsById: Map<string, GymRow>,
+): string[] {
+  const seen = new Set<string>();
+  const orderedGymIds: string[] = [];
+
+  function add(gymId: string | null | undefined) {
+    if (!gymId || seen.has(gymId)) return;
+    seen.add(gymId);
+    orderedGymIds.push(gymId);
+  }
+
+  add(profile.main_gym_id);
+  add(userGyms.find((ug) => ug.is_main)?.gym_id);
+  for (const userGym of userGyms) add(userGym.gym_id);
+
+  return orderedGymIds
+    .map((gymId) => gymsById.get(gymId)?.name)
+    .filter((name): name is string => Boolean(name));
 }
