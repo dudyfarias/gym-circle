@@ -1,5 +1,16 @@
 import { type ReactNode } from "react";
-import { Flame, Lock, MapPin } from "lucide-react";
+import {
+  AtSign,
+  CalendarDays,
+  Clock3,
+  Dumbbell,
+  Flame,
+  Lock,
+  MapPin,
+  PartyPopper,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { getStreakLevel } from "../social/streak";
 import type { EnrichedUser } from "../social/types";
@@ -71,6 +82,37 @@ export function ProfileIdentity({
   const mainGym = user.gyms[0];
   const level = getStreakLevel(user.currentStreak);
   const hasStreakChip = user.currentStreak > 0 || user.streakLitToday;
+  const sports = user.sports ?? [];
+  const preferredTimes = user.preferredTimes ?? [];
+  const detailChips: Array<{ key: string; label: string; Icon: LucideIcon }> = [
+    ...(user.goal ? [{ key: "goal", label: user.goal, Icon: Target }] : []),
+    ...(user.age
+      ? [
+          {
+            key: "age",
+            label: t("profile.ageYears", {
+              count: user.age,
+              defaultValue: "{{count}} anos",
+            }),
+            Icon: CalendarDays,
+          },
+        ]
+      : []),
+    ...(user.instagramUsername
+      ? [{ key: "instagram", label: `@${user.instagramUsername}`, Icon: AtSign }]
+      : []),
+    ...(preferredTimes.length
+      ? [
+          {
+            key: "preferredTimes",
+            label: preferredTimes.slice(0, 2).join(", "),
+            Icon: Clock3,
+          },
+        ]
+      : []),
+  ];
+  const visibleSports = sports.slice(0, 4);
+  const hiddenSportsCount = Math.max(sports.length - visibleSports.length, 0);
 
   return (
     <div className="flex flex-col items-center text-center">
@@ -142,6 +184,42 @@ export function ProfileIdentity({
         <p className="mt-3 max-w-[340px] whitespace-pre-line text-[14px] font-medium leading-5 text-white/86">
           {user.bio}
         </p>
+      ) : null}
+
+      {detailChips.length > 0 || user.isBirthday || visibleSports.length > 0 ? (
+        <div className="mt-3 flex max-w-[360px] flex-wrap items-center justify-center gap-1.5">
+          {user.isBirthday ? (
+            <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-[var(--gc-brand)]/14 px-2.5 py-1 text-[11px] font-black text-[var(--gc-brand)]">
+              <PartyPopper className="shrink-0" size={11} strokeWidth={2.6} />
+              <span className="truncate">
+                {t("profile.birthdayToday", { defaultValue: "Aniversário hoje" })}
+              </span>
+            </span>
+          ) : null}
+          {detailChips.map(({ key, label, Icon }) => (
+            <span
+              className="inline-flex min-w-0 max-w-[210px] items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/72"
+              key={key}
+            >
+              <Icon className="shrink-0" size={11} strokeWidth={2.6} />
+              <span className="truncate">{label}</span>
+            </span>
+          ))}
+          {visibleSports.map((sport) => (
+            <span
+              className="inline-flex min-w-0 max-w-[160px] items-center gap-1 rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-black text-white/64"
+              key={sport}
+            >
+              <Dumbbell className="shrink-0" size={11} strokeWidth={2.6} />
+              <span className="truncate">{sport}</span>
+            </span>
+          ))}
+          {hiddenSportsCount > 0 ? (
+            <span className="inline-flex items-center rounded-full bg-white/[0.05] px-2.5 py-1 text-[11px] font-black text-white/54">
+              +{hiddenSportsCount}
+            </span>
+          ) : null}
+        </div>
       ) : null}
 
       {/* Stats: Posts • Seguidores • Seguindo */}

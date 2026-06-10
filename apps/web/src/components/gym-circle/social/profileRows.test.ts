@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { ProfileRow } from "@gym-circle/core";
+import type { GymRow, ProfileRow, UserGymRow } from "@gym-circle/core";
 import {
+  getOrderedGymNamesForProfile,
   isProfilePreview,
   mergeProfileRows,
   profileRowFromPartial,
@@ -37,6 +38,33 @@ function fullProfile(input: Partial<ProfileRow> & Pick<ProfileRow, "user_id">): 
     reactivation_sent_at: input.reactivation_sent_at ?? null,
     reactivation_expires_at: input.reactivation_expires_at ?? null,
     deleted_at: input.deleted_at ?? null,
+  };
+}
+
+function gym(input: Pick<GymRow, "id" | "name"> & Partial<GymRow>): GymRow {
+  return {
+    id: input.id,
+    name: input.name,
+    address: input.address ?? null,
+    city: input.city ?? null,
+    state: input.state ?? null,
+    latitude: input.latitude ?? null,
+    longitude: input.longitude ?? null,
+    created_at: input.created_at ?? "2026-05-01T10:00:00.000Z",
+  };
+}
+
+function userGym(
+  input: Pick<UserGymRow, "user_id" | "gym_id"> & Partial<UserGymRow>,
+): UserGymRow {
+  return {
+    id: input.id ?? `${input.user_id}-${input.gym_id}`,
+    user_id: input.user_id,
+    gym_id: input.gym_id,
+    is_main: input.is_main ?? false,
+    preferred_days: input.preferred_days ?? [],
+    preferred_times: input.preferred_times ?? [],
+    created_at: input.created_at ?? "2026-05-01T10:00:00.000Z",
   };
 }
 
@@ -152,5 +180,65 @@ describe("profile row merging", () => {
     expect(merged.sports).toEqual(["Musculacao"]);
     expect(merged.main_gym_id).toBe("gym-old");
     expect(merged.preferred_training_times).toEqual(["Noite"]);
+  });
+
+  it("lets a complete profile row hydrate a previously cached preview", () => {
+    const preview = profileRowFromSurface({
+      user_id: "user-1",
+      username: "dudy",
+      display_name: "Dudy",
+      avatar_url: null,
+    })!;
+    const full = fullProfile({
+      user_id: "user-1",
+      bio: "Bio recuperada do profiles",
+      fitness_goal: "Hipertrofia",
+      instagram_username: "dudy.fit",
+      birth_date: "1998-02-12",
+      sports: ["Musculacao", "Corrida"],
+      main_gym_id: "gym-1",
+      preferred_training_times: ["Noite"],
+    });
+
+    const [merged] = mergeProfileRows([preview], [full]);
+
+    expect(isProfilePreview(merged)).toBe(false);
+    expect(merged.bio).toBe("Bio recuperada do profiles");
+    expect(merged.fitness_goal).toBe("Hipertrofia");
+    expect(merged.instagram_username).toBe("dudy.fit");
+    expect(merged.birth_date).toBe("1998-02-12");
+    expect(merged.sports).toEqual(["Musculacao", "Corrida"]);
+    expect(merged.main_gym_id).toBe("gym-1");
+    expect(merged.preferred_training_times).toEqual(["Noite"]);
+  });
+
+  it("orders profile gyms with profiles.main_gym_id first even when user_gyms arrives unordered", () => {
+    const profile = fullProfile({
+      user_id: "dudy-user",
+      main_gym_id: "saint-thomas",
+    });
+    const gymsById = new Map<string, GymRow>([
+      ["mansao-maromba", gym({ id: "mansao-maromba", name: "Mansao maromba" })],
+      ["saint-thomas", gym({ id: "saint-thomas", name: "Saint Thomas" })],
+    ]);
+    const unorderedUserGyms = [
+      userGym({
+        user_id: "dudy-user",
+        gym_id: "mansao-maromba",
+        is_main: false,
+        created_at: "2026-06-03T15:05:22.411Z",
+      }),
+      userGym({
+        user_id: "dudy-user",
+        gym_id: "saint-thomas",
+        is_main: true,
+        created_at: "2026-05-07T22:57:52.197Z",
+      }),
+    ];
+
+    expect(getOrderedGymNamesForProfile(profile, unorderedUserGyms, gymsById)).toEqual([
+      "Saint Thomas",
+      "Mansao maromba",
+    ]);
   });
 });

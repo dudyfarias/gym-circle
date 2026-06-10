@@ -42,6 +42,8 @@ import {
   isBirthdayFromBirthDate,
 } from "./profile";
 import {
+  getMainUserGymForProfile,
+  getOrderedGymNamesForProfile,
   mergeProfileRows,
   profileRowFromPartial,
   profileRowFromSurface,
@@ -2102,6 +2104,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       // no ano, seguidores e seguindo — refletindo só conexões com o
       // currentUser ou hardcoded zeros do `statsRowFromSurface`.
       const [
+        profileRes,
         profilePostsRes,
         profileStatsRes,
         followersCountRes,
@@ -2110,6 +2113,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         founderRes,
         profileStoryCountRes,
       ] = await Promise.all([
+        services.client
+          .from("profiles")
+          .select(PROFILE_COLUMNS)
+          .eq("user_id", userId)
+          .maybeSingle(),
         services.client.rpc("get_profile_posts", {
           p_user_id: userId,
           p_cursor_created_at: null,
@@ -2146,6 +2154,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .select("id", { count: "exact", head: true })
           .eq("user_id", userId),
       ]);
+      if (profileRes.error) {
+        logSurfaceFallback("profile full row", profileRes.error);
+      }
       if (profilePostsRes.error) {
         logSurfaceFallback("profile posts", profilePostsRes.error);
         measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
@@ -2174,9 +2185,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
       const profileSurfaceRows = (profilePostsRes.data ?? []) as SurfacePostRow[];
       const profileFeedPosts = profileSurfaceRows.map(feedPostRowFromSurface);
-      const profileSurfaceProfiles = profileSurfaceRows
-        .map(profileRowFromSurface)
-        .filter((profile): profile is ProfileRow => Boolean(profile));
+      const completeProfile = profileRes.data as unknown as ProfileRow | null;
+      const profileSurfaceProfiles = [
+        completeProfile,
+        ...profileSurfaceRows.map(profileRowFromSurface),
+      ].filter((profile): profile is ProfileRow => Boolean(profile));
       // Cast defensivo: supabase-js .maybeSingle() retorna tipo unionado
       // com PostgrestError. Mesmo que TS consiga inferir em alguns casos,
       // ir via `unknown` evita brechas em mudanças futuras da lib.
@@ -2668,10 +2681,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       const stats = statsByUser.get(profile.user_id);
       const birthDate = profile.birth_date ?? null;
       const userGyms = userGymsByUser.get(profile.user_id) ?? [];
-      const gymNames = userGyms
-        .map((ug) => gymsById.get(ug.gym_id)?.name)
-        .filter((n): n is string => Boolean(n));
-      const mainUserGym = userGyms.find((ug) => ug.is_main);
+      const gymNames = getOrderedGymNamesForProfile(profile, userGyms, gymsById);
+      const mainUserGym = getMainUserGymForProfile(profile, userGyms);
       const preferredTimes =
         profile.preferred_training_times?.length
           ? profile.preferred_training_times
