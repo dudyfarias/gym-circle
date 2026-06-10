@@ -424,6 +424,8 @@
       "emptyHint": "Add a photo or video of the workout",
       "takePhoto": "Take photo",
       "pickGallery": "Pick from gallery",
+      "remove": "Remove media",
+      "addMore": "Add more",
       "uploading": "Uploading...",
       "uploadFailed": "Upload failed: {{message}}"
     },

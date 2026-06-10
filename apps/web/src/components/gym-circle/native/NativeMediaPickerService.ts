@@ -130,10 +130,40 @@ async function runNativePicker(
   }
 }
 
+/**
+ * Sprint 13 — seleção MÚLTIPLA da galeria (carrossel). Foto+vídeo misturado.
+ * Retorna todos os itens escolhidos (o caller capa em até 10). Web/PWA cai no
+ * <input multiple> via fallback do composer.
+ */
+async function runNativePickerMultiple(): Promise<NativeMediaResult[]> {
+  if (!(await isNativeCapacitor())) return [];
+  try {
+    const camera = await import("@capacitor/camera");
+    const result = await camera.Camera.chooseFromGallery({
+      mediaType: camera.MediaTypeSelection.All,
+      allowMultipleSelection: true,
+      includeMetadata: true,
+      quality: 88,
+      presentationStyle: "fullscreen",
+    });
+    const out: NativeMediaResult[] = [];
+    for (const m of result.results ?? []) {
+      const kind: NativeMediaKind =
+        m.type === camera.MediaType.Video ? "video" : "image";
+      const item = await mediaResultToFile(m, kind);
+      if (item) out.push(item);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 export const NativeMediaPickerService = {
   pickPhoto: () => runNativePicker("pick-photo"),
   pickVideo: () => runNativePicker("pick-video"),
   pickWorkoutMedia: () => runNativePicker("pick-any"),
+  pickWorkoutMediaMultiple: () => runNativePickerMultiple(),
   takePhoto: () => runNativePicker("take-photo"),
   captureVideo: () => runNativePicker("capture-video"),
   normalizeMediaResult: mediaResultToFile,

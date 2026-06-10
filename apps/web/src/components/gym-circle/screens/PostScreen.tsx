@@ -11,6 +11,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  Plus,
   RefreshCw,
   Search,
   Upload,
@@ -23,10 +24,15 @@ import type {
   EnrichedUser,
   GymLocationOption,
   PostLocationSource,
+  PostMediaItem,
   PostMediaType,
 } from "../social/types";
 import { TopBar } from "../TopBar";
+import { MediaCarousel } from "../design-system/MediaCarousel";
 import { PinchZoomImage } from "../design-system/PinchZoomImage";
+
+// Sprint 13 — limite do carrossel (alinhado com a regra de produto).
+const MAX_MEDIA = 10;
 import {
   GymSearchSheet,
   type LocatedPlaceCandidate,
@@ -124,6 +130,10 @@ export function PostScreen({
   const [imageUrl, setImageUrl] = useState("");
   const [mediaMeta, setMediaMeta] = useState<Omit<WorkoutMediaUploadResult, "imageUrl">>({});
   const [mediaType, setMediaType] = useState<PostMediaType>("image");
+  // Sprint 13 — carrossel: lista ordenada. imageUrl/mediaMeta/mediaType acima
+  // continuam sendo a CAPA (= item 0), pra toda a lógica existente
+  // (canPublish, preview single, publish) seguir funcionando sem reescrita.
+  const [mediaItems, setMediaItems] = useState<PostMediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -148,6 +158,12 @@ export function PostScreen({
     }
     return workoutType.trim() || null;
   }, [customWorkoutType, workoutType]);
+  // Sprint 13 — workout_types[] (até 5). A UI hoje seleciona 1; quando o
+  // multi-select de chips entrar, é só este memo coletar o array completo.
+  const resolvedWorkoutTypes = useMemo<string[]>(
+    () => (resolvedWorkoutType ? [resolvedWorkoutType] : []),
+    [resolvedWorkoutType],
+  );
 
   const registeredGyms = useMemo<GymLocationOption[]>(() => {
     // Mescla 3 fontes priorizando dados ricos:
@@ -270,34 +286,61 @@ export function PostScreen({
     return "";
   }, [coordinates, locationMode, selectedGym, t]);
 
-  async function uploadSelectedFile(file: File) {
+  // Sprint 13 — sobe UM arquivo e devolve o item (sem tocar no state). Os
+  // callers (câmera = single/replace, galeria = multi/append) controlam o state.
+  async function uploadOne(file: File): Promise<PostMediaItem | null> {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
       setUploadError(t("postScreen.publish.errors.uploadInvalidType"));
+      return null;
+    }
+    const type = getMediaType(file);
+    const uploaded = onUploadImage ? await onUploadImage(file) : URL.createObjectURL(file);
+    if (typeof uploaded === "string") {
+      return { mediaType: type, imageUrl: uploaded };
+    }
+    return {
+      mediaType: type,
+      imageUrl: uploaded.imageUrl,
+      thumbnailUrl: uploaded.thumbnailUrl ?? null,
+      posterUrl: uploaded.posterUrl ?? null,
+      mediaWidth: uploaded.mediaWidth ?? null,
+      mediaHeight: uploaded.mediaHeight ?? null,
+      mediaDurationSeconds: uploaded.mediaDurationSeconds ?? null,
+      blurDataUrl: uploaded.blurDataUrl ?? null,
+    };
+  }
+
+  // Espelha o item 0 (capa) no state legado que o resto do composer/publish lê.
+  function applyCover(item: PostMediaItem | null) {
+    if (!item) {
+      setImageUrl("");
+      setMediaMeta({});
+      setMediaType("image");
       return;
     }
+    setImageUrl(item.imageUrl);
+    setMediaType(item.mediaType);
+    setMediaMeta({
+      thumbnailUrl: item.thumbnailUrl ?? null,
+      posterUrl: item.posterUrl ?? null,
+      mediaWidth: item.mediaWidth ?? null,
+      mediaHeight: item.mediaHeight ?? null,
+      mediaDurationSeconds: item.mediaDurationSeconds ?? null,
+      blurDataUrl: item.blurDataUrl ?? null,
+    });
+  }
 
+  // Câmera / 1 arquivo → MÍDIA ÚNICA (substitui a seleção atual).
+  async function uploadSelectedFile(file: File) {
     setUploading(true);
     setUploadError(null);
     setPublishError(null);
-    setMediaType(getMediaType(file));
-    setMediaMeta({});
-
     try {
-      const uploaded = onUploadImage ? await onUploadImage(file) : URL.createObjectURL(file);
-      const url = typeof uploaded === "string" ? uploaded : uploaded.imageUrl;
-      setImageUrl(url);
-      setMediaMeta(
-        typeof uploaded === "string"
-          ? {}
-          : {
-              thumbnailUrl: uploaded.thumbnailUrl ?? null,
-              posterUrl: uploaded.posterUrl ?? null,
-              mediaWidth: uploaded.mediaWidth ?? null,
-              mediaHeight: uploaded.mediaHeight ?? null,
-              mediaDurationSeconds: uploaded.mediaDurationSeconds ?? null,
-              blurDataUrl: uploaded.blurDataUrl ?? null,
-            },
-      );
+      const item = await uploadOne(file);
+      if (item) {
+        setMediaItems([item]);
+        applyCover(item);
+      }
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
@@ -307,10 +350,44 @@ export function PostScreen({
     }
   }
 
+  // Galeria → multi: sobe vários, APPEND (cap MAX_MEDIA). Capa = item 0.
+  async function uploadGalleryFiles(files: File[]) {
+    if (files.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    setPublishError(null);
+    try {
+      const room = Math.max(0, MAX_MEDIA - mediaItems.length);
+      const picked: PostMediaItem[] = [];
+      for (const f of files.slice(0, room)) {
+        const item = await uploadOne(f);
+        if (item) picked.push(item);
+      }
+      if (picked.length > 0) {
+        const next = [...mediaItems, ...picked].slice(0, MAX_MEDIA);
+        setMediaItems(next);
+        applyCover(next[0]);
+      }
+    } catch (err) {
+      setUploadError(getErrorMessage(err));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function removeMediaAt(index: number) {
+    const next = mediaItems.filter((_, i) => i !== index);
+    setMediaItems(next);
+    applyCover(next[0] ?? null);
+  }
+
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    await uploadSelectedFile(file);
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    // Câmera (1) ou galeria web (N). 1 = single (replace); N = carrossel.
+    if (files.length === 1) await uploadSelectedFile(files[0]);
+    else await uploadGalleryFiles(files);
   }
 
   async function openNativeCamera() {
@@ -342,9 +419,13 @@ export function PostScreen({
     void HapticsService.selection();
     try {
       if (await NativeMediaPickerService.isNativePlatform()) {
-        const nativeMedia = await NativeMediaPickerService.pickWorkoutMedia();
-        if (nativeMedia?.file) await uploadSelectedFile(nativeMedia.file);
+        // Sprint 13 — galeria = carrossel: seleção MÚLTIPLA (foto+vídeo), append.
+        const results = await NativeMediaPickerService.pickWorkoutMediaMultiple();
+        if (results.length > 0) {
+          await uploadGalleryFiles(results.map((r) => r.file));
+        }
       } else {
+        // Web/PWA: <input multiple> → handleFileChange decide single vs multi.
         fileInputRef.current?.click();
       }
     } finally {
@@ -460,6 +541,9 @@ export function PostScreen({
       await onPublish({
         caption,
         workoutType: resolvedWorkoutType,
+        // Sprint 13 — carrossel (>1 mídia) + tags (workoutTypes = array).
+        media: mediaItems.length > 1 ? mediaItems : undefined,
+        workoutTypes: resolvedWorkoutTypes.length > 0 ? resolvedWorkoutTypes : null,
         gymId: resolvedLocation.gymId,
         gymName: resolvedLocation.name ?? "",
         imageUrl,
@@ -521,6 +605,7 @@ export function PostScreen({
       <input
         accept="image/*,video/*"
         className="hidden"
+        multiple
         onChange={handleFileChange}
         ref={fileInputRef}
         type="file"
@@ -536,42 +621,87 @@ export function PostScreen({
 
       {/* Área de mídia: protagonista quando preenchida, CTA simples quando vazia */}
       {imageUrl ? (
-        <div className="mt-4 overflow-hidden rounded-[24px] bg-black">
-          <div className={mediaType === "video" ? "relative aspect-[4/5]" : "relative"}>
-            {mediaType === "video" ? (
-              <video
-                autoPlay
-                className="h-full w-full object-cover"
-                loop
-                muted
-                playsInline
-                poster={mediaMeta.posterUrl ?? mediaMeta.thumbnailUrl ?? undefined}
-                preload="metadata"
-                src={imageUrl}
-              />
+        <div className="mt-4 space-y-2">
+          <div className="overflow-hidden rounded-[24px] bg-black">
+            {/* Sprint 13 — >1 mídia: preview em carrossel (swipe pra revisar). */}
+            {mediaItems.length > 1 ? (
+              <MediaCarousel altText={t("postScreen.media.alt")} media={mediaItems} />
             ) : (
-              <PinchZoomImage
-                alt={t("postScreen.media.alt")}
-                blurDataUrl={mediaMeta.blurDataUrl}
-                className="w-full"
-                hqSrc={
-                  mediaMeta.thumbnailUrl && imageUrl !== mediaMeta.thumbnailUrl
-                    ? imageUrl
-                    : undefined
-                }
-                sizes="(max-width: 480px) 100vw, 480px"
-                src={mediaMeta.thumbnailUrl ?? imageUrl}
-              />
+              <div className={mediaType === "video" ? "relative aspect-[4/5]" : "relative"}>
+                {mediaType === "video" ? (
+                  <video
+                    autoPlay
+                    className="h-full w-full object-cover"
+                    loop
+                    muted
+                    playsInline
+                    poster={mediaMeta.posterUrl ?? mediaMeta.thumbnailUrl ?? undefined}
+                    preload="metadata"
+                    src={imageUrl}
+                  />
+                ) : (
+                  <PinchZoomImage
+                    alt={t("postScreen.media.alt")}
+                    blurDataUrl={mediaMeta.blurDataUrl}
+                    className="w-full"
+                    hqSrc={
+                      mediaMeta.thumbnailUrl && imageUrl !== mediaMeta.thumbnailUrl
+                        ? imageUrl
+                        : undefined
+                    }
+                    sizes="(max-width: 480px) 100vw, 480px"
+                    src={mediaMeta.thumbnailUrl ?? imageUrl}
+                  />
+                )}
+                <button
+                  aria-label={t("postScreen.media.swapAria")}
+                  className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
+                  onClick={openNativeGallery}
+                  type="button"
+                >
+                  <RefreshCw size={16} strokeWidth={2.4} />
+                </button>
+              </div>
             )}
-            <button
-              aria-label={t("postScreen.media.swapAria")}
-              className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
-              onClick={openNativeGallery}
-              type="button"
-            >
-              <RefreshCw size={16} strokeWidth={2.4} />
-            </button>
           </div>
+
+          {/* Strip de gerenciamento do carrossel: remover item + adicionar mais. */}
+          {mediaItems.length > 1 ? (
+            <div className="gc-scrollbar flex gap-2 overflow-x-auto pb-1">
+              {mediaItems.map((item, index) => (
+                <div
+                  className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
+                  key={index}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt=""
+                    className="h-full w-full object-cover"
+                    src={item.thumbnailUrl ?? item.imageUrl}
+                  />
+                  <button
+                    aria-label={t("postScreen.media.remove")}
+                    className="gc-pressable absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/72 text-white"
+                    onClick={() => removeMediaAt(index)}
+                    type="button"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+              {mediaItems.length < MAX_MEDIA ? (
+                <button
+                  aria-label={t("postScreen.media.addMore")}
+                  className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
+                  disabled={uploading}
+                  onClick={openNativeGallery}
+                  type="button"
+                >
+                  <Plus size={18} />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="mt-4 flex aspect-[4/5] flex-col items-center justify-center gap-5 rounded-[24px] border border-white/[0.06] bg-white/[0.02] px-6">

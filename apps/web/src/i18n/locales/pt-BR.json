@@ -424,6 +424,8 @@
       "emptyHint": "Adicione uma foto ou vídeo do treino",
       "takePhoto": "Tirar foto",
       "pickGallery": "Escolher da galeria",
+      "remove": "Remover mídia",
+      "addMore": "Adicionar mais",
       "uploading": "Enviando...",
       "uploadFailed": "Upload falhou: {{message}}"
     },
