@@ -130,6 +130,12 @@ export function parseAchievementCompositeId(compositeId: string): {
 export type AchievementPostSnapshot = {
   createdAt: string;
   workoutType: string | null;
+  /**
+   * Fix pós-Sprint 13 — tags adicionais do post (workout_types array).
+   * Cross-trainer conta primária + tags; posts antigos (null) seguem
+   * só com a primária.
+   */
+  workoutTypes?: ReadonlyArray<string> | null;
   gymId?: string;
 };
 
@@ -209,6 +215,11 @@ function buildBadges(input: {
     for (const post of recentWeek) {
       const type = post.workoutType?.trim();
       if (type) recentTypes.add(type.toLowerCase());
+      // Fix pós-Sprint 13: tags adicionais também contam pro cross-trainer.
+      for (const tag of post.workoutTypes ?? []) {
+        const extra = tag?.trim();
+        if (extra) recentTypes.add(extra.toLowerCase());
+      }
     }
     crossTrainerEarned = recentTypes.size >= 3;
 

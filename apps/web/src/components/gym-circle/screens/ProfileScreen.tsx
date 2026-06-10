@@ -153,6 +153,7 @@ export function ProfileScreen({
     posts: posts.map((post) => ({
       createdAt: post.createdAt,
       workoutType: post.workoutType ?? null,
+      workoutTypes: post.workoutTypes ?? null,
       gymId: post.gymId,
     })),
   });

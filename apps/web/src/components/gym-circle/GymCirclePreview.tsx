@@ -1061,6 +1061,7 @@ export function GymCirclePreview({
       posts: currentUserPosts.map((post) => ({
         createdAt: post.createdAt,
         workoutType: post.workoutType ?? null,
+        workoutTypes: post.workoutTypes ?? null,
         gymId: post.gymId,
       })),
     });
@@ -1106,6 +1107,7 @@ export function GymCirclePreview({
           posts: currentUserPosts.map((post) => ({
             createdAt: post.createdAt,
             workoutType: post.workoutType ?? null,
+            workoutTypes: post.workoutTypes ?? null,
             gymId: post.gymId,
           })),
         });
@@ -1260,10 +1262,14 @@ export function GymCirclePreview({
         const challengePosts = currentUserPosts.map((post) => ({
           workoutDate: post.workoutDate,
           workoutType: post.workoutType ?? null,
-          // Sprint 7.5.10: group workouts contam só quando há 2+
-          // participants accepted (além do autor implícito).
+          // Fix pós-Sprint 13: tags adicionais também contam pros goal
+          // kinds de tipo (distinct_types / workout_type_specific).
+          workoutTypes: post.workoutTypes ?? null,
+          // Treino em grupo = 2+ pessoas no total: autor implícito + 1
+          // participante accepted já conta (antes exigia 2+ accepted =
+          // 3 pessoas, e dupla nunca progredia o desafio).
           hasAcceptedGroup:
-            (post.acceptedParticipants?.length ?? 0) >= 2,
+            (post.acceptedParticipants?.length ?? 0) >= 1,
         }));
         const updatedChallenges: MonthlyChallengeData[] = [];
         for (const challenge of challenges) {

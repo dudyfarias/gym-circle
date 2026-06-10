@@ -153,9 +153,15 @@ export type ChallengePostSnapshot = {
   workoutDate: string;
   workoutType: string | null;
   /**
-   * Quando o post tem 2+ participantes accepted (excluindo o autor),
-   * conta como group workout. Caller deve hidratar esse flag a partir
-   * de post_participants.
+   * Fix pós-Sprint 13 — tags adicionais do post (workout_types array,
+   * até 5). A contagem de tipos considera primária + adicionais; posts
+   * antigos (array null) seguem só com a primária.
+   */
+  workoutTypes?: ReadonlyArray<string> | null;
+  /**
+   * Quando o post tem 1+ participante accepted (além do autor implícito,
+   * ou seja, 2+ pessoas no total), conta como group workout. Caller deve
+   * hidratar esse flag a partir de post_participants.
    */
   hasAcceptedGroup?: boolean;
 };
@@ -173,13 +179,28 @@ function normalizeForCompare(s: string): string {
 }
 
 /**
+ * Todos os tipos de treino de um post (primária + tags da Sprint 13),
+ * já normalizados e dedupados.
+ */
+function postWorkoutTypes(post: ChallengePostSnapshot): string[] {
+  const types = new Set<string>();
+  if (post.workoutType?.trim()) {
+    types.add(normalizeForCompare(post.workoutType));
+  }
+  for (const tag of post.workoutTypes ?? []) {
+    if (tag?.trim()) types.add(normalizeForCompare(tag));
+  }
+  return [...types];
+}
+
+/**
  * Recompute progress de UM challenge a partir do estado social atual.
  *
  * Goal kinds suportados (Sprint 7.5.10):
  *   - workouts_in_month: dias treinados no período
- *   - workout_type_specific: posts com workout_type matching (config.workout_type)
- *   - group_workouts: posts com 2+ participantes accepted
- *   - distinct_types: workout_types únicos no período
+ *   - workout_type_specific: posts com qualquer tag matching (config.workout_type)
+ *   - group_workouts: posts com 1+ participante accepted (2+ pessoas no total)
+ *   - distinct_types: tipos únicos no período (primária + tags Sprint 13)
  *
  * Pulados (fallback mantém valor atual):
  *   - streak_in_month, perfect_month
@@ -216,10 +237,11 @@ export function recomputeChallengeProgress(
         break;
       }
       const targetNorm = normalizeForCompare(target);
-      newProgress = postsInMonth.filter((p) => {
-        if (!p.workoutType) return false;
-        return normalizeForCompare(p.workoutType).includes(targetNorm);
-      }).length;
+      // Fix pós-Sprint 13: considera TODAS as tags do post (primária +
+      // workout_types), não só a primária — tênis como 2ª tag conta.
+      newProgress = postsInMonth.filter((p) =>
+        postWorkoutTypes(p).some((type) => type.includes(targetNorm)),
+      ).length;
       break;
     }
     case "group_workouts": {
@@ -229,8 +251,7 @@ export function recomputeChallengeProgress(
     case "distinct_types": {
       const types = new Set<string>();
       for (const p of postsInMonth) {
-        const t = p.workoutType?.trim();
-        if (t) types.add(normalizeForCompare(t));
+        for (const type of postWorkoutTypes(p)) types.add(type);
       }
       newProgress = types.size;
       break;
