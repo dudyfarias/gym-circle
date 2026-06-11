@@ -22,6 +22,12 @@ targets:
     dependencies:
       - package: Supabase
         product: Supabase
+    # Sprint 20.0 — config do standalone: Shared.xcconfig faz #include?
+    # opcional do Secrets.xcconfig (gitignorado). Sem ele o app builda e
+    # cai no modo demo; com ele, conecta no Supabase real.
+    configFiles:
+      Debug: Config/Shared.xcconfig
+      Release: Config/Shared.xcconfig
     info:
       path: Support/Info.plist
       properties:
@@ -29,6 +35,10 @@ targets:
         CFBundleShortVersionString: "1.1"
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
+        # Sprint 20.0 — resolvidas no build a partir do xcconfig; o
+        # AppConfiguration.fromBundle() lê daqui (vazio ⇒ modo demo).
+        SupabaseURL: $(SUPABASE_URL)
+        SupabaseAnonKey: $(SUPABASE_ANON_KEY)
         UILaunchScreen:
           UIColorName: ""
         UISupportedInterfaceOrientations:

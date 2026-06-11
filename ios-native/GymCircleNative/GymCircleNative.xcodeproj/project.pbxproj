@@ -43,6 +43,7 @@
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
 		C256C624C303F3E8ED1E4320 /* OtherProfileSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */; };
 		C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */; };
+		C2EDF86FCE4D0E48A33B6068 /* AppConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */; };
 		C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D2F3C03BC2098846FF44D01 /* FollowsService.swift */; };
 		C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */; };
 		CABAF9C24A6B73D53E850AE5 /* CalendarBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FB7A0E8635F10DB44C9E017 /* CalendarBuilderTests.swift */; };
@@ -76,9 +77,11 @@
 		0AD1AB193A5FDA3AB7B141AE /* GymCircleNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeApp.swift; sourceTree = "<group>"; };
 		0F5A004267A6D5354857ABFD /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		0FB7A0E8635F10DB44C9E017 /* CalendarBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarBuilderTests.swift; sourceTree = "<group>"; };
+		12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
 		15CF77117635F0D69B78BE8C /* StoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryModels.swift; sourceTree = "<group>"; };
 		1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
 		29F08F3783EAD0DC084E6E2F /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeRootView.swift; sourceTree = "<group>"; };
 		317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBuilderTests.swift; sourceTree = "<group>"; };
 		381506FB324FA418FAD1FEBF /* MyCircleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleService.swift; sourceTree = "<group>"; };
@@ -242,6 +245,14 @@
 			path = Theme;
 			sourceTree = "<group>";
 		};
+		9DF4578379CB90ECD92047D8 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
 		A66E4EF33F6358D08C81BF52 /* Services */ = {
 			isa = PBXGroup;
 			children = (
@@ -261,6 +272,7 @@
 		B8C54D361F2EEE37D37C2951 = {
 			isa = PBXGroup;
 			children = (
+				9DF4578379CB90ECD92047D8 /* Config */,
 				87532101CD0BC195B0B2FED4 /* Sources */,
 				4C71A8B40816BD2AF4BF18EE /* Tests */,
 				2CE83B2EAC00497021A2C889 /* Products */,
@@ -281,6 +293,7 @@
 			isa = PBXGroup;
 			children = (
 				317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */,
+				12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */,
 				0FB7A0E8635F10DB44C9E017 /* CalendarBuilderTests.swift */,
 				F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */,
 				70CEB07821E09F169BDBDA40 /* RetryTests.swift */,
@@ -442,6 +455,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				88263A3ED7D173C5FC3EC4B0 /* AchievementBuilderTests.swift in Sources */,
+				C2EDF86FCE4D0E48A33B6068 /* AppConfigurationTests.swift in Sources */,
 				CABAF9C24A6B73D53E850AE5 /* CalendarBuilderTests.swift in Sources */,
 				BBE4C5ED1604B5BF51F36B23 /* NativeModelsTests.swift in Sources */,
 				6F3FB4F0BD0F20D0D460B61B /* RetryTests.swift in Sources */,
@@ -544,6 +558,7 @@
 		};
 		6399E28BDF2C7743C0AB9EE9 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
@@ -568,6 +583,7 @@
 		};
 		929931F5A3F9CA2108841F42 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;

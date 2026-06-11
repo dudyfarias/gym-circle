@@ -30,6 +30,10 @@
 	<string>O Gym Circle nativo usara o microfone para videos em uma sprint futura.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>O Gym Circle nativo usara a galeria para selecionar midias em uma sprint futura.</string>
+	<key>SupabaseAnonKey</key>
+	<string>$(SUPABASE_ANON_KEY)</string>
+	<key>SupabaseURL</key>
+	<string>$(SUPABASE_URL)</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

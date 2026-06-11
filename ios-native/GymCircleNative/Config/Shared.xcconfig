@@ -1,0 +1,13 @@
+// Sprint 20.0 — config compartilhada do app nativo standalone.
+//
+// Os valores reais vivem em Secrets.xcconfig (GITIGNORADO — crie o seu a
+// partir do Secrets.example.xcconfig). O include é OPCIONAL (#include?):
+// sem o arquivo, o projeto ainda gera/builda e o app cai no modo demo.
+//
+// GOTCHA de xcconfig: "//" inicia comentário — numa URL use $() pra
+// quebrar a sequência: SUPABASE_URL = https:/$()/seu-projeto.supabase.co
+
+SUPABASE_URL =
+SUPABASE_ANON_KEY =
+
+#include? "Secrets.xcconfig"

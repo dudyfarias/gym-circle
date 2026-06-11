@@ -44,3 +44,7 @@ supabase/.branches
 
 # Local App Store screenshots (never commit — repo rule)
 screenshots/
+
+# Sprint 20 — secrets do app nativo standalone (criar a partir do
+# Config/Secrets.example.xcconfig; nunca commitar valores reais)
+ios-native/GymCircleNative/Config/Secrets.xcconfig

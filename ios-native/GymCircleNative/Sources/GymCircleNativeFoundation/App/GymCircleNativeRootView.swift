@@ -5,7 +5,17 @@ public struct GymCircleNativeRootView: View {
     @StateObject private var model: GymCircleAppModel
 
     public init() {
-        _model = StateObject(wrappedValue: GymCircleAppModel())
+        // Sprint 20.0 — o standalone agora resolve a config real
+        // (env de dev → Info.plist via xcconfig) e cria o AppModel com
+        // services Supabase de verdade. Antes este init criava o model
+        // SEM services e o app inteiro bootava em modo demo. Sem config
+        // (Secrets.xcconfig ausente), o fallback demo continua — útil
+        // pra preview/clone sem credenciais.
+        if let provider = SupabaseClientProvider.resolved() {
+            _model = StateObject(wrappedValue: GymCircleAppModel(client: provider.client))
+        } else {
+            _model = StateObject(wrappedValue: GymCircleAppModel())
+        }
     }
 
     public init(model: GymCircleAppModel) {

@@ -22,4 +22,14 @@ public final class SupabaseClientProvider: ObservableObject {
 
         return try SupabaseClientProvider(configuration: configuration)
     }
+
+    /// Sprint 20.0 — resolução padrão do app standalone: env (dev) →
+    /// Info.plist (produção, via xcconfig). Retorna nil quando nenhuma
+    /// config existe — caller decide o fallback (modo demo).
+    public static func resolved() -> SupabaseClientProvider? {
+        guard let configuration = AppConfiguration.resolve() else {
+            return nil
+        }
+        return try? SupabaseClientProvider(configuration: configuration)
+    }
 }

@@ -56,6 +56,12 @@ public actor MyCircleService {
 
     /// Sprint 8.13.2 — workout types distintos do user nos últimos N dias.
     /// Usado pelo achievement secret `cross-trainer` (3+ tipos em 7d).
+    ///
+    /// Sprint 20.0 — port do fix multi-tags da web (f4e1f0b, drift B10):
+    /// conta primária + tags do array `workout_types` (Sprint 13), com a
+    /// MESMA normalização do `normalizeForCompare` web (lowercase + sem
+    /// acentos) — antes "Musculação" e "musculacao" contavam como 2 e
+    /// tags secundárias eram ignoradas, divergindo do Hall web.
     public func getDistinctWorkoutTypes(userId: String, sinceDaysAgo: Int) async throws -> Int {
         let calendar = Calendar(identifier: .gregorian)
         let cutoff = calendar.date(byAdding: .day, value: -sinceDaysAgo, to: .now) ?? .now
@@ -63,12 +69,35 @@ public actor MyCircleService {
 
         let rows: [PostWorkoutTypeRow] = try await client
             .from("posts")
-            .select("workout_type")
+            .select("workout_type,workout_types")
             .eq("user_id", value: userId)
             .gte("workout_date", value: cutoffKey)
             .execute()
             .value
-        return Set(rows.map(\.workoutType).filter { !$0.isEmpty }).count
+
+        var types = Set<String>()
+        for row in rows {
+            if let normalized = Self.normalizeWorkoutType(row.workoutType) {
+                types.insert(normalized)
+            }
+            for tag in row.workoutTypes ?? [] {
+                if let normalized = Self.normalizeWorkoutType(tag) {
+                    types.insert(normalized)
+                }
+            }
+        }
+        return types.count
+    }
+
+    /// Paridade com `normalizeForCompare` (web monthlyChallenges.ts):
+    /// decomposição + remoção de acentos, lowercase, trim. Vazio ⇒ nil.
+    static func normalizeWorkoutType(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let normalized = raw
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "pt_BR"))
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalized.isEmpty ? nil : normalized
     }
 
     /// Sprint 8.13.2 — gym IDs distintos do user nos últimos N dias.
@@ -142,8 +171,12 @@ public actor MyCircleService {
             .value
 
         var counts: [String: Int] = [:]
-        for row in rows where !row.workoutType.isEmpty {
-            counts[row.workoutType, default: 0] += 1
+        // Sprint 20.0 — workoutType virou opcional (decode defensivo);
+        // o top type do recap continua contando só a tag primária (a
+        // "principal" do treino), com o display original preservado.
+        for row in rows {
+            guard let type = row.workoutType, !type.isEmpty else { continue }
+            counts[type, default: 0] += 1
         }
         return counts.max(by: { $0.value < $1.value })?.key
     }
@@ -397,9 +430,15 @@ public struct MonthCalendarPost: Hashable, Sendable {
 }
 
 /// Sprint 8.13.2 — shapes só do `workout_type` e `gym_id` pros 2 secrets.
+/// Sprint 20.0 — campos opcionais (decode defensivo: uma row inesperada
+/// não derruba a lista inteira) + `workout_types` (multi-tags Sprint 13).
 private struct PostWorkoutTypeRow: Codable, Sendable {
-    let workoutType: String
-    enum CodingKeys: String, CodingKey { case workoutType = "workout_type" }
+    let workoutType: String?
+    let workoutTypes: [String]?
+    enum CodingKeys: String, CodingKey {
+        case workoutType = "workout_type"
+        case workoutTypes = "workout_types"
+    }
 }
 
 private struct PostGymRow: Codable, Sendable {
