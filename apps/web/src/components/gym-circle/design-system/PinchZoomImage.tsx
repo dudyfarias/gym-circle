@@ -1,6 +1,6 @@
 "use client";
 
-import { type TouchEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { hasImageLoaded, markImageLoaded } from "./imageCache";
 
 /**
@@ -61,6 +61,20 @@ type PinchZoomImageProps = {
    * de nitidez. Crossfade aqui custaria GPU sem ganho perceptível.
    */
   hqSrc?: string;
+  /**
+   * Sprint 16.x (zoom no carrossel) — trava o aspect ratio do frame em
+   * vez de adotar o natural da imagem no load. O carrossel usa 4/5 fixo
+   * pra mídias de aspectos diferentes não fazerem o trilho "pular" ao
+   * deslizar entre slides.
+   */
+  fixedAspectRatio?: number;
+  /**
+   * Sprint 16.x — quando o componente vive dentro de um scroller
+   * HORIZONTAL (carrossel scroll-snap), o touch-action em repouso vira
+   * "pan-x pan-y" (swipe entre slides + scroll do feed seguem livres).
+   * Default false = "pan-y" (comportamento original do feed vertical).
+   */
+  allowHorizontalPan?: boolean;
 };
 
 type PinchState = {
@@ -84,14 +98,14 @@ type PanState = {
 const MIN_SCALE = 1;
 const MAX_SCALE = 3;
 
-function getDistance(touches: TouchEvent<HTMLDivElement>["touches"]) {
+function getDistance(touches: TouchList) {
   const a = touches[0];
   const b = touches[1];
   if (!a || !b) return 0;
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
 
-function getMidpoint(touches: TouchEvent<HTMLDivElement>["touches"]) {
+function getMidpoint(touches: TouchList) {
   const a = touches[0];
   const b = touches[1];
   if (!a || !b) return { x: 0, y: 0 };
@@ -109,11 +123,13 @@ export function PinchZoomImage({
   priority = false,
   src,
   hqSrc,
+  fixedAspectRatio,
+  allowHorizontalPan = false,
 }: PinchZoomImageProps) {
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [gesture, setGesture] = useState<"none" | "pinch" | "pan">("none");
-  const [aspectRatio, setAspectRatio] = useState(4 / 5);
+  const [aspectRatio, setAspectRatio] = useState(fixedAspectRatio ?? 4 / 5);
   // Sprint 2.2: se o src já foi visto nesta sessão, pula o fade-in.
   // Sensação instant ao rever um post (ex.: reabrir feed após sair).
   const [loaded, setLoaded] = useState(() => hasImageLoaded(src));
@@ -186,7 +202,7 @@ export function PinchZoomImage({
     return { x: clamp(x, -maxX, maxX), y: clamp(y, -maxY, maxY) };
   }
 
-  function startGesture(event: TouchEvent<HTMLDivElement>) {
+  function startGesture(event: globalThis.TouchEvent) {
     if (event.touches.length === 2) {
       // Inicia pinch — captura anchor no midpoint dos 2 dedos.
       const rect = getRect();
@@ -215,7 +231,7 @@ export function PinchZoomImage({
     }
   }
 
-  function moveGesture(event: TouchEvent<HTMLDivElement>) {
+  function moveGesture(event: globalThis.TouchEvent) {
     if (event.touches.length === 2 && pinchRef.current) {
       const distance = getDistance(event.touches);
       if (distance <= 0) return;
@@ -247,7 +263,7 @@ export function PinchZoomImage({
     }
   }
 
-  function endGesture(event: TouchEvent<HTMLDivElement>) {
+  function endGesture(event: globalThis.TouchEvent) {
     if (event.touches.length === 0) {
       // Soltou tudo — reset suave (volta pra scale=1 e centraliza). A
       // transição CSS (220ms ease iOS) anima o retorno.
@@ -278,6 +294,9 @@ export function PinchZoomImage({
   }
 
   function updateAspectRatio(image: HTMLImageElement) {
+    // Frame travado (carrossel): não adota o aspecto natural — slides de
+    // aspectos diferentes manteriam o trilho estável.
+    if (fixedAspectRatio != null) return;
     const width = image.naturalWidth;
     const height = image.naturalHeight;
     if (!width || !height) return;
@@ -298,9 +317,13 @@ export function PinchZoomImage({
   // - durante gesture (pinch/pan): "none" — bloqueia scroll do feed pra que
   //   o WebView não roube o movimento de pan.
   // - com zoom ativo (scale > 1) mas sem gesto: "none" — user vai mover.
-  // - sem zoom e sem gesto: "pan-y" — deixa scroll vertical natural.
+  // - sem zoom e sem gesto: "pan-y" no feed vertical; "pan-x pan-y" dentro
+  //   do carrossel (senão o swipe horizontal entre slides morre — era o
+  //   "zoom não funciona no carrossel": pan-y bloqueava o trilho E o
+  //   scroll-snap roubava a pinça).
+  const restTouchAction = allowHorizontalPan ? "pan-x pan-y" : "pan-y";
   const touchAction =
-    gesture !== "none" || scale > MIN_SCALE ? "none" : "pan-y";
+    gesture !== "none" || scale > MIN_SCALE ? "none" : restTouchAction;
 
   // Sprint 2.2: fundo do container vira o blur placeholder enquanto
   // a imagem decode. Quando há blurDataUrl, usa como background-image;
@@ -318,6 +341,53 @@ export function PinchZoomImage({
       : {}),
   };
 
+  // Sprint 16.x (zoom no carrossel) — listeners NATIVOS não-passivos em
+  // vez dos props onTouch* do React (que são passivos: preventDefault não
+  // funciona). Dentro do scroll-snap horizontal, sem preventDefault o
+  // container ROUBA o gesto de pinça como scroll — era por isso que o
+  // zoom "não funcionava" no carrossel. preventDefault só dispara com
+  // 2 dedos ou gesto ativo; toque/swipe de 1 dedo segue natural.
+  // Ref-delegation: bind 1x, handlers sempre frescos (closures do render).
+  const startGestureRef = useRef(startGesture);
+  const moveGestureRef = useRef(moveGesture);
+  const endGestureRef = useRef(endGesture);
+  // Sincroniza pós-render (mutar ref DURANTE o render viola
+  // react-hooks/refs); eventos de toque só disparam depois do paint,
+  // então o effect sem deps mantém os handlers sempre frescos.
+  useEffect(() => {
+    startGestureRef.current = startGesture;
+    moveGestureRef.current = moveGesture;
+    endGestureRef.current = endGesture;
+  });
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const hasActiveGesture = () =>
+      pinchRef.current !== null || panRef.current !== null;
+    const onStart = (e: globalThis.TouchEvent) => {
+      if (e.touches.length >= 2) e.preventDefault();
+      startGestureRef.current(e);
+    };
+    const onMove = (e: globalThis.TouchEvent) => {
+      if (e.touches.length >= 2 || hasActiveGesture()) e.preventDefault();
+      moveGestureRef.current(e);
+    };
+    const onEnd = (e: globalThis.TouchEvent) => {
+      endGestureRef.current(e);
+    };
+    node.addEventListener("touchstart", onStart, { passive: false });
+    node.addEventListener("touchmove", onMove, { passive: false });
+    node.addEventListener("touchend", onEnd, { passive: true });
+    node.addEventListener("touchcancel", onEnd, { passive: true });
+    return () => {
+      node.removeEventListener("touchstart", onStart);
+      node.removeEventListener("touchmove", onMove);
+      node.removeEventListener("touchend", onEnd);
+      node.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
@@ -327,10 +397,6 @@ export function PinchZoomImage({
         className,
       ].join(" ")}
       data-gc-no-screen-swipe
-      onTouchCancel={endGesture}
-      onTouchEnd={endGesture}
-      onTouchMove={moveGesture}
-      onTouchStart={startGesture}
       style={containerStyle}
     >
       <div

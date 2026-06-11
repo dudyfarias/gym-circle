@@ -139,20 +139,23 @@ function MediaSlide({ item, isActive, inCarousel, altText, priority }: MediaSlid
   const hqSrc =
     item.thumbnailUrl && item.imageUrl !== item.thumbnailUrl ? item.imageUrl : undefined;
 
-  // Dentro do carrossel: frame fixo 4:5 object-cover (mídias de aspectos
-  // diferentes não fazem o trilho "pular" ao deslizar). Single: aspecto natural
-  // com pinch-zoom (comportamento original do feed).
+  // Dentro do carrossel: frame TRAVADO em 4:5 (mídias de aspectos
+  // diferentes não fazem o trilho "pular" ao deslizar) — agora COM
+  // pinch-zoom (Sprint 16.x: antes era <img> puro e o zoom não existia
+  // no carrossel; fixedAspectRatio mantém o trilho estável e
+  // allowHorizontalPan deixa o swipe entre slides vivo em repouso).
   if (inCarousel) {
     return (
-      <div className="relative aspect-[4/5] bg-black">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          alt={altText}
-          className="h-full w-full object-cover"
-          loading={priority ? "eager" : "lazy"}
-          src={previewSrc}
-        />
-      </div>
+      <PinchZoomImage
+        allowHorizontalPan
+        alt={altText}
+        blurDataUrl={item.blurDataUrl ?? undefined}
+        className="w-full"
+        fixedAspectRatio={4 / 5}
+        hqSrc={hqSrc}
+        priority={priority}
+        src={previewSrc}
+      />
     );
   }
 
