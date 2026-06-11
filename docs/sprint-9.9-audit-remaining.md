@@ -138,6 +138,13 @@ em `20260506205548_gym_circle_advisor_fixes.sql`.
 
 ## 4. App Store Connect — checklist pendente
 
+> **ATUALIZAÇÃO 11/jun/2026 (Sprint 16)** — esta seção está OBSOLETA: a
+> v1.1 foi submetida e está NA LOJA. Os itens em ❌ abaixo foram todos
+> concluídos depois deste doc (marketing copy = Sprint 10.6, conta demo
+> pro reviewer = Sprint 10.8, /support = Sprint 11.5, screenshots e
+> metadata = `STORE_METADATA.md`). Mantido só como histórico — checklist
+> vivo de release: `docs/testflight-upload-checklist.md`.
+
 | Item | Status |
 |------|--------|
 | App ID criado em Identifiers | ⏳ Manual |

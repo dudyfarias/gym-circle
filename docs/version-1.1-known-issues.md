@@ -2,6 +2,23 @@
 
 Data: 2026-05-30
 
+> **ATUALIZAÇÃO 11/jun/2026 (Sprint 16)** — este doc é um snapshot
+> histórico; a maioria dos itens abaixo foi RESOLVIDA. Status atual:
+>
+> | Item original | Status |
+> |---------------|--------|
+> | Chat reabrindo conversa apagada | ✅ Resolvido — migration `20260521_stabilize_chat_delete_reopen` + RPCs delete-for-me |
+> | Overwrite lógico de dados de perfil | ✅ Resolvido — Sprint 11.2 (profile row direto + mergeProfileRows prefere non-null) |
+> | Validação local bloqueada (lint/node_modules) | ✅ Resolvido — Sprint 16: tsc 0 erros, vitest 230/230, eslint 0 errors, build passa |
+> | Notificações de tag com botões obsoletos | ✅ Resolvido — Sprints 10.5/11.3/11.4 |
+> | Comments overlay abrindo com post junto | ✅ Resolvido — Sprint 5.11 (PostDetailOverlay separado) |
+> | Apple/Google login ocultos na UI | ✅ Mantido por decisão — protegido por teste (`authInterface.test.ts`) |
+> | Story viewed state (ring azul voltando) | ⏳ Re-validar no smoke do build 7 (Sprint 18) |
+> | Stories: continuidade entre autores | ⏳ Re-validar no smoke do build 7 — fix provável já no ar (Sprint 16, render-adjust no StoryViewer) |
+> | Feed/realtime listeners amplos | ✅ Sem listeners globais hoje (chat = polling; auditoria 11/jun) |
+>
+> Lista viva de bugs: `docs/audits/bug-audit.md`.
+
 ## Criticos
 
 ### Chat pode reabrir conversa apagada ou oscilar conversa existente/nova
