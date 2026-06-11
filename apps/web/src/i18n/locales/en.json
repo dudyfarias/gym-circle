@@ -199,13 +199,11 @@
       },
       "account": {
         "title": "Account",
-        "description": "Manage your account.",
-        "comingSoon": "Coming soon — change email, sign out, delete account."
+        "description": "Manage your account."
       },
       "about": {
         "title": "About",
-        "description": "Version, terms, and support.",
-        "comingSoon": "Coming soon."
+        "description": "Version, terms, and support."
       }
     },
     "language": {

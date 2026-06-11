@@ -199,13 +199,11 @@
       },
       "account": {
         "title": "Conta",
-        "description": "Gerencie sua conta.",
-        "comingSoon": "Em breve — alterar e-mail, sair e apagar conta."
+        "description": "Gerencie sua conta."
       },
       "about": {
         "title": "Sobre",
-        "description": "Versão, termos e suporte.",
-        "comingSoon": "Em breve."
+        "description": "Versão, termos e suporte."
       }
     },
     "language": {
