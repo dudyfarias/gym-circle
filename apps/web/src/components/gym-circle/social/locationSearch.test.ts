@@ -245,6 +245,9 @@ describe("post location search", () => {
     expect(source).not.toContain("locationOptions");
     expect(source).not.toContain("Academia cadastrada");
     expect(source).toContain("setSearchOpen(true)");
-    expect(source).toContain("Remover localização");
+    // Sprint 16 — pós-9.9.1 a string "Remover localização" vive no i18n;
+    // o fonte referencia a CHAVE (estável). Antes o teste grepava o PT
+    // literal e quebrou no sweep de L10n.
+    expect(source).toContain("postScreen.location.remove");
   });
 });

@@ -38,6 +38,11 @@ function fullProfile(input: Partial<ProfileRow> & Pick<ProfileRow, "user_id">): 
     reactivation_sent_at: input.reactivation_sent_at ?? null,
     reactivation_expires_at: input.reactivation_expires_at ?? null,
     deleted_at: input.deleted_at ?? null,
+    // Sprint 16 — campos JSONB das Sprints 7C.1/7.5.1/5.5a que faltavam
+    // no fixture (origem do erro TS2739 do baseline).
+    contextual_hints_seen: input.contextual_hints_seen ?? {},
+    featured_achievements: input.featured_achievements ?? [],
+    monthly_recap_covers: input.monthly_recap_covers ?? {},
   };
 }
 

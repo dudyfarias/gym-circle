@@ -4,37 +4,23 @@ import {
   getLikesOverlayUsers,
   getPostLikeSummary,
 } from "./likes";
+import { makeEnrichedUser } from "./testFixtures";
 import type { EnrichedUser } from "./types";
 
+// Sprint 16 — delega pro fixture compartilhado (testFixtures.ts); só os
+// defaults específicos desta suíte ficam aqui.
 function createUser(input: Partial<EnrichedUser> & Pick<EnrichedUser, "id" | "username">) {
-  return {
-    id: input.id,
-    name: input.name ?? input.username,
-    username: input.username,
-    accent: "#30D5FF",
-    avatarUrl: null,
-    bio: "",
-    goal: "",
-    location: "",
-    gyms: [],
-    preferredTimes: [],
+  return makeEnrichedUser({
     currentStreak: 4,
     longestStreak: 7,
     lastWorkoutDate: "2026-05-13",
     workoutsThisMonth: 5,
     activeDaysCount: 18,
     checkInsCount: 2,
-    achievements: [],
-    followersCount: 0,
-    followingCount: 0,
-    isFollowing: false,
-    followStatus: "none",
-    isPrivate: false,
-    workoutDays: [],
     streakLitToday: true,
     streakPresenceSource: "feed-photo",
     ...input,
-  } satisfies EnrichedUser;
+  });
 }
 
 const likedUser = createUser({

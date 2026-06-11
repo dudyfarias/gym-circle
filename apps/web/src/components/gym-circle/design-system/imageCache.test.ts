@@ -57,8 +57,11 @@ describe("imageCache — Sprint 2.1", () => {
   });
 
   describe("preloadImage", () => {
-    // Mock global Image — vitest jsdom traz uma versão básica, mas o
-    // método `.decode()` não existe nela. Polyfill manual.
+    // Sprint 16 — a suíte roda em ambiente NODE (não jsdom): além do
+    // FakeImage, precisamos stubar `window` em si, senão o guard SSR do
+    // preloadImage (`typeof window === "undefined"`) retorna cedo sem
+    // cachear e os 5 testes abaixo falhavam silenciosamente — era a
+    // maior fatia do baseline de testes vermelhos.
     beforeEach(() => {
       class FakeImage {
         src = "";
@@ -79,6 +82,7 @@ describe("imageCache — Sprint 2.1", () => {
         }
       }
       vi.stubGlobal("Image", FakeImage);
+      vi.stubGlobal("window", { Image: FakeImage });
     });
 
     afterEach(() => {
@@ -124,6 +128,9 @@ describe("imageCache — Sprint 2.1", () => {
         }
       }
       vi.stubGlobal("Image", FakeImage);
+      // Sprint 16 — mesmo stub de `window` do describe acima: sem ele o
+      // guard SSR do preloadImage retorna cedo em ambiente node.
+      vi.stubGlobal("window", { Image: FakeImage });
     });
 
     afterEach(() => {

@@ -5,6 +5,7 @@ import {
   groupStoriesByProfile,
   sortStoriesNewestFirst,
 } from "./stories";
+import { makeEnrichedUser } from "./testFixtures";
 import type { EnrichedStory, EnrichedUser } from "./types";
 
 const stories = [
@@ -38,34 +39,24 @@ describe("story ordering and navigation", () => {
   });
 });
 
+// Sprint 16 — delega pro fixture compartilhado (testFixtures.ts); o cast
+// `as EnrichedUser` antigo escondia campos faltando e gerava o baseline
+// de erros de tsc.
 function user(id: string, followStatus: EnrichedUser["followStatus"] = "accepted") {
-  return {
+  return makeEnrichedUser({
     id,
-    name: id,
     username: id,
     accent: "cyan",
-    avatarUrl: null,
-    bio: "",
-    goal: "",
-    location: "",
-    gyms: [],
-    preferredTimes: [],
     currentStreak: 1,
     longestStreak: 1,
     lastWorkoutDate: "2026-05-07",
     workoutsThisMonth: 1,
     activeDaysCount: 1,
-    checkInsCount: 0,
-    achievements: [],
-    followersCount: 0,
-    followingCount: 0,
     isFollowing: followStatus === "accepted",
     followStatus,
-    isPrivate: false,
-    workoutDays: [],
     streakLitToday: true,
     streakPresenceSource: "feed-photo",
-  } as EnrichedUser;
+  });
 }
 
 function story(

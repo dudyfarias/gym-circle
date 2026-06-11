@@ -4,37 +4,12 @@ import {
   mergeChatUsers,
   normalizeChatSearchQuery,
 } from "./chatSearch";
+import { makeEnrichedUser } from "./testFixtures";
 import type { EnrichedUser } from "./types";
 
+// Sprint 16 — delega pro fixture compartilhado (testFixtures.ts).
 function user(input: Partial<EnrichedUser> & Pick<EnrichedUser, "id" | "username">) {
-  return {
-    id: input.id,
-    name: input.name ?? input.username,
-    username: input.username,
-    accent: "#30D5FF",
-    avatarUrl: null,
-    bio: "",
-    goal: "",
-    location: "",
-    gyms: [],
-    preferredTimes: [],
-    currentStreak: input.currentStreak ?? 0,
-    longestStreak: 0,
-    lastWorkoutDate: "",
-    workoutsThisMonth: 0,
-    activeDaysCount: 0,
-    streakRestoresAvailable: 0,
-    checkInsCount: 0,
-    achievements: [],
-    followersCount: 0,
-    followingCount: 0,
-    isFollowing: input.isFollowing ?? false,
-    followStatus: input.followStatus ?? "none",
-    isPrivate: false,
-    workoutDays: [],
-    streakLitToday: false,
-    streakPresenceSource: "none",
-  } satisfies EnrichedUser;
+  return makeEnrichedUser(input);
 }
 
 describe("chat search helpers", () => {
