@@ -114,7 +114,16 @@ function StoryViewerContent({
   // persiste por default. Resetamos manualmente o que precisa zerar
   // quando a story muda (replyDraft, menus abertos, flags transitórias).
   // `mediaLoaded` segue cache da sessão (hasImageLoaded).
-  useEffect(() => {
+  //
+  // Sprint 16: o reset agora roda DURANTE o render (padrão React
+  // "adjusting state when props change") em vez de useEffect — o effect
+  // rodava DEPOIS do paint, então ao avançar de story havia 1 frame com
+  // o estado da story ANTERIOR (draft, coração, menu, mediaLoaded stale)
+  // por cima da nova — provável raiz dos glitches relatados no viewer.
+  const storyKey = `${story.id}|${story.imageUrl}`;
+  const [prevStoryKey, setPrevStoryKey] = useState(storyKey);
+  if (storyKey !== prevStoryKey) {
+    setPrevStoryKey(storyKey);
     setReplyDraft("");
     setSendingReply(false);
     setLiking(false);
@@ -125,7 +134,7 @@ function StoryViewerContent({
     setCopied(false);
     setInputFocused(false);
     setMediaLoaded(hasImageLoaded(story.imageUrl));
-  }, [story.id, story.imageUrl]);
+  }
 
   // Sprint 1 v1.1.1 B2: pre-decode swap. Decode JS via HTMLImageElement.decode()
   // ANTES de marcar mediaLoaded — quando o <Image> do Next pinta com a nova src,

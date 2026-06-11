@@ -74,15 +74,23 @@ export function GCImage({
     onReadyRef.current = onReady;
   }, [onReady]);
 
-  // Se o src trocar pra outro que já está no cache, atualiza loaded.
-  // Evita stale state quando o mesmo `GCImage` ciclar entre srcs (ex.:
-  // troca de avatar do user logado).
+  // Se o src trocar, ajusta `loaded` DURANTE o render (padrão React
+  // "adjusting state when props change"). Sprint 16: antes era um
+  // useEffect — que roda DEPOIS do paint, deixando 1 frame com o
+  // `loaded` da imagem anterior aplicado ao src novo (o flash
+  // preto/imagem errada relatado no app). Ajuste em render re-renderiza
+  // ANTES de pintar: zero frame stale.
+  const [prevSrcKey, setPrevSrcKey] = useState(srcKey);
+  if (srcKey !== prevSrcKey) {
+    setPrevSrcKey(srcKey);
+    setLoaded(hasImageLoaded(srcKey));
+  }
+
+  // O side effect (callback do caller) continua em effect — mas sem
+  // mexer em state. Dispara no mount e a cada src que já está no cache.
   useEffect(() => {
     if (hasImageLoaded(srcKey)) {
-      setLoaded(true);
       onReadyRef.current?.();
-    } else {
-      setLoaded(false);
     }
   }, [srcKey]);
 

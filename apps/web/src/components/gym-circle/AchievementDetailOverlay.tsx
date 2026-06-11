@@ -85,10 +85,19 @@ export function AchievementDetailOverlay({
     null,
   );
 
+  // Sprint 16 — resets ao fechar acontecem DURANTE o render (convergem
+  // em 1 re-render; padrão "adjusting state when props change") em vez
+  // de setState síncrono nos effects.
+  if (!open && mounted) {
+    setMounted(false);
+  }
+  if ((!open || !achievement) && globalStats !== null) {
+    setGlobalStats(null);
+  }
+
   // Trigger animations on mount/open + haptic burst
   useEffect(() => {
     if (!open) {
-      setMounted(false);
       return;
     }
     simulateHaptic("brand");
@@ -101,7 +110,6 @@ export function AchievementDetailOverlay({
   // de raridade aparece com fade do mounted state.
   useEffect(() => {
     if (!open || !achievement) {
-      setGlobalStats(null);
       return;
     }
     let cancelled = false;

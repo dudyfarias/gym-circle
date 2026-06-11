@@ -128,11 +128,15 @@ export function PinchZoomImage({
 
   // Quando o src trocar (ex.: edit de post), reseta loaded check e
   // volta a exibir o thumb (recomeça o upgrade pra HQ no próximo effect).
-  useEffect(() => {
-    if (hasImageLoaded(src)) setLoaded(true);
-    else setLoaded(false);
+  // Sprint 16: ajuste DURANTE o render (padrão "adjusting state when
+  // props change") em vez de useEffect pós-paint — elimina o frame com
+  // a imagem anterior aplicada ao src novo.
+  const [prevSrc, setPrevSrc] = useState(src);
+  if (src !== prevSrc) {
+    setPrevSrc(src);
+    setLoaded(hasImageLoaded(src));
     setDisplayedSrc(src);
-  }, [src]);
+  }
 
   // Sprint 3.6: progressive HQ swap. `Image.decode()` é a API canônica pra
   // evitar flash — o browser garante que o bitmap está pronto antes da

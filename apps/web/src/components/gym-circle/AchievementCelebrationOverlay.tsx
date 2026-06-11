@@ -66,10 +66,16 @@ export function AchievementCelebrationOverlay({
     return () => clearTimeout(id);
   }, [open, intensity.autoDismissMs, onDismiss]);
 
+  // Sprint 16 — reset do estado de animação ao fechar acontece DURANTE
+  // o render (converge em 1 re-render; padrão "adjusting state when
+  // props change") em vez de setState síncrono no effect.
+  if (!open && mounted) {
+    setMounted(false);
+  }
+
   // Mount animation + haptic + confetti burst
   useEffect(() => {
     if (!open || !achievement) {
-      setMounted(false);
       return;
     }
 
