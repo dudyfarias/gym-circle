@@ -26,10 +26,10 @@
 
 ## Histórico
 
-| Período | Migration | Tema |
-|---------|-----------|------|
-| 2026-06 | `20260603160400` + replace `20260603160800` | Festa Junina / Roland Garros / Brasileirão / pré-LA 2028 |
-| 2026-07 | `20260611120000` | Copa do Mundo 2026 (final 19/jul) / férias / inverno |
+| Período | Migration | Tema | Aplicada em prod |
+|---------|-----------|------|------------------|
+| 2026-06 | `20260603160400` + replace `20260603160800` | Festa Junina / Roland Garros / Brasileirão / pré-LA 2028 | ✅ 03/jun |
+| 2026-07 | `20260611120000` | Copa do Mundo 2026 (final 19/jul) / férias / inverno | ✅ 11/jun (OK do Eduardo) |
 
 ## Automação futura (anotado, não feito)
 
