@@ -307,7 +307,9 @@ export function buildMonthWorkoutDays(
     id?: string;
     workoutDate: string;
     thumbnailUrl?: string | null;
+    posterUrl?: string | null;
     imageUrl?: string | null;
+    mediaType?: string | null;
   }>,
 ) {
   const monthKey = todayKey.slice(0, 7);
@@ -315,20 +317,44 @@ export function buildMonthWorkoutDays(
   const totalDays = new Date(year, month, 0).getDate();
   const daySet = new Set(workoutDays);
 
+  // Mini-foto renderizável do post. Vídeo sem thumbnail/poster (posts
+  // antigos, pré-Sprint 13) retorna null — ali imageUrl é o ARQUIVO de
+  // vídeo e <img src=video> quebra a célula. Dia fica sólido mas
+  // tappable (postId preservado).
+  const displayThumbnail = (post: {
+    thumbnailUrl?: string | null;
+    posterUrl?: string | null;
+    imageUrl?: string | null;
+    mediaType?: string | null;
+  }): string | null => {
+    if (post.thumbnailUrl) return post.thumbnailUrl;
+    if (post.posterUrl) return post.posterUrl;
+    if (post.mediaType === "video") return null;
+    return post.imageUrl ?? null;
+  };
+
   // Index posts by workoutDate pra lookup O(1) por dia. Quando há mais de
-  // um post no mesmo dia, mantemos o primeiro encontrado (caller deve já
-  // ordenar por preferência — geralmente ordem do feed).
+  // um post no mesmo dia, o primeiro COM foto renderizável vence (caller
+  // já ordena por preferência — geralmente ordem do feed); sem nenhum
+  // renderizável, o primeiro post segura o postId (cell sólida tappable).
   const postsByDate = new Map<
     string,
     { thumbnailUrl: string | null; postId: string | null }
   >();
   if (posts) {
     for (const post of posts) {
-      if (!post.workoutDate || postsByDate.has(post.workoutDate)) continue;
-      postsByDate.set(post.workoutDate, {
-        thumbnailUrl: post.thumbnailUrl ?? post.imageUrl ?? null,
-        postId: post.id ?? null,
-      });
+      if (!post.workoutDate) continue;
+      const existing = postsByDate.get(post.workoutDate);
+      if (existing?.thumbnailUrl) continue; // dia já tem foto boa
+      const thumbnail = displayThumbnail(post);
+      if (!existing || thumbnail) {
+        // postId acompanha o post exibido: quando a foto de um post
+        // posterior assume a célula, o tap abre ESSE post (não o 1º).
+        postsByDate.set(post.workoutDate, {
+          thumbnailUrl: thumbnail,
+          postId: post.id ?? null,
+        });
+      }
     }
   }
 

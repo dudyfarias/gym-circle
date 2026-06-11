@@ -339,4 +339,63 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
     expect(result[14].postId).toBe(null);
     expect(result[14].thumbnailUrl).toBe("https://cdn/thumb-2.jpg");
   });
+
+  it("vídeo sem thumbnail/poster: cell sólida (sem <img src=video>) mas tappable", () => {
+    const posts = [
+      {
+        id: "video-uuid",
+        workoutDate: "2026-05-08",
+        thumbnailUrl: null,
+        posterUrl: null,
+        imageUrl: "https://cdn/workout.mp4",
+        mediaType: "video",
+      },
+    ];
+    const result = buildMonthWorkoutDays(["2026-05-08"], todayKey, posts);
+    // imageUrl é o ARQUIVO de vídeo — não pode virar thumbnail
+    expect(result[7].thumbnailUrl).toBe(null);
+    // mas o dia continua tappable pro post detail
+    expect(result[7].postId).toBe("video-uuid");
+    expect(result[7].trained).toBe(true);
+  });
+
+  it("vídeo com poster usa o poster como mini-foto", () => {
+    const posts = [
+      {
+        id: "video-poster-uuid",
+        workoutDate: "2026-05-08",
+        thumbnailUrl: null,
+        posterUrl: "https://cdn/poster.jpg",
+        imageUrl: "https://cdn/workout.mp4",
+        mediaType: "video",
+      },
+    ];
+    const result = buildMonthWorkoutDays(["2026-05-08"], todayKey, posts);
+    expect(result[7].thumbnailUrl).toBe("https://cdn/poster.jpg");
+    expect(result[7].postId).toBe("video-poster-uuid");
+  });
+
+  it("dia com vídeo sem foto + post de imagem depois: imagem vence (foto e tap juntos)", () => {
+    const posts = [
+      {
+        id: "video-uuid",
+        workoutDate: "2026-05-08",
+        thumbnailUrl: null,
+        posterUrl: null,
+        imageUrl: "https://cdn/workout.mp4",
+        mediaType: "video",
+      },
+      {
+        id: "image-uuid",
+        workoutDate: "2026-05-08",
+        thumbnailUrl: "https://cdn/photo.jpg",
+        imageUrl: "https://cdn/photo-full.jpg",
+        mediaType: "image",
+      },
+    ];
+    const result = buildMonthWorkoutDays(["2026-05-08"], todayKey, posts);
+    expect(result[7].thumbnailUrl).toBe("https://cdn/photo.jpg");
+    // tap abre o post DA FOTO exibida, não o vídeo que veio antes
+    expect(result[7].postId).toBe("image-uuid");
+  });
 });

@@ -199,7 +199,7 @@ public actor MyCircleService {
         let rows: [PostThumbnailRow] = try await withRetry {
             try await self.client
                 .from("posts")
-                .select("id,workout_date,image_url")
+                .select("id,workout_date,image_url,thumbnail_url,poster_url,media_type")
                 .eq("user_id", value: userId)
                 .gte("workout_date", value: monthStart)
                 .lt("workout_date", value: monthEnd)
@@ -209,7 +209,15 @@ public actor MyCircleService {
         }
 
         return rows.compactMap { row in
-            guard let url = URL(string: row.imageURL) else { return nil }
+            // Mini-foto renderizável: thumbnail → poster → image_url (este
+            // só quando NÃO é vídeo — em vídeo antigo sem thumbnail/poster,
+            // image_url é o ARQUIVO de vídeo e a AsyncImage quebra a célula;
+            // melhor cair fora e deixar a cell sólida, paridade com o
+            // buildMonthWorkoutDays web).
+            let best = row.thumbnailURL
+                ?? row.posterURL
+                ?? (row.mediaType == "video" ? nil : row.imageURL)
+            guard let raw = best, let url = URL(string: raw) else { return nil }
             return MonthCalendarPost(
                 dateKey: row.workoutDate,
                 postId: row.id,
@@ -360,15 +368,24 @@ private struct UserStatsRestoreRow: Codable, Sendable {
 }
 
 /// Sprint 8.13.1 — row de `posts` pra renderizar thumbnail no calendar.
+/// Campos de mídia opcionais (posts antigos não têm thumbnail/poster e
+/// image_url é NOT NULL hoje, mas decode defensivo evita derrubar o mês
+/// inteiro por uma row fora do esperado).
 private struct PostThumbnailRow: Codable, Sendable {
     let id: String
     let workoutDate: String
-    let imageURL: String
+    let imageURL: String?
+    let thumbnailURL: String?
+    let posterURL: String?
+    let mediaType: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case workoutDate = "workout_date"
         case imageURL = "image_url"
+        case thumbnailURL = "thumbnail_url"
+        case posterURL = "poster_url"
+        case mediaType = "media_type"
     }
 }
 
