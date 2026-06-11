@@ -39,6 +39,7 @@
 		A64CCBB3086148E777260BA8 /* AchievementBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A25EE1B0649D40C491D4501 /* AchievementBuilder.swift */; };
 		AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */; };
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
+		B8BADDC3F2F1DB2E20D317F6 /* FeaturedAchievementsRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */; };
 		BBE4C5ED1604B5BF51F36B23 /* NativeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */; };
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
 		C256C624C303F3E8ED1E4320 /* OtherProfileSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */; };
@@ -95,6 +96,7 @@
 		633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClientProvider.swift; sourceTree = "<group>"; };
 		636F3999A2F250111C153818 /* MyCircleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleModels.swift; sourceTree = "<group>"; };
 		641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeIconNativeView.swift; sourceTree = "<group>"; };
+		682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturedAchievementsRowView.swift; sourceTree = "<group>"; };
 		6C49CF73E5FC4231EF022A24 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		6D2F3C03BC2098846FF44D01 /* FollowsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowsService.swift; sourceTree = "<group>"; };
 		70CEB07821E09F169BDBDA40 /* RetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryTests.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 				1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */,
 				641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */,
 				069AF1E053D24164413598B0 /* BaseComponents.swift */,
+				682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */,
 				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
 				89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */,
 			);
@@ -415,6 +418,7 @@
 				52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */,
 				AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */,
 				AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */,
+				B8BADDC3F2F1DB2E20D317F6 /* FeaturedAchievementsRowView.swift in Sources */,
 				5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */,
 				CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */,
 				C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */,

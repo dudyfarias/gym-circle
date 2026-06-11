@@ -296,7 +296,14 @@ public final class GymCircleAppModel: ObservableObject {
                 streakLitToday: profile?.badgeIsActiveToday ?? false,
                 // Sprint 10.1 — own profile sempre storyViewed=false (UX ring brand persiste).
                 hasStory: hasStory,
-                storyViewed: false
+                storyViewed: false,
+                // Sprint 20.1 — paridade 15.5 web: equipados → sugeridos,
+                // e a lista completa alimenta o Hall aberto pela row.
+                featuredAchievements: AchievementSuggester.resolveFeatured(
+                    achievements: allAchievements,
+                    equippedCompositeIds: profile?.featuredAchievements ?? []
+                ),
+                allAchievements: allAchievements
             )
         } catch {
             self.error = error.localizedDescription

@@ -397,6 +397,32 @@ public enum AchievementSuggester {
         return Array(sorted.prefix(count))
     }
 
+    /// Sprint 20.1 — paridade `resolveFeaturedAchievements` (web,
+    /// achievements.ts 15.5): equipados manualmente (composite IDs do
+    /// profiles.featured_achievements) têm prioridade; só contam os que
+    /// realmente estão EARNED (guard contra ID stale/revogado). Sem
+    /// equipados válidos, cai pro suggestFeatured automático.
+    public static func resolveFeatured(
+        achievements: [Achievement],
+        equippedCompositeIds: [String],
+        count: Int = 3
+    ) -> [Achievement] {
+        if !equippedCompositeIds.isEmpty {
+            var resolved: [Achievement] = []
+            for compositeId in equippedCompositeIds {
+                guard
+                    let match = achievements.first(where: { $0.compositeId == compositeId }),
+                    match.earned
+                else { continue }
+                resolved.append(match)
+            }
+            if !resolved.isEmpty {
+                return Array(resolved.prefix(count))
+            }
+        }
+        return suggestFeatured(achievements: achievements, count: count)
+    }
+
     private static func priorityScore(_ a: Achievement) -> Int {
         let kindRank: Int = {
             switch a.kind {

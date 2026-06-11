@@ -256,6 +256,15 @@ public struct MyCircleViewData: Sendable {
     /// Sprint 9.8.3 — story já visto? (dim ring quando true)
     public let storyViewed: Bool
 
+    /// Sprint 20.1 — paridade 15.5 web: até 3 conquistas em destaque
+    /// (equipadas → sugeridas via AchievementSuggester.resolveFeatured).
+    /// Substitui visualmente o highlightBadge (mantido por compat do
+    /// bridge até o cutover).
+    public let featuredAchievements: [Achievement]
+    /// Sprint 20.1 — lista completa pro Hall da Fama (AchievementsView)
+    /// aberto pelo botão da row. Vazio em hall de terceiros sem dados.
+    public let allAchievements: [Achievement]
+
     public init(
         userId: String,
         isOwn: Bool,
@@ -274,7 +283,9 @@ public struct MyCircleViewData: Sendable {
         canSeeDetails: Bool = true,
         streakLitToday: Bool = false,
         hasStory: Bool = false,
-        storyViewed: Bool = false
+        storyViewed: Bool = false,
+        featuredAchievements: [Achievement] = [],
+        allAchievements: [Achievement] = []
     ) {
         self.userId = userId
         self.isOwn = isOwn
@@ -294,6 +305,8 @@ public struct MyCircleViewData: Sendable {
         self.streakLitToday = streakLitToday
         self.hasStory = hasStory
         self.storyViewed = storyViewed
+        self.featuredAchievements = featuredAchievements
+        self.allAchievements = allAchievements
     }
 
     /// Dados de demonstração pra preview + bridge placeholder antes da

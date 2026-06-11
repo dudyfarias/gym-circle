@@ -41,6 +41,10 @@ public enum L10n {
     case myCirclePrivacyBody
     case myCircleFirstVisitHint
     case myCircleFirstVisitDismiss
+    // Sprint 20.1 — Conquistas em destaque (paridade 15.5 web)
+    case featuredAchievementsTitle
+    case featuredAchievementsEmpty
+    case featuredAchievementsOpenHall
     case recapCoverPickerTitle
     case recapCoverPickerEmpty
     case recapCoverPickerConfirm
@@ -199,6 +203,12 @@ public enum L10n {
             return isEN ? "Compete with your circle in weekly leagues."
                         : "Compita com seu circle em ligas semanais."
         case .myCircleOutroPeriodo:       return isEN ? "Pick another period"  : "Outro período"
+        // Sprint 20.1 — paridade 15.5 web (profile.featuredAchievements.*)
+        case .featuredAchievementsTitle:  return isEN ? "Featured achievements" : "Conquistas em destaque"
+        case .featuredAchievementsEmpty:
+            return isEN ? "Your achievements will show up here."
+                        : "Suas conquistas vão aparecer aqui."
+        case .featuredAchievementsOpenHall: return isEN ? "Hall of Fame" : "Hall da Fama"
         case .myCirclePrivacyTitle:       return isEN ? "Profile is private" : "Perfil é privado"
         case .myCirclePrivacyBody:
             return isEN

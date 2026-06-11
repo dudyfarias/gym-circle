@@ -38,6 +38,12 @@ public struct MyCircleView: View {
     /// escreve a flag pra não voltar.
     @State private var firstVisitHintVisible: Bool = false
 
+    /// Sprint 20.1 — Hall da Fama apresentado pelo botão da row de
+    /// Conquistas em destaque (antes o AchievementsView era inalcançável
+    /// no standalone). Detail aninhado via item-sheet.
+    @State private var hallPresented: Bool = false
+    @State private var hallDetailAchievement: Achievement?
+
     public init(
         data: MyCircleViewData,
         onClose: (() -> Void)? = nil,
@@ -82,8 +88,12 @@ public struct MyCircleView: View {
                         consistencySection
                         calendarSection
                         levelsSection
-                        if data.isOwn, let badge = data.highlightBadge {
-                            badgeHighlightSection(badge: badge)
+                        // Sprint 20.1 — paridade 15.5 web: a MESMA row de
+                        // Conquistas em destaque do perfil, com botão pill
+                        // que abre o Hall da Fama (sempre visível no own,
+                        // mesmo sem conquistas — a entrada nunca some).
+                        if data.isOwn {
+                            featuredAchievementsSection
                         }
                         if data.isOwn, !data.monthlyChallenges.isEmpty {
                             monthlyChallengesSection
@@ -385,23 +395,50 @@ public struct MyCircleView: View {
         }
     }
 
-    // MARK: - F. Badge highlight
+    // MARK: - F. Conquistas em destaque (Sprint 20.1 — paridade 15.5 web)
+    //
+    // Substitui o badgeHighlightSection da 5.9 (BadgeHighlightCardView),
+    // igual ao que a web fez na 15.5. O botão pill do header apresenta o
+    // AchievementsView (Hall) — primeira porta de entrada do Hall no
+    // standalone. onTapBadgeHighlight (bridge legado) continua atendido:
+    // tap num card chama o detail nativo direto.
 
     @ViewBuilder
-    private func badgeHighlightSection(badge: Achievement) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                sectionTitle(L10n.myCircleConquistas.string)
-                Spacer()
-                GCText("\(data.earnedCount)/\(data.totalAchievements)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
-            }
-
-            BadgeHighlightCardView(
-                badge: badge,
-                isNext: !badge.earned,
-                action: { onTapBadgeHighlight?() }
+    private var featuredAchievementsSection: some View {
+        FeaturedAchievementsRowView(
+            achievements: data.featuredAchievements,
+            onOpenDetail: { achievement in
+                hallDetailAchievement = achievement
+            },
+            onOpenHall: { hallPresented = true }
+        )
+        .sheet(isPresented: $hallPresented) {
+            // Detail ANINHADO no conteúdo do Hall: um view só apresenta
+            // um sheet por vez, então o tap dentro do Hall precisa
+            // apresentar a partir do próprio AchievementsView.
+            AchievementsView(
+                achievements: data.allAchievements,
+                onTap: { achievement in
+                    hallDetailAchievement = achievement
+                },
+                onClose: { hallPresented = false }
             )
+            .sheet(item: $hallDetailAchievement) { achievement in
+                achievementDetailSheet(achievement)
+            }
         }
+        // Tap direto num card da row (Hall fechado) apresenta daqui.
+        .sheet(item: $hallDetailAchievement) { achievement in
+            achievementDetailSheet(achievement)
+        }
+    }
+
+    @ViewBuilder
+    private func achievementDetailSheet(_ achievement: Achievement) -> some View {
+        AchievementDetailView(
+            achievement: achievement,
+            onClose: { hallDetailAchievement = nil }
+        )
     }
 
     // MARK: - G. Monthly Challenges
