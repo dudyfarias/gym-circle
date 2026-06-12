@@ -57,7 +57,14 @@ public struct MainTabView: View {
             }
 
             NavigationStack {
-                ProfileView(profile: profile, posts: profilePosts)
+                // Sprint 20.1/20.2 — row compartilhada + Hall + Settings.
+                ProfileView(
+                    model: model,
+                    profile: profile,
+                    posts: profilePosts,
+                    featuredAchievements: myCircle.featuredAchievements,
+                    allAchievements: myCircle.allAchievements
+                )
             }
             .tabItem {
                 Label("Perfil", systemImage: "person.crop.circle")

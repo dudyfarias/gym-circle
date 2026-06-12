@@ -1,21 +1,34 @@
 import SwiftUI
 
+/// ProfileView — Sprint 8.8 + 20.1/20.2.
+///
+/// 20.1: migra a row 2D antiga pra FeaturedAchievementsRowView (a mesma
+/// do MyCircle, com botão pro Hall — entrada nunca some).
+/// 20.2: engrenagem de Settings + tap no grid abre o post completo.
 public struct ProfileView: View {
+    @ObservedObject private var model: GymCircleAppModel
     private let profile: UserProfile?
     private let posts: [ProfilePost]
     private let featuredAchievements: [Achievement]
-    private let onTapAchievement: ((Achievement) -> Void)?
+    private let allAchievements: [Achievement]
+
+    @State private var settingsPresented = false
+    @State private var hallPresented = false
+    @State private var hallDetailAchievement: Achievement?
+    @State private var openedPost: FeedPost?
 
     public init(
+        model: GymCircleAppModel,
         profile: UserProfile?,
         posts: [ProfilePost] = [],
         featuredAchievements: [Achievement] = [],
-        onTapAchievement: ((Achievement) -> Void)? = nil
+        allAchievements: [Achievement] = []
     ) {
+        self.model = model
         self.profile = profile
         self.posts = posts
         self.featuredAchievements = featuredAchievements
-        self.onTapAchievement = onTapAchievement
+        self.allAchievements = allAchievements
     }
 
     public var body: some View {
@@ -23,9 +36,13 @@ public struct ProfileView: View {
             VStack(spacing: 20) {
                 if let profile {
                     header(profile)
-                    if !featuredAchievements.isEmpty {
-                        featuredRow
-                    }
+                    // Sprint 20.1 — row compartilhada (paridade 15.5 web):
+                    // 3 cards por kind + pill que abre o Hall.
+                    FeaturedAchievementsRowView(
+                        achievements: featuredAchievements,
+                        onOpenDetail: { hallDetailAchievement = $0 },
+                        onOpenHall: { hallPresented = true }
+                    )
                     postsGrid
                 } else {
                     GCEmptyState(
@@ -38,6 +55,59 @@ public struct ProfileView: View {
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .navigationTitle("Perfil")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    settingsPresented = true
+                } label: {
+                    Image(systemName: "gearshape.fill")
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                }
+                .accessibilityLabel("Configurações")
+            }
+        }
+        .sheet(isPresented: $settingsPresented) {
+            SettingsSheet(model: model)
+        }
+        .sheet(isPresented: $hallPresented) {
+            AchievementsView(
+                achievements: allAchievements,
+                onTap: { hallDetailAchievement = $0 },
+                onClose: { hallPresented = false }
+            )
+            .sheet(item: $hallDetailAchievement) { achievement in
+                AchievementDetailView(
+                    achievement: achievement,
+                    onClose: { hallDetailAchievement = nil }
+                )
+            }
+        }
+        .sheet(item: $openedPost) { post in
+            // Sprint 20.2 — post completo do grid (card com curtir/
+            // comentários do próprio feed pipeline).
+            NavigationStack {
+                ScrollView {
+                    FeedPostCard(
+                        post: post,
+                        currentUserId: model.currentUserId,
+                        onLike: {
+                            Task { await model.toggleLike(postId: post.id) }
+                        }
+                    )
+                    .padding(20)
+                }
+                .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+                .navigationTitle("Post")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Fechar") { openedPost = nil }
+                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
+        }
     }
 
     private func header(_ profile: UserProfile) -> some View {
@@ -65,70 +135,6 @@ public struct ProfileView: View {
         }
     }
 
-    // Sprint 8.8 — Featured Achievements row (paridade Sprint 7.5.5 web)
-    private var featuredRow: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(L10n.profileConquistasDestaque.string)
-                .font(.system(size: 11, weight: .heavy))
-                .tracking(0.8)
-                .foregroundColor(.white.opacity(0.44))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            HStack(spacing: 10) {
-                ForEach(Array(featuredAchievements.prefix(3).enumerated()), id: \.element.id) { _, achievement in
-                    featuredCard(achievement)
-                }
-            }
-        }
-    }
-
-    private func featuredCard(_ achievement: Achievement) -> some View {
-        Button(action: { onTapAchievement?(achievement) }) {
-            VStack(spacing: 8) {
-                BadgeIconNativeView(
-                    iconKey: achievement.iconKey,
-                    earned: achievement.earned,
-                    size: 56
-                )
-                .padding(.top, 6)
-
-                Text(achievement.label)
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(achievement.earned ? .white : .white.opacity(0.56))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 4)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(featuredCardBackground(achievement))
-            )
-        }
-        .buttonStyle(PressableButtonStyle())
-    }
-
-    /// Sprint 8.12.1 — paleta por **kind** (não rarity), paridade `KIND_TONE`
-    /// em `FeaturedAchievementsRow.tsx` web:
-    ///   - relic    → purple #A78BFA (mítico)
-    ///   - trophy   → brand cyan (achievement social)
-    ///   - medal    → gold #FBBF24 (streak histórico)
-    ///   - badge    → white sutil (entry-level)
-    ///   - challenge→ green #34D399 (mensal temático)
-    /// Locked cards usam fundo neutro 0.025.
-    private func featuredCardBackground(_ a: Achievement) -> Color {
-        guard a.earned else { return Color.white.opacity(0.025) }
-        // Sprint 9.6.3 — usa tokens GymCircleTheme pra eliminar drift de cor.
-        switch a.kind {
-        case .relic:     return GymCircleTheme.ColorToken.rarityEpic.opacity(0.12)
-        case .trophy:    return GymCircleTheme.ColorToken.electricBlue.opacity(0.14)
-        case .medal:     return GymCircleTheme.ColorToken.rarityLegendary.opacity(0.14)
-        case .badge:     return Color.white.opacity(0.06)
-        case .challenge: return GymCircleTheme.ColorToken.rarityUncommon.opacity(0.12)
-        }
-    }
-
     private func stat(_ title: String, value: String) -> some View {
         VStack(spacing: 4) {
             GCText(value, style: .headline, color: GymCircleTheme.ColorToken.cyan)
@@ -140,7 +146,12 @@ public struct ProfileView: View {
     private var postsGrid: some View {
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
             ForEach(posts) { post in
-                MediaView(url: post.displayMediaURL, aspectRatio: 1)
+                Button {
+                    openedPost = post
+                } label: {
+                    MediaView(url: post.displayMediaURL, aspectRatio: 1)
+                }
+                .buttonStyle(.plain)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))

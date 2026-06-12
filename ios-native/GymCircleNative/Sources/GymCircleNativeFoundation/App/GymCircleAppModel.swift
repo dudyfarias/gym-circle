@@ -601,6 +601,35 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    // MARK: - Sprint 20.2 — Settings (privacidade + conta)
+
+    /// Toggle de perfil privado (profiles.is_private).
+    public func setPrivacy(isPrivate: Bool) async {
+        await saveProfile(displayName: nil, bio: nil, fitnessGoal: nil, isPrivate: isPrivate)
+    }
+
+    /// Suspende a conta e desloga (reativação por magic link é fluxo web).
+    public func suspendAccount() async {
+        guard let safetyService else { return }
+        do {
+            try await safetyService.suspendOwnAccount()
+            await signOut()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Marca a conta pra exclusão e desloga.
+    public func deleteAccount() async {
+        guard let safetyService else { return }
+        do {
+            try await safetyService.requestAccountDeletion()
+            await signOut()
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     /// Sprint 20.4b — passthroughs pro composer (academias + seguindo).
     public func searchGyms(query: String) async -> [GymOption] {
         guard let api, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }

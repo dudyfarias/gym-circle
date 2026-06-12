@@ -15,6 +15,7 @@
 		2496096D16FB3A31867719D8 /* StoriesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F315E719C5717C0921BD96 /* StoriesService.swift */; };
 		24F7215A55C676294FD8637E /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */; };
 		33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */; };
+		37DBCB626C8C2EE28FF85195 /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F892E8E46567D4BA8D201DD3 /* SettingsSheet.swift */; };
 		393BD8E161911AB7E888D27E /* LikesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72238BD5ABE755DFFAE5E8C5 /* LikesSheet.swift */; };
 		3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D272642D5EA4B50216927502 /* ProfilesService.swift */; };
 		3F976208CAA4A36320E44036 /* PostComment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2D9BAF75EF15E3A3E7DAF8 /* PostComment.swift */; };
@@ -148,6 +149,7 @@
 		F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleTheme.swift; sourceTree = "<group>"; };
 		F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyChallengeModels.swift; sourceTree = "<group>"; };
 		F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelsTests.swift; sourceTree = "<group>"; };
+		F892E8E46567D4BA8D201DD3 /* SettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheet.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -236,6 +238,7 @@
 				ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */,
 				B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */,
 				BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */,
+				F892E8E46567D4BA8D201DD3 /* SettingsSheet.swift */,
 				F20940CB53959FF53CFF9C75 /* StoriesViews.swift */,
 			);
 			path = Screens;
@@ -490,6 +493,7 @@
 				DB1B30BE14F3C9A97AF5FB6E /* Retry.swift in Sources */,
 				9AA615722E6B567FCEE47224 /* SafetyService.swift in Sources */,
 				CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */,
+				37DBCB626C8C2EE28FF85195 /* SettingsSheet.swift in Sources */,
 				2496096D16FB3A31867719D8 /* StoriesService.swift in Sources */,
 				6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */,
 				079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */,

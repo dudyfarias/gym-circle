@@ -59,6 +59,22 @@ public actor SafetyService {
             .execute()
     }
 
+    // MARK: - Sprint 20.2 — conta (paridade safety.ts web)
+
+    /// Suspende a própria conta (RPC suspend_own_account). O caller faz
+    /// signOut na sequência; reativação via magic link é fluxo web.
+    public func suspendOwnAccount() async throws {
+        try await client.rpc("suspend_own_account").execute()
+    }
+
+    /// Marca a conta pra exclusão (RPC request_account_deletion).
+    public func requestAccountDeletion(reason: String? = nil) async throws {
+        struct Params: Encodable { let p_reason: String? }
+        try await client
+            .rpc("request_account_deletion", params: Params(p_reason: reason))
+            .execute()
+    }
+
     /// IDs silenciados — o AppModel filtra o feed com isso a cada load.
     public func mutedUserIds(userId: String) async throws -> Set<String> {
         let rows: [MuteRow] = try await client
