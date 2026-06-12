@@ -30,7 +30,7 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Lista de posts + autor/streak | ✅ | ✅ (via get_home_feed? verificar RPC usada) | — |
 | Contadores like/comment | ✅ | ✅ (só display) | — |
 | **Curtir (ação)** | ✅ | ✅ (20.3a — otimista + rollback) | — |
-| **Comentários (sheet + replies + likes + swipe-delete)** | ✅ | ❌ | 20.3 |
+| **Comentários (sheet + replies + likes + swipe-delete)** | ✅ | ✅ (20.3b) | — |
 | **Carrossel multi-mídia + dots** | ✅ | ✅ (20.3a — dots abaixo; vídeo = poster+play até 20.3b) | — |
 | Mute de autor/post, report, menu | ✅ | ❌ | 20.3 |
 | Distância do viewer | ✅ | ❌ | 20.3 |
@@ -52,9 +52,9 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 ### Composer (PostScreen 1.012 linhas ↔ placeholder)
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
-| Câmera single / galeria multi (até 10) | ✅ | ❌ | 20.4 |
-| Upload + thumbnail/poster | ✅ | ❌ | 20.4 |
-| Tags de treino (até 5, chips + Outro) | ✅ | ❌ | 20.4 |
+| Câmera single / galeria multi (até 10) | ✅ | 🟡 (20.4a — galeria multi OK; câmera/vídeo 20.4b) | 20.4b |
+| Upload + thumbnail/poster | ✅ | ✅ (20.4a — feed 1600px + thumb 720px; poster de vídeo 20.4b) | — |
+| Tags de treino (até 5, chips + Outro) | ✅ | ✅ (20.4a) | — |
 | Localização (busca + academias) | ✅ | ❌ | 20.4 |
 | Marcação de participantes | ✅ | ❌ | 20.4 |
 | Editar post (mídia/legenda/tipo) | ✅ | ❌ | 20.4 |
