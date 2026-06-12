@@ -189,7 +189,10 @@ export function FeedScreen({
       ) : feedPosts.length > 0 ? (
         <div className="space-y-5">
           {feedPosts.map((post) => (
-            <div key={post.id}>
+            // gc-feed-cell (Sprint 21.3): content-visibility pula
+            // render/paint dos posts fora da viewport — a WebView não
+            // paga pelos cards já scrollados.
+            <div className="gc-feed-cell" key={post.id}>
               <SocialPostCard
                 currentUserId={currentUser.id}
                 formatTime={formatTime}

@@ -596,3 +596,12 @@ button {
     pointer-events: none;
   }
 }
+
+/* Sprint 21.3 — virtualização leve do feed: o browser pula render/layout/
+   paint dos posts fora da viewport. `auto` no intrinsic-size preserva a
+   altura real depois da 1ª render (scroll não pula); 640px é a estimativa
+   inicial de um card 4:5 + header + ações num iPhone. */
+.gc-feed-cell {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 640px;
+}
