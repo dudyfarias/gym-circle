@@ -44,7 +44,9 @@ import type { EnrichedPost, EnrichedUser } from "./social/types";
  * Datas/contagens vêm de user_achievements (loadUserAchievementMeta, RLS
  * public_read) — fetch fire-and-forget; sem dados a UI degrada pra "X de Y".
  *
- * Privacy: abre só pelo MyCircleSheet que já checa canSeeDetails.
+ * Privacy: abre pelo MyCircleSheet/Profile. Desafios mensais são parte do
+ * Hall social do usuário e podem ser visualizados por outros usuários
+ * autenticados; escrita/progresso continuam restritos ao dono via RLS.
  */
 
 type AchievementsSheetProps = {
@@ -58,8 +60,8 @@ type AchievementsSheetProps = {
    */
   onOpenAchievementDetail?: (achievement: Achievement) => void;
   /**
-   * Sprint 15 — desafios do mês (só quando o hall é do PRÓPRIO user, igual
-   * regra do MyCircleSheet). Sem isso a categoria Desafios mostra empty.
+   * Sprint 15/20.3 — desafios do mês do usuário dono do Hall. Para outros
+   * perfis, o parent carrega o progresso em modo leitura.
    */
   monthlyChallenges?: ReadonlyArray<MonthlyChallengeData>;
 };
@@ -443,10 +445,8 @@ export function AchievementsSheet({
                           </>
                         ) : items.length === 0 ? (
                           <p className="line-clamp-2 text-[10px] font-bold text-white/36">
-                            {/* Sprint 17 — hall de TERCEIRO não recebe
-                                monthlyChallenges (regra de privacidade):
-                                a categoria Desafios vazia ganha explicação
-                                em vez de parecer bug. */}
+                            {/* Se challenges ainda não carregaram, evita a
+                                categoria parecer quebrada. */}
                             {kind === "challenge" && monthlyChallenges === undefined
                               ? t("achievementsSheet.challengesArePersonal")
                               : t("achievementsSheet.empty")}

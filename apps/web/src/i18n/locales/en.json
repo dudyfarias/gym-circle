@@ -858,7 +858,7 @@
     "hero": "{{earned}} of {{total}} earned",
     "progress": "{{current}}/{{target}}",
     "empty": "No achievements in this category yet.",
-    "challengesArePersonal": "Monthly challenges are personal — only the owner sees theirs.",
+    "challengesArePersonal": "Challenges have not loaded yet.",
     "secretMystery": "Secret achievement",
     "secretHint": "Figure out how to unlock",
     "tabs": {

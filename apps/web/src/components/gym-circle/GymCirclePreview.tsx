@@ -220,6 +220,9 @@ export function GymCirclePreview({
   const [monthlyChallenges, setMonthlyChallenges] = useState<
     MonthlyChallengeData[]
   >([]);
+  const [monthlyChallengesByUser, setMonthlyChallengesByUser] = useState<
+    Record<string, MonthlyChallengeData[]>
+  >({});
   const [editOpen, setEditOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
@@ -485,6 +488,7 @@ export function GymCirclePreview({
   // Sprint 8.11.4 — bridge híbrido pra AchievementsSheet (Hall da Fama).
   // Substitui openBadges nos call sites que devem abrir o hub completo.
   const openBadges = useCallback(async () => {
+    const targetUserId = myCircleUserId ?? social.currentUser.id;
     if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
       try {
         const { GymCircleNativeBridge } = await import(
@@ -492,7 +496,7 @@ export function GymCirclePreview({
         );
         if (await GymCircleNativeBridge.isAvailable()) {
           await GymCircleNativeBridge.presentAchievementsHub({
-            userId: social.currentUser.id,
+            userId: targetUserId,
           });
           return;
         }
@@ -504,7 +508,7 @@ export function GymCirclePreview({
       }
     }
     setBadgesSheetOpen(true);
-  }, [social.currentUser.id]);
+  }, [myCircleUserId, social.currentUser.id]);
   const closeBadges = useCallback(() => setBadgesSheetOpen(false), []);
   const openRecapCoverPicker = useCallback(
     () => setRecapCoverPickerOpen(true),
@@ -1349,6 +1353,36 @@ export function GymCirclePreview({
     currentUserPosts,
   ]);
 
+  const viewedMonthlyChallengeUserId =
+    myCircleUserId && myCircleUserId !== social.currentUser.id ? myCircleUserId : null;
+
+  useEffect(() => {
+    if (!viewedMonthlyChallengeUserId) return;
+    if (monthlyChallengesByUser[viewedMonthlyChallengeUserId]) return;
+
+    let cancelled = false;
+    void loadMonthlyChallenges(services.client, viewedMonthlyChallengeUserId)
+      .then((challenges) => {
+        if (cancelled) return;
+        setMonthlyChallengesByUser((current) => ({
+          ...current,
+          [viewedMonthlyChallengeUserId]: challenges,
+        }));
+      })
+      .catch((err) => {
+        console.warn("[challenges] viewer load failed:", err);
+        if (cancelled) return;
+        setMonthlyChallengesByUser((current) => ({
+          ...current,
+          [viewedMonthlyChallengeUserId]: [],
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [monthlyChallengesByUser, services.client, viewedMonthlyChallengeUserId]);
+
   const monthlyRecap = useMemo(
     () =>
       buildMonthlyRecap({
@@ -1856,11 +1890,14 @@ export function GymCirclePreview({
             // Sprint 7C.3 — banner "primeira visita" do hub usa o sistema
             // ContextualHint (Sprint 7C.1) pra persistir dismiss cross-device.
             onMarkContextualHintSeen={social.actions.markContextualHintSeen}
-            // Sprint 7.5.6 — desafios mensais carregados no boot.
+            // Sprint 7.5.6 — desafios mensais carregados no boot para o
+            // próprio user e sob demanda para perfis visualizados.
             monthlyChallenges={
               myCircleUser?.id === social.currentUser.id
                 ? monthlyChallenges
-                : undefined
+                : myCircleUser
+                  ? monthlyChallengesByUser[myCircleUser.id]
+                  : undefined
             }
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
@@ -1877,15 +1914,15 @@ export function GymCirclePreview({
               + 3 sub-seções por estado. Tap em qualquer card abre o
               AchievementDetailOverlay (Sprint 7.5.2). */}
           <AchievementsSheet
-            // Sprint 15 — desafios do mês entram no hall (categoria Desafios)
-            // só pro próprio user, mesma regra do MyCircleSheet acima.
+            // Sprint 20.3 — desafios do mês entram no Hall também quando
+            // estamos vendo outra pessoa; o Hall é social, não privado.
             // Sprint 15.5 — o hall também abre direto do PERFIL (botão nas
             // Conquistas em destaque), onde myCircleUser ainda é null →
             // fallback pro próprio user (a tab Perfil é sempre o current user).
             monthlyChallenges={
               (myCircleUser ?? social.currentUser).id === social.currentUser.id
                 ? monthlyChallenges
-                : undefined
+                : monthlyChallengesByUser[(myCircleUser ?? social.currentUser).id]
             }
             onClose={closeBadges}
             onOpenAchievementDetail={openAchievementDetailHybrid}
