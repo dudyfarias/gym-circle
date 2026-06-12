@@ -36,6 +36,49 @@ public actor StoriesService {
         }
     }
 
+    // MARK: - Sprint 20.5 — viewer completo
+
+    private struct StoryViewInsert: Encodable {
+        let story_id: String
+        let user_id: String
+    }
+
+    private struct StoryLikeInsert: Encodable {
+        let story_id: String
+        let user_id: String
+    }
+
+    /// Marca o story como visto (idempotente) — alimenta o ring da tray.
+    public func markSeen(storyId: String, userId: String) async throws {
+        try await client
+            .from("story_views")
+            .upsert(
+                StoryViewInsert(story_id: storyId, user_id: userId),
+                onConflict: "story_id,user_id"
+            )
+            .execute()
+    }
+
+    /// Like/unlike de story (mesmo padrão idempotente do feed).
+    public func setLike(storyId: String, userId: String, liked: Bool) async throws {
+        if liked {
+            try await client
+                .from("story_likes")
+                .upsert(
+                    StoryLikeInsert(story_id: storyId, user_id: userId),
+                    onConflict: "story_id,user_id"
+                )
+                .execute()
+        } else {
+            try await client
+                .from("story_likes")
+                .delete()
+                .eq("story_id", value: storyId)
+                .eq("user_id", value: userId)
+                .execute()
+        }
+    }
+
     /// Paridade Instagram: ring fica cinza assim que viewer abre QUALQUER
     /// story do target. Retorna true se existe pelo menos 1 view do viewer
     /// em qualquer story ativa do target.

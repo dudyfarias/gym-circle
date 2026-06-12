@@ -601,6 +601,31 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    // MARK: - Sprint 20.5 — stories viewer
+
+    /// Stories ativos de um autor (RPC get_story_viewer_items).
+    public func fetchStoryItems(authorId: String) async -> [StoryItem] {
+        guard let api else { return [] }
+        return (try? await api.storyViewerItems(authorId: authorId)) ?? []
+    }
+
+    /// Marca visto + atualiza o ring da tray localmente (hasUnseen).
+    public func markStorySeen(storyId: String) async {
+        guard let storiesService, let userId = sessionStore?.currentUserId else { return }
+        try? await storiesService.markSeen(storyId: storyId, userId: userId)
+    }
+
+    @discardableResult
+    public func setStoryLike(storyId: String, liked: Bool) async -> Bool {
+        guard let storiesService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await storiesService.setLike(storyId: storyId, userId: userId, liked: liked)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     // MARK: - Sprint 20.2 — Settings (privacidade + conta)
 
     /// Toggle de perfil privado (profiles.is_private).

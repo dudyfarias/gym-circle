@@ -15,6 +15,8 @@ public struct FeedView: View {
     @State private var editingPost: FeedPost?
     @State private var searchPresented = false
     @State private var playingVideo: PlayableVideo?
+    // Sprint 20.5 — autor cujo story foi aberto na tray.
+    @State private var openedStoryGroup: StoryAuthorGroup?
 
     public init(model: GymCircleAppModel) {
         self.model = model
@@ -23,7 +25,9 @@ public struct FeedView: View {
     public var body: some View {
         ScrollView {
             LazyVStack(spacing: 18) {
-                StoriesTrayView(groups: model.stories, isLoading: false)
+                StoriesTrayView(groups: model.stories, isLoading: false) { group in
+                    openedStoryGroup = group
+                }
 
                 if model.isLoading && model.posts.isEmpty {
                     GCLoadingView("Carregando feed")
@@ -122,6 +126,15 @@ public struct FeedView: View {
         }
         .fullScreenCover(item: $playingVideo) { video in
             VideoPlayerScreen(url: video.url)
+        }
+        .fullScreenCover(item: $openedStoryGroup) { group in
+            // Sprint 20.5 — viewer com continuidade entre TODOS os
+            // autores da tray, começando no tocado.
+            StoryViewerScreen(
+                model: model,
+                groups: model.stories,
+                startAuthorId: group.authorId
+            )
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .navigationTitle("Hoje")
