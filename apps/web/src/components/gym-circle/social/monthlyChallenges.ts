@@ -105,17 +105,21 @@ export async function loadMonthlyChallenges(
   // não estão no Database type ainda.
   const { data: rawChallenges, error: challengesError } = await client
     .from("monthly_challenges")
-    .select("*")
+    .select(
+      "id,period_key,title_pt,title_en,description_pt,description_en," +
+        "difficulty,goal_kind,goal_target,start_date,end_date,trophy_id," +
+        "is_secret,goal_config,created_at",
+    )
     .eq("period_key", periodKey);
   if (challengesError) throw challengesError;
-  const challenges = (rawChallenges ?? []) as MonthlyChallengeRow[];
+  const challenges = (rawChallenges ?? []) as unknown as MonthlyChallengeRow[];
   if (challenges.length === 0) return [];
 
   // 2. Progresso do user pra esses challenges
   const challengeIds = challenges.map((c) => c.id);
   const { data: rawProgress, error: progressError } = await client
     .from("user_monthly_challenge_progress")
-    .select("*")
+    .select("user_id,challenge_id,progress,completed_at,updated_at")
     .eq("user_id", userId)
     .in("challenge_id", challengeIds);
   if (progressError) throw progressError;

@@ -2154,7 +2154,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         // RLS profiles_select_visible já filtra blocked/deactivated.
         services.client
           .from("profiles")
-          .select("*")
+          // Sprint 21.1 — PROFILE_COLUMNS exclui reactivation_token_hash
+          // (server-only) e blinda contra coluna sensível futura descer
+          // automaticamente pro cliente.
+          .select(PROFILE_COLUMNS)
           .eq("user_id", userId)
           .maybeSingle(),
       ]);
@@ -2355,10 +2358,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const refreshPostDetails = useCallback(
     async (postId: string) => {
       const [likesRes, commentsRes, postParticipants] = await Promise.all([
-        services.client.from("post_likes").select("*").eq("post_id", postId),
+        services.client
+          .from("post_likes")
+          .select("post_id,user_id,created_at")
+          .eq("post_id", postId),
         services.client
           .from("post_comments")
-          .select("*")
+          .select("id,post_id,user_id,parent_comment_id,body,created_at")
           .eq("post_id", postId)
           .order("created_at", { ascending: true }),
         services.participants.listPostParticipants([postId]),
@@ -2372,7 +2378,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         commentIds.length > 0
           ? await services.client
               .from("post_comment_likes")
-              .select("*")
+              .select("comment_id,user_id,created_at")
               .in("comment_id", commentIds)
           : { data: [] as PostCommentLikeRow[], error: null };
       const postCommentLikes = optionalStorySocialRows(

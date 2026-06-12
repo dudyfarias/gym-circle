@@ -25,7 +25,7 @@ export function notificationService(client: GymCircleClient) {
     async listForUser(userId: string, limit = 50): Promise<NotificationRow[]> {
       const { data, error } = await client
         .from("notifications")
-        .select("*")
+        .select("id,user_id,actor_id,kind,post_id,comment_id,story_id,body,read_at,created_at")
         .eq("user_id", userId)
         .in("kind", SOCIAL_BELL_NOTIFICATION_KINDS)
         .order("created_at", { ascending: false })

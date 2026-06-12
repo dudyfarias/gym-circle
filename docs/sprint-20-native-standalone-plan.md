@@ -29,6 +29,7 @@
 | **20.5 Stories** | Captura + viewer completo (progress, reply, like, share, mute) | Paridade com StoryViewer web |
 | **20.6 Chat** | Conversas 1:1 + grupo via RPCs atômicas existentes; delete-for-me | Paridade ChatScreen |
 | **20.7 Push + deep links** | Registro APNs nativo (device_push_tokens), tap de notificação navega; Associated Domains + universal links | Push end-to-end no standalone |
+| **20.7b Check-in** | DECISÃO 12/jun (Eduardo): Check-in FICA — portar CheckInScreen + GymSearchSheet (~1.700 linhas web) pro SwiftUI; tabs nativas precisam acomodar a entrada | Check-in nativo com busca de academias |
 | **20.8 Cutover** | Bundle id de produção, migração de sessão, remoção do WebView, submissão | App Store review aprovado |
 
 ## Pré-requisitos transversais (fazer ANTES das fases que dependem)
