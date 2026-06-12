@@ -14,6 +14,7 @@ public struct FeedView: View {
     @State private var likesPost: FeedPost?
     @State private var editingPost: FeedPost?
     @State private var searchPresented = false
+    @State private var notificationsPresented = false
     @State private var playingVideo: PlayableVideo?
     // Sprint 20.5 — autor cujo story foi aberto na tray.
     @State private var openedStoryGroup: StoryAuthorGroup?
@@ -91,6 +92,23 @@ public struct FeedView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
+                    notificationsPresented = true
+                } label: {
+                    Image(systemName: "bell")
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        .overlay(alignment: .topTrailing) {
+                            if model.unreadNotifications > 0 {
+                                Circle()
+                                    .fill(GymCircleTheme.ColorToken.pink)
+                                    .frame(width: 9, height: 9)
+                                    .offset(x: 3, y: -3)
+                            }
+                        }
+                }
+                .accessibilityLabel("Notificações")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
                     searchPresented = true
                 } label: {
                     Image(systemName: "magnifyingglass")
@@ -98,6 +116,12 @@ public struct FeedView: View {
                 }
                 .accessibilityLabel("Buscar pessoas")
             }
+        }
+        .sheet(isPresented: $notificationsPresented) {
+            NotificationsSheet(model: model)
+        }
+        .task {
+            await model.refreshUnreadNotifications()
         }
         .sheet(item: $commentsPost) { post in
             CommentsSheet(

@@ -134,6 +134,101 @@ public actor GymCircleAPI {
             .value
     }
 
+    /// Sprint 20.7 — post único composto (routing de notificação). O RPC
+    /// do feed não serve pra post fora da janela, então compõe na mão:
+    /// posts + profile do autor + counts/likedByMe.
+    public func fetchPost(postId: String, viewerId: String) async throws -> FeedPost? {
+        struct PostRow: Decodable {
+            let id: String
+            let user_id: String
+            let image_url: String
+            let thumbnail_url: String?
+            let poster_url: String?
+            let media_width: Int?
+            let media_height: Int?
+            let media_duration_seconds: Double?
+            let blur_data_url: String?
+            let media_type: String?
+            let caption: String?
+            let gym_id: String?
+            let workout_type: String?
+            let workout_date: String?
+            let created_at: String
+            let location_source: String?
+            let location_name: String?
+        }
+        struct AuthorRow: Decodable {
+            let username: String
+            let display_name: String?
+            let avatar_url: String?
+        }
+        struct LikeRow: Decodable { let user_id: String }
+
+        let rows: [PostRow] = try await client
+            .from("posts")
+            .select(
+                "id,user_id,image_url,thumbnail_url,poster_url,media_width,media_height," +
+                    "media_duration_seconds,blur_data_url,media_type,caption,gym_id," +
+                    "workout_type,workout_date,created_at,location_source,location_name"
+            )
+            .eq("id", value: postId)
+            .limit(1)
+            .execute()
+            .value
+        guard let row = rows.first else { return nil }
+
+        let authors: [AuthorRow] = (try? await client
+            .from("profiles")
+            .select("username,display_name,avatar_url")
+            .eq("user_id", value: row.user_id)
+            .limit(1)
+            .execute()
+            .value) ?? []
+        let author = authors.first
+        let likes: [LikeRow] = (try? await client
+            .from("post_likes")
+            .select("user_id")
+            .eq("post_id", value: postId)
+            .execute()
+            .value) ?? []
+        let commentsResponse = try? await client
+            .from("post_comments")
+            .select("id", head: true, count: .exact)
+            .eq("post_id", value: postId)
+            .execute()
+
+        return FeedPost(
+            id: row.id,
+            userId: row.user_id,
+            imageURL: row.image_url,
+            thumbnailURL: row.thumbnail_url,
+            posterURL: row.poster_url,
+            mediaWidth: row.media_width,
+            mediaHeight: row.media_height,
+            mediaDurationSeconds: row.media_duration_seconds,
+            blurDataURL: row.blur_data_url,
+            mediaType: row.media_type.flatMap(FeedMediaType.init(rawValue:)),
+            caption: row.caption,
+            gymId: row.gym_id,
+            workoutType: row.workout_type,
+            workoutDate: row.workout_date,
+            createdAt: row.created_at,
+            locationSource: row.location_source,
+            locationName: row.location_name,
+            likesCount: likes.count,
+            commentsCount: commentsResponse?.count ?? 0,
+            username: author?.username ?? "user",
+            displayName: author?.display_name,
+            avatarURL: author?.avatar_url,
+            authorCurrentStreak: nil,
+            authorBestStreak: nil,
+            authorBadgeActive: nil,
+            likedByMe: likes.contains { $0.user_id == viewerId },
+            isFollowingAuthor: nil,
+            visibility: nil
+        )
+    }
+
     /// Sprint 20.4b — busca de academias pro composer (gyms por nome).
     public func searchGyms(query: String, limit: Int = 15) async throws -> [GymOption] {
         try await client

@@ -58,6 +58,9 @@ public final class GymCircleAppModel: ObservableObject {
     private let safetyService: SafetyService?
     public let participantsService: PostParticipantsService?
     private var mutedUserIds: Set<String> = []
+    // Sprint 20.7 — sino de notificações.
+    private let notificationsService: NotificationsService?
+    @Published public private(set) var unreadNotifications = 0
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -98,6 +101,7 @@ public final class GymCircleAppModel: ObservableObject {
         let composerService = PostComposerService(client: client)
         let safetyService = SafetyService(client: client)
         let participantsService = PostParticipantsService(client: client)
+        let notificationsService = NotificationsService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -110,7 +114,8 @@ public final class GymCircleAppModel: ObservableObject {
             commentsService: commentsService,
             composerService: composerService,
             safetyService: safetyService,
-            participantsService: participantsService
+            participantsService: participantsService,
+            notificationsService: notificationsService
         )
     }
 
@@ -128,7 +133,8 @@ public final class GymCircleAppModel: ObservableObject {
         commentsService: CommentsService? = nil,
         composerService: PostComposerService? = nil,
         safetyService: SafetyService? = nil,
-        participantsService: PostParticipantsService? = nil
+        participantsService: PostParticipantsService? = nil,
+        notificationsService: NotificationsService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -142,6 +148,7 @@ public final class GymCircleAppModel: ObservableObject {
         self.composerService = composerService
         self.safetyService = safetyService
         self.participantsService = participantsService
+        self.notificationsService = notificationsService
     }
 
     // MARK: - Boot pipeline
@@ -599,6 +606,31 @@ public final class GymCircleAppModel: ObservableObject {
             self.error = error.localizedDescription
             return false
         }
+    }
+
+    // MARK: - Sprint 20.7 — notificações
+
+    public func fetchNotifications() async -> [AppNotification] {
+        guard let notificationsService, let userId = sessionStore?.currentUserId else { return [] }
+        return (try? await notificationsService.list(userId: userId)) ?? []
+    }
+
+    public func refreshUnreadNotifications() async {
+        guard let notificationsService, let userId = sessionStore?.currentUserId else { return }
+        unreadNotifications = (try? await notificationsService.unreadCount(userId: userId)) ?? 0
+    }
+
+    public func markNotificationsRead() async {
+        guard let notificationsService, let userId = sessionStore?.currentUserId else { return }
+        try? await notificationsService.markAllRead(userId: userId)
+        unreadNotifications = 0
+    }
+
+    /// Post único (routing do sino) — já hidratado com carrossel.
+    public func fetchPost(postId: String) async -> FeedPost? {
+        guard let api, let userId = sessionStore?.currentUserId else { return nil }
+        guard let post = try? await api.fetchPost(postId: postId, viewerId: userId) else { return nil }
+        return await hydrateCarouselMedia([post]).first
     }
 
     // MARK: - Sprint 20.5 — stories viewer

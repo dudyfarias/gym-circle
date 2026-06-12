@@ -38,6 +38,7 @@
 		71427FF59C8B4933ED803A26 /* AchievementModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 938F0854F909B3772AE14447 /* AchievementModels.swift */; };
 		775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71697375FF0895F613E1090F /* MyCircleView.swift */; };
 		7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5A004267A6D5354857ABFD /* LoginView.swift */; };
+		81A1261D8C5DA6CDF6A2BDE6 /* NotificationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 671BB7E573CC14848641536D /* NotificationsSheet.swift */; };
 		81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */; };
 		88263A3ED7D173C5FC3EC4B0 /* AchievementBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */; };
 		9AA615722E6B567FCEE47224 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46FCDA3F30345C295BB0257C /* SafetyService.swift */; };
@@ -64,6 +65,7 @@
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
 		CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489ABF91A6CB491B111116DC /* FeedView.swift */; };
 		CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */; };
+		D807A08401BF9BEBFCEF2E8D /* NotificationsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4FB4D5BE0EA70E00B2010ED /* NotificationsService.swift */; };
 		DB1B30BE14F3C9A97AF5FB6E /* Retry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5989A86000B1F2D61679FD2A /* Retry.swift */; };
 		DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C49CF73E5FC4231EF022A24 /* L10n.swift */; };
 		DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636F3999A2F250111C153818 /* MyCircleModels.swift */; };
@@ -115,6 +117,7 @@
 		633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupabaseClientProvider.swift; sourceTree = "<group>"; };
 		636F3999A2F250111C153818 /* MyCircleModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleModels.swift; sourceTree = "<group>"; };
 		641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeIconNativeView.swift; sourceTree = "<group>"; };
+		671BB7E573CC14848641536D /* NotificationsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSheet.swift; sourceTree = "<group>"; };
 		682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturedAchievementsRowView.swift; sourceTree = "<group>"; };
 		6A44D5666AF9C52ED99FE84E /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
 		6C49CF73E5FC4231EF022A24 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
@@ -144,6 +147,7 @@
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
 		D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherProfileSummary.swift; sourceTree = "<group>"; };
+		E4FB4D5BE0EA70E00B2010ED /* NotificationsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsService.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
 		F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleTheme.swift; sourceTree = "<group>"; };
@@ -233,6 +237,7 @@
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
 				D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */,
 				71697375FF0895F613E1090F /* MyCircleView.swift */,
+				671BB7E573CC14848641536D /* NotificationsSheet.swift */,
 				C0BB038D99927918121215E6 /* OtherProfileView.swift */,
 				BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */,
 				ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */,
@@ -298,6 +303,7 @@
 				6D2F3C03BC2098846FF44D01 /* FollowsService.swift */,
 				C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */,
 				381506FB324FA418FAD1FEBF /* MyCircleService.swift */,
+				E4FB4D5BE0EA70E00B2010ED /* NotificationsService.swift */,
 				6296E65B7AAB500C0D264474 /* PostComposerService.swift */,
 				2E1A059F5AC41A83ACC3C36F /* PostParticipantsService.swift */,
 				D272642D5EA4B50216927502 /* ProfilesService.swift */,
@@ -478,6 +484,8 @@
 				DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */,
 				4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */,
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
+				D807A08401BF9BEBFCEF2E8D /* NotificationsService.swift in Sources */,
+				81A1261D8C5DA6CDF6A2BDE6 /* NotificationsSheet.swift in Sources */,
 				C256C624C303F3E8ED1E4320 /* OtherProfileSummary.swift in Sources */,
 				EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */,
 				CDB0940AC39FBA2818014853 /* PeopleSearchSheet.swift in Sources */,
