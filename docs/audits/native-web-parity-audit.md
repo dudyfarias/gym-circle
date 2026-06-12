@@ -43,9 +43,9 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 ### Stories (StoryViewer 714 linhas ↔ StoriesViews 112)
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
-| Viewer com progress bar / pause | ✅ | 🟡 | 20.5 |
-| Like, reply (DM), share, mute, report | ✅ | ❌ | 20.5 |
-| Continuidade entre autores | ✅ | ❌ | 20.5 |
+| Viewer com progress bar / pause | ✅ | ✅ (20.5 — timer + hold pausa + tap zones) | — |
+| Like, reply (DM), share, mute, report | ✅ | 🟡 like+reply ✅ (20.5/20.6); share/mute/report pendentes | 20.x |
+| Continuidade entre autores | ✅ | ✅ (20.5) | — |
 | Criação (story junto do post) | ✅ | ❌ (depende do composer) | 20.4 |
 | Ring viewed/unviewed no avatar | ✅ | ✅ (9.8.3/10.1) | — |
 
@@ -96,8 +96,8 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 ### Áreas inteiras sem nativo
 | Área | Web | Fase |
 |---|---|---|
-| Chat (1:1, grupo, vídeo, delete-for-me, busca) | ChatScreen 1.336 linhas | 20.6 |
-| Notificações (sheet + CTAs + routing) | NotificationsSheet 944 | 20.7 |
+| Chat (1:1, grupo, vídeo, delete-for-me, busca) | ✅ core (20.6 — 1:1+grupo+delete-for-me+nova conversa); mídia/criar grupo/realtime pendentes | 20.x |
+| Notificações (sheet + CTAs + routing) | ✅ (20.7a — sino+badge+routing post/perfil); APNs standalone pendente de entitlement | 20.7b |
 | Check-in + GymSearch | CheckInScreen 896 + GymSearchSheet 836 | decisão de produto (17/19) |
 | Busca/descoberta de pessoas + sugestões | 🟡 busca ✅ (20.3c via search_profiles → OtherProfile); sugestões pendentes | 20.x |
 | Onboarding contextual (hints 7C) | ContextualHint | 20.2+ (transversal) |

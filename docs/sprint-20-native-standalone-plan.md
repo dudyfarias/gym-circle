@@ -23,12 +23,12 @@
 |------|--------|---------------|
 | **20.0 Fundação** ✅ (11/jun) | Config de produção via xcconfig→Info.plist (`AppConfiguration.fromBundle`/`resolve`), RootView conecta no Supabase real (demo só sem Secrets.xcconfig), port multi-tags + normalização no `getDistinctWorkoutTypes` (drift B10), decode defensivo, testes (AppConfigurationTests) | `xcodebuild` simulador verde + login real no standalone |
 | **20.1 MyCircle + Hall** | Paridade total das telas já portadas + Hall estilo Apple (réplica da Sprint 15 web): AchievementsView ganha overview hero/destaque/grid de categorias + artefatos 3D (SceneKit ou Canvas/Metal — decidir spike) | Smoke lado a lado web vs nativo sem divergência de dados |
-| **20.2 Profile + EditProfile + Settings** | OtherProfile/follows já existem; faltam Settings nativas (idioma, privacidade, suspender/apagar conta) | Fluxos de conta 100% nativos |
-| **20.3 Feed completo (leitura + interações)** | FeedView ganha carrossel, likes, comments sheet (replies/likes de comentário), mute, distância | Feed nativo utilizável no dia a dia |
-| **20.4 Composer nativo** | PHPicker multi (até 10), câmera, upload Storage com thumbnail/poster, tags multi-select (até 5), localização — substitui o placeholder do MainTabView | Publicar carrossel + story pelo nativo |
-| **20.5 Stories** | Captura + viewer completo (progress, reply, like, share, mute) | Paridade com StoryViewer web |
-| **20.6 Chat** | Conversas 1:1 + grupo via RPCs atômicas existentes; delete-for-me | Paridade ChatScreen |
-| **20.7 Push + deep links** | Registro APNs nativo (device_push_tokens), tap de notificação navega; Associated Domains + universal links | Push end-to-end no standalone |
+| **20.2 Profile + EditProfile + Settings** ✅ (12/jun) | OtherProfile/follows já existem; faltam Settings nativas (idioma, privacidade, suspender/apagar conta) | Fluxos de conta 100% nativos |
+| **20.3 Feed completo (leitura + interações)** ✅ (12/jun — exceto distância→20.7) | FeedView ganha carrossel, likes, comments sheet (replies/likes de comentário), mute, distância | Feed nativo utilizável no dia a dia |
+| **20.4 Composer nativo** ✅ (12/jun — mídia-no-edit→cutover) | PHPicker multi (até 10), câmera, upload Storage com thumbnail/poster, tags multi-select (até 5), localização — substitui o placeholder do MainTabView | Publicar carrossel + story pelo nativo |
+| **20.5 Stories** ✅ (12/jun — share/mute pendentes; criação junto do post pendente) | Captura + viewer completo (progress, reply, like, share, mute) | Paridade com StoryViewer web |
+| **20.6 Chat** ✅ (12/jun — mídia/criar grupo/realtime pendentes) | Conversas 1:1 + grupo via RPCs atômicas existentes; delete-for-me | Paridade ChatScreen |
+| **20.7 Push + deep links** 🟡 (20.7a sino/routing ✅ 12/jun; APNs+universal links dependem de entitlement/Sprint 19) | Registro APNs nativo (device_push_tokens), tap de notificação navega; Associated Domains + universal links | Push end-to-end no standalone |
 | **20.7b Check-in** | DECISÃO 12/jun (Eduardo): Check-in FICA — portar CheckInScreen + GymSearchSheet (~1.700 linhas web) pro SwiftUI; tabs nativas precisam acomodar a entrada | Check-in nativo com busca de academias |
 | **20.8 Cutover** | Bundle id de produção, migração de sessão, remoção do WebView, submissão | App Store review aprovado |
 
