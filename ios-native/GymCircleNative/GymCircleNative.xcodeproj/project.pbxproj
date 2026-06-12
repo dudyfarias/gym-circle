@@ -12,6 +12,7 @@
 		14A45B815BD3F8556D41CA9E /* CommentsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0973110CDA21450BFC9B8CB6 /* CommentsService.swift */; };
 		1D0ACC90B99D7CE8C2BAB45F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 3FDD0FCBF0D87E571FAB28F3 /* Supabase */; };
 		1EEF102EFB0EA7E7396B94BB /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7456124A93C3498F4AA6BB2 /* AuthService.swift */; };
+		234F2D23AC2A119E9481DC50 /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F42AD544D7B2F14C1D0FE219 /* ChatService.swift */; };
 		2496096D16FB3A31867719D8 /* StoriesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F315E719C5717C0921BD96 /* StoriesService.swift */; };
 		24F7215A55C676294FD8637E /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */; };
 		33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */; };
@@ -41,6 +42,7 @@
 		81A1261D8C5DA6CDF6A2BDE6 /* NotificationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 671BB7E573CC14848641536D /* NotificationsSheet.swift */; };
 		81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */; };
 		88263A3ED7D173C5FC3EC4B0 /* AchievementBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */; };
+		897C6E5A16A97D0E13730869 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD5A151A6BF89D3869A206C /* ChatModels.swift */; };
 		9AA615722E6B567FCEE47224 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46FCDA3F30345C295BB0257C /* SafetyService.swift */; };
 		9CA8C13BAC321E232D5BCD2E /* GymCircleNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AD1AB193A5FDA3AB7B141AE /* GymCircleNativeApp.swift */; };
 		9CABDB82A84408A020396A0C /* MyCircleComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 783D161B1E627FB137F94874 /* MyCircleComponents.swift */; };
@@ -69,6 +71,7 @@
 		DB1B30BE14F3C9A97AF5FB6E /* Retry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5989A86000B1F2D61679FD2A /* Retry.swift */; };
 		DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C49CF73E5FC4231EF022A24 /* L10n.swift */; };
 		DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 636F3999A2F250111C153818 /* MyCircleModels.swift */; };
+		E2B270DF079D98436391DB85 /* ChatViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96EDD818F6C82D7CC140A36F /* ChatViews.swift */; };
 		EB06E4A7853BD711AC9B806B /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A44D5666AF9C52ED99FE84E /* CameraPicker.swift */; };
 		EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB038D99927918121215E6 /* OtherProfileView.swift */; };
 		F8C55A06AC9AC3691FDD15D5 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */; };
@@ -103,6 +106,7 @@
 		303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeRootView.swift; sourceTree = "<group>"; };
 		317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBuilderTests.swift; sourceTree = "<group>"; };
 		381506FB324FA418FAD1FEBF /* MyCircleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleService.swift; sourceTree = "<group>"; };
+		3CD5A151A6BF89D3869A206C /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		42B8BFA2187D25EB54BECC01 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		465041DF7DF6A1000F0BC96E /* PostParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostParticipant.swift; sourceTree = "<group>"; };
 		46FCDA3F30345C295BB0257C /* SafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyService.swift; sourceTree = "<group>"; };
@@ -132,6 +136,7 @@
 		89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressableButtonStyle.swift; sourceTree = "<group>"; };
 		938F0854F909B3772AE14447 /* AchievementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementModels.swift; sourceTree = "<group>"; };
 		96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAppModel.swift; sourceTree = "<group>"; };
+		96EDD818F6C82D7CC140A36F /* ChatViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViews.swift; sourceTree = "<group>"; };
 		9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsService.swift; sourceTree = "<group>"; };
 		A52D40B4007DAC206C665780 /* FeedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPost.swift; sourceTree = "<group>"; };
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
@@ -150,6 +155,7 @@
 		E4FB4D5BE0EA70E00B2010ED /* NotificationsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsService.swift; sourceTree = "<group>"; };
 		E7456124A93C3498F4AA6BB2 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		F20940CB53959FF53CFF9C75 /* StoriesViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesViews.swift; sourceTree = "<group>"; };
+		F42AD544D7B2F14C1D0FE219 /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
 		F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleTheme.swift; sourceTree = "<group>"; };
 		F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyChallengeModels.swift; sourceTree = "<group>"; };
 		F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeModelsTests.swift; sourceTree = "<group>"; };
@@ -228,6 +234,7 @@
 				5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */,
 				CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */,
 				7E02612239E7BC217D0CE54E /* AchievementsView.swift */,
+				96EDD818F6C82D7CC140A36F /* ChatViews.swift */,
 				1242B1DB1FF1D257EF8CFF0B /* CommentsSheet.swift */,
 				42B8BFA2187D25EB54BECC01 /* ComposerView.swift */,
 				C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */,
@@ -263,6 +270,7 @@
 			children = (
 				0A25EE1B0649D40C491D4501 /* AchievementBuilder.swift */,
 				938F0854F909B3772AE14447 /* AchievementModels.swift */,
+				3CD5A151A6BF89D3869A206C /* ChatModels.swift */,
 				A52D40B4007DAC206C665780 /* FeedPost.swift */,
 				F5ECCA62B019250D86558728 /* MonthlyChallengeModels.swift */,
 				636F3999A2F250111C153818 /* MyCircleModels.swift */,
@@ -299,6 +307,7 @@
 				9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */,
 				E7456124A93C3498F4AA6BB2 /* AuthService.swift */,
 				61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */,
+				F42AD544D7B2F14C1D0FE219 /* ChatService.swift */,
 				0973110CDA21450BFC9B8CB6 /* CommentsService.swift */,
 				6D2F3C03BC2098846FF44D01 /* FollowsService.swift */,
 				C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */,
@@ -460,6 +469,9 @@
 				52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */,
 				EB06E4A7853BD711AC9B806B /* CameraPicker.swift in Sources */,
 				AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */,
+				897C6E5A16A97D0E13730869 /* ChatModels.swift in Sources */,
+				234F2D23AC2A119E9481DC50 /* ChatService.swift in Sources */,
+				E2B270DF079D98436391DB85 /* ChatViews.swift in Sources */,
 				14A45B815BD3F8556D41CA9E /* CommentsService.swift in Sources */,
 				437FF8ED624FEBE121C0AE42 /* CommentsSheet.swift in Sources */,
 				509C986FA5F2D6C42D51A689 /* ComposerView.swift in Sources */,

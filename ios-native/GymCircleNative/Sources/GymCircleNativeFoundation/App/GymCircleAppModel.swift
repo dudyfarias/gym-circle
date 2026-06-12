@@ -61,6 +61,8 @@ public final class GymCircleAppModel: ObservableObject {
     // Sprint 20.7 — sino de notificações.
     private let notificationsService: NotificationsService?
     @Published public private(set) var unreadNotifications = 0
+    // Sprint 20.6 — chat.
+    private let chatService: ChatService?
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -102,6 +104,7 @@ public final class GymCircleAppModel: ObservableObject {
         let safetyService = SafetyService(client: client)
         let participantsService = PostParticipantsService(client: client)
         let notificationsService = NotificationsService(client: client)
+        let chatService = ChatService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -115,7 +118,8 @@ public final class GymCircleAppModel: ObservableObject {
             composerService: composerService,
             safetyService: safetyService,
             participantsService: participantsService,
-            notificationsService: notificationsService
+            notificationsService: notificationsService,
+            chatService: chatService
         )
     }
 
@@ -134,7 +138,8 @@ public final class GymCircleAppModel: ObservableObject {
         composerService: PostComposerService? = nil,
         safetyService: SafetyService? = nil,
         participantsService: PostParticipantsService? = nil,
-        notificationsService: NotificationsService? = nil
+        notificationsService: NotificationsService? = nil,
+        chatService: ChatService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -149,6 +154,7 @@ public final class GymCircleAppModel: ObservableObject {
         self.safetyService = safetyService
         self.participantsService = participantsService
         self.notificationsService = notificationsService
+        self.chatService = chatService
     }
 
     // MARK: - Boot pipeline
@@ -601,6 +607,78 @@ public final class GymCircleAppModel: ObservableObject {
                 workoutTypes: workoutTypes
             )
             await refreshFeed()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    // MARK: - Sprint 20.6 — chat
+
+    public func fetchChatThreads() async -> [ChatThread] {
+        guard let chatService, let userId = sessionStore?.currentUserId else { return [] }
+        return (try? await chatService.threads(currentUserId: userId)) ?? []
+    }
+
+    public func fetchChatMessages(conversationId: String) async -> [ChatMessage] {
+        guard let chatService else { return [] }
+        let page = (try? await chatService.messages(conversationId: conversationId)) ?? []
+        // RPC devolve mais-recentes-primeiro; UI quer cronológico.
+        return page.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    public func sendDirectMessage(receiverId: String, body: String) async -> ChatMessage? {
+        guard let chatService else { return nil }
+        do {
+            return try await chatService.sendDirect(receiverId: receiverId, body: body)
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    public func sendGroupMessage(conversationId: String, body: String) async -> ChatMessage? {
+        guard let chatService else { return nil }
+        do {
+            return try await chatService.sendGroup(conversationId: conversationId, body: body)
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    public func markConversationRead(conversationId: String) async {
+        guard let chatService else { return }
+        try? await chatService.markRead(conversationId: conversationId)
+    }
+
+    public func deleteConversationForMe(conversationId: String) async {
+        guard let chatService else { return }
+        do {
+            try await chatService.deleteForMe(conversationId: conversationId)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Sprint 20.5 — reply de story por DM (fecha a pendência do viewer).
+    @discardableResult
+    public func sendStoryReply(
+        authorId: String,
+        storyId: String,
+        previewURL: String?,
+        text: String
+    ) async -> Bool {
+        guard let chatService else { return false }
+        do {
+            try await chatService.sendDirect(
+                receiverId: authorId,
+                body: text,
+                storyId: storyId,
+                replyToStory: true,
+                storyPreviewURL: previewURL
+            )
             return true
         } catch {
             self.error = error.localizedDescription

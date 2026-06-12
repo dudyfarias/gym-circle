@@ -99,6 +99,9 @@ public struct StoryViewerScreen: View {
     @State private var isPaused = false
     @State private var isLoading = true
     @State private var likedOverrides: [String: Bool] = [:]
+    // Sprint 20.6 — reply por DM.
+    @State private var replyDraft = ""
+    @FocusState private var replyFocused: Bool
 
     private let tick: Double = 0.05
 
@@ -223,12 +226,32 @@ public struct StoryViewerScreen: View {
 
             Spacer()
 
-            HStack {
-                if let caption = item.caption, !caption.isEmpty {
-                    GCText(caption, style: .body, color: .white)
-                        .lineLimit(2)
+            if let caption = item.caption, !caption.isEmpty {
+                GCText(caption, style: .body, color: .white)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+            }
+
+            // Sprint 20.6 — reply por DM (send_direct_message com
+            // story_id + reply_to_story) + like.
+            HStack(spacing: 10) {
+                TextField("Responder...", text: $replyDraft)
+                    .focused($replyFocused)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(.white.opacity(0.14)))
+                    .foregroundStyle(.white)
+                if !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Button {
+                        Task { await sendReply() }
+                    } label: {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    }
+                    .buttonStyle(.plain)
                 }
-                Spacer()
                 Button {
                     Haptics.impactLight()
                     Task { await toggleLike() }
@@ -236,11 +259,34 @@ public struct StoryViewerScreen: View {
                     Image(systemName: isLiked ? "heart.fill" : "heart")
                         .font(.system(size: 26, weight: .bold))
                         .foregroundStyle(isLiked ? GymCircleTheme.ColorToken.pink : .white)
-                        .padding(10)
+                        .padding(6)
                 }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 24)
+            .onChange(of: replyFocused) { focused in
+                isPaused = focused
+            }
+        }
+    }
+
+    private func sendReply() async {
+        guard let item = currentItem, let group = currentGroup else { return }
+        let text = replyDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        let ok = await model.sendStoryReply(
+            authorId: group.authorId,
+            storyId: item.storyId,
+            previewURL: item.thumbnailURL ?? item.posterURL,
+            text: text
+        )
+        if ok {
+            replyDraft = ""
+            replyFocused = false
+            Haptics.success()
+        } else {
+            Haptics.error()
         }
     }
 

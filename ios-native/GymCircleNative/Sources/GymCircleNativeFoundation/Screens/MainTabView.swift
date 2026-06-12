@@ -49,8 +49,8 @@ public struct MainTabView: View {
             }
 
             NavigationStack {
-                GCEmptyState(title: "Chat", subtitle: "Mensagens nativas ficam para uma fase futura.")
-                    .background(GymCircleTheme.ColorToken.appBackground)
+                // Sprint 20.6 — chat real substitui o placeholder.
+                ChatListView(model: model)
             }
             .tabItem {
                 Label("Chat", systemImage: "bubble.left.and.bubble.right")
