@@ -50,6 +50,10 @@ public final class GymCircleAppModel: ObservableObject {
     private let followsService: FollowsService?
     // Sprint 10.1 — substitui hardcoded hasStory: false pelo dado real.
     private let storiesService: StoriesService?
+    // Sprint 20.3b — comentários do feed (público: o CommentsSheet usa direto).
+    public let commentsService: CommentsService?
+    // Sprint 20.4a — publicação nativa (upload + posts + post_media).
+    private let composerService: PostComposerService?
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -64,6 +68,11 @@ public final class GymCircleAppModel: ObservableObject {
 
     public var isAuthenticated: Bool {
         sessionStore?.isAuthenticated ?? false
+    }
+
+    /// Sprint 20.3b — atalho pro CommentsSheet (e futuros consumidores de UI).
+    public var currentUserId: String? {
+        sessionStore?.currentUserId
     }
 
     // MARK: - Init
@@ -81,6 +90,8 @@ public final class GymCircleAppModel: ObservableObject {
         let profilesService = ProfilesService(client: client)
         let followsService = FollowsService(client: client)
         let storiesService = StoriesService(client: client)
+        let commentsService = CommentsService(client: client)
+        let composerService = PostComposerService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -89,7 +100,9 @@ public final class GymCircleAppModel: ObservableObject {
             challengesService: challengesService,
             profilesService: profilesService,
             followsService: followsService,
-            storiesService: storiesService
+            storiesService: storiesService,
+            commentsService: commentsService,
+            composerService: composerService
         )
     }
 
@@ -103,7 +116,9 @@ public final class GymCircleAppModel: ObservableObject {
         challengesService: ChallengesService? = nil,
         profilesService: ProfilesService? = nil,
         followsService: FollowsService? = nil,
-        storiesService: StoriesService? = nil
+        storiesService: StoriesService? = nil,
+        commentsService: CommentsService? = nil,
+        composerService: PostComposerService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -113,6 +128,8 @@ public final class GymCircleAppModel: ObservableObject {
         self.profilesService = profilesService
         self.followsService = followsService
         self.storiesService = storiesService
+        self.commentsService = commentsService
+        self.composerService = composerService
     }
 
     // MARK: - Boot pipeline
@@ -249,6 +266,13 @@ public final class GymCircleAppModel: ObservableObject {
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// Sprint 20.3b — o CommentsSheet reporta deltas (+1 comentou, -N
+    /// apagou com replies) e o badge do card fica exato sem refetch.
+    public func adjustCommentsCount(postId: String, delta: Int) {
+        guard let index = posts.firstIndex(where: { $0.id == postId }) else { return }
+        posts[index].commentsCount = max(0, posts[index].commentsCount + delta)
     }
 
     /// Curtir/descurtir com update otimista: UI responde na hora, erro de
@@ -389,6 +413,40 @@ public final class GymCircleAppModel: ObservableObject {
         } catch {
             self.error = error.localizedDescription
             myCircleData = MyCircleViewData.demo(userId: userId, isOwn: true)
+        }
+    }
+
+    // MARK: - Sprint 20.4a — publicação nativa
+
+    /// Sobe as fotos (sequencial — barra de progresso futura), publica o
+    /// post (capa + carrossel) e recarrega feed + MyCircle (streak,
+    /// desafios tipo Popstar e conquistas reagem na hora).
+    public func publishPost(
+        imageDatas: [Data],
+        caption: String,
+        workoutTypes: [String]
+    ) async -> Bool {
+        guard let composerService,
+              let userId = sessionStore?.currentUserId,
+              !imageDatas.isEmpty else { return false }
+        do {
+            var uploads: [PostComposerService.UploadedMedia] = []
+            for data in imageDatas {
+                uploads.append(try await composerService.uploadImage(userId: userId, imageData: data))
+            }
+            try await composerService.publish(
+                userId: userId,
+                medias: uploads,
+                caption: caption,
+                workoutTypes: workoutTypes,
+                workoutDate: Self.todayKey()
+            )
+            await refreshFeed()
+            await loadMyCircle()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
         }
     }
 

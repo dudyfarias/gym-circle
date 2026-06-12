@@ -9,6 +9,8 @@ import SwiftUI
 ///   - stories tray com dados reais (antes recebia [])
 public struct FeedView: View {
     @ObservedObject private var model: GymCircleAppModel
+    // Sprint 20.3b — post com sheet de comentários aberta.
+    @State private var commentsPost: FeedPost?
 
     public init(model: GymCircleAppModel) {
         self.model = model
@@ -28,10 +30,14 @@ public struct FeedView: View {
                     )
                 } else {
                     ForEach(model.posts) { post in
-                        FeedPostCard(post: post) {
-                            Haptics.impactLight()
-                            Task { await model.toggleLike(postId: post.id) }
-                        }
+                        FeedPostCard(
+                            post: post,
+                            onLike: {
+                                Haptics.impactLight()
+                                Task { await model.toggleLike(postId: post.id) }
+                            },
+                            onComments: { commentsPost = post }
+                        )
                         .onAppear {
                             // Dispara o load more no penúltimo post (espelho
                             // do IntersectionObserver da web).
@@ -54,6 +60,17 @@ public struct FeedView: View {
         .refreshable {
             await model.refreshFeed()
         }
+        .sheet(item: $commentsPost) { post in
+            CommentsSheet(
+                post: post,
+                service: model.commentsService,
+                currentUserId: model.currentUserId,
+                onCountDelta: { delta in
+                    model.adjustCommentsCount(postId: post.id, delta: delta)
+                }
+            )
+            .presentationDetents([.medium, .large])
+        }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .navigationTitle("Hoje")
     }
@@ -62,10 +79,16 @@ public struct FeedView: View {
 public struct FeedPostCard: View {
     private let post: FeedPost
     private let onLike: (() -> Void)?
+    private let onComments: (() -> Void)?
 
-    public init(post: FeedPost, onLike: (() -> Void)? = nil) {
+    public init(
+        post: FeedPost,
+        onLike: (() -> Void)? = nil,
+        onComments: (() -> Void)? = nil
+    ) {
         self.post = post
         self.onLike = onLike
+        self.onComments = onComments
     }
 
     public var body: some View {
@@ -99,7 +122,14 @@ public struct FeedPostCard: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(post.likedByMe == true ? "Descurtir" : "Curtir")
 
-                    Label("\(post.commentsCount)", systemImage: "bubble.right")
+                    Button {
+                        onComments?()
+                    } label: {
+                        Label("\(post.commentsCount)", systemImage: "bubble.right")
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Comentarios")
+
                     Spacer()
                     if let workoutType = post.workoutType, !workoutType.isEmpty {
                         GCText(workoutType, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)

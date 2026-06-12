@@ -41,8 +41,8 @@ public struct MainTabView: View {
             }
 
             NavigationStack {
-                GCEmptyState(title: "Criar treino", subtitle: "Composer nativo fica para a proxima sprint.")
-                    .background(GymCircleTheme.ColorToken.appBackground)
+                // Sprint 20.4a — composer real substitui o placeholder.
+                ComposerView(model: model)
             }
             .tabItem {
                 Label("Criar", systemImage: "camera.fill")

@@ -55,9 +55,10 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let createdAt: String
     public let locationSource: String?
     public let locationName: String?
-    // Sprint 20.3a — var pra update otimista do like.
+    // Sprint 20.3a/b — vars pra update otimista de like e contador de
+    // comentários (sheet reporta delta).
     public var likesCount: Int
-    public let commentsCount: Int
+    public var commentsCount: Int
     public let username: String
     public let displayName: String?
     public let avatarURL: String?
