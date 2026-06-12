@@ -149,6 +149,57 @@ describe("recomputeChallengeProgress", () => {
     });
   });
 
+  describe("streak_in_month (Sprint 17 — B4)", () => {
+    it("conta a maior sequência de dias consecutivos do período", () => {
+      const challenge = makeChallenge({
+        goalKind: "streak_in_month",
+        goalTarget: 3,
+      });
+      const result = recomputeChallengeProgress(challenge, {
+        // 01-02 (2) · gap · 04-05-06 (3) · fora do período ignorado
+        workoutDays: [
+          "2026-06-01",
+          "2026-06-02",
+          "2026-06-04",
+          "2026-06-05",
+          "2026-06-06",
+          "2026-05-31",
+        ],
+        posts: [],
+      });
+      expect(result.progress).toBe(3);
+      expect(result.justCompleted).toBe(true);
+    });
+
+    it("dia único conta como sequência 1; duplicatas não inflam", () => {
+      const challenge = makeChallenge({
+        goalKind: "streak_in_month",
+        goalTarget: 5,
+      });
+      const result = recomputeChallengeProgress(challenge, {
+        workoutDays: ["2026-06-10", "2026-06-10", "2026-06-12"],
+        posts: [],
+      });
+      expect(result.progress).toBe(1);
+    });
+  });
+
+  describe("perfect_month (Sprint 17 — B4)", () => {
+    it("conta dias distintos; completa só quando atinge o target (nº de dias do mês)", () => {
+      const challenge = makeChallenge({
+        goalKind: "perfect_month",
+        goalTarget: 30,
+        progress: 0,
+      });
+      const result = recomputeChallengeProgress(challenge, {
+        workoutDays: ["2026-06-01", "2026-06-02", "2026-06-03"],
+        posts: [],
+      });
+      expect(result.progress).toBe(3);
+      expect(result.justCompleted).toBe(false);
+    });
+  });
+
   describe("completion", () => {
     it("não re-completa desafio já completado", () => {
       const challenge = makeChallenge({
@@ -166,8 +217,10 @@ describe("recomputeChallengeProgress", () => {
     });
 
     it("goal kind desconhecido preserva progress atual", () => {
+      // Sprint 17 implementou streak_in_month/perfect_month — o "kind
+      // desconhecido" do teste agora é um hipotético futuro.
       const challenge = makeChallenge({
-        goalKind: "perfect_month",
+        goalKind: "some_future_kind",
         goalTarget: 31,
         progress: 7,
       });

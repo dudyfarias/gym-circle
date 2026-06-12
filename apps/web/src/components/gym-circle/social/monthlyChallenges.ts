@@ -179,6 +179,16 @@ function normalizeForCompare(s: string): string {
 }
 
 /**
+ * Dois dias `YYYY-MM-DD` são consecutivos? Comparação via timestamp UTC
+ * meio-dia (imune a DST/timezone).
+ */
+function isNextCalendarDay(prev: string, next: string): boolean {
+  const p = new Date(`${prev}T12:00:00Z`).getTime();
+  const n = new Date(`${next}T12:00:00Z`).getTime();
+  return n - p === 24 * 60 * 60 * 1000;
+}
+
+/**
  * Todos os tipos de treino de um post (primária + tags da Sprint 13),
  * já normalizados e dedupados.
  */
@@ -196,11 +206,14 @@ function postWorkoutTypes(post: ChallengePostSnapshot): string[] {
 /**
  * Recompute progress de UM challenge a partir do estado social atual.
  *
- * Goal kinds suportados (Sprint 7.5.10):
+ * Goal kinds suportados (Sprint 7.5.10 + Sprint 17):
  *   - workouts_in_month: dias treinados no período
  *   - workout_type_specific: posts com qualquer tag matching (config.workout_type)
  *   - group_workouts: posts com 1+ participante accepted (2+ pessoas no total)
  *   - distinct_types: tipos únicos no período (primária + tags Sprint 13)
+ *   - streak_in_month: maior sequência de dias CONSECUTIVOS no período
+ *   - perfect_month: dias distintos no período (seed define goal_target =
+ *     nº de dias do mês → só completa com mês perfeito)
  *
  * Pulados (fallback mantém valor atual):
  *   - streak_in_month, perfect_month
@@ -256,6 +269,35 @@ export function recomputeChallengeProgress(
       newProgress = types.size;
       break;
     }
+    case "streak_in_month": {
+      // Sprint 17 (B4) — maior sequência de dias CONSECUTIVOS treinados
+      // dentro do período. Gap de 1 dia zera a sequência corrente.
+      const monthDays = [
+        ...new Set(
+          context.workoutDays.filter((d) => d.startsWith(challenge.periodKey)),
+        ),
+      ].sort();
+      let best = 0;
+      let run = 0;
+      let prev: string | null = null;
+      for (const day of monthDays) {
+        run = prev !== null && isNextCalendarDay(prev, day) ? run + 1 : 1;
+        if (run > best) best = run;
+        prev = day;
+      }
+      newProgress = best;
+      break;
+    }
+    case "perfect_month": {
+      // Sprint 17 (B4) — dias distintos treinados no período. O seed
+      // define goal_target = nº de dias do mês, então só completa com o
+      // mês 100% treinado; o progress serve de barra motivacional.
+      const monthDays = new Set(
+        context.workoutDays.filter((d) => d.startsWith(challenge.periodKey)),
+      );
+      newProgress = monthDays.size;
+      break;
+    }
     default:
       break;
   }
@@ -284,6 +326,15 @@ export async function syncChallengeProgress(
     !result.justCompleted
   )
     return; // nothing to sync
+
+  // Sprint 17 (guard B5) — progresso persistido NUNCA regride. Recompute
+  // com dados parciais (janela de posts incompleta, fetch que falhou)
+  // escreveria um valor menor por engano; e por decisão de produto, post
+  // deletado também não rebaixa desafio (mensal e motivacional, como os
+  // anéis da Apple).
+  if (result.progress < challenge.progress && !result.justCompleted) {
+    return;
+  }
 
   const completedAt = result.justCompleted
     ? new Date().toISOString()

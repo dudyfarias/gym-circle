@@ -1269,10 +1269,12 @@ export function GymCirclePreview({
     };
   }, [celebrationQueue, social.currentUser?.id]);
 
-  // Sprint 7.5.6 + 7.5.10 — carrega desafios mensais + recomputa progress
-  // baseado em workoutDays + posts atuais. Suporta os 5 goal_kinds:
-  // workouts_in_month, workout_type_specific, group_workouts, distinct_types
-  // (Sprint 7.5.10), streak_in_month / perfect_month (deferred). Best-effort.
+  // Sprint 7.5.6 + 7.5.10 + 17 — carrega desafios mensais + recomputa
+  // progress baseado em workoutDays + posts atuais. Suporta os 6
+  // goal_kinds: workouts_in_month, workout_type_specific, group_workouts,
+  // distinct_types, streak_in_month, perfect_month. Re-roda quando
+  // currentUserPosts muda (ex.: publish → refresh), então o desafio
+  // reage NA HORA do post. Best-effort.
   useEffect(() => {
     const currentUserId = social.currentUser?.id;
     if (!currentUserId) return;
@@ -1303,8 +1305,11 @@ export function GymCirclePreview({
             workoutDays,
             posts: challengePosts,
           });
+          // Sprint 17 (guard B5) — só sobe: recompute com dados parciais
+          // não rebaixa a barra na UI nem persiste valor menor (o sync
+          // tem o mesmo guard).
           if (
-            result.progress !== challenge.progress ||
+            result.progress > challenge.progress ||
             result.justCompleted
           ) {
             void syncChallengeProgress(

@@ -238,6 +238,7 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
       trained: true,
       thumbnailUrl: null,
       postId: null,
+      postCount: 0,
     });
     expect(result[14]).toEqual({
       day: 15,
@@ -245,6 +246,7 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
       trained: true,
       thumbnailUrl: null,
       postId: null,
+      postCount: 0,
     });
     expect(result[5].trained).toBe(false);
     expect(result[5].postId).toBe(null);
@@ -397,5 +399,19 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
     expect(result[7].thumbnailUrl).toBe("https://cdn/photo.jpg");
     // tap abre o post DA FOTO exibida, não o vídeo que veio antes
     expect(result[7].postId).toBe("image-uuid");
+  });
+
+  it("Sprint 17 — postCount conta TODOS os posts do dia (badge +N)", () => {
+    const posts = [
+      { id: "a", workoutDate: "2026-05-10", thumbnailUrl: "https://cdn/a.jpg", imageUrl: null },
+      { id: "b", workoutDate: "2026-05-10", thumbnailUrl: "https://cdn/b.jpg", imageUrl: null },
+      { id: "c", workoutDate: "2026-05-10", thumbnailUrl: null, imageUrl: null, mediaType: "video" },
+      { id: "d", workoutDate: "2026-05-11", thumbnailUrl: "https://cdn/d.jpg", imageUrl: null },
+    ];
+    const result = buildMonthWorkoutDays(["2026-05-10", "2026-05-11"], todayKey, posts);
+    expect(result[9].postCount).toBe(3);
+    expect(result[10].postCount).toBe(1);
+    // foto exibida continua sendo a primeira renderizável
+    expect(result[9].thumbnailUrl).toBe("https://cdn/a.jpg");
   });
 });

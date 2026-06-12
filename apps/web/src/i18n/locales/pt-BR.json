@@ -858,6 +858,7 @@
     "hero": "{{earned}} de {{total}} conquistadas",
     "progress": "{{current}}/{{target}}",
     "empty": "Nenhuma conquista nesta categoria ainda.",
+    "challengesArePersonal": "Desafios do mês são pessoais — só o dono vê os dele.",
     "secretMystery": "Conquista secreta",
     "secretHint": "Descubra como desbloquear",
     "tabs": {

@@ -443,7 +443,13 @@ export function AchievementsSheet({
                           </>
                         ) : items.length === 0 ? (
                           <p className="line-clamp-2 text-[10px] font-bold text-white/36">
-                            {t("achievementsSheet.empty")}
+                            {/* Sprint 17 — hall de TERCEIRO não recebe
+                                monthlyChallenges (regra de privacidade):
+                                a categoria Desafios vazia ganha explicação
+                                em vez de parecer bug. */}
+                            {kind === "challenge" && monthlyChallenges === undefined
+                              ? t("achievementsSheet.challengesArePersonal")
+                              : t("achievementsSheet.empty")}
                           </p>
                         ) : (
                           <p className="text-[10.5px] font-bold text-white/46">

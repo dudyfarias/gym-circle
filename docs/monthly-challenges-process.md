@@ -9,9 +9,10 @@
 2. **Editar a migration gerada**: temas brasileiros do mês (datas culturais,
    esporte, estação), títulos PT+EN, descrições com personalidade.
 3. **Regras fixas** (o gerador valida a 1ª; revise as demais):
-   - Só goal kinds implementados: `workouts_in_month`, `workout_type_specific`,
-     `group_workouts`, `distinct_types`. (`streak_in_month`/`perfect_month`
-     proibidos até o bug B4 ser resolvido.)
+   - Goal kinds implementados (Sprint 17 liberou os 2 últimos):
+     `workouts_in_month`, `workout_type_specific`, `group_workouts`,
+     `distinct_types`, `streak_in_month` (sequência consecutiva no mês) e
+     `perfect_month` (seed deve definir goal_target = nº de dias do mês).
    - 4 desafios: easy (público) / medium (secreto) / hard (público) / legendary (secreto).
    - `workout_type_specific`: o matching é fuzzy (sem acento, case-insensitive,
      `includes`) e considera TODAS as tags do post. Tipos fora dos chips

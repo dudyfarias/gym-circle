@@ -29,6 +29,9 @@ const IMPLEMENTED_GOAL_KINDS = new Set([
   "workout_type_specific",
   "group_workouts",
   "distinct_types",
+  // Sprint 17 (B4) — implementados no recompute; liberados no gerador.
+  "streak_in_month",
+  "perfect_month",
 ]);
 
 const period = process.argv[2];

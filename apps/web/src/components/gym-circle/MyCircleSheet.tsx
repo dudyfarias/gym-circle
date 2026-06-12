@@ -504,16 +504,27 @@ export function MyCircleSheet({
                             backgroundPosition: "center" as const,
                           }
                         : undefined;
+                      // Sprint 17 — "+N" quando o dia tem 2+ posts: o
+                      // calendário mostra 1 foto por dia (design) e sem o
+                      // indicador parecia que os outros posts tinham sumido.
+                      const extraPosts = (dayInfo?.postCount ?? 0) - 1;
                       const dayLabel = (
-                        <span
-                          className={
-                            hasPhoto
-                              ? "relative text-shadow-[0_1px_3px_rgba(0,0,0,0.72)] [text-shadow:0_1px_3px_rgba(0,0,0,0.72)]"
-                              : "relative"
-                          }
-                        >
-                          {day}
-                        </span>
+                        <>
+                          <span
+                            className={
+                              hasPhoto
+                                ? "relative text-shadow-[0_1px_3px_rgba(0,0,0,0.72)] [text-shadow:0_1px_3px_rgba(0,0,0,0.72)]"
+                                : "relative"
+                            }
+                          >
+                            {day}
+                          </span>
+                          {extraPosts > 0 ? (
+                            <span className="absolute right-0.5 top-0.5 rounded-full bg-black/56 px-1 text-[8px] font-black leading-[1.4] text-white/88 backdrop-blur-sm">
+                              +{extraPosts}
+                            </span>
+                          ) : null}
+                        </>
                       );
 
                       if (isTappable && postId && onOpenPost) {

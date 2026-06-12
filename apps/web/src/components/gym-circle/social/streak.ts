@@ -337,15 +337,22 @@ export function buildMonthWorkoutDays(
   // um post no mesmo dia, o primeiro COM foto renderizável vence (caller
   // já ordena por preferência — geralmente ordem do feed); sem nenhum
   // renderizável, o primeiro post segura o postId (cell sólida tappable).
+  // Sprint 17 — postCount conta TODOS os posts do dia: a UI mostra "+N"
+  // na célula pra matar a percepção de "post sumiu" (relato real: dia
+  // com 2 posts exibia só 1 foto sem indicação).
   const postsByDate = new Map<
     string,
-    { thumbnailUrl: string | null; postId: string | null }
+    { thumbnailUrl: string | null; postId: string | null; postCount: number }
   >();
   if (posts) {
     for (const post of posts) {
       if (!post.workoutDate) continue;
       const existing = postsByDate.get(post.workoutDate);
-      if (existing?.thumbnailUrl) continue; // dia já tem foto boa
+      const nextCount = (existing?.postCount ?? 0) + 1;
+      if (existing?.thumbnailUrl) {
+        existing.postCount = nextCount;
+        continue; // dia já tem foto boa — só conta
+      }
       const thumbnail = displayThumbnail(post);
       if (!existing || thumbnail) {
         // postId acompanha o post exibido: quando a foto de um post
@@ -353,7 +360,10 @@ export function buildMonthWorkoutDays(
         postsByDate.set(post.workoutDate, {
           thumbnailUrl: thumbnail,
           postId: post.id ?? null,
+          postCount: nextCount,
         });
+      } else {
+        existing.postCount = nextCount;
       }
     }
   }
@@ -370,6 +380,7 @@ export function buildMonthWorkoutDays(
       trained,
       thumbnailUrl: postMatch?.thumbnailUrl ?? null,
       postId: postMatch?.postId ?? null,
+      postCount: postMatch?.postCount ?? 0,
     };
   });
 }
