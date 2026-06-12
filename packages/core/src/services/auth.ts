@@ -13,33 +13,49 @@ export function authService(client: GymCircleClient) {
     return value.trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9_.]/g, "");
   }
 
-  async function resolveEmailForUsername(username: string) {
+  // Sprint 21.2 — login por username via Edge Function. O e-mail é
+  // resolvido server-side e nunca volta pro cliente (o RPC antigo
+  // resolve_email_for_username deixava qualquer anon colher e-mails).
+  async function signInWithUsername(username: string, password: string) {
     const normalized = cleanUsername(username);
     if (normalized.length < 3) {
       throw new Error("Informe um username ou email válido.");
     }
-    const { data, error } = await client.rpc("resolve_email_for_username", {
-      p_username: normalized,
+    const { data, error } = await client.functions.invoke("login-with-username", {
+      body: { username: normalized, password },
     });
-    if (error) throw error;
-    if (!data) {
-      throw new Error("Username não encontrado.");
+    // Erro genérico proposital: a função não diferencia username
+    // inexistente de senha errada (anti-enumeração).
+    const session = (data as { session?: { access_token?: string; refresh_token?: string } } | null)
+      ?.session;
+    if (error || !session?.access_token || !session?.refresh_token) {
+      throw new Error("Username ou senha inválidos.");
     }
-    return data;
+    const { data: sessionData, error: sessionError } = await client.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (sessionError) throw sessionError;
+    return sessionData;
   }
 
   return {
     async signInWithPassword(identifier: string, password: string) {
       const cleanedIdentifier = identifier.trim();
-      const email = cleanedIdentifier.includes("@")
-        ? cleanedIdentifier
-        : await resolveEmailForUsername(cleanedIdentifier);
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      // "@dudy" é handle, não e-mail — o @ só indica e-mail quando vem
+      // depois da parte local (fix de quirk: antes "@user" caía no fluxo
+      // de e-mail e falhava sempre).
+      const isEmail = cleanedIdentifier.replace(/^@/, "").includes("@");
+      if (!isEmail) {
+        return signInWithUsername(cleanedIdentifier, password);
+      }
+      const { data, error } = await client.auth.signInWithPassword({
+        email: cleanedIdentifier,
+        password,
+      });
       if (error) throw error;
       return data;
     },
-
-    resolveEmailForUsername,
 
     async signInWithOAuth(provider: SocialAuthProvider, redirectTo?: string) {
       const { data, error } = await client.auth.signInWithOAuth({

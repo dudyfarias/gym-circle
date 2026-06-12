@@ -53,6 +53,70 @@ describe("authService.signInWithOAuth", () => {
     });
   });
 
+  it("username sem @ loga via Edge Function e seta a sessão (Sprint 21.2)", async () => {
+    const invoke = vi.fn().mockResolvedValue({
+      data: { session: { access_token: "at-1", refresh_token: "rt-1" } },
+      error: null,
+    });
+    const setSession = vi.fn().mockResolvedValue({
+      data: { user: { id: "u1" }, session: { access_token: "at-1" } },
+      error: null,
+    });
+    const client = {
+      auth: { setSession },
+      functions: { invoke },
+    } as unknown as GymCircleClient;
+    const service = authService(client);
+
+    await service.signInWithPassword("@Dudy.Farias", "senha123");
+
+    expect(invoke).toHaveBeenCalledWith("login-with-username", {
+      body: { username: "dudy.farias", password: "senha123" },
+    });
+    expect(setSession).toHaveBeenCalledWith({
+      access_token: "at-1",
+      refresh_token: "rt-1",
+    });
+  });
+
+  it("falha de username/senha vira erro genérico (anti-enumeração)", async () => {
+    const client = {
+      auth: { setSession: vi.fn() },
+      functions: {
+        invoke: vi.fn().mockResolvedValue({
+          data: { error: "invalid_credentials" },
+          error: new Error("Edge Function returned a non-2xx status code"),
+        }),
+      },
+    } as unknown as GymCircleClient;
+    const service = authService(client);
+
+    await expect(
+      service.signInWithPassword("naoexiste", "qualquer"),
+    ).rejects.toThrow("Username ou senha inválidos.");
+  });
+
+  it("email com @ continua no signInWithPassword direto do Supabase", async () => {
+    const signInWithPassword = vi.fn().mockResolvedValue({
+      data: { user: { id: "u1" }, session: {} },
+      error: null,
+    });
+    const invoke = vi.fn();
+    const client = {
+      auth: { signInWithPassword },
+      functions: { invoke },
+    } as unknown as GymCircleClient;
+    const service = authService(client);
+
+    await service.signInWithPassword(" dudy@gymcircle.app ", "senha123");
+
+    expect(signInWithPassword).toHaveBeenCalledWith({
+      email: "dudy@gymcircle.app",
+      password: "senha123",
+    });
+    expect(invoke).not.toHaveBeenCalled();
+  });
+
   it("sends magic links with emailRedirectTo for account reactivation", async () => {
     const client = {
       auth: {
