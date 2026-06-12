@@ -26,8 +26,8 @@ public struct GymCircleNativeRootView: View {
         Group {
             if model.isAuthenticated {
                 MainTabView(
-                    posts: model.posts,
-                    stories: model.stories,
+                    // Sprint 20.3a — feed interativo observa o model direto.
+                    model: model,
                     profile: model.profile,
                     profilePosts: model.profilePosts,
                     // Sprint 8.3 — usa MyCircleViewData real quando disponível

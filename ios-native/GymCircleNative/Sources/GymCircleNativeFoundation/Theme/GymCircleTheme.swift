@@ -9,6 +9,8 @@ public enum GymCircleTheme {
         public static let primaryText = Color.white
         public static let secondaryText = Color(red: 0.631, green: 0.631, blue: 0.667)
         public static let cyan = Color(red: 0.549, green: 0.984, blue: 1.0)
+        /// Sprint 20.3a — coração curtido (gc-pink #ff2d55 da web).
+        public static let pink = Color(red: 1.0, green: 0.176, blue: 0.333)
         public static let electricBlue = Color(red: 0.188, green: 0.835, blue: 1.0)
         public static let deepBlue = Color(red: 0.0, green: 0.4, blue: 1.0)
         public static let quietBlue = Color(red: 0.188, green: 0.835, blue: 1.0).opacity(0.12)

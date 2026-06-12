@@ -1,21 +1,21 @@
 import SwiftUI
 
 public struct MainTabView: View {
-    private let posts: [FeedPost]
-    private let stories: [StoryAuthorGroup]
+    // Sprint 20.3a — o feed virou interativo (like/refresh/paginação),
+    // então a tab Home observa o model direto; as demais seguem
+    // data-injected até suas fases.
+    @ObservedObject private var model: GymCircleAppModel
     private let profile: UserProfile?
     private let profilePosts: [ProfilePost]
     private let myCircle: MyCircleViewData
 
     public init(
-        posts: [FeedPost],
-        stories: [StoryAuthorGroup],
+        model: GymCircleAppModel,
         profile: UserProfile?,
         profilePosts: [ProfilePost],
         myCircle: MyCircleViewData
     ) {
-        self.posts = posts
-        self.stories = stories
+        self.model = model
         self.profile = profile
         self.profilePosts = profilePosts
         self.myCircle = myCircle
@@ -24,7 +24,7 @@ public struct MainTabView: View {
     public var body: some View {
         TabView {
             NavigationStack {
-                FeedView(posts: posts)
+                FeedView(model: model)
             }
             .tabItem {
                 Label("Home", systemImage: "house.fill")

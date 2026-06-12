@@ -5,6 +5,38 @@ public enum FeedMediaType: String, Codable, Sendable {
     case video
 }
 
+/// Sprint 20.3a — item do carrossel (linha de `post_media`, ordenada por
+/// position). Post sem linhas = mídia única (a capa em posts.* continua
+/// sendo a fonte, paridade com a Sprint 13 web).
+public struct PostMediaItem: Identifiable, Codable, Hashable, Sendable {
+    public let id: String
+    public let postId: String
+    public let position: Int
+    public let mediaType: FeedMediaType?
+    public let imageURL: String
+    public let thumbnailURL: String?
+    public let posterURL: String?
+    public let mediaWidth: Int?
+    public let mediaHeight: Int?
+
+    /// Mesma regra de exibição da capa: thumbnail → poster → original.
+    public var displayURL: String {
+        thumbnailURL ?? posterURL ?? imageURL
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case postId = "post_id"
+        case position
+        case mediaType = "media_type"
+        case imageURL = "image_url"
+        case thumbnailURL = "thumbnail_url"
+        case posterURL = "poster_url"
+        case mediaWidth = "media_width"
+        case mediaHeight = "media_height"
+    }
+}
+
 public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let id: String
     public let userId: String
@@ -23,7 +55,8 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let createdAt: String
     public let locationSource: String?
     public let locationName: String?
-    public let likesCount: Int
+    // Sprint 20.3a — var pra update otimista do like.
+    public var likesCount: Int
     public let commentsCount: Int
     public let username: String
     public let displayName: String?
@@ -31,9 +64,15 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let authorCurrentStreak: Int?
     public let authorBestStreak: Int?
     public let authorBadgeActive: Bool?
-    public let likedByMe: Bool?
+    // Sprint 20.3a — var pra update otimista do like.
+    public var likedByMe: Bool?
     public let isFollowingAuthor: Bool?
     public let visibility: String?
+
+    /// Sprint 20.3a — mídias do carrossel, hidratadas pós-decode (o RPC
+    /// get_home_feed não retorna post_media; o AppModel agrupa numa query
+    /// separada). Nil/vazio = post de mídia única (usa a capa).
+    public var media: [PostMediaItem]? = nil
 
     public var displayAuthorName: String {
         displayName?.isEmpty == false ? displayName! : username
@@ -41,6 +80,25 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
 
     public var displayMediaURL: String {
         thumbnailURL ?? posterURL ?? imageURL
+    }
+
+    /// Itens prontos pro carrossel: post_media quando existe (≥1), senão a
+    /// capa vira o único item — espelho do media[] sempre ≥1 da web.
+    public var carouselItems: [PostMediaItem] {
+        if let media, !media.isEmpty { return media }
+        return [
+            PostMediaItem(
+                id: id,
+                postId: id,
+                position: 0,
+                mediaType: mediaType,
+                imageURL: imageURL,
+                thumbnailURL: thumbnailURL,
+                posterURL: posterURL,
+                mediaWidth: mediaWidth,
+                mediaHeight: mediaHeight
+            ),
+        ]
     }
 
     /// Sprint 11.1 — init público explícito pra construção manual em

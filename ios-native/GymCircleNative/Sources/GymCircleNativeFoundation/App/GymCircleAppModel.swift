@@ -25,6 +25,9 @@ public final class GymCircleAppModel: ObservableObject {
     @Published public private(set) var isLoading = false
     @Published public private(set) var error: String?
     @Published public private(set) var posts: [FeedPost] = []
+    // Sprint 20.3a — paginação infinita do feed.
+    @Published public private(set) var isLoadingMoreFeed = false
+    @Published public private(set) var feedHasMore = true
     @Published public private(set) var stories: [StoryAuthorGroup] = []
     @Published public private(set) var profile: UserProfile?
     @Published public private(set) var profilePosts: [ProfilePost] = []
@@ -186,9 +189,87 @@ public final class GymCircleAppModel: ObservableObject {
         do {
             async let feed = api.homeFeed()
             async let tray = api.storyTray()
-            posts = try await feed
+            let feedPosts = try await feed
             stories = try await tray
+            feedHasMore = feedPosts.count >= Self.feedPageSize
+            posts = await hydrateCarouselMedia(feedPosts)
         } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    // MARK: - Sprint 20.3a — feed interativo (carrossel, like, paginação)
+
+    private static let feedPageSize = 30
+
+    /// Hidrata media[] (carrossel da Sprint 13) numa query única de
+    /// post_media agrupada por post. Fail-soft: erro deixa os posts como
+    /// mídia única (capa) — feed nunca quebra por causa do carrossel.
+    private func hydrateCarouselMedia(_ feedPosts: [FeedPost]) async -> [FeedPost] {
+        guard let api, !feedPosts.isEmpty else { return feedPosts }
+        guard let mediaByPost = try? await api.postMedia(postIds: feedPosts.map(\.id)),
+              !mediaByPost.isEmpty else { return feedPosts }
+        return feedPosts.map { post in
+            var updated = post
+            updated.media = mediaByPost[post.id]
+            return updated
+        }
+    }
+
+    /// Pull-to-refresh: recarrega feed + tray sem ligar o skeleton
+    /// (`isLoading`) — o spinner do gesto já dá o feedback.
+    public func refreshFeed() async {
+        guard let api else { return }
+        do {
+            async let feed = api.homeFeed()
+            async let tray = api.storyTray()
+            let feedPosts = try await feed
+            stories = (try? await tray) ?? stories
+            feedHasMore = feedPosts.count >= Self.feedPageSize
+            posts = await hydrateCarouselMedia(feedPosts)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Próxima página via cursor de created_at (mesmo contrato do
+    /// get_home_feed da web). Dedup defensivo contra post repetido na
+    /// borda do cursor.
+    public func loadMoreFeed() async {
+        guard let api, feedHasMore, !isLoadingMoreFeed,
+              let cursor = posts.last?.createdAt else { return }
+        isLoadingMoreFeed = true
+        defer { isLoadingMoreFeed = false }
+        do {
+            let nextPage = try await api.homeFeed(cursorCreatedAt: cursor)
+            feedHasMore = nextPage.count >= Self.feedPageSize
+            let hydrated = await hydrateCarouselMedia(nextPage)
+            let knownIds = Set(posts.map(\.id))
+            posts.append(contentsOf: hydrated.filter { !knownIds.contains($0.id) })
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Curtir/descurtir com update otimista: UI responde na hora, erro de
+    /// rede reverte o estado e expõe `error`.
+    public func toggleLike(postId: String) async {
+        guard let api,
+              let userId = sessionStore?.currentUserId,
+              let index = posts.firstIndex(where: { $0.id == postId }) else { return }
+        let wasLiked = posts[index].likedByMe ?? false
+        posts[index].likedByMe = !wasLiked
+        posts[index].likesCount = max(0, posts[index].likesCount + (wasLiked ? -1 : 1))
+        do {
+            try await api.setLike(postId: postId, userId: userId, liked: !wasLiked)
+        } catch {
+            if let revertIndex = posts.firstIndex(where: { $0.id == postId }) {
+                posts[revertIndex].likedByMe = wasLiked
+                posts[revertIndex].likesCount = max(
+                    0,
+                    posts[revertIndex].likesCount + (wasLiked ? 1 : -1)
+                )
+            }
             self.error = error.localizedDescription
         }
     }

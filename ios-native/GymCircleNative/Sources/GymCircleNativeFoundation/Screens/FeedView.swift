@@ -1,33 +1,58 @@
 import SwiftUI
 
+/// FeedView — Sprint 20.3a (feed interativo).
+///
+/// Ganhos vs a versão read-only da Sprint 3:
+///   - carrossel multi-mídia com dots ABAIXO da mídia (paridade Sprint 14)
+///   - curtir com update otimista + haptic
+///   - pull-to-refresh + paginação infinita por cursor
+///   - stories tray com dados reais (antes recebia [])
 public struct FeedView: View {
-    private let posts: [FeedPost]
-    private let isLoading: Bool
+    @ObservedObject private var model: GymCircleAppModel
 
-    public init(posts: [FeedPost], isLoading: Bool = false) {
-        self.posts = posts
-        self.isLoading = isLoading
+    public init(model: GymCircleAppModel) {
+        self.model = model
     }
 
     public var body: some View {
         ScrollView {
             LazyVStack(spacing: 18) {
-                StoriesTrayView(groups: [], isLoading: false)
+                StoriesTrayView(groups: model.stories, isLoading: false)
 
-                if isLoading {
+                if model.isLoading && model.posts.isEmpty {
                     GCLoadingView("Carregando feed")
-                } else if posts.isEmpty {
+                } else if model.posts.isEmpty {
                     GCEmptyState(
                         title: "Seu circle esta quieto",
                         subtitle: "Quando as pessoas que voce segue postarem, os treinos aparecem aqui."
                     )
                 } else {
-                    ForEach(posts) { post in
-                        FeedPostCard(post: post)
+                    ForEach(model.posts) { post in
+                        FeedPostCard(post: post) {
+                            Haptics.impactLight()
+                            Task { await model.toggleLike(postId: post.id) }
+                        }
+                        .onAppear {
+                            // Dispara o load more no penúltimo post (espelho
+                            // do IntersectionObserver da web).
+                            let posts = model.posts
+                            if posts.count >= 2, post.id == posts[posts.count - 2].id {
+                                Task { await model.loadMoreFeed() }
+                            }
+                        }
+                    }
+
+                    if model.isLoadingMoreFeed {
+                        ProgressView()
+                            .tint(GymCircleTheme.ColorToken.cyan)
+                            .padding(.vertical, 8)
                     }
                 }
             }
             .padding(20)
+        }
+        .refreshable {
+            await model.refreshFeed()
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .navigationTitle("Hoje")
@@ -36,9 +61,11 @@ public struct FeedView: View {
 
 public struct FeedPostCard: View {
     private let post: FeedPost
+    private let onLike: (() -> Void)?
 
-    public init(post: FeedPost) {
+    public init(post: FeedPost, onLike: (() -> Void)? = nil) {
         self.post = post
+        self.onLike = onLike
     }
 
     public var body: some View {
@@ -56,10 +83,22 @@ public struct FeedPostCard: View {
                     GCText("\(post.authorCurrentStreak ?? 0)d", style: .caption, color: GymCircleTheme.ColorToken.cyan)
                 }
 
-                MediaView(url: post.displayMediaURL, aspectRatio: mediaAspectRatio)
+                PostCarouselView(items: post.carouselItems, aspectRatio: mediaAspectRatio)
 
                 HStack(spacing: 18) {
-                    Label("\(post.likesCount)", systemImage: post.likedByMe == true ? "heart.fill" : "heart")
+                    Button {
+                        onLike?()
+                    } label: {
+                        Label("\(post.likesCount)", systemImage: post.likedByMe == true ? "heart.fill" : "heart")
+                            .foregroundStyle(
+                                post.likedByMe == true
+                                    ? GymCircleTheme.ColorToken.pink
+                                    : GymCircleTheme.ColorToken.primaryText
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(post.likedByMe == true ? "Descurtir" : "Curtir")
+
                     Label("\(post.commentsCount)", systemImage: "bubble.right")
                     Spacer()
                     if let workoutType = post.workoutType, !workoutType.isEmpty {
@@ -77,6 +116,9 @@ public struct FeedPostCard: View {
     }
 
     private var mediaAspectRatio: CGFloat {
+        // Carrossel: frame fixo 4:5 (Sprint 13 — o trilho não pula entre
+        // slides de aspectos diferentes). Mídia única adota o natural.
+        if post.carouselItems.count > 1 { return 4 / 5 }
         guard let width = post.mediaWidth, let height = post.mediaHeight, height > 0 else {
             return 4 / 5
         }
@@ -84,13 +126,68 @@ public struct FeedPostCard: View {
     }
 }
 
+/// Carrossel de mídias com dots ABAIXO (estilo Instagram, paridade
+/// Sprint 14 web). 1 item = render direto sem paging nem dots.
+public struct PostCarouselView: View {
+    private let items: [PostMediaItem]
+    private let aspectRatio: CGFloat
+    @State private var currentIndex = 0
+
+    public init(items: [PostMediaItem], aspectRatio: CGFloat) {
+        self.items = items
+        self.aspectRatio = aspectRatio
+    }
+
+    public var body: some View {
+        if items.count <= 1 {
+            MediaView(
+                url: items.first?.displayURL ?? "",
+                aspectRatio: aspectRatio,
+                isVideo: items.first?.mediaType == .video
+            )
+        } else {
+            VStack(spacing: 10) {
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                        MediaView(
+                            url: item.displayURL,
+                            aspectRatio: aspectRatio,
+                            isVideo: item.mediaType == .video
+                        )
+                        .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .aspectRatio(aspectRatio, contentMode: .fit)
+
+                HStack(spacing: 5) {
+                    ForEach(items.indices, id: \.self) { index in
+                        Circle()
+                            .fill(
+                                index == currentIndex
+                                    ? GymCircleTheme.ColorToken.cyan
+                                    : GymCircleTheme.ColorToken.secondaryText.opacity(0.35)
+                            )
+                            .frame(width: 6, height: 6)
+                            .animation(.easeOut(duration: 0.18), value: currentIndex)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("Mídia \(currentIndex + 1) de \(items.count)")
+            }
+        }
+    }
+}
+
 public struct MediaView: View {
     private let url: String
     private let aspectRatio: CGFloat
+    private let isVideo: Bool
 
-    public init(url: String, aspectRatio: CGFloat) {
+    public init(url: String, aspectRatio: CGFloat, isVideo: Bool = false) {
         self.url = url
         self.aspectRatio = aspectRatio
+        self.isVideo = isVideo
     }
 
     public var body: some View {
@@ -111,6 +208,15 @@ public struct MediaView: View {
                             .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
                     }
                 }
+            }
+
+            // Sprint 20.3a — vídeo no feed ainda renderiza o poster com o
+            // badge de play; playback inline fica pra 20.3b (AVPlayer).
+            if isVideo {
+                Image(systemName: "play.circle.fill")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .shadow(radius: 8)
             }
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
