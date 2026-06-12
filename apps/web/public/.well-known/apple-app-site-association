@@ -1,0 +1,18 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["C37DC7SJC5.com.gymcircle.app"],
+        "components": [
+          { "/": "/post/*", "comment": "Deep link de post" },
+          { "/": "/u/*", "comment": "Deep link de perfil" },
+          { "/": "/convite/*", "comment": "Convite de amigo" }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["C37DC7SJC5.com.gymcircle.app"]
+  }
+}

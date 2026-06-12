@@ -20,11 +20,14 @@ const config: CapacitorConfig = {
   server: {
     url: "https://gym-circle-rust.vercel.app",
     cleartext: false,
-    // Apenas hosts confiáveis: produção/preview Vercel + Supabase storage/auth.
+    // Apenas hosts confiáveis: produção/preview DESTE projeto + Supabase
+    // do projeto + auth externa. Sprint 16.5 — removidos os wildcards
+    // *.vercel.app e *.supabase.co: qualquer site vercel.app podia abrir
+    // DENTRO do shell (phishing com cara de app).
     allowNavigation: [
       "gym-circle-rust.vercel.app",
-      "*.vercel.app",
-      "*.supabase.co",
+      "gym-circle-git-main-dudycappia-4508s-projects.vercel.app",
+      "gym-circle-dudycappia-4508s-projects.vercel.app",
       "qajjpjmybmqqwflytcpr.supabase.co",
       "accounts.google.com",
       "appleid.apple.com",
