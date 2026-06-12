@@ -29,16 +29,16 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 |---|---|---|---|
 | Lista de posts + autor/streak | ✅ | ✅ (via get_home_feed? verificar RPC usada) | — |
 | Contadores like/comment | ✅ | ✅ (só display) | — |
-| **Curtir (ação)** | ✅ | ❌ | 20.3 |
+| **Curtir (ação)** | ✅ | ✅ (20.3a — otimista + rollback) | — |
 | **Comentários (sheet + replies + likes + swipe-delete)** | ✅ | ❌ | 20.3 |
-| **Carrossel multi-mídia + dots** | ✅ | ❌ (só 1ª mídia) | 20.3 |
+| **Carrossel multi-mídia + dots** | ✅ | ✅ (20.3a — dots abaixo; vídeo = poster+play até 20.3b) | — |
 | Mute de autor/post, report, menu | ✅ | ❌ | 20.3 |
 | Distância do viewer | ✅ | ❌ | 20.3 |
 | Participantes (grupo) + aceite | ✅ | ❌ | 20.3 |
 | Likes overlay (quem curtiu) | ✅ | ❌ | 20.3 |
 | Stories tray no topo | ✅ | 🟡 (StoriesViews 112 linhas — viewer básico) | 20.5 |
-| Paginação infinita | ✅ | ❓ verificar GymCircleAPI | 20.3 |
-| Pull-to-refresh | ✅ | ❓ | 20.3 |
+| Paginação infinita | ✅ | ✅ (20.3a — cursor no penúltimo post) | — |
+| Pull-to-refresh | ✅ | ✅ (20.3a) | — |
 
 ### Stories (StoryViewer 714 linhas ↔ StoriesViews 112)
 | Feature | Web | Nativo | Fase |
