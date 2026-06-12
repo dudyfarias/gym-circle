@@ -32,10 +32,10 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | **Curtir (ação)** | ✅ | ✅ (20.3a — otimista + rollback) | — |
 | **Comentários (sheet + replies + likes + swipe-delete)** | ✅ | ✅ (20.3b) | — |
 | **Carrossel multi-mídia + dots** | ✅ | ✅ (20.3a — dots abaixo; vídeo = poster+play até 20.3b) | — |
-| Mute de autor/post, report, menu | ✅ | ❌ | 20.3 |
-| Distância do viewer | ✅ | ❌ | 20.3 |
-| Participantes (grupo) + aceite | ✅ | ❌ | 20.3 |
-| Likes overlay (quem curtiu) | ✅ | ❌ | 20.3 |
+| Mute de autor/post, report, menu | ✅ | ✅ (20.3c — post_mutes + reports) | — |
+| Distância do viewer | ✅ | ❌ ÚNICA pendência do 20.3 (precisa lat/lng no get_home_feed + permissão de localização) | 20.7 |
+| Participantes (grupo) + aceite | ✅ | ✅ (20.3c — banner Aceitar/Recusar) | — |
+| Likes overlay (quem curtiu) | ✅ | ✅ (20.3c — tap no número) | — |
 | Stories tray no topo | ✅ | 🟡 (StoriesViews 112 linhas — viewer básico) | 20.5 |
 | Paginação infinita | ✅ | ✅ (20.3a — cursor no penúltimo post) | — |
 | Pull-to-refresh | ✅ | ✅ (20.3a) | — |
@@ -52,12 +52,12 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 ### Composer (PostScreen 1.012 linhas ↔ placeholder)
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
-| Câmera single / galeria multi (até 10) | ✅ | 🟡 (20.4a — galeria multi OK; câmera/vídeo 20.4b) | 20.4b |
+| Câmera single / galeria multi (até 10) | ✅ | ✅ (20.4a galeria + 20.4b câmera/vídeo) | — |
 | Upload + thumbnail/poster | ✅ | ✅ (20.4a — feed 1600px + thumb 720px; poster de vídeo 20.4b) | — |
 | Tags de treino (até 5, chips + Outro) | ✅ | ✅ (20.4a) | — |
-| Localização (busca + academias) | ✅ | ❌ | 20.4 |
-| Marcação de participantes | ✅ | ❌ | 20.4 |
-| Editar post (mídia/legenda/tipo) | ✅ | ❌ | 20.4 |
+| Localização (busca + academias) | ✅ | ✅ (20.4b — busca em gyms; GPS "local atual" fica com a distância) | — |
+| Marcação de participantes | ✅ | ✅ (20.4b — chips de quem sigo) | — |
+| Editar post (mídia/legenda/tipo) | ✅ | 🟡 (20.4b — legenda+tags; ADD de mídia fica pro cutover) | 20.8 |
 
 ### MyCircle (MyCircleSheet 725 ↔ MyCircleView 622 — a área mais madura)
 | Feature | Web | Nativo | Fase |
@@ -99,7 +99,7 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Chat (1:1, grupo, vídeo, delete-for-me, busca) | ChatScreen 1.336 linhas | 20.6 |
 | Notificações (sheet + CTAs + routing) | NotificationsSheet 944 | 20.7 |
 | Check-in + GymSearch | CheckInScreen 896 + GymSearchSheet 836 | decisão de produto (17/19) |
-| Busca/descoberta de pessoas + sugestões | search + get_user_suggestions | 20.3 |
+| Busca/descoberta de pessoas + sugestões | 🟡 busca ✅ (20.3c via search_profiles → OtherProfile); sugestões pendentes | 20.x |
 | Onboarding contextual (hints 7C) | ContextualHint | 20.2+ (transversal) |
 | PWA-only (push web, install) | — | n/a |
 
