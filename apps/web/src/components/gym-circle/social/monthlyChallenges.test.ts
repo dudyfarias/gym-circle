@@ -200,6 +200,43 @@ describe("recomputeChallengeProgress", () => {
     });
   });
 
+  describe("media_count_in_post (desafio Popstar)", () => {
+    const popstar = makeChallenge({
+      goalKind: "media_count_in_post",
+      goalTarget: 10,
+    });
+
+    it("progress = maior carrossel do período (não soma entre posts)", () => {
+      const result = recomputeChallengeProgress(popstar, {
+        workoutDays: [],
+        posts: [
+          post({ mediaCount: 4 }),
+          post({ workoutDate: "2026-06-08", mediaCount: 7 }),
+          post({ workoutDate: "2026-05-30", mediaCount: 10 }), // fora do período
+        ],
+      });
+      expect(result.progress).toBe(7);
+      expect(result.justCompleted).toBe(false);
+    });
+
+    it("post sem mediaCount conta como single (1 mídia)", () => {
+      const result = recomputeChallengeProgress(popstar, {
+        workoutDays: [],
+        posts: [post({})],
+      });
+      expect(result.progress).toBe(1);
+    });
+
+    it("completa com UM post de 10 mídias", () => {
+      const result = recomputeChallengeProgress(popstar, {
+        workoutDays: [],
+        posts: [post({ mediaCount: 10 })],
+      });
+      expect(result.progress).toBe(10);
+      expect(result.justCompleted).toBe(true);
+    });
+  });
+
   describe("completion", () => {
     it("não re-completa desafio já completado", () => {
       const challenge = makeChallenge({

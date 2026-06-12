@@ -32,6 +32,8 @@ const IMPLEMENTED_GOAL_KINDS = new Set([
   // Sprint 17 (B4) — implementados no recompute; liberados no gerador.
   "streak_in_month",
   "perfect_month",
+  // Desafio Popstar — N mídias num único post (carrossel).
+  "media_count_in_post",
 ]);
 
 const period = process.argv[2];

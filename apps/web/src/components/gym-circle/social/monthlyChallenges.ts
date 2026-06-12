@@ -164,6 +164,11 @@ export type ChallengePostSnapshot = {
    * hidratar esse flag a partir de post_participants.
    */
   hasAcceptedGroup?: boolean;
+  /**
+   * Desafio Popstar — nº de mídias do post (carrossel Sprint 13/14).
+   * Ausente = post single (1 mídia).
+   */
+  mediaCount?: number;
 };
 
 /**
@@ -214,9 +219,10 @@ function postWorkoutTypes(post: ChallengePostSnapshot): string[] {
  *   - streak_in_month: maior sequência de dias CONSECUTIVOS no período
  *   - perfect_month: dias distintos no período (seed define goal_target =
  *     nº de dias do mês → só completa com mês perfeito)
+ *   - media_count_in_post: maior nº de mídias num ÚNICO post do período
+ *     (desafio Popstar — barra mostra o melhor carrossel até agora)
  *
- * Pulados (fallback mantém valor atual):
- *   - streak_in_month, perfect_month
+ * Goal kinds desconhecidos: fallback mantém valor atual.
  *
  * Retorna progress atualizado + flag se completou agora (pra trigger
  * UPDATE no DB).
@@ -286,6 +292,16 @@ export function recomputeChallengeProgress(
         prev = day;
       }
       newProgress = best;
+      break;
+    }
+    case "media_count_in_post": {
+      // Desafio Popstar — completa com UM post de goal_target mídias no
+      // carrossel (limite do composer = 10, Sprint 14). Progress = melhor
+      // post do período, então a barra motiva sem somar entre posts.
+      newProgress = postsInMonth.reduce(
+        (best, p) => Math.max(best, p.mediaCount ?? 1),
+        0,
+      );
       break;
     }
     case "perfect_month": {

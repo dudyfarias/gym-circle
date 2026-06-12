@@ -1298,6 +1298,8 @@ export function GymCirclePreview({
           // 3 pessoas, e dupla nunca progredia o desafio).
           hasAcceptedGroup:
             (post.acceptedParticipants?.length ?? 0) >= 1,
+          // Desafio Popstar — nº de mídias do carrossel (single = 1).
+          mediaCount: post.media?.length ?? 1,
         }));
         const updatedChallenges: MonthlyChallengeData[] = [];
         for (const challenge of challenges) {
