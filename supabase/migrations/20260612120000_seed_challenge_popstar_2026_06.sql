@@ -8,6 +8,32 @@
 -- Idempotente: guard por trophy_id (junho já tem seed — o guard por
 -- period_key do padrão de julho pularia o insert).
 
+-- O unique (period_key, difficulty) da Sprint 7.5.1 assumia exatamente
+-- 4 desafios/mês (1 por dificuldade). Com desafios extras tipo Popstar,
+-- o invariante real é "sem troféu duplicado no período".
+alter table public.monthly_challenges
+  drop constraint if exists monthly_challenges_period_difficulty;
+drop index if exists public.monthly_challenges_period_difficulty;
+create unique index if not exists monthly_challenges_period_trophy
+  on public.monthly_challenges (period_key, trophy_id);
+
+-- O CHECK de goal_kind (Sprint 7.5.1) lista os kinds válidos — estende
+-- com media_count_in_post. Drop+add é idempotente por natureza.
+alter table public.monthly_challenges
+  drop constraint if exists monthly_challenges_goal_kind_check;
+alter table public.monthly_challenges
+  add constraint monthly_challenges_goal_kind_check check (
+    goal_kind = any (array[
+      'workouts_in_month'::text,
+      'streak_in_month'::text,
+      'perfect_month'::text,
+      'group_workouts'::text,
+      'distinct_types'::text,
+      'workout_type_specific'::text,
+      'media_count_in_post'::text
+    ])
+  );
+
 do $$
 begin
   if exists (
