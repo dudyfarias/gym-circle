@@ -54,6 +54,10 @@ public final class GymCircleAppModel: ObservableObject {
     public let commentsService: CommentsService?
     // Sprint 20.4a — publicação nativa (upload + posts + post_media).
     private let composerService: PostComposerService?
+    // Sprint 20.3c — menu do post (mute/report) e participantes de grupo.
+    private let safetyService: SafetyService?
+    public let participantsService: PostParticipantsService?
+    private var mutedUserIds: Set<String> = []
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -92,6 +96,8 @@ public final class GymCircleAppModel: ObservableObject {
         let storiesService = StoriesService(client: client)
         let commentsService = CommentsService(client: client)
         let composerService = PostComposerService(client: client)
+        let safetyService = SafetyService(client: client)
+        let participantsService = PostParticipantsService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -102,7 +108,9 @@ public final class GymCircleAppModel: ObservableObject {
             followsService: followsService,
             storiesService: storiesService,
             commentsService: commentsService,
-            composerService: composerService
+            composerService: composerService,
+            safetyService: safetyService,
+            participantsService: participantsService
         )
     }
 
@@ -118,7 +126,9 @@ public final class GymCircleAppModel: ObservableObject {
         followsService: FollowsService? = nil,
         storiesService: StoriesService? = nil,
         commentsService: CommentsService? = nil,
-        composerService: PostComposerService? = nil
+        composerService: PostComposerService? = nil,
+        safetyService: SafetyService? = nil,
+        participantsService: PostParticipantsService? = nil
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -130,6 +140,8 @@ public final class GymCircleAppModel: ObservableObject {
         self.storiesService = storiesService
         self.commentsService = commentsService
         self.composerService = composerService
+        self.safetyService = safetyService
+        self.participantsService = participantsService
     }
 
     // MARK: - Boot pipeline
@@ -219,16 +231,31 @@ public final class GymCircleAppModel: ObservableObject {
 
     private static let feedPageSize = 30
 
-    /// Hidrata media[] (carrossel da Sprint 13) numa query única de
-    /// post_media agrupada por post. Fail-soft: erro deixa os posts como
-    /// mídia única (capa) — feed nunca quebra por causa do carrossel.
+    /// Hidrata media[] (carrossel Sprint 13) + participantes (20.3c) em
+    /// queries únicas agrupadas, e filtra autores silenciados. Fail-soft:
+    /// qualquer satélite falhando degrada (capa única / sem participantes)
+    /// sem quebrar o feed.
     private func hydrateCarouselMedia(_ feedPosts: [FeedPost]) async -> [FeedPost] {
         guard let api, !feedPosts.isEmpty else { return feedPosts }
-        guard let mediaByPost = try? await api.postMedia(postIds: feedPosts.map(\.id)),
-              !mediaByPost.isEmpty else { return feedPosts }
-        return feedPosts.map { post in
+
+        // Mute filter (20.3c): atualiza a lista no load e esconde os
+        // posts de autores silenciados — paridade post_mutes web.
+        if let safetyService, let userId = sessionStore?.currentUserId,
+           let muted = try? await safetyService.mutedUserIds(userId: userId) {
+            mutedUserIds = muted
+        }
+        let visible = feedPosts.filter { !mutedUserIds.contains($0.userId) }
+        guard !visible.isEmpty else { return [] }
+
+        let postIds = visible.map(\.id)
+        let mediaByPost = (try? await api.postMedia(postIds: postIds)) ?? [:]
+        let participantsByPost =
+            (try? await participantsService?.listForPosts(postIds: postIds)) ?? [:]
+
+        return visible.map { post in
             var updated = post
             updated.media = mediaByPost[post.id]
+            updated.participants = participantsByPost[post.id]
             return updated
         }
     }
@@ -416,31 +443,136 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
-    // MARK: - Sprint 20.4a — publicação nativa
+    // MARK: - Sprint 20.3c — menu do post + participantes
 
-    /// Sobe as fotos (sequencial — barra de progresso futura), publica o
-    /// post (capa + carrossel) e recarrega feed + MyCircle (streak,
+    /// Silencia o autor: some do feed na hora e persiste em post_mutes.
+    public func muteAuthor(authorId: String) async {
+        guard let safetyService, let userId = sessionStore?.currentUserId else { return }
+        mutedUserIds.insert(authorId)
+        posts.removeAll { $0.userId == authorId }
+        do {
+            try await safetyService.muteAuthor(userId: userId, mutedUserId: authorId)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Denuncia o post (tabela reports — mesma do web).
+    public func reportPost(postId: String, authorId: String) async {
+        guard let safetyService, let userId = sessionStore?.currentUserId else { return }
+        do {
+            try await safetyService.reportPost(
+                reporterId: userId,
+                postId: postId,
+                reportedUserId: authorId
+            )
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Apaga o próprio post (remoção otimista; erro recarrega o feed).
+    public func deletePost(postId: String) async {
+        guard let api, let userId = sessionStore?.currentUserId else { return }
+        let backup = posts
+        posts.removeAll { $0.id == postId }
+        do {
+            try await api.deletePost(postId: postId, userId: userId)
+            await loadMyCircle()
+        } catch {
+            posts = backup
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Aceita/recusa marcação de treino em grupo no post dado.
+    public func respondToInvite(postId: String, accepted: Bool) async {
+        guard let participantsService,
+              let userId = sessionStore?.currentUserId,
+              let index = posts.firstIndex(where: { $0.id == postId }) else { return }
+        do {
+            try await participantsService.respond(
+                postId: postId,
+                taggedUserId: userId,
+                accepted: accepted
+            )
+            var updated = posts[index]
+            updated.participants = (updated.participants ?? []).map { participant in
+                guard participant.taggedUserId == userId else { return participant }
+                return PostParticipant(
+                    postId: participant.postId,
+                    taggedUserId: participant.taggedUserId,
+                    status: accepted ? "accepted" : "rejected",
+                    username: participant.username,
+                    displayName: participant.displayName,
+                    avatarURL: participant.avatarURL
+                )
+            }
+            posts[index] = updated
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Quem curtiu (LikesSheet) — passthrough da API.
+    public func fetchPostLikers(postId: String) async -> [PostParticipant] {
+        guard let api else { return [] }
+        return (try? await api.postLikers(postId: postId)) ?? []
+    }
+
+    /// Busca de pessoas (PeopleSearchSheet) — RPC search_profiles.
+    public func searchProfiles(query: String) async -> [DiscoveredProfile] {
+        guard let api, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        return (try? await api.searchProfiles(query: query)) ?? []
+    }
+
+    // MARK: - Sprint 20.4a/b — publicação nativa
+
+    public enum ComposerMediaInput: Sendable {
+        case photo(Data)
+        case video(Data)
+    }
+
+    /// Sobe as mídias (sequencial), publica o post (capa + carrossel +
+    /// local + participantes) e recarrega feed + MyCircle (streak,
     /// desafios tipo Popstar e conquistas reagem na hora).
     public func publishPost(
-        imageDatas: [Data],
+        media: [ComposerMediaInput],
         caption: String,
-        workoutTypes: [String]
+        workoutTypes: [String],
+        gym: GymOption? = nil,
+        taggedUserIds: [String] = []
     ) async -> Bool {
         guard let composerService,
               let userId = sessionStore?.currentUserId,
-              !imageDatas.isEmpty else { return false }
+              !media.isEmpty else { return false }
         do {
             var uploads: [PostComposerService.UploadedMedia] = []
-            for data in imageDatas {
-                uploads.append(try await composerService.uploadImage(userId: userId, imageData: data))
+            for item in media {
+                switch item {
+                case .photo(let data):
+                    uploads.append(try await composerService.uploadImage(userId: userId, imageData: data))
+                case .video(let data):
+                    uploads.append(try await composerService.uploadVideo(userId: userId, videoData: data))
+                }
             }
-            try await composerService.publish(
+            let postId = try await composerService.publish(
                 userId: userId,
                 medias: uploads,
                 caption: caption,
                 workoutTypes: workoutTypes,
-                workoutDate: Self.todayKey()
+                workoutDate: Self.todayKey(),
+                gymId: gym?.id,
+                locationName: gym?.name
             )
+            // Marcações são best-effort: post já está no ar.
+            if !taggedUserIds.isEmpty {
+                try? await participantsService?.tag(
+                    postId: postId,
+                    taggedByUserId: userId,
+                    taggedUserIds: taggedUserIds
+                )
+            }
             await refreshFeed()
             await loadMyCircle()
             return true
@@ -448,6 +580,36 @@ public final class GymCircleAppModel: ObservableObject {
             self.error = error.localizedDescription
             return false
         }
+    }
+
+    /// Sprint 20.4b — edita caption/tags do próprio post e atualiza o
+    /// feed local sem refetch.
+    public func updatePost(postId: String, caption: String, workoutTypes: [String]) async -> Bool {
+        guard let composerService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await composerService.updatePost(
+                postId: postId,
+                userId: userId,
+                caption: caption,
+                workoutTypes: workoutTypes
+            )
+            await refreshFeed()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Sprint 20.4b — passthroughs pro composer (academias + seguindo).
+    public func searchGyms(query: String) async -> [GymOption] {
+        guard let api, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
+        return (try? await api.searchGyms(query: query)) ?? []
+    }
+
+    public func loadFollowingProfiles() async -> [DiscoveredProfile] {
+        guard let participantsService, let userId = sessionStore?.currentUserId else { return [] }
+        return (try? await participantsService.followingProfiles(userId: userId)) ?? []
     }
 
     // MARK: - Sprint 8.11.3 — calendar navigation

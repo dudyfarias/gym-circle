@@ -1,23 +1,37 @@
 import SwiftUI
 import PhotosUI
+import UniformTypeIdentifiers
 
-/// ComposerView — Sprint 20.4a. Substitui o placeholder "fica para a
-/// próxima sprint" da tab Criar.
+/// ComposerView — Sprint 20.4a/b. Substitui o placeholder da tab Criar.
 ///
-/// Escopo 20.4a: fotos da galeria (até 10, carrossel), legenda e tags de
-/// treino (presets da web + livre, até 5). Câmera/vídeo/localização/
-/// participantes/editar ficam pra 20.4b.
+/// 20.4a: fotos da galeria (até 10), legenda, tags (presets + livre, máx 5)
+/// 20.4b: câmera, vídeo no carrossel, academia (gyms) e marcação de amigos
 public struct ComposerView: View {
     @ObservedObject private var model: GymCircleAppModel
 
     @State private var pickerItems: [PhotosPickerItem] = []
-    @State private var imageDatas: [Data] = []
+    @State private var pickedMedia: [PickedMedia] = []
     @State private var caption = ""
     @State private var selectedTags: [String] = []
     @State private var customTag = ""
     @State private var isPublishing = false
     @State private var publishedOK = false
     @State private var errorMessage: String?
+    @State private var cameraPresented = false
+    // 20.4b — local (academia) + participantes
+    @State private var gymQuery = ""
+    @State private var gymResults: [GymOption] = []
+    @State private var selectedGym: GymOption?
+    @State private var following: [DiscoveredProfile] = []
+    @State private var taggedUserIds: Set<String> = []
+    @State private var gymSearchTask: Task<Void, Never>?
+
+    struct PickedMedia: Identifiable {
+        let id = UUID()
+        let isVideo: Bool
+        let data: Data
+        let preview: UIImage?
+    }
 
     /// Presets idênticos ao web (PostScreen) — valor PT-BR é o que
     /// persiste em workout_type/workout_types.
@@ -37,6 +51,8 @@ public struct ComposerView: View {
                 mediaSection
                 captionSection
                 tagsSection
+                gymSection
+                participantsSection
                 publishButton
             }
             .padding(20)
@@ -45,6 +61,26 @@ public struct ComposerView: View {
         .navigationTitle("Criar treino")
         .onChange(of: pickerItems) { newItems in
             Task { await loadPicked(newItems) }
+        }
+        .onChange(of: gymQuery) { newQuery in
+            gymSearchTask?.cancel()
+            gymSearchTask = Task {
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                guard !Task.isCancelled else { return }
+                gymResults = await model.searchGyms(query: newQuery)
+            }
+        }
+        .task {
+            following = await model.loadFollowingProfiles()
+        }
+        .sheet(isPresented: $cameraPresented) {
+            CameraPicker { data in
+                guard pickedMedia.count < Self.maxMedias else { return }
+                pickedMedia.append(
+                    PickedMedia(isVideo: false, data: data, preview: UIImage(data: data))
+                )
+            }
+            .ignoresSafeArea()
         }
         .alert("Treino publicado!", isPresented: $publishedOK) {
             Button("Fechar", role: .cancel) {}
@@ -57,69 +93,96 @@ public struct ComposerView: View {
 
     private var mediaSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            GCText("Fotos do treino", style: .headline)
+            GCText("Midias do treino", style: .headline)
 
-            if !imageDatas.isEmpty {
+            if !pickedMedia.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(Array(imageDatas.enumerated()), id: \.offset) { index, data in
+                        ForEach(Array(pickedMedia.enumerated()), id: \.element.id) { index, item in
                             ZStack(alignment: .topTrailing) {
-                                if let image = UIImage(data: data) {
-                                    Image(uiImage: image)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 96, height: 120)
-                                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                                }
-                                Button {
-                                    imageDatas.remove(at: index)
-                                    if index < pickerItems.count {
-                                        pickerItems.remove(at: index)
+                                Group {
+                                    if let preview = item.preview {
+                                        Image(uiImage: preview)
+                                            .resizable()
+                                            .scaledToFill()
+                                    } else {
+                                        ZStack {
+                                            GymCircleTheme.ColorToken.elevatedCard
+                                            Image(systemName: "video.fill")
+                                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                        }
                                     }
+                                }
+                                .frame(width: 96, height: 120)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                                Button {
+                                    pickedMedia.remove(at: index)
                                 } label: {
                                     Image(systemName: "xmark.circle.fill")
                                         .font(.system(size: 20))
                                         .foregroundStyle(.white, .black.opacity(0.55))
                                 }
                                 .padding(4)
-                                if index == 0 {
-                                    VStack {
-                                        Spacer()
-                                        GCText("Capa", style: .caption, color: .white)
-                                            .padding(.horizontal, 8)
-                                            .padding(.vertical, 2)
-                                            .background(Capsule().fill(.black.opacity(0.55)))
-                                            .padding(6)
+
+                                VStack {
+                                    Spacer()
+                                    HStack(spacing: 4) {
+                                        if index == 0 {
+                                            chipLabel("Capa")
+                                        }
+                                        if item.isVideo {
+                                            chipLabel("Vídeo")
+                                        }
                                     }
-                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(6)
                                 }
+                                .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
                     }
                 }
             }
 
-            PhotosPicker(
-                selection: $pickerItems,
-                maxSelectionCount: Self.maxMedias,
-                matching: .images
-            ) {
-                Label(
-                    imageDatas.isEmpty
-                        ? "Escolher fotos (ate \(Self.maxMedias))"
-                        : "Trocar selecao (\(imageDatas.count)/\(Self.maxMedias))",
-                    systemImage: "photo.on.rectangle.angled"
-                )
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(GymCircleTheme.ColorToken.elevatedCard)
-                )
+            HStack(spacing: 10) {
+                PhotosPicker(
+                    selection: $pickerItems,
+                    maxSelectionCount: Self.maxMedias,
+                    matching: .any(of: [.images, .videos])
+                ) {
+                    pickButtonLabel(
+                        "Galeria (\(pickedMedia.count)/\(Self.maxMedias))",
+                        systemImage: "photo.on.rectangle.angled"
+                    )
+                }
+                Button {
+                    cameraPresented = true
+                } label: {
+                    pickButtonLabel("Câmera", systemImage: "camera.fill")
+                }
+                .buttonStyle(.plain)
+                .disabled(pickedMedia.count >= Self.maxMedias)
             }
         }
+    }
+
+    private func chipLabel(_ text: String) -> some View {
+        GCText(text, style: .caption, color: .white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(.black.opacity(0.55)))
+    }
+
+    private func pickButtonLabel(_ title: String, systemImage: String) -> some View {
+        Label(title, systemImage: systemImage)
+            .font(.system(size: 14, weight: .bold, design: .rounded))
+            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(GymCircleTheme.ColorToken.elevatedCard)
+            )
     }
 
     private var captionSection: some View {
@@ -147,7 +210,7 @@ public struct ComposerView: View {
                 )
             }
 
-            FlowChips(
+            TagChipsRow(
                 presets: Self.tagPresets,
                 selected: selectedTags,
                 onToggle: { toggleTag($0) }
@@ -176,6 +239,110 @@ public struct ComposerView: View {
         }
     }
 
+    // 20.4b — academia opcional (location_source gym).
+    private var gymSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GCText("Academia (opcional)", style: .headline)
+
+            if let selectedGym {
+                HStack(spacing: 8) {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    VStack(alignment: .leading, spacing: 1) {
+                        GCText(selectedGym.name, style: .body)
+                        if !selectedGym.subtitle.isEmpty {
+                            GCText(selectedGym.subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                        }
+                    }
+                    Spacer()
+                    Button {
+                        self.selectedGym = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.quietBlue)
+                )
+            } else {
+                TextField("Buscar academia...", text: $gymQuery)
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.elevatedCard)
+                    )
+                ForEach(gymResults.prefix(5)) { gym in
+                    Button {
+                        selectedGym = gym
+                        gymQuery = ""
+                        gymResults = []
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 1) {
+                                GCText(gym.name, style: .body)
+                                if !gym.subtitle.isEmpty {
+                                    GCText(gym.subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                                }
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // 20.4b — marcar amigos (post_participants pending).
+    @ViewBuilder
+    private var participantsSection: some View {
+        if !following.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                GCText("Treinou com alguem?", style: .headline)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(following) { person in
+                            let isOn = taggedUserIds.contains(person.userId)
+                            Button {
+                                if isOn {
+                                    taggedUserIds.remove(person.userId)
+                                } else {
+                                    taggedUserIds.insert(person.userId)
+                                    Haptics.selection()
+                                }
+                            } label: {
+                                VStack(spacing: 5) {
+                                    GCAvatar(url: person.avatarURL, fallback: person.username ?? "u")
+                                        .overlay(
+                                            Circle().stroke(
+                                                isOn ? GymCircleTheme.ColorToken.cyan : .clear,
+                                                lineWidth: 2.5
+                                            )
+                                        )
+                                    GCText(
+                                        person.displayedName,
+                                        style: .caption,
+                                        color: isOn
+                                            ? GymCircleTheme.ColorToken.cyan
+                                            : GymCircleTheme.ColorToken.secondaryText
+                                    )
+                                    .lineLimit(1)
+                                }
+                                .frame(width: 64)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var publishButton: some View {
         VStack(spacing: 10) {
             if let errorMessage {
@@ -197,15 +364,15 @@ public struct ComposerView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(
-                            imageDatas.isEmpty
+                            pickedMedia.isEmpty
                                 ? AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
                                 : AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
                         )
                 )
-                .foregroundStyle(imageDatas.isEmpty ? GymCircleTheme.ColorToken.secondaryText : .black)
+                .foregroundStyle(pickedMedia.isEmpty ? GymCircleTheme.ColorToken.secondaryText : .black)
             }
             .buttonStyle(.plain)
-            .disabled(imageDatas.isEmpty || isPublishing)
+            .disabled(pickedMedia.isEmpty || isPublishing)
         }
     }
 
@@ -221,32 +388,47 @@ public struct ComposerView: View {
     }
 
     private func loadPicked(_ items: [PhotosPickerItem]) async {
-        var datas: [Data] = []
+        var medias: [PickedMedia] = []
         for item in items.prefix(Self.maxMedias) {
-            if let data = try? await item.loadTransferable(type: Data.self) {
-                datas.append(data)
+            let isVideo = item.supportedContentTypes.contains {
+                $0.conforms(to: .movie) || $0.conforms(to: .audiovisualContent)
             }
+            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
+            medias.append(
+                PickedMedia(
+                    isVideo: isVideo,
+                    data: data,
+                    preview: isVideo ? nil : UIImage(data: data)
+                )
+            )
         }
-        imageDatas = datas
+        pickedMedia = medias
     }
 
     private func publish() async {
-        guard !imageDatas.isEmpty else { return }
+        guard !pickedMedia.isEmpty else { return }
         isPublishing = true
         errorMessage = nil
         defer { isPublishing = false }
 
+        let inputs: [GymCircleAppModel.ComposerMediaInput] = pickedMedia.map {
+            $0.isVideo ? .video($0.data) : .photo($0.data)
+        }
         let ok = await model.publishPost(
-            imageDatas: imageDatas,
+            media: inputs,
             caption: caption,
-            workoutTypes: selectedTags
+            workoutTypes: selectedTags,
+            gym: selectedGym,
+            taggedUserIds: Array(taggedUserIds)
         )
         if ok {
             Haptics.success()
-            imageDatas = []
+            pickedMedia = []
             pickerItems = []
             caption = ""
             selectedTags = []
+            selectedGym = nil
+            taggedUserIds = []
             publishedOK = true
         } else {
             Haptics.error()
@@ -255,14 +437,12 @@ public struct ComposerView: View {
     }
 }
 
-/// Chips de tag com quebra de linha simples (2 fileiras horizontais
-/// scrolláveis seria overkill pra 6 presets + selecionadas custom).
-private struct FlowChips: View {
+/// Chips de tag horizontais (presets + custom selecionadas).
+struct TagChipsRow: View {
     let presets: [String]
     let selected: [String]
     let onToggle: (String) -> Void
 
-    /// Presets + tags custom já escolhidas (pra dar como remover).
     private var allChips: [String] {
         presets + selected.filter { !presets.contains($0) }
     }
@@ -292,5 +472,107 @@ private struct FlowChips: View {
                 }
             }
         }
+    }
+}
+
+/// EditPostSheet — Sprint 20.4b. Edição de legenda + tags do próprio
+/// post (mídia nova fica pro cutover, como anotado na matriz).
+public struct EditPostSheet: View {
+    private let post: FeedPost
+    private let onSave: (String, [String]) async -> Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var caption: String
+    @State private var selectedTags: [String]
+    @State private var customTag = ""
+    @State private var isSaving = false
+
+    public init(post: FeedPost, onSave: @escaping (String, [String]) async -> Bool) {
+        self.post = post
+        self.onSave = onSave
+        _caption = State(initialValue: post.caption ?? "")
+        _selectedTags = State(initialValue: post.workoutType.map { [$0] } ?? [])
+    }
+
+    public var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        GCText("Legenda", style: .headline)
+                        TextField("Como foi o treino?", text: $caption, axis: .vertical)
+                            .lineLimit(3...6)
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .fill(GymCircleTheme.ColorToken.elevatedCard)
+                            )
+                    }
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        GCText("Tipo de treino", style: .headline)
+                        TagChipsRow(
+                            presets: ["Musculação", "Corrida", "Bike", "Funcional", "Cardio", "Mobilidade"],
+                            selected: selectedTags,
+                            onToggle: { tag in
+                                if let index = selectedTags.firstIndex(of: tag) {
+                                    selectedTags.remove(at: index)
+                                } else if selectedTags.count < 5 {
+                                    selectedTags.append(tag)
+                                }
+                            }
+                        )
+                        HStack(spacing: 8) {
+                            TextField("Outro", text: $customTag)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 9)
+                                .background(Capsule().fill(GymCircleTheme.ColorToken.elevatedCard))
+                            Button {
+                                let tag = customTag.trimmingCharacters(in: .whitespacesAndNewlines)
+                                guard !tag.isEmpty, selectedTags.count < 5 else { return }
+                                selectedTags.append(tag)
+                                customTag = ""
+                            } label: {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 26))
+                                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+                .padding(20)
+            }
+            .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+            .navigationTitle("Editar post")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("Cancelar") { dismiss() }
+                        .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task {
+                            isSaving = true
+                            if await onSave(caption, selectedTags) {
+                                Haptics.success()
+                                dismiss()
+                            }
+                            isSaving = false
+                        }
+                    } label: {
+                        if isSaving {
+                            ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                        } else {
+                            Text("Salvar").bold()
+                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }

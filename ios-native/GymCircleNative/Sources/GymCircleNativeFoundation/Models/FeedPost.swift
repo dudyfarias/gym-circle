@@ -75,6 +75,22 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     /// separada). Nil/vazio = post de mídia única (usa a capa).
     public var media: [PostMediaItem]? = nil
 
+    /// Sprint 20.3c — participantes do treino em grupo, hidratados como o
+    /// carrossel (query única agrupada).
+    public var participants: [PostParticipant]? = nil
+
+    public var acceptedParticipants: [PostParticipant] {
+        (participants ?? []).filter { $0.status == "accepted" }
+    }
+
+    /// Convite pendente do user dado neste post (banner Aceitar/Recusar).
+    public func pendingInvite(for userId: String?) -> PostParticipant? {
+        guard let userId else { return nil }
+        return (participants ?? []).first {
+            $0.taggedUserId == userId && $0.status == "pending"
+        }
+    }
+
     public var displayAuthorName: String {
         displayName?.isEmpty == false ? displayName! : username
     }

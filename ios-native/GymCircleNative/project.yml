@@ -35,6 +35,8 @@ targets:
         CFBundleShortVersionString: "1.1"
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
+        # Sprint 20.4b — câmera no composer nativo.
+        NSCameraUsageDescription: Tire fotos do seu treino para publicar no Gym Circle.
         # Sprint 20.0 — resolvidas no build a partir do xcconfig; o
         # AppConfiguration.fromBundle() lê daqui (vazio ⇒ modo demo).
         SupabaseURL: $(SUPABASE_URL)

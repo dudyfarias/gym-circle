@@ -74,6 +74,77 @@ public actor GymCircleAPI {
         return Dictionary(grouping: rows, by: \.postId)
     }
 
+    /// Sprint 20.3c — apagar o próprio post (RLS garante; o eq de
+    /// user_id é cinto de segurança).
+    public func deletePost(postId: String, userId: String) async throws {
+        try await client
+            .from("posts")
+            .delete()
+            .eq("id", value: postId)
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    /// Sprint 20.3c — quem curtiu o post (post_likes + profiles).
+    public func postLikers(postId: String) async throws -> [PostParticipant] {
+        struct LikeRow: Decodable { let user_id: String }
+        struct AuthorRow: Decodable {
+            let user_id: String
+            let username: String
+            let display_name: String?
+            let avatar_url: String?
+        }
+        let likes: [LikeRow] = try await client
+            .from("post_likes")
+            .select("user_id")
+            .eq("post_id", value: postId)
+            .order("created_at", ascending: false)
+            .execute()
+            .value
+        guard !likes.isEmpty else { return [] }
+        let authors: [AuthorRow] = (try? await client
+            .from("profiles")
+            .select("user_id,username,display_name,avatar_url")
+            .in("user_id", values: likes.map(\.user_id))
+            .execute()
+            .value) ?? []
+        let byId = Dictionary(uniqueKeysWithValues: authors.map { ($0.user_id, $0) })
+        return likes.map { like in
+            let author = byId[like.user_id]
+            return PostParticipant(
+                postId: postId,
+                taggedUserId: like.user_id,
+                status: "like",
+                username: author?.username ?? "user",
+                displayName: author?.display_name,
+                avatarURL: author?.avatar_url
+            )
+        }
+    }
+
+    /// Sprint 20.3c — busca de pessoas (RPC search_profiles da Sprint C web).
+    public func searchProfiles(query: String, limit: Int = 20) async throws -> [DiscoveredProfile] {
+        struct SearchParams: Encodable {
+            let p_query: String
+            let p_limit: Int
+        }
+        return try await client
+            .rpc("search_profiles", params: SearchParams(p_query: query, p_limit: limit))
+            .execute()
+            .value
+    }
+
+    /// Sprint 20.4b — busca de academias pro composer (gyms por nome).
+    public func searchGyms(query: String, limit: Int = 15) async throws -> [GymOption] {
+        try await client
+            .from("gyms")
+            .select("id,name,address,city,state")
+            .ilike("name", pattern: "%\(query)%")
+            .limit(limit)
+            .execute()
+            .value
+    }
+
     /// Sprint 20.3a — curtir/descurtir. Idempotente: upsert no like
     /// (re-curtir não duplica), delete escopado no unlike.
     public func setLike(postId: String, userId: String, liked: Bool) async throws {

@@ -1,14 +1,17 @@
 import Foundation
 import Supabase
 import UIKit
+import AVFoundation
 
-/// PostComposerService — Sprint 20.4a (paridade do publish web).
+/// PostComposerService — Sprint 20.4a/b (paridade do publish web).
 ///
 /// Contrato idêntico ao web (LiveHomeWrapper.uploadTo + posts.create):
-///   - bucket "posts", path {userId}/{timestamp}-{rand}.jpg
-///   - variantes: feed (1600px max edge, q0.82) + thumb (720px, q0.7)
-///   - insert posts = CAPA (item 0); post_media só quando >1 mídia,
-///     com a capa duplicada na position 0 (posts antigos seguem sem linhas)
+///   - bucket "posts", path {userId}/{timestamp}-{rand}.{ext}
+///   - foto: variantes feed (1600px, q0.82) + thumb (720px, q0.7)
+///   - vídeo (20.4b): arquivo original + poster JPEG do 1º frame + duração
+///   - insert posts = CAPA (item 0); post_media só quando >1 mídia
+///   - 20.4b: location_source gym (gym_id + location_name) e edição de
+///     caption/tags do próprio post
 public actor PostComposerService {
     private let client: SupabaseClient
 
@@ -17,21 +20,28 @@ public actor PostComposerService {
     }
 
     public struct UploadedMedia: Sendable {
+        public let mediaType: String // "image" | "video"
         public let imageURL: String
-        public let thumbnailURL: String
-        public let width: Int
-        public let height: Int
+        public let thumbnailURL: String?
+        public let posterURL: String?
+        public let width: Int?
+        public let height: Int?
+        public let durationSeconds: Double?
     }
 
     public enum ComposerError: Error, LocalizedError {
         case invalidImage
-        public var errorDescription: String? { "Imagem inválida." }
+        case invalidVideo
+        public var errorDescription: String? {
+            switch self {
+            case .invalidImage: return "Imagem inválida."
+            case .invalidVideo: return "Vídeo inválido."
+            }
+        }
     }
 
-    // MARK: - Upload
+    // MARK: - Uploads
 
-    /// Redimensiona (feed + thumb), sobe as duas variantes pro bucket
-    /// posts e retorna as URLs públicas.
     public func uploadImage(userId: String, imageData: Data) async throws -> UploadedMedia {
         guard let original = UIImage(data: imageData) else {
             throw ComposerError.invalidImage
@@ -43,23 +53,66 @@ public actor PostComposerService {
             throw ComposerError.invalidImage
         }
 
-        let stamp = Int(Date().timeIntervalSince1970 * 1000)
-        let rand = String(UUID().uuidString.prefix(6)).lowercased()
-        let feedPath = "\(userId)/\(stamp)-\(rand).jpg"
-        let thumbPath = "\(userId)/\(stamp)-\(rand)-thumb.jpg"
-
+        let base = Self.storageBase(userId: userId)
         let options = FileOptions(cacheControl: "3600", contentType: "image/jpeg")
-        _ = try await client.storage.from("posts").upload(feedPath, data: feedData, options: options)
-        _ = try await client.storage.from("posts").upload(thumbPath, data: thumbData, options: options)
-
-        let feedURL = try client.storage.from("posts").getPublicURL(path: feedPath)
-        let thumbURL = try client.storage.from("posts").getPublicURL(path: thumbPath)
+        _ = try await client.storage.from("posts").upload("\(base).jpg", data: feedData, options: options)
+        _ = try await client.storage.from("posts").upload("\(base)-thumb.jpg", data: thumbData, options: options)
 
         return UploadedMedia(
-            imageURL: feedURL.absoluteString,
-            thumbnailURL: thumbURL.absoluteString,
+            mediaType: "image",
+            imageURL: try publicURL("\(base).jpg"),
+            thumbnailURL: try publicURL("\(base)-thumb.jpg"),
+            posterURL: nil,
             width: Int(feed.size.width),
-            height: Int(feed.size.height)
+            height: Int(feed.size.height),
+            durationSeconds: nil
+        )
+    }
+
+    /// Sprint 20.4b — vídeo: sobe o arquivo original (mp4/mov) + poster
+    /// JPEG do primeiro frame; extrai dimensões e duração via AVFoundation.
+    public func uploadVideo(userId: String, videoData: Data) async throws -> UploadedMedia {
+        // AVAsset precisa de arquivo — escreve num temp e limpa no fim.
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("composer-\(UUID().uuidString).mp4")
+        try videoData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        let asset = AVURLAsset(url: tempURL)
+        let duration = try await asset.load(.duration).seconds
+        guard duration > 0 else { throw ComposerError.invalidVideo }
+
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        let cgPoster = try generator.copyCGImage(
+            at: CMTime(seconds: 0.1, preferredTimescale: 600),
+            actualTime: nil
+        )
+        let poster = UIImage(cgImage: cgPoster)
+        let posterVariant = Self.jpegVariant(of: poster, maxEdge: 1600, quality: 0.8)
+        guard let posterData = posterVariant.data else { throw ComposerError.invalidVideo }
+
+        let base = Self.storageBase(userId: userId)
+        _ = try await client.storage.from("posts").upload(
+            "\(base).mp4",
+            data: videoData,
+            options: FileOptions(cacheControl: "3600", contentType: "video/mp4")
+        )
+        _ = try await client.storage.from("posts").upload(
+            "\(base)-poster.jpg",
+            data: posterData,
+            options: FileOptions(cacheControl: "3600", contentType: "image/jpeg")
+        )
+
+        let posterURL = try publicURL("\(base)-poster.jpg")
+        return UploadedMedia(
+            mediaType: "video",
+            imageURL: try publicURL("\(base).mp4"),
+            thumbnailURL: posterURL,
+            posterURL: posterURL,
+            width: Int(posterVariant.size.width),
+            height: Int(posterVariant.size.height),
+            durationSeconds: duration
         )
     }
 
@@ -70,13 +123,17 @@ public actor PostComposerService {
         let image_url: String
         let media_type: String
         let thumbnail_url: String?
+        let poster_url: String?
         let media_width: Int?
         let media_height: Int?
+        let media_duration_seconds: Double?
         let caption: String?
         let workout_type: String?
         let workout_types: [String]?
         let workout_date: String
         let location_source: String
+        let gym_id: String?
+        let location_name: String?
     }
 
     private struct PostMediaInsert: Encodable {
@@ -85,20 +142,23 @@ public actor PostComposerService {
         let media_type: String
         let image_url: String
         let thumbnail_url: String?
+        let poster_url: String?
         let media_width: Int?
         let media_height: Int?
+        let media_duration_seconds: Double?
     }
 
-    /// Insere o post (capa = medias[0]) e, com >1 mídia, as linhas do
-    /// carrossel. post_media é best-effort igual à web: falhou, o post
-    /// degrada pra single em vez de derrubar a publicação.
+    /// Insere o post (capa = medias[0]) + linhas do carrossel quando >1.
+    /// post_media é best-effort igual à web: falhou, degrada pra single.
     @discardableResult
     public func publish(
         userId: String,
         medias: [UploadedMedia],
         caption: String,
         workoutTypes: [String],
-        workoutDate: String
+        workoutDate: String,
+        gymId: String? = nil,
+        locationName: String? = nil
     ) async throws -> String {
         guard let cover = medias.first else { throw ComposerError.invalidImage }
 
@@ -109,15 +169,19 @@ public actor PostComposerService {
             .insert(PostInsert(
                 user_id: userId,
                 image_url: cover.imageURL,
-                media_type: "image",
+                media_type: cover.mediaType,
                 thumbnail_url: cover.thumbnailURL,
+                poster_url: cover.posterURL,
                 media_width: cover.width,
                 media_height: cover.height,
+                media_duration_seconds: cover.durationSeconds,
                 caption: trimmedCaption.isEmpty ? nil : trimmedCaption,
                 workout_type: workoutTypes.first,
                 workout_types: workoutTypes.isEmpty ? nil : workoutTypes,
                 workout_date: workoutDate,
-                location_source: "none"
+                location_source: gymId == nil ? "none" : "gym",
+                gym_id: gymId,
+                location_name: gymId == nil ? nil : locationName
             ))
             .select("id")
             .single()
@@ -129,11 +193,13 @@ public actor PostComposerService {
                 PostMediaInsert(
                     post_id: post.id,
                     position: index,
-                    media_type: "image",
+                    media_type: media.mediaType,
                     image_url: media.imageURL,
                     thumbnail_url: media.thumbnailURL,
+                    poster_url: media.posterURL,
                     media_width: media.width,
-                    media_height: media.height
+                    media_height: media.height,
+                    media_duration_seconds: media.durationSeconds
                 )
             }
             do {
@@ -145,7 +211,43 @@ public actor PostComposerService {
         return post.id
     }
 
-    // MARK: - Resize
+    /// Sprint 20.4b — edita caption/tags do próprio post (subset do
+    /// EditPostSheet web; mídia nova fica pro cutover).
+    public func updatePost(
+        postId: String,
+        userId: String,
+        caption: String,
+        workoutTypes: [String]
+    ) async throws {
+        struct PostPatch: Encodable {
+            let caption: String?
+            let workout_type: String?
+            let workout_types: [String]?
+        }
+        let trimmed = caption.trimmingCharacters(in: .whitespacesAndNewlines)
+        try await client
+            .from("posts")
+            .update(PostPatch(
+                caption: trimmed.isEmpty ? nil : trimmed,
+                workout_type: workoutTypes.first,
+                workout_types: workoutTypes.isEmpty ? nil : workoutTypes
+            ))
+            .eq("id", value: postId)
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    // MARK: - Helpers
+
+    private static func storageBase(userId: String) -> String {
+        let stamp = Int(Date().timeIntervalSince1970 * 1000)
+        let rand = String(UUID().uuidString.prefix(6)).lowercased()
+        return "\(userId)/\(stamp)-\(rand)"
+    }
+
+    private func publicURL(_ path: String) throws -> String {
+        try client.storage.from("posts").getPublicURL(path: path).absoluteString
+    }
 
     private static func jpegVariant(
         of image: UIImage,
