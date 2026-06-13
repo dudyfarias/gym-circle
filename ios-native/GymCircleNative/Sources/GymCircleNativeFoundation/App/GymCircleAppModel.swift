@@ -63,6 +63,8 @@ public final class GymCircleAppModel: ObservableObject {
     @Published public private(set) var unreadNotifications = 0
     // Sprint 20.6 — chat.
     private let chatService: ChatService?
+    /// Badge da tab Conversas (paridade BottomNav web — soma dos unread).
+    @Published public private(set) var unreadMessages = 0
     // Sprint 20.7b/Native P1 — APNs token lifecycle.
     private let pushService: NativePushNotificationsService?
     // Native P2 — HealthKit foundation. No-op em devices sem Apple Saúde.
@@ -665,7 +667,15 @@ public final class GymCircleAppModel: ObservableObject {
 
     public func fetchChatThreads() async -> [ChatThread] {
         guard let chatService, let userId = sessionStore?.currentUserId else { return [] }
-        return (try? await chatService.threads(currentUserId: userId)) ?? []
+        let threads = (try? await chatService.threads(currentUserId: userId)) ?? []
+        // Badge da tab (web soma os unread no boot via mesma RPC).
+        unreadMessages = threads.reduce(0) { $0 + ($1.summary.unreadCount ?? 0) }
+        return threads
+    }
+
+    /// Atualiza só o badge (boot/refresh do feed) sem montar a tela de chat.
+    public func refreshUnreadMessages() async {
+        _ = await fetchChatThreads()
     }
 
     public func fetchChatMessages(conversationId: String) async -> [ChatMessage] {

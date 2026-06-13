@@ -10,6 +10,10 @@ import AVKit
 ///     busca de pessoas na toolbar
 public struct FeedView: View {
     @ObservedObject private var model: GymCircleAppModel
+    // Paridade BottomNav web: MyCircle não é tab — abre como sheet pelo
+    // anel de streak no topo do feed.
+    private let myCircle: MyCircleViewData
+    @State private var myCirclePresented = false
     @State private var commentsPost: FeedPost?
     @State private var likesPost: FeedPost?
     @State private var editingPost: FeedPost?
@@ -19,8 +23,9 @@ public struct FeedView: View {
     // Sprint 20.5 — autor cujo story foi aberto na tray.
     @State private var openedStoryGroup: StoryAuthorGroup?
 
-    public init(model: GymCircleAppModel) {
+    public init(model: GymCircleAppModel, myCircle: MyCircleViewData) {
         self.model = model
+        self.myCircle = myCircle
     }
 
     public var body: some View {
@@ -90,6 +95,28 @@ public struct FeedView: View {
             await model.refreshFeed()
         }
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                // Anel de streak abre o MyCircle (gesto idêntico ao web).
+                Button {
+                    myCirclePresented = true
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "flame.fill")
+                            .foregroundStyle(
+                                myCircle.streakLitToday
+                                    ? GymCircleTheme.ColorToken.cyan
+                                    : GymCircleTheme.ColorToken.secondaryText
+                            )
+                        Text("\(myCircle.stats.currentStreak)")
+                            .font(.system(size: 15, weight: .black, design: .rounded))
+                            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    }
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
+                    .background(Capsule().fill(GymCircleTheme.ColorToken.elevatedCard))
+                }
+                .accessibilityLabel("Meu Circle")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     notificationsPresented = true
@@ -122,6 +149,7 @@ public struct FeedView: View {
         }
         .task {
             await model.refreshUnreadNotifications()
+            await model.refreshUnreadMessages()
         }
         .sheet(item: $commentsPost) { post in
             CommentsSheet(
@@ -142,6 +170,20 @@ public struct FeedView: View {
         }
         .sheet(isPresented: $searchPresented) {
             PeopleSearchSheet(model: model)
+        }
+        .sheet(isPresented: $myCirclePresented) {
+            NavigationStack {
+                MyCircleView(data: myCircle)
+                    .navigationTitle("Meu Circle")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Fechar") { myCirclePresented = false }
+                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        }
+                    }
+            }
+            .preferredColorScheme(.dark)
         }
         .sheet(item: $editingPost) { post in
             EditPostSheet(model: model, post: post)

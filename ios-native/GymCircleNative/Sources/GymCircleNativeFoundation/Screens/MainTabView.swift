@@ -1,9 +1,11 @@
 import SwiftUI
 
+/// MainTabView — paridade TOTAL com o BottomNav web (decisão 12/jun:
+/// 100% igual em design/UI/UX):
+///   Início (feed) · Conversas (badge) · Postar · Mapa (check-in) · Perfil
+/// O MyCircle deixa de ser tab e vira SHEET aberta pelo anel de streak
+/// no feed — mesmo gesto do web.
 public struct MainTabView: View {
-    // Sprint 20.3a — o feed virou interativo (like/refresh/paginação),
-    // então a tab Home observa o model direto; as demais seguem
-    // data-injected até suas fases.
     @ObservedObject private var model: GymCircleAppModel
     private let profile: UserProfile?
     private let profilePosts: [ProfilePost]
@@ -24,40 +26,35 @@ public struct MainTabView: View {
     public var body: some View {
         TabView {
             NavigationStack {
-                FeedView(model: model)
+                FeedView(model: model, myCircle: myCircle)
             }
             .tabItem {
-                Label("Home", systemImage: "house.fill")
+                Label("Início", systemImage: "house.fill")
             }
 
             NavigationStack {
-                // Sprint 8.3 — MyCircleViewData injetado pelo AppModel
-                // (já hidratado via MyCircleService quando autenticado).
-                MyCircleView(data: myCircle)
-                    .navigationTitle("Meu Circle")
-            }
-            .tabItem {
-                Label("Circle", systemImage: "flame")
-            }
-
-            NavigationStack {
-                // Sprint 20.4a — composer real substitui o placeholder.
-                ComposerView(model: model)
-            }
-            .tabItem {
-                Label("Criar", systemImage: "camera.fill")
-            }
-
-            NavigationStack {
-                // Sprint 20.6 — chat real substitui o placeholder.
                 ChatListView(model: model)
             }
             .tabItem {
-                Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                Label("Conversas", systemImage: "bubble.left.and.bubble.right")
+            }
+            .badge(model.unreadMessages > 0 ? model.unreadMessages : 0)
+
+            NavigationStack {
+                ComposerView(model: model)
+            }
+            .tabItem {
+                Label("Postar", systemImage: "camera.fill")
             }
 
             NavigationStack {
-                // Sprint 20.1/20.2 — row compartilhada + Hall + Settings.
+                CheckInView(model: model)
+            }
+            .tabItem {
+                Label("Mapa", systemImage: "mappin.and.ellipse")
+            }
+
+            NavigationStack {
                 ProfileView(
                     model: model,
                     profile: profile,
