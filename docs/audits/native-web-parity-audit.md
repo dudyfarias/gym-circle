@@ -6,7 +6,7 @@
 >
 > Legenda: ✅ paridade | 🟡 parcial (existe com gaps) | ❌ inexistente no nativo
 
-## Paridade estimada hoje: ~35%
+## Paridade estimada hoje: ~95% (12/jun/2026 — fases 20.1–20.7a + fase 21 Hall 2D + fidelidade de design; resta troféus 3D, distância, realtime/vídeo no chat, cutover)
 
 A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 (1.311 linhas nas 5 principais vs ~6.000+ no web) com 2 tabs placeholder.
@@ -16,11 +16,11 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Web (5 tabs) | Nativo (5 tabs) | Status |
 |---|---|---|
 | Feed | Home (FeedView) | 🟡 |
-| Post (composer) | Criar — **placeholder** "fica para a próxima sprint" | ❌ |
-| Check-in | — (nativo tem tab Circle no lugar) | ❌ (decisão de produto pendente: check-in pode ser aposentado — ver ux-product-audit) |
-| Chat | Chat — **placeholder** "fase futura" | ❌ |
+| Post (composer) | Postar (ComposerView completo) | ✅ (20.4a/b) |
+| Check-in | Mapa (CheckInView) | ✅ (20.7b — DECISÃO: Check-in FICA) |
+| Chat | Conversas (ChatListView) | ✅ (20.6 — 1:1/grupo/mídia; falta realtime/vídeo) |
 | Profile | Perfil | 🟡 |
-| MyCircle (sheet) | Circle (tab) | 🟡 — divergência de navegação ACEITA (tab nativa é melhor UX) |
+| MyCircle | Sheet pelo anel de streak | ✅ (12/jun — paridade TOTAL com o web, revoga a divergência) |
 
 ## Matriz por área
 
@@ -44,7 +44,7 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
 | Viewer com progress bar / pause | ✅ | ✅ (20.5 — timer + hold pausa + tap zones) | — |
-| Like, reply (DM), share, mute, report | ✅ | 🟡 like+reply ✅ (20.5/20.6); share/mute/report pendentes | 20.x |
+| Like, reply (DM), share, mute, report | ✅ | 🟡 like+reply+mute ✅; SHARE de story pendente | passe futuro |
 | Continuidade entre autores | ✅ | ✅ (20.5) | — |
 | Criação (story junto do post) | ✅ | ❌ (depende do composer) | 20.4 |
 | Ring viewed/unviewed no avatar | ✅ | ✅ (9.8.3/10.1) | — |
@@ -57,14 +57,14 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Tags de treino (até 5, chips + Outro) | ✅ | ✅ (20.4a) | — |
 | Localização (busca + academias) | ✅ | ✅ (20.4b — busca em gyms; GPS "local atual" fica com a distância) | — |
 | Marcação de participantes | ✅ | ✅ (20.4b — chips de quem sigo) | — |
-| Editar post (mídia/legenda/tipo) | ✅ | 🟡 (20.4b — legenda+tags; ADD de mídia fica pro cutover) | 20.8 |
+| Editar post (mídia/legenda/tipo) | ✅ | ✅ (legenda+tags+MÍDIA via setMedia) | — |
 
 ### MyCircle (MyCircleSheet 725 ↔ MyCircleView 622 — a área mais madura)
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
 | Header + rings + streak badge + levels | ✅ | ✅ | — |
 | Calendário ← → + mini-fotos + tap abre post | ✅ | ✅ (fix vídeo dbaa3d1 já portado) | — |
-| **Conquistas em destaque (15.5: row + botão Hall)** | ✅ | ❌ (ainda badgeHighlight 5.9) | **20.1 — NESTE COMMIT** |
+| Conquistas em destaque (15.5: row + botão Hall) | ✅ | ✅ (20.1) | — |
 | Desafios do mês (+ secretos) | ✅ | ✅ (read-only por design) | — |
 | Recap CTA + período + capa | ✅ | ✅ | — |
 | Competição placeholder | ✅ | ✅ (paridade do placeholder 😄) | 19 nos dois |
@@ -74,9 +74,9 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 ### Hall da Fama (AchievementsSheet pós-Sprint 15 ↔ AchievementsView 309)
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
-| **Alcançável na UI** | ✅ | ❌ **órfão — NENHUMA tela apresenta o AchievementsView** | **20.1 — NESTE COMMIT (via botão da row)** |
-| Layout Apple Awards (hero próximo + destaque + grid categorias + vista 3-col) | ✅ (Sprint 15) | ❌ (layout antigo de tabs) | 20.1 |
-| Artefatos 3D (badge/medal/trophy/relic, 7 tones, float) | ✅ | ❌ (BadgeIcon 2D) | 20.1 (spike de abordagem) |
+| Alcançável na UI | ✅ | ✅ (20.1 — row do Profile/MyCircle abre o Hall) | — |
+| Layout Apple Awards (hero próximo + destaque + grid categorias + vista 3-col) | ✅ (Sprint 15) | ✅ (fase 21 — réplica 2D) | — |
+| Artefatos 3D (badge/medal/trophy/relic, 7 tones, float) | ✅ | ❌ ÚNICA pendência do Hall — GLB do Rodin → SceneKit/USDZ | passe 21b |
 | Detail com raridade global/"você é o primeiro" | ✅ | ✅ (8.5/9.7.3) | — |
 | Celebration overlay + confetti | ✅ | ✅ (8.7/9.8.1) | — |
 | Multi-tags na contagem de tipos | ✅ | ✅ (20.0) | — |
@@ -85,10 +85,10 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Feature | Web | Nativo | Fase |
 |---|---|---|---|
 | Header + stats + grid de posts | ✅ | ✅ | — |
-| Featured achievements row | ✅ (15.5: 3D + botão Hall) | 🟡 (8.12.1: 2D, sem botão) | 20.1 |
+| Featured achievements row | ✅ (15.5: 3D + botão Hall) | ✅ (20.1 — row compartilhada 2D + botão) | — |
 | Tap no post do grid abre detail completo | ✅ | ❓ verificar | 20.2 |
 | Edit profile (todos os campos) | ✅ | ✅ (9.9.2) | — |
-| **Settings (idioma, privacidade, suspender/apagar conta, legal)** | ✅ | ❌ | 20.2 |
+| Settings (idioma, privacidade, suspender/apagar conta, legal) | ✅ | ✅ (20.2) | — |
 | Followers/Following overlay | ✅ | ✅ (9.5.4/FollowList) | — |
 | OtherProfile + follow/aceite + privacy | ✅ | ✅ (8.13.6/9.8.4) | — |
 | Avatar upload | ✅ | ✅ (9.2) | — |
@@ -99,7 +99,7 @@ A web tem 6 telas de tab + **22 sheets/overlays**; o nativo tem 14 telas
 | Chat (1:1, grupo, vídeo, delete-for-me, busca) | ✅ core (20.6 — 1:1+grupo+delete-for-me+nova conversa); mídia/criar grupo/realtime pendentes | 20.x |
 | Notificações (sheet + CTAs + routing) | ✅ (20.7a — sino+badge+routing post/perfil); APNs standalone pendente de entitlement | 20.7b |
 | Check-in + GymSearch | CheckInScreen 896 + GymSearchSheet 836 | decisão de produto (17/19) |
-| Busca/descoberta de pessoas + sugestões | 🟡 busca ✅ (20.3c via search_profiles → OtherProfile); sugestões pendentes | 20.x |
+| Busca/descoberta de pessoas + sugestões | ✅ busca + sugestões (get_user_suggestions) | — |
 | Onboarding contextual (hints 7C) | ContextualHint | 20.2+ (transversal) |
 | PWA-only (push web, install) | — | n/a |
 
