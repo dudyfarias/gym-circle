@@ -68,5 +68,8 @@ public struct MainTabView: View {
             }
         }
         .tint(GymCircleTheme.ColorToken.cyan)
+        // Punch-list #2 — tab bar de vidro (--gc-glass do web).
+        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
     }
 }

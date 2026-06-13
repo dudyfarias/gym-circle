@@ -67,13 +67,25 @@ public struct StoryBubble: View {
             GCAvatar(url: group.avatarURL, fallback: group.username, size: 64)
                 .padding(3)
                 .overlay {
-                    Circle()
-                        .stroke(
-                            group.hasUnseen
-                                ? GymCircleTheme.ColorToken.electricBlue
-                                : GymCircleTheme.ColorToken.separator,
-                            lineWidth: 3
-                        )
+                    // Punch-list #10 — ring gradiente brand→deep do web
+                    // (não-visto); visto cai pro separator sólido.
+                    if group.hasUnseen {
+                        Circle()
+                            .stroke(
+                                AngularGradient(
+                                    colors: [
+                                        GymCircleTheme.ColorToken.cyan,
+                                        GymCircleTheme.ColorToken.electricBlue,
+                                        GymCircleTheme.ColorToken.cyan,
+                                    ],
+                                    center: .center
+                                ),
+                                lineWidth: 3
+                            )
+                    } else {
+                        Circle()
+                            .stroke(GymCircleTheme.ColorToken.separator, lineWidth: 3)
+                    }
                 }
             GCText(group.username, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 .lineLimit(1)
