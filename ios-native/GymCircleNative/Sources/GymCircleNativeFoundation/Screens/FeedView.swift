@@ -144,9 +144,7 @@ public struct FeedView: View {
             PeopleSearchSheet(model: model)
         }
         .sheet(item: $editingPost) { post in
-            EditPostSheet(post: post) { caption, tags in
-                await model.updatePost(postId: post.id, caption: caption, workoutTypes: tags)
-            }
+            EditPostSheet(model: model, post: post)
         }
         .fullScreenCover(item: $playingVideo) { video in
             VideoPlayerScreen(url: video.url)

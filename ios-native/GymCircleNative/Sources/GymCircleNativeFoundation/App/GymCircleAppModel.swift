@@ -617,7 +617,12 @@ public final class GymCircleAppModel: ObservableObject {
 
     /// Sprint 20.4b — edita caption/tags do próprio post e atualiza o
     /// feed local sem refetch.
-    public func updatePost(postId: String, caption: String, workoutTypes: [String]) async -> Bool {
+    public func updatePost(
+        postId: String,
+        caption: String,
+        workoutTypes: [String],
+        media: [PostComposerService.EditMediaItem]? = nil
+    ) async -> Bool {
         guard let composerService, let userId = sessionStore?.currentUserId else { return false }
         do {
             try await composerService.updatePost(
@@ -626,12 +631,34 @@ public final class GymCircleAppModel: ObservableObject {
                 caption: caption,
                 workoutTypes: workoutTypes
             )
+            // Paridade editPost web (Sprint 14): media != nil substitui o
+            // carrossel inteiro + capa via setMedia.
+            if let media {
+                try await composerService.setMedia(postId: postId, items: media)
+            }
             await refreshFeed()
             return true
         } catch {
             self.error = error.localizedDescription
             return false
         }
+    }
+
+    /// Upload de foto avulsa pro edit de mídia (mesmas variantes do publish).
+    public func uploadEditImage(data: Data) async -> PostComposerService.UploadedMedia? {
+        guard let composerService, let userId = sessionStore?.currentUserId else { return nil }
+        do {
+            return try await composerService.uploadImage(userId: userId, imageData: data)
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Sugestões de pessoas (estado inicial da busca — RPC get_user_suggestions).
+    public func fetchSuggestions() async -> [DiscoveredProfile] {
+        guard let api else { return [] }
+        return (try? await api.userSuggestions()) ?? []
     }
 
     // MARK: - Sprint 20.6 — chat

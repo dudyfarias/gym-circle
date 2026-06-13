@@ -122,6 +122,24 @@ public actor GymCircleAPI {
         }
     }
 
+    /// Sugestões de pessoas (RPC get_user_suggestions da Sprint C web) —
+    /// estado inicial da busca, antes do usuário digitar.
+    public func userSuggestions(limit: Int = 12) async throws -> [DiscoveredProfile] {
+        struct SuggestionParams: Encodable {
+            let p_current_lat: Double?
+            let p_current_lng: Double?
+            let p_limit: Int
+        }
+        return try await client
+            .rpc("get_user_suggestions", params: SuggestionParams(
+                p_current_lat: nil,
+                p_current_lng: nil,
+                p_limit: limit
+            ))
+            .execute()
+            .value
+    }
+
     /// Sprint 20.3c — busca de pessoas (RPC search_profiles da Sprint C web).
     public func searchProfiles(query: String, limit: Int = 20) async throws -> [DiscoveredProfile] {
         struct SearchParams: Encodable {

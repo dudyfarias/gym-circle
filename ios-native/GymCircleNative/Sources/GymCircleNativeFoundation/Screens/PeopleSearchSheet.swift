@@ -10,6 +10,7 @@ public struct PeopleSearchSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var results: [DiscoveredProfile] = []
+    @State private var suggestions: [DiscoveredProfile] = []
     @State private var isSearching = false
     @State private var openedSummary: OtherProfileSummary?
     @State private var searchTask: Task<Void, Never>?
@@ -46,6 +47,26 @@ public struct PeopleSearchSheet: View {
                         subtitle: "Tenta outro nome ou @username."
                     )
                     Spacer()
+                } else if query.isEmpty && !suggestions.isEmpty {
+                    // Sugestões (get_user_suggestions) — estado inicial,
+                    // paridade discovery web.
+                    List {
+                        Section {
+                            ForEach(suggestions) { person in
+                                personRow(person)
+                            }
+                            .listRowBackground(GymCircleTheme.ColorToken.appBackground)
+                            .listRowSeparator(.hidden)
+                        } header: {
+                            GCText(
+                                "Sugestões pra você",
+                                style: .caption,
+                                color: GymCircleTheme.ColorToken.secondaryText
+                            )
+                        }
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 } else {
                     List(results) { person in
                         Button {
@@ -89,6 +110,9 @@ public struct PeopleSearchSheet: View {
             }
         }
         .preferredColorScheme(.dark)
+        .task {
+            suggestions = await model.fetchSuggestions()
+        }
         .onChange(of: query) { newQuery in
             // Debounce 350ms — paridade com o input de busca web.
             searchTask?.cancel()
@@ -109,6 +133,33 @@ public struct PeopleSearchSheet: View {
         if let summary = await model.fetchOtherProfileSummary(userId: person.userId) {
             openedSummary = summary
         }
+    }
+
+    /// Linha reusada pelas sugestões (mesma da lista de resultados).
+    private func personRow(_ person: DiscoveredProfile) -> some View {
+        Button {
+            Task { await openProfile(person) }
+        } label: {
+            HStack(spacing: 12) {
+                GCAvatar(url: person.avatarURL, fallback: person.username ?? "u")
+                VStack(alignment: .leading, spacing: 2) {
+                    GCText(person.displayedName, style: .body)
+                    GCText(
+                        "@\(person.username ?? "user")",
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.secondaryText
+                    )
+                }
+                Spacer()
+                if let streak = person.currentStreak, streak > 0 {
+                    GCText("\(streak)d", style: .caption, color: GymCircleTheme.ColorToken.cyan)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

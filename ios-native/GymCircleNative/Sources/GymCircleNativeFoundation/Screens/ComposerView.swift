@@ -532,29 +532,57 @@ struct TagChipsRow: View {
     }
 }
 
-/// EditPostSheet — Sprint 20.4b. Edição de legenda + tags do próprio
-/// post (mídia nova fica pro cutover, como anotado na matriz).
+/// EditPostSheet — Sprint 20.4b/+. Edição de legenda + tags + MÍDIAS do
+/// próprio post (paridade Sprint 14 web: add/remover até 10; setMedia
+/// substitui post_media e atualiza a capa = item 0).
 public struct EditPostSheet: View {
+    @ObservedObject private var model: GymCircleAppModel
     private let post: FeedPost
-    private let onSave: (String, [String]) async -> Bool
 
     @Environment(\.dismiss) private var dismiss
     @State private var caption: String
     @State private var selectedTags: [String]
     @State private var customTag = ""
     @State private var isSaving = false
+    @State private var errorMessage: String?
+    // Mídias: existentes (URLs) + novas (Data local) — ordem final é
+    // existentes mantidas seguidas das novas.
+    @State private var existingItems: [PostComposerService.EditMediaItem]
+    @State private var newImageDatas: [Data] = []
+    @State private var pickerItems: [PhotosPickerItem] = []
+    private let originalCount: Int
 
-    public init(post: FeedPost, onSave: @escaping (String, [String]) async -> Bool) {
+    private var totalCount: Int { existingItems.count + newImageDatas.count }
+    private var mediaChanged: Bool {
+        existingItems.count != originalCount || !newImageDatas.isEmpty
+    }
+
+    public init(model: GymCircleAppModel, post: FeedPost) {
+        self.model = model
         self.post = post
-        self.onSave = onSave
         _caption = State(initialValue: post.caption ?? "")
         _selectedTags = State(initialValue: post.workoutType.map { [$0] } ?? [])
+        let items = post.carouselItems.map { item in
+            PostComposerService.EditMediaItem(
+                mediaType: item.mediaType?.rawValue ?? "image",
+                imageURL: item.imageURL,
+                thumbnailURL: item.thumbnailURL,
+                posterURL: item.posterURL,
+                mediaWidth: item.mediaWidth,
+                mediaHeight: item.mediaHeight,
+                mediaDurationSeconds: nil
+            )
+        }
+        _existingItems = State(initialValue: items)
+        originalCount = items.count
     }
 
     public var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    mediaEditor
+
                     VStack(alignment: .leading, spacing: 8) {
                         GCText("Legenda", style: .headline)
                         TextField("Como foi o treino?", text: $caption, axis: .vertical)
@@ -597,6 +625,10 @@ public struct EditPostSheet: View {
                             .buttonStyle(.plain)
                         }
                     }
+
+                    if let errorMessage {
+                        GCText(errorMessage, style: .caption, color: GymCircleTheme.ColorToken.pink)
+                    }
                 }
                 .padding(20)
             }
@@ -610,14 +642,7 @@ public struct EditPostSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task {
-                            isSaving = true
-                            if await onSave(caption, selectedTags) {
-                                Haptics.success()
-                                dismiss()
-                            }
-                            isSaving = false
-                        }
+                        Task { await save() }
                     } label: {
                         if isSaving {
                             ProgressView().tint(GymCircleTheme.ColorToken.cyan)
@@ -626,10 +651,152 @@ public struct EditPostSheet: View {
                                 .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                         }
                     }
-                    .disabled(isSaving)
+                    .disabled(isSaving || totalCount == 0)
                 }
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: pickerItems) { newItems in
+            Task { await loadPicked(newItems) }
+        }
+    }
+
+    private var mediaEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                GCText("Mídias", style: .headline)
+                Spacer()
+                GCText("\(totalCount)/10", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(existingItems.enumerated()), id: \.offset) { index, item in
+                        editThumb(index: index, isExisting: true) {
+                            MediaView(
+                                url: item.thumbnailURL ?? item.posterURL ?? item.imageURL,
+                                aspectRatio: 1,
+                                isVideo: item.mediaType == "video"
+                            )
+                        }
+                    }
+                    ForEach(Array(newImageDatas.enumerated()), id: \.offset) { index, data in
+                        editThumb(index: index, isExisting: false) {
+                            if let image = UIImage(data: data) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                        }
+                    }
+                }
+            }
+            PhotosPicker(
+                selection: $pickerItems,
+                maxSelectionCount: max(0, 10 - totalCount),
+                matching: .images
+            ) {
+                Label("Adicionar fotos", systemImage: "plus.square.on.square")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.elevatedCard)
+                    )
+            }
+            .disabled(totalCount >= 10)
+        }
+    }
+
+    @ViewBuilder
+    private func editThumb<Content: View>(
+        index: Int,
+        isExisting: Bool,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        ZStack(alignment: .topTrailing) {
+            content()
+                .frame(width: 84, height: 104)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            Button {
+                if isExisting {
+                    existingItems.remove(at: index)
+                } else {
+                    newImageDatas.remove(at: index)
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white, .black.opacity(0.55))
+            }
+            .padding(3)
+            if isExisting && index == 0 {
+                VStack {
+                    Spacer()
+                    GCText("Capa", style: .caption, color: .white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(.black.opacity(0.55)))
+                        .padding(4)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func loadPicked(_ items: [PhotosPickerItem]) async {
+        var datas: [Data] = []
+        for item in items {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                datas.append(data)
+            }
+        }
+        guard !datas.isEmpty else { return }
+        newImageDatas.append(contentsOf: datas.prefix(max(0, 10 - totalCount)))
+        pickerItems = []
+    }
+
+    private func save() async {
+        guard totalCount > 0 else { return }
+        isSaving = true
+        errorMessage = nil
+        defer { isSaving = false }
+
+        var media: [PostComposerService.EditMediaItem]?
+        if mediaChanged {
+            var combined = existingItems
+            for data in newImageDatas {
+                guard let uploaded = await model.uploadEditImage(data: data) else {
+                    errorMessage = model.error ?? "Falha no upload de uma das fotos."
+                    return
+                }
+                combined.append(
+                    PostComposerService.EditMediaItem(
+                        mediaType: uploaded.mediaType,
+                        imageURL: uploaded.imageURL,
+                        thumbnailURL: uploaded.thumbnailURL,
+                        posterURL: uploaded.posterURL,
+                        mediaWidth: uploaded.width,
+                        mediaHeight: uploaded.height,
+                        mediaDurationSeconds: uploaded.durationSeconds
+                    )
+                )
+            }
+            media = combined
+        }
+
+        let ok = await model.updatePost(
+            postId: post.id,
+            caption: caption,
+            workoutTypes: selectedTags,
+            media: media
+        )
+        if ok {
+            Haptics.success()
+            dismiss()
+        } else {
+            errorMessage = model.error ?? "Não foi possível salvar."
+        }
     }
 }

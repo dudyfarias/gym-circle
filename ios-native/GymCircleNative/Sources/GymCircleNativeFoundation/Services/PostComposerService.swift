@@ -211,6 +211,89 @@ public actor PostComposerService {
         return post.id
     }
 
+    /// Item do patch de mídia do edit — existente (vem do carrossel
+    /// carregado) ou recém-uploadado, no shape das colunas.
+    public struct EditMediaItem: Sendable {
+        public let mediaType: String
+        public let imageURL: String
+        public let thumbnailURL: String?
+        public let posterURL: String?
+        public let mediaWidth: Int?
+        public let mediaHeight: Int?
+        public let mediaDurationSeconds: Double?
+
+        public init(
+            mediaType: String,
+            imageURL: String,
+            thumbnailURL: String?,
+            posterURL: String?,
+            mediaWidth: Int?,
+            mediaHeight: Int?,
+            mediaDurationSeconds: Double?
+        ) {
+            self.mediaType = mediaType
+            self.imageURL = imageURL
+            self.thumbnailURL = thumbnailURL
+            self.posterURL = posterURL
+            self.mediaWidth = mediaWidth
+            self.mediaHeight = mediaHeight
+            self.mediaDurationSeconds = mediaDurationSeconds
+        }
+    }
+
+    /// Espelho do posts.setMedia web (Sprint 14): substitui o post_media
+    /// inteiro (rows só quando >1, posições 0..n) e atualiza a CAPA
+    /// (posts.* = item 0) — feeds/grids antigos continuam lendo a capa.
+    public func setMedia(postId: String, items: [EditMediaItem]) async throws {
+        try await client
+            .from("post_media")
+            .delete()
+            .eq("post_id", value: postId)
+            .execute()
+
+        if items.count > 1 {
+            let rows = items.prefix(10).enumerated().map { index, item in
+                PostMediaInsert(
+                    post_id: postId,
+                    position: index,
+                    media_type: item.mediaType,
+                    image_url: item.imageURL,
+                    thumbnail_url: item.thumbnailURL,
+                    poster_url: item.posterURL,
+                    media_width: item.mediaWidth,
+                    media_height: item.mediaHeight,
+                    media_duration_seconds: item.mediaDurationSeconds
+                )
+            }
+            try await client.from("post_media").insert(Array(rows)).execute()
+        }
+
+        if let cover = items.first {
+            struct CoverPatch: Encodable {
+                let image_url: String
+                let media_type: String
+                let thumbnail_url: String?
+                let poster_url: String?
+                let media_width: Int?
+                let media_height: Int?
+                let media_duration_seconds: Double?
+            }
+            try await client
+                .from("posts")
+                .update(CoverPatch(
+                    image_url: cover.imageURL,
+                    media_type: cover.mediaType,
+                    thumbnail_url: cover.thumbnailURL,
+                    poster_url: cover.posterURL,
+                    media_width: cover.mediaWidth,
+                    media_height: cover.mediaHeight,
+                    media_duration_seconds: cover.mediaDurationSeconds
+                ))
+                .eq("id", value: postId)
+                .execute()
+        }
+    }
+
     /// Sprint 20.4b — edita caption/tags do próprio post (subset do
     /// EditPostSheet web; mídia nova fica pro cutover).
     public func updatePost(
