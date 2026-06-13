@@ -101,6 +101,7 @@ public struct StoryViewerScreen: View {
     @State private var likedOverrides: [String: Bool] = [:]
     // Sprint 20.6 — reply por DM.
     @State private var replyDraft = ""
+    @State private var confirmMute = false
     @FocusState private var replyFocused: Bool
 
     private let tick: Double = 0.05
@@ -213,6 +214,26 @@ public struct StoryViewerScreen: View {
                     GCText(group.username, style: .caption, color: .white)
                 }
                 Spacer()
+                if let url = URL(string: item.mediaURL) {
+                    ShareLink(item: url) {
+                        Image(systemName: "paperplane")
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(.white)
+                            .padding(8)
+                    }
+                }
+                Menu {
+                    Button(role: .destructive) {
+                        confirmMute = true
+                    } label: {
+                        Label("Silenciar stories", systemImage: "speaker.slash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 17, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(8)
+                }
                 Button {
                     dismiss()
                 } label: {
@@ -223,6 +244,16 @@ public struct StoryViewerScreen: View {
                 }
             }
             .padding(.horizontal, 12)
+            .confirmationDialog(
+                "Silenciar stories desse usuário?",
+                isPresented: $confirmMute,
+                titleVisibility: .visible
+            ) {
+                Button("Silenciar", role: .destructive) {
+                    Task { await muteCurrentAuthor() }
+                }
+                Button("Cancelar", role: .cancel) {}
+            }
 
             Spacer()
 
@@ -350,6 +381,18 @@ public struct StoryViewerScreen: View {
         let ok = await model.setStoryLike(storyId: item.storyId, liked: newValue)
         if !ok {
             likedOverrides[item.storyId] = !newValue
+        }
+    }
+
+    private func muteCurrentAuthor() async {
+        guard let group = currentGroup else { return }
+        let ok = await model.muteStoryAuthor(authorId: group.authorId)
+        if ok {
+            if authorIndex < groups.count - 1 {
+                authorIndex += 1
+            } else {
+                dismiss()
+            }
         }
     }
 }

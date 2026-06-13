@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// ChatViews — Sprint 20.6. Mata o placeholder "fase futura" da tab Chat.
 ///
@@ -14,6 +15,10 @@ public struct ChatListView: View {
     @State private var openedThread: ChatThread?
     @State private var newMessagePresented = false
     @State private var following: [DiscoveredProfile] = []
+    @State private var groupMode = false
+    @State private var groupName = ""
+    @State private var selectedGroupMemberIds: Set<String> = []
+    @State private var isCreatingGroup = false
 
     public init(model: GymCircleAppModel) {
         self.model = model
@@ -135,25 +140,44 @@ public struct ChatListView: View {
                         subtitle: "Siga pessoas pra puxar conversa."
                     )
                 } else {
-                    List(following) { person in
-                        Button {
-                            newMessagePresented = false
-                            openedThread = ChatThread(
-                                summary: placeholderSummary(peer: person),
-                                displayName: person.displayedName,
-                                avatarURL: person.avatarURL,
-                                peerUserId: person.userId
-                            )
-                        } label: {
-                            HStack(spacing: 12) {
-                                GCAvatar(url: person.avatarURL, fallback: person.username ?? "u")
-                                GCText(person.displayedName, style: .body)
-                                Spacer()
-                            }
+                    List {
+                        if groupMode {
+                            TextField("Nome do grupo", text: $groupName)
+                                .padding(.vertical, 8)
+                                .listRowBackground(GymCircleTheme.ColorToken.card)
                         }
-                        .buttonStyle(.plain)
-                        .listRowBackground(GymCircleTheme.ColorToken.appBackground)
-                        .listRowSeparator(.hidden)
+                        ForEach(following) { person in
+                            Button {
+                                if groupMode {
+                                    toggleGroupMember(person.userId)
+                                } else {
+                                    newMessagePresented = false
+                                    openedThread = ChatThread(
+                                        summary: placeholderSummary(peer: person),
+                                        displayName: person.displayedName,
+                                        avatarURL: person.avatarURL,
+                                        peerUserId: person.userId
+                                    )
+                                }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    GCAvatar(url: person.avatarURL, fallback: person.username ?? "u")
+                                    GCText(person.displayedName, style: .body)
+                                    Spacer()
+                                    if groupMode {
+                                        Image(systemName: selectedGroupMemberIds.contains(person.userId) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(
+                                                selectedGroupMemberIds.contains(person.userId)
+                                                    ? GymCircleTheme.ColorToken.cyan
+                                                    : GymCircleTheme.ColorToken.secondaryText
+                                            )
+                                    }
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(GymCircleTheme.ColorToken.appBackground)
+                            .listRowSeparator(.hidden)
+                        }
                     }
                     .listStyle(.plain)
                     .scrollContentBackground(.hidden)
@@ -162,8 +186,66 @@ public struct ChatListView: View {
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
             .navigationTitle("Nova mensagem")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(groupMode ? "Direto" : "Grupo") {
+                        groupMode.toggle()
+                        selectedGroupMemberIds = []
+                    }
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                }
+                if groupMode {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            Task { await createGroup() }
+                        } label: {
+                            if isCreatingGroup {
+                                ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                            } else {
+                                Text("Criar").bold()
+                            }
+                        }
+                        .disabled(selectedGroupMemberIds.isEmpty || isCreatingGroup)
+                    }
+                }
+            }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func toggleGroupMember(_ userId: String) {
+        if selectedGroupMemberIds.contains(userId) {
+            selectedGroupMemberIds.remove(userId)
+        } else {
+            selectedGroupMemberIds.insert(userId)
+            Haptics.selection()
+        }
+    }
+
+    private func createGroup() async {
+        isCreatingGroup = true
+        defer { isCreatingGroup = false }
+        guard let conversationId = await model.createGroupConversation(
+            name: groupName,
+            memberIds: Array(selectedGroupMemberIds)
+        ) else {
+            Haptics.error()
+            return
+        }
+        Haptics.success()
+        let displayName = groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Grupo Gym Circle"
+            : groupName.trimmingCharacters(in: .whitespacesAndNewlines)
+        newMessagePresented = false
+        openedThread = ChatThread(
+            summary: placeholderGroupSummary(conversationId: conversationId),
+            displayName: displayName,
+            avatarURL: nil,
+            peerUserId: nil
+        )
+        groupName = ""
+        selectedGroupMemberIds = []
+        groupMode = false
     }
 
     /// Conversa 1:1 ainda inexistente: o id sintético "new:<peer>" sinaliza
@@ -173,6 +255,16 @@ public struct ChatListView: View {
         {"conversation_id":"new:\(peer.userId)","type":"direct","participants":[]}
         """
         // Decodável garantido pelo init tolerante do ConversationSummary.
+        return try! JSONDecoder().decode(
+            ConversationSummary.self,
+            from: Data(json.utf8)
+        )
+    }
+
+    private func placeholderGroupSummary(conversationId: String) -> ConversationSummary {
+        let json = """
+        {"conversation_id":"\(conversationId)","type":"group","participants":[]}
+        """
         return try! JSONDecoder().decode(
             ConversationSummary.self,
             from: Data(json.utf8)
@@ -194,6 +286,7 @@ public struct ConversationView: View {
     @State private var draft = ""
     @State private var isSending = false
     @State private var isLoading = true
+    @State private var pickedImage: PhotosPickerItem?
 
     public init(
         model: GymCircleAppModel,
@@ -261,6 +354,7 @@ public struct ConversationView: View {
         }
         .preferredColorScheme(.dark)
         .task { await load() }
+        .task(id: conversationId) { await pollForUpdates() }
     }
 
     @ViewBuilder
@@ -280,6 +374,26 @@ public struct ConversationView: View {
                     Text(body)
                         .font(.system(size: 15, design: .rounded))
                         .foregroundStyle(isMine ? .black : GymCircleTheme.ColorToken.primaryText)
+                }
+                if let mediaURL = message.mediaURL,
+                   message.mediaType == "image",
+                   let url = URL(string: mediaURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        case .failure:
+                            Image(systemName: "photo")
+                                .foregroundStyle(isMine ? .black.opacity(0.55) : GymCircleTheme.ColorToken.secondaryText)
+                        default:
+                            ProgressView()
+                                .tint(isMine ? .black : GymCircleTheme.ColorToken.cyan)
+                        }
+                    }
+                    .frame(width: 180, height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 GCText(
                     CommentsSheet.relativeTime(from: message.createdAt),
@@ -303,6 +417,13 @@ public struct ConversationView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
+            PhotosPicker(selection: $pickedImage, matching: .images) {
+                Image(systemName: "photo")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+            }
+            .buttonStyle(.plain)
+            .disabled(isSending)
             TextField("Mensagem...", text: $draft, axis: .vertical)
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
@@ -329,6 +450,10 @@ public struct ConversationView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(GymCircleTheme.ColorToken.card)
+        .onChange(of: pickedImage?.itemIdentifier) { _ in
+            guard let item = pickedImage else { return }
+            Task { await sendImage(item) }
+        }
     }
 
     private func load() async {
@@ -371,6 +496,49 @@ public struct ConversationView: View {
         }
         if let conversationId {
             messages = await model.fetchChatMessages(conversationId: conversationId)
+        }
+    }
+
+    private func sendImage(_ item: PhotosPickerItem) async {
+        guard !isSending else { return }
+        isSending = true
+        defer {
+            isSending = false
+            pickedImage = nil
+        }
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
+            Haptics.error()
+            return
+        }
+
+        let sent = await model.sendChatImage(
+            conversationId: conversationId,
+            peerUserId: peerUserId,
+            isGroup: isGroup,
+            imageData: data
+        )
+        guard let sent else {
+            Haptics.error()
+            return
+        }
+        Haptics.impactLight()
+        if conversationId == nil {
+            conversationId = sent.conversationId
+        }
+        if let conversationId {
+            messages = await model.fetchChatMessages(conversationId: conversationId)
+        }
+    }
+
+    private func pollForUpdates() async {
+        guard conversationId != nil else { return }
+        while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 7_000_000_000)
+            guard let conversationId, !isSending else { continue }
+            let latest = await model.fetchChatMessages(conversationId: conversationId)
+            if latest != messages {
+                messages = latest
+            }
         }
     }
 }

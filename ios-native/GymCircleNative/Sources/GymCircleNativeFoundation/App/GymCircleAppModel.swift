@@ -63,6 +63,10 @@ public final class GymCircleAppModel: ObservableObject {
     @Published public private(set) var unreadNotifications = 0
     // Sprint 20.6 — chat.
     private let chatService: ChatService?
+    // Sprint 20.7b/Native P1 — APNs token lifecycle.
+    private let pushService: NativePushNotificationsService?
+    // Native P2 — HealthKit foundation. No-op em devices sem Apple Saúde.
+    private let healthKitProvider: HealthKitProviding
 
     // MARK: - State expandido pra Sprint 8.4
 
@@ -105,6 +109,7 @@ public final class GymCircleAppModel: ObservableObject {
         let participantsService = PostParticipantsService(client: client)
         let notificationsService = NotificationsService(client: client)
         let chatService = ChatService(client: client)
+        let pushService = NativePushNotificationsService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -119,7 +124,9 @@ public final class GymCircleAppModel: ObservableObject {
             safetyService: safetyService,
             participantsService: participantsService,
             notificationsService: notificationsService,
-            chatService: chatService
+            chatService: chatService,
+            pushService: pushService,
+            healthKitProvider: AppleHealthKitProvider()
         )
     }
 
@@ -139,7 +146,9 @@ public final class GymCircleAppModel: ObservableObject {
         safetyService: SafetyService? = nil,
         participantsService: PostParticipantsService? = nil,
         notificationsService: NotificationsService? = nil,
-        chatService: ChatService? = nil
+        chatService: ChatService? = nil,
+        pushService: NativePushNotificationsService? = nil,
+        healthKitProvider: HealthKitProviding = AppleHealthKitProvider()
     ) {
         self.sessionStore = sessionStore
         self.api = api
@@ -155,6 +164,8 @@ public final class GymCircleAppModel: ObservableObject {
         self.participantsService = participantsService
         self.notificationsService = notificationsService
         self.chatService = chatService
+        self.pushService = pushService
+        self.healthKitProvider = healthKitProvider
     }
 
     // MARK: - Boot pipeline
@@ -554,7 +565,8 @@ public final class GymCircleAppModel: ObservableObject {
         caption: String,
         workoutTypes: [String],
         gym: GymOption? = nil,
-        taggedUserIds: [String] = []
+        taggedUserIds: [String] = [],
+        alsoPublishStory: Bool = false
     ) async -> Bool {
         guard let composerService,
               let userId = sessionStore?.currentUserId,
@@ -584,6 +596,14 @@ public final class GymCircleAppModel: ObservableObject {
                     postId: postId,
                     taggedByUserId: userId,
                     taggedUserIds: taggedUserIds
+                )
+            }
+            if alsoPublishStory, let cover = uploads.first {
+                try? await storiesService?.createStory(
+                    userId: userId,
+                    media: cover,
+                    gymId: gym?.id,
+                    workoutType: workoutTypes.first
                 )
             }
             await refreshFeed()
@@ -642,6 +662,56 @@ public final class GymCircleAppModel: ObservableObject {
         guard let chatService else { return nil }
         do {
             return try await chatService.sendGroup(conversationId: conversationId, body: body)
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    public func sendChatImage(
+        conversationId: String?,
+        peerUserId: String?,
+        isGroup: Bool,
+        imageData: Data
+    ) async -> ChatMessage? {
+        guard let chatService, let userId = sessionStore?.currentUserId else { return nil }
+        do {
+            let url = try await chatService.uploadImage(userId: userId, data: imageData)
+            if let conversationId, isGroup {
+                return try await chatService.sendGroup(
+                    conversationId: conversationId,
+                    body: nil,
+                    mediaURL: url,
+                    mediaType: "image"
+                )
+            }
+            if let peerUserId {
+                return try await chatService.sendDirect(
+                    receiverId: peerUserId,
+                    body: nil,
+                    mediaURL: url,
+                    mediaType: "image"
+                )
+            }
+            if let conversationId {
+                return try await chatService.sendGroup(
+                    conversationId: conversationId,
+                    body: nil,
+                    mediaURL: url,
+                    mediaType: "image"
+                )
+            }
+            return nil
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    public func createGroupConversation(name: String, memberIds: [String]) async -> String? {
+        guard let chatService else { return nil }
+        do {
+            return try await chatService.createGroup(name: name, memberIds: memberIds)
         } catch {
             self.error = error.localizedDescription
             return nil
@@ -736,6 +806,21 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    public func muteStoryAuthor(authorId: String) async -> Bool {
+        guard let storiesService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await storiesService.muteStories(userId: userId, mutedUserId: authorId)
+            stories.removeAll { $0.authorId == authorId }
+            Haptics.success()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            Haptics.error()
+            return false
+        }
+    }
+
     // MARK: - Sprint 20.2 — Settings (privacidade + conta)
 
     /// Toggle de perfil privado (profiles.is_private).
@@ -769,6 +854,71 @@ public final class GymCircleAppModel: ObservableObject {
     public func searchGyms(query: String) async -> [GymOption] {
         guard let api, !query.trimmingCharacters(in: .whitespaces).isEmpty else { return [] }
         return (try? await api.searchGyms(query: query)) ?? []
+    }
+
+    public func nearbyGyms(coordinate: GymCircleCoordinate) async -> [GymOption] {
+        guard let api else { return [] }
+        return (try? await api.nearbyGyms(
+            latitude: coordinate.latitude,
+            longitude: coordinate.longitude
+        )) ?? []
+    }
+
+    public func catalogPlace(_ place: NativePlaceCandidate) async -> GymOption? {
+        guard let api else { return nil }
+        do {
+            return try await api.findOrCreateGym(from: place)
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    @discardableResult
+    public func checkIn(gym: GymOption) async -> Bool {
+        guard let api, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await api.checkIn(userId: userId, gymId: gym.id)
+            Haptics.success()
+            await loadMyCircle()
+            return true
+        } catch {
+            Haptics.error()
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func enablePushNotifications() async -> Bool {
+        guard let pushService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await pushService.requestPermissionAndRegisterWithAPNs()
+            try? await Task.sleep(nanoseconds: 900_000_000)
+            try await pushService.upsertCurrentToken(userId: userId)
+            Haptics.success()
+            return true
+        } catch {
+            Haptics.error()
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func disablePushNotifications() async {
+        guard let pushService, let userId = sessionStore?.currentUserId else { return }
+        try? await pushService.revokeCurrentToken(userId: userId)
+    }
+
+    public func requestHealthKitAccess() async -> Bool {
+        do {
+            try await healthKitProvider.requestReadAuthorization()
+            Haptics.success()
+            return true
+        } catch {
+            Haptics.error()
+            self.error = error.localizedDescription
+            return false
+        }
     }
 
     public func loadFollowingProfiles() async -> [DiscoveredProfile] {

@@ -14,6 +14,7 @@ public struct ComposerView: View {
     @State private var caption = ""
     @State private var selectedTags: [String] = []
     @State private var customTag = ""
+    @State private var alsoPublishStory = false
     @State private var isPublishing = false
     @State private var publishedOK = false
     @State private var errorMessage: String?
@@ -48,11 +49,13 @@ public struct ComposerView: View {
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                checkInShortcut
                 mediaSection
                 captionSection
                 tagsSection
                 gymSection
                 participantsSection
+                destinationsSection
                 publishButton
             }
             .padding(20)
@@ -90,6 +93,36 @@ public struct ComposerView: View {
     }
 
     // MARK: - Sections
+
+    private var checkInShortcut: some View {
+        NavigationLink {
+            CheckInView(model: model)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                VStack(alignment: .leading, spacing: 2) {
+                    GCText("Fazer check-in", style: .headline)
+                    GCText(
+                        "Marque a academia sem postar foto.",
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.secondaryText
+                    )
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(GymCircleTheme.ColorToken.card)
+            )
+        }
+        .buttonStyle(.plain)
+    }
 
     private var mediaSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -343,6 +376,28 @@ public struct ComposerView: View {
         }
     }
 
+    private var destinationsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GCText("Destino", style: .headline)
+            Toggle(isOn: $alsoPublishStory) {
+                VStack(alignment: .leading, spacing: 2) {
+                    GCText("Também publicar nos stories", style: .body)
+                    GCText(
+                        "Usa a primeira mídia e expira em 24h.",
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.secondaryText
+                    )
+                }
+            }
+            .tint(GymCircleTheme.ColorToken.cyan)
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(GymCircleTheme.ColorToken.elevatedCard)
+            )
+        }
+    }
+
     private var publishButton: some View {
         VStack(spacing: 10) {
             if let errorMessage {
@@ -419,7 +474,8 @@ public struct ComposerView: View {
             caption: caption,
             workoutTypes: selectedTags,
             gym: selectedGym,
-            taggedUserIds: Array(taggedUserIds)
+            taggedUserIds: Array(taggedUserIds),
+            alsoPublishStory: alsoPublishStory
         )
         if ok {
             Haptics.success()
@@ -428,6 +484,7 @@ public struct ComposerView: View {
             caption = ""
             selectedTags = []
             selectedGym = nil
+            alsoPublishStory = false
             taggedUserIds = []
             publishedOK = true
         } else {

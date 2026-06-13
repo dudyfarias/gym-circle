@@ -35,8 +35,6 @@ targets:
         CFBundleShortVersionString: "1.1"
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
-        # Sprint 20.4b — câmera no composer nativo.
-        NSCameraUsageDescription: Tire fotos do seu treino para publicar no Gym Circle.
         # Sprint 20.0 — resolvidas no build a partir do xcconfig; o
         # AppConfiguration.fromBundle() lê daqui (vazio ⇒ modo demo).
         SupabaseURL: $(SUPABASE_URL)
@@ -47,10 +45,12 @@ targets:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
           - UIInterfaceOrientationPortrait
-        NSCameraUsageDescription: O Gym Circle nativo usara a camera para posts e stories em uma sprint futura.
-        NSPhotoLibraryUsageDescription: O Gym Circle nativo usara a galeria para selecionar midias em uma sprint futura.
-        NSMicrophoneUsageDescription: O Gym Circle nativo usara o microfone para videos em uma sprint futura.
-        NSLocationWhenInUseUsageDescription: O Gym Circle nativo usara localizacao para lugares e academias em uma sprint futura.
+        NSCameraUsageDescription: Use a câmera para postar treinos e stories no Gym Circle.
+        NSPhotoLibraryUsageDescription: Escolha fotos e vídeos da galeria para posts, stories e mensagens.
+        NSMicrophoneUsageDescription: Grave áudio ao publicar vídeos de treino.
+        NSLocationWhenInUseUsageDescription: Use sua localização para encontrar academias próximas e fazer check-in.
+        NSHealthShareUsageDescription: O Gym Circle lê seus treinos do Apple Saúde para enriquecer resumos e estatísticas, somente com sua permissão.
+        NSHealthUpdateUsageDescription: O Gym Circle pode preparar treinos para o Apple Saúde em versões futuras, sempre com sua permissão.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev
@@ -59,6 +59,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Support/GymCircleNative.entitlements
         SWIFT_VERSION: "5.9"
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: "NO"
       configs:

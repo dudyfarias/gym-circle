@@ -40,9 +40,29 @@ public struct GymOption: Identifiable, Decodable, Hashable, Sendable {
     public let address: String?
     public let city: String?
     public let state: String?
+    public let latitude: Double?
+    public let longitude: Double?
 
     public var subtitle: String {
         [address, city, state].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    public init(
+        id: String,
+        name: String,
+        address: String? = nil,
+        city: String? = nil,
+        state: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.address = address
+        self.city = city
+        self.state = state
+        self.latitude = latitude
+        self.longitude = longitude
     }
 }
 

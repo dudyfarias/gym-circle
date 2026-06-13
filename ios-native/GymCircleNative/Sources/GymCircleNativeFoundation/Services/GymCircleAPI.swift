@@ -233,11 +233,120 @@ public actor GymCircleAPI {
     public func searchGyms(query: String, limit: Int = 15) async throws -> [GymOption] {
         try await client
             .from("gyms")
-            .select("id,name,address,city,state")
+            .select("id,name,address,city,state,latitude,longitude")
             .ilike("name", pattern: "%\(query)%")
             .limit(limit)
             .execute()
             .value
+    }
+
+    /// Academias próximas a uma coordenada. Mantém o cálculo simples no
+    /// cliente/Supabase sem PostGIS: bbox aproximado + ordenação local.
+    public func nearbyGyms(
+        latitude: Double,
+        longitude: Double,
+        radiusKm: Double = 5,
+        limit: Int = 20
+    ) async throws -> [GymOption] {
+        let delta = max(radiusKm, 0.5) / 111.0
+        let rows: [GymOption] = try await client
+            .from("gyms")
+            .select("id,name,address,city,state,latitude,longitude")
+            .gte("latitude", value: latitude - delta)
+            .lte("latitude", value: latitude + delta)
+            .gte("longitude", value: longitude - delta)
+            .lte("longitude", value: longitude + delta)
+            .limit(limit)
+            .execute()
+            .value
+        return rows.sorted {
+            NativeLocationProvider.distanceKm(
+                from: .init(latitude: latitude, longitude: longitude),
+                to: .init(latitude: $0.latitude ?? latitude, longitude: $0.longitude ?? longitude)
+            ) <
+            NativeLocationProvider.distanceKm(
+                from: .init(latitude: latitude, longitude: longitude),
+                to: .init(latitude: $1.latitude ?? latitude, longitude: $1.longitude ?? longitude)
+            )
+        }
+    }
+
+    /// Cria ou reusa uma academia vinda do Apple Maps/MapKit. Espelha a regra
+    /// web: localização é obrigatória e dedup prioriza nome + coordenadas.
+    public func findOrCreateGym(from place: NativePlaceCandidate) async throws -> GymOption {
+        let tolerance = 0.0009 // ~100m
+        let nearby: [GymOption] = (try? await client
+            .from("gyms")
+            .select("id,name,address,city,state,latitude,longitude")
+            .gte("latitude", value: place.coordinate.latitude - tolerance)
+            .lte("latitude", value: place.coordinate.latitude + tolerance)
+            .gte("longitude", value: place.coordinate.longitude - tolerance)
+            .lte("longitude", value: place.coordinate.longitude + tolerance)
+            .limit(8)
+            .execute()
+            .value) ?? []
+
+        let target = Self.normalizedPlaceName(place.name)
+        if let match = nearby.first(where: { Self.normalizedPlaceName($0.name) == target }) {
+            return match
+        }
+
+        struct GymInsert: Encodable {
+            let name: String
+            let address: String?
+            let city: String
+            let state: String?
+            let latitude: Double
+            let longitude: Double
+        }
+
+        let payload = GymInsert(
+            name: place.name.trimmingCharacters(in: .whitespacesAndNewlines),
+            address: place.address?.trimmingCharacters(in: .whitespacesAndNewlines),
+            city: place.city?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                ?? place.neighborhood?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                ?? "Brasil",
+            state: place.state?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty,
+            latitude: place.coordinate.latitude,
+            longitude: place.coordinate.longitude
+        )
+
+        do {
+            return try await client
+                .from("gyms")
+                .insert(payload)
+                .select("id,name,address,city,state,latitude,longitude")
+                .single()
+                .execute()
+                .value
+        } catch {
+            let fallback: [GymOption] = (try? await client
+                .from("gyms")
+                .select("id,name,address,city,state,latitude,longitude")
+                .ilike("name", pattern: payload.name)
+                .ilike("city", pattern: payload.city)
+                .limit(1)
+                .execute()
+                .value) ?? []
+            if let existing = fallback.first { return existing }
+            throw error
+        }
+    }
+
+    public func checkIn(userId: String, gymId: String) async throws {
+        struct CheckInInsert: Encodable {
+            let user_id: String
+            let gym_id: String
+            let checkin_date: String
+        }
+        try await client
+            .from("checkins")
+            .insert(CheckInInsert(
+                user_id: userId,
+                gym_id: gymId,
+                checkin_date: Self.todayKey()
+            ))
+            .execute()
     }
 
     /// Sprint 20.3a — curtir/descurtir. Idempotente: upsert no like
@@ -284,4 +393,36 @@ private struct ProfilePostsParams: Encodable {
     let p_user_id: String
     let p_cursor_created_at: String?
     let p_limit: Int
+}
+
+private extension GymCircleAPI {
+    static func todayKey() -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        if let tz = TimeZone(identifier: "America/Sao_Paulo") {
+            calendar.timeZone = tz
+        }
+        let components = calendar.dateComponents([.year, .month, .day], from: .now)
+        return String(
+            format: "%04d-%02d-%02d",
+            components.year ?? 1970,
+            components.month ?? 1,
+            components.day ?? 1
+        )
+    }
+
+    static func normalizedPlaceName(_ value: String) -> String {
+        value
+            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+    }
+}
+
+private extension String {
+    var nilIfEmpty: String? {
+        isEmpty ? nil : self
+    }
 }

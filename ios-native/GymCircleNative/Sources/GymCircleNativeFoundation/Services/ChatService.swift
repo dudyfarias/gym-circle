@@ -90,6 +90,8 @@ public actor ChatService {
     public func sendDirect(
         receiverId: String,
         body: String?,
+        mediaURL: String? = nil,
+        mediaType: String? = nil,
         storyId: String? = nil,
         replyToStory: Bool = false,
         storyPreviewURL: String? = nil
@@ -107,8 +109,8 @@ public actor ChatService {
             .rpc("send_direct_message", params: Params(
                 p_receiver_id: receiverId,
                 p_body: body,
-                p_media_url: nil,
-                p_media_type: nil,
+                p_media_url: mediaURL,
+                p_media_type: mediaType,
                 p_story_id: storyId,
                 p_reply_to_story: replyToStory,
                 p_story_preview_url: storyPreviewURL
@@ -118,7 +120,12 @@ public actor ChatService {
     }
 
     @discardableResult
-    public func sendGroup(conversationId: String, body: String) async throws -> ChatMessage {
+    public func sendGroup(
+        conversationId: String,
+        body: String?,
+        mediaURL: String? = nil,
+        mediaType: String? = nil
+    ) async throws -> ChatMessage {
         struct Params: Encodable {
             let p_conversation_id: String
             let p_body: String?
@@ -129,11 +136,41 @@ public actor ChatService {
             .rpc("send_group_message", params: Params(
                 p_conversation_id: conversationId,
                 p_body: body,
-                p_media_url: nil,
-                p_media_type: nil
+                p_media_url: mediaURL,
+                p_media_type: mediaType
             ))
             .execute()
             .value
+    }
+
+    public func createGroup(name: String, memberIds: [String], imageURL: String? = nil) async throws -> String {
+        struct Params: Encodable {
+            let p_name: String
+            let p_member_ids: [String]
+            let p_image_url: String?
+        }
+        return try await client
+            .rpc("create_group_conversation", params: Params(
+                p_name: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "Grupo Gym Circle"
+                    : name.trimmingCharacters(in: .whitespacesAndNewlines),
+                p_member_ids: Array(Set(memberIds.filter { !$0.isEmpty })),
+                p_image_url: imageURL
+            ))
+            .execute()
+            .value
+    }
+
+    public func uploadImage(userId: String, data: Data) async throws -> String {
+        let stamp = Int(Date().timeIntervalSince1970 * 1000)
+        let rand = String(UUID().uuidString.prefix(6)).lowercased()
+        let path = "\(userId)/\(stamp)-\(rand).jpg"
+        _ = try await client.storage.from("chat-media").upload(
+            path,
+            data: data,
+            options: FileOptions(cacheControl: "3600", contentType: "image/jpeg")
+        )
+        return try client.storage.from("chat-media").getPublicURL(path: path).absoluteString
     }
 
     public func markRead(conversationId: String) async throws {

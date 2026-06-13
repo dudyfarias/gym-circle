@@ -48,6 +48,24 @@ public actor StoriesService {
         let user_id: String
     }
 
+    private struct StoryMuteInsert: Encodable {
+        let user_id: String
+        let muted_user_id: String
+    }
+
+    private struct StoryInsert: Encodable {
+        let user_id: String
+        let media_url: String
+        let media_type: String
+        let thumbnail_url: String?
+        let poster_url: String?
+        let media_width: Int?
+        let media_height: Int?
+        let media_duration_seconds: Double?
+        let gym_id: String?
+        let workout_type: String?
+    }
+
     /// Marca o story como visto (idempotente) — alimenta o ring da tray.
     public func markSeen(storyId: String, userId: String) async throws {
         try await client
@@ -114,6 +132,39 @@ public actor StoriesService {
             .in("story_id", values: storyIds)
             .execute()
         return (viewsResponse.count ?? 0) > 0
+    }
+
+    public func muteStories(userId: String, mutedUserId: String) async throws {
+        try await client
+            .from("story_mutes")
+            .upsert(
+                StoryMuteInsert(user_id: userId, muted_user_id: mutedUserId),
+                onConflict: "user_id,muted_user_id"
+            )
+            .execute()
+    }
+
+    public func createStory(
+        userId: String,
+        media: PostComposerService.UploadedMedia,
+        gymId: String?,
+        workoutType: String?
+    ) async throws {
+        try await client
+            .from("stories")
+            .insert(StoryInsert(
+                user_id: userId,
+                media_url: media.imageURL,
+                media_type: media.mediaType,
+                thumbnail_url: media.thumbnailURL,
+                poster_url: media.posterURL,
+                media_width: media.width,
+                media_height: media.height,
+                media_duration_seconds: media.durationSeconds,
+                gym_id: gymId,
+                workout_type: workoutType
+            ))
+            .execute()
     }
 }
 

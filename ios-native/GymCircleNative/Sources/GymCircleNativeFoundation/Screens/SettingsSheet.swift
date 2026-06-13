@@ -12,6 +12,7 @@ public struct SettingsSheet: View {
     @State private var confirmSuspend = false
     @State private var confirmDelete = false
     @State private var isWorking = false
+    @State private var nativeFeedback: String?
 
     private static let privacyURL = URL(string: "https://gym-circle-rust.vercel.app/privacy")!
     private static let termsURL = URL(string: "https://gym-circle-rust.vercel.app/terms")!
@@ -58,6 +59,31 @@ public struct SettingsSheet: View {
                         style: .caption,
                         color: GymCircleTheme.ColorToken.secondaryText
                     )
+                }
+                .listRowBackground(GymCircleTheme.ColorToken.card)
+
+                Section("iPhone") {
+                    Button {
+                        Task { await enablePush() }
+                    } label: {
+                        settingsActionRow(
+                            "Ativar notificações",
+                            systemImage: "bell.badge",
+                            subtitle: "Mensagens, curtidas e marcações quando o envio push estiver ativo."
+                        )
+                    }
+                    Button {
+                        Task { await enableHealth() }
+                    } label: {
+                        settingsActionRow(
+                            "Conectar Apple Saúde",
+                            systemImage: "heart.text.square",
+                            subtitle: "Preparado para kcal, duração e treinos nos resumos futuros."
+                        )
+                    }
+                    if let nativeFeedback {
+                        GCText(nativeFeedback, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    }
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
@@ -143,5 +169,34 @@ public struct SettingsSheet: View {
                 .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
         }
+    }
+
+    private func settingsActionRow(_ title: String, systemImage: String, subtitle: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                GCText(title, style: .body)
+                GCText(subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+            }
+        }
+    }
+
+    private func enablePush() async {
+        isWorking = true
+        defer { isWorking = false }
+        nativeFeedback = await model.enablePushNotifications()
+            ? "Notificações ativadas neste iPhone."
+            : (model.error ?? "Não foi possível ativar notificações.")
+    }
+
+    private func enableHealth() async {
+        isWorking = true
+        defer { isWorking = false }
+        nativeFeedback = await model.requestHealthKitAccess()
+            ? "Apple Saúde conectado para leitura de treinos."
+            : (model.error ?? "Não foi possível conectar o Apple Saúde.")
     }
 }

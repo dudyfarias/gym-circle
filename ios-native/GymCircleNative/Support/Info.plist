@@ -23,13 +23,17 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>O Gym Circle nativo usara a camera para posts e stories em uma sprint futura.</string>
+	<string>Use a câmera para postar treinos e stories no Gym Circle.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>O Gym Circle lê seus treinos do Apple Saúde para enriquecer resumos e estatísticas, somente com sua permissão.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>O Gym Circle pode preparar treinos para o Apple Saúde em versões futuras, sempre com sua permissão.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>O Gym Circle nativo usara localizacao para lugares e academias em uma sprint futura.</string>
+	<string>Use sua localização para encontrar academias próximas e fazer check-in.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>O Gym Circle nativo usara o microfone para videos em uma sprint futura.</string>
+	<string>Grave áudio ao publicar vídeos de treino.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>O Gym Circle nativo usara a galeria para selecionar midias em uma sprint futura.</string>
+	<string>Escolha fotos e vídeos da galeria para posts, stories e mensagens.</string>
 	<key>SupabaseAnonKey</key>
 	<string>$(SUPABASE_ANON_KEY)</string>
 	<key>SupabaseURL</key>
