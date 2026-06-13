@@ -3,6 +3,10 @@ import SwiftUI
 @MainActor
 public struct GymCircleNativeRootView: View {
     @StateObject private var model: GymCircleAppModel
+    // Sprint 20.7 — deep links (universal links /post/* e /u/* +
+    // scheme gymcircle://). O entitlement applinks já está no target.
+    @State private var deepLinkPost: FeedPost?
+    @State private var deepLinkProfile: OtherProfileSummary?
 
     public init() {
         // Sprint 20.0 — o standalone agora resolve a config real
@@ -49,6 +53,63 @@ public struct GymCircleNativeRootView: View {
             // loadMyCircle. Quando ok, isAuthenticated vira true e MainTabView
             // recebe dados reais via @Published.
             await model.boot()
+        }
+        // Universal links (https://gym-circle-rust.vercel.app/post/* e /u/*)
+        // chegam como NSUserActivity; o scheme custom chega como URL.
+        .onOpenURL { url in
+            Task { await route(url) }
+        }
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL else { return }
+            Task { await route(url) }
+        }
+        .sheet(item: $deepLinkPost) { post in
+            NavigationStack {
+                ScrollView {
+                    FeedPostCard(
+                        post: post,
+                        currentUserId: model.currentUserId,
+                        onLike: { Task { await model.toggleLike(postId: post.id) } }
+                    )
+                    .padding(20)
+                }
+                .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+                .navigationTitle("Post")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Fechar") { deepLinkPost = nil }
+                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
+        }
+        .sheet(item: $deepLinkProfile) { summary in
+            OtherProfileHostView(model: model, summary: summary)
+        }
+    }
+
+    /// Roteia /post/<id>, /u/<username> e /convite/<username> (AASA da
+    /// Sprint 19). Username resolve via busca exata; falha é silenciosa —
+    /// o app só abre na home, igual link quebrado no web.
+    private func route(_ url: URL) async {
+        let parts = url.path.split(separator: "/").map(String.init)
+        guard parts.count >= 2, model.isAuthenticated else { return }
+        switch parts[0] {
+        case "post":
+            if let post = await model.fetchPost(postId: parts[1]) {
+                deepLinkPost = post
+            }
+        case "u", "convite":
+            let username = parts[1].lowercased()
+            let matches = await model.searchProfiles(query: username)
+            if let match = matches.first(where: { $0.username?.lowercased() == username }),
+               let summary = await model.fetchOtherProfileSummary(userId: match.userId) {
+                deepLinkProfile = summary
+            }
+        default:
+            break
         }
     }
 }
