@@ -1,9 +1,32 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatChallengePeriodLabel,
   recomputeChallengeProgress,
   type ChallengePostSnapshot,
   type MonthlyChallengeData,
 } from "./monthlyChallenges";
+
+describe("formatChallengePeriodLabel", () => {
+  it("formata o mês a partir do period_key, em pt-BR", () => {
+    expect(formatChallengePeriodLabel("2026-06", "pt-BR")).toBe("junho");
+    expect(formatChallengePeriodLabel("2026-01", "pt-BR")).toBe("janeiro");
+    expect(formatChallengePeriodLabel("2026-12", "pt-BR")).toBe("dezembro");
+  });
+
+  it("respeita o locale en", () => {
+    expect(formatChallengePeriodLabel("2026-06", "en")).toBe("June");
+  });
+
+  it("não vaza pro mês vizinho (ancorado no dia 15 UTC)", () => {
+    // Janeiro nunca deve virar dezembro nem fevereiro por causa de fuso.
+    expect(formatChallengePeriodLabel("2026-01", "en")).toBe("January");
+  });
+
+  it("retorna string vazia pra period_key inválido", () => {
+    expect(formatChallengePeriodLabel("", "pt-BR")).toBe("");
+    expect(formatChallengePeriodLabel("lixo", "pt-BR")).toBe("");
+  });
+});
 
 /**
  * Testes do recompute de desafios mensais — cobre o fix dos desafios que

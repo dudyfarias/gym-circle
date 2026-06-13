@@ -2,7 +2,10 @@
 
 import { Check, HelpCircle, Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { MonthlyChallengeData } from "./social/monthlyChallenges";
+import {
+  formatChallengePeriodLabel,
+  type MonthlyChallengeData,
+} from "./social/monthlyChallenges";
 
 /**
  * Sprint 7.5.6 — MonthlyChallengesCard.
@@ -23,16 +26,21 @@ import type { MonthlyChallengeData } from "./social/monthlyChallenges";
 
 type MonthlyChallengesCardProps = {
   challenges: ReadonlyArray<MonthlyChallengeData>;
-  monthLabel: string;
 };
 
 export function MonthlyChallengesCard({
   challenges,
-  monthLabel,
 }: MonthlyChallengesCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   if (challenges.length === 0) return null;
+
+  // O mês do título vem do PERÍODO real dos desafios (periodKey, SP), não da
+  // navegação do calendário — senão o label troca de mês mas a lista não.
+  const monthLabel = formatChallengePeriodLabel(
+    challenges[0].periodKey,
+    i18n.language,
+  );
 
   // Ordenar por dificuldade ascendente
   const ordered = [...challenges].sort(

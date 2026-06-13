@@ -86,6 +86,30 @@ export function getCurrentPeriodKey(now: Date = new Date()): string {
 }
 
 /**
+ * Formata um period_key ("YYYY-MM") no nome do mês localizado.
+ *
+ * O label do card de desafios DEVE vir daqui — do período real dos desafios
+ * carregados (getCurrentPeriodKey, SP) — e nunca da navegação do calendário
+ * do MyCircle, senão "Desafios de {{mês}}" troca de mês mas a lista continua
+ * a do mês corrente (bug do mês errado). Ancoramos no dia 15 ao meio-dia UTC
+ * e formatamos em UTC pra o mês nunca "vazar" pro vizinho por fuso do device.
+ */
+export function formatChallengePeriodLabel(
+  periodKey: string,
+  locale: string,
+): string {
+  const [yearStr, monthStr] = periodKey.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return "";
+  const date = new Date(Date.UTC(year, month - 1, 15, 12));
+  return new Intl.DateTimeFormat(locale, {
+    month: "long",
+    timeZone: "UTC",
+  }).format(date);
+}
+
+/**
  * Carrega os desafios do período + progresso do user. Locale escolhe
  * qual variante de title/description usar.
  *

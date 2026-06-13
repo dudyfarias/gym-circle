@@ -628,10 +628,7 @@ export function MyCircleSheet({
                   real-time. Só renderiza pro próprio user e quando há
                   desafios carregados. */}
               {isOwn && monthlyChallenges && monthlyChallenges.length > 0 ? (
-                <MonthlyChallengesCard
-                  challenges={monthlyChallenges}
-                  monthLabel={monthLabel}
-                />
+                <MonthlyChallengesCard challenges={monthlyChallenges} />
               ) : null}
 
               {/* H. Monthly Recap — Sprint 5.1 + 5.10.

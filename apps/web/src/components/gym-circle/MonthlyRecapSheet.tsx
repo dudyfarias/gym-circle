@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Camera, Download, Share2, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BrandMark } from "./design-system";
 import type { MonthlyRecap } from "./social/monthlyRecap";
@@ -33,36 +33,100 @@ export function MonthlyRecapSheet({
 }: MonthlyRecapSheetProps) {
   const { t } = useTranslation();
   const [sharing, setSharing] = useState(false);
+  // Pré-geramos o poster ao abrir o sheet. No iOS/WKWebView, `navigator.share`
+  // exige "transient user activation": se a gente fizer `await` (gerar canvas,
+  // carregar a foto da capa pela rede) ANTES de chamar share() dentro do clique,
+  // a activation expira e share() lança NotAllowedError — era o motivo do botão
+  // "não fazer nada". Com o File pronto antes do tap, o clique chama share()
+  // sem nenhum await no meio e o gesto é preservado.
+  // Guardamos o File junto do monthKey que o gerou pra nunca compartilhar o
+  // poster de um mês obsoleto (ex.: após trocar de período no picker).
+  const [shareFile, setShareFile] = useState<{ key: string; file: File } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!open || !recap.isAvailable) return;
+    let cancelled = false;
+    const key = recap.monthKey;
+    void createRecapShareFile(recap, user, t)
+      .then((file) => {
+        if (!cancelled) setShareFile({ key, file });
+      })
+      .catch(() => {
+        // Falha na pré-geração: deixa o clique gerar sob demanda + fallback.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, recap, user, t]);
 
   const shareRecap = useCallback(async () => {
     if (!recap.isAvailable || sharing) return;
     setSharing(true);
     try {
-      const file = await createRecapShareFile(recap, user, t);
-      if (
+      // Usa o File pré-gerado DESTE mês (preserva a user activation). Só gera
+      // na hora se ainda não estiver pronto — aí o fallback de texto/imagem
+      // cobre o iOS.
+      const ready =
+        shareFile && shareFile.key === recap.monthKey ? shareFile.file : null;
+      const file = ready ?? (await createRecapShareFile(recap, user, t));
+      const canUseShare =
         typeof navigator !== "undefined" &&
-        "share" in navigator &&
-        "canShare" in navigator &&
-        navigator.canShare?.({ files: [file] })
+        typeof navigator.share === "function";
+
+      if (
+        canUseShare &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] })
       ) {
-        await navigator.share({
-          files: [file],
-          text: t("monthlyRecap.share.text", { value: recap.trainedDaysLabel }),
-          title: t("monthlyRecap.share.title"),
-        });
-        return;
+        try {
+          await navigator.share({
+            files: [file],
+            text: t("monthlyRecap.share.text", {
+              value: recap.trainedDaysLabel,
+            }),
+            title: t("monthlyRecap.share.title"),
+          });
+          return;
+        } catch (error) {
+          // Usuário cancelou o share sheet → encerra sem fallback ruidoso.
+          if ((error as Error)?.name === "AbortError") return;
+          // Qualquer outro erro (ex.: activation perdida) → cai pros fallbacks.
+        }
       }
 
+      // Fallback 1 — share só de texto/URL (Web Share L1 funciona no WKWebView
+      // mesmo quando files não é suportado).
+      if (canUseShare) {
+        try {
+          await navigator.share({
+            text: t("monthlyRecap.share.text", {
+              value: recap.trainedDaysLabel,
+            }),
+            title: t("monthlyRecap.share.title"),
+          });
+          return;
+        } catch (error) {
+          if ((error as Error)?.name === "AbortError") return;
+        }
+      }
+
+      // Fallback 2 — abre a imagem pra salvar/compartilhar manualmente. No
+      // WKWebView o <a download> é inerte, então tentamos window.open primeiro.
       const url = window.URL.createObjectURL(file);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = file.name;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
+      const opened = window.open(url, "_blank");
+      if (!opened) {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = file.name;
+        anchor.click();
+      }
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 10_000);
     } finally {
       setSharing(false);
     }
-  }, [recap, sharing, t, user]);
+  }, [recap, sharing, shareFile, t, user]);
 
   if (!open) return null;
 
