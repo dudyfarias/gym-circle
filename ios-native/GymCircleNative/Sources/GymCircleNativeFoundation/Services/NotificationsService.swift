@@ -22,20 +22,20 @@ public struct AppNotification: Identifiable, Hashable, Sendable {
         actorDisplayName?.isEmpty == false ? actorDisplayName! : actorUsername
     }
 
-    /// Texto PT por kind (paridade NotificationsSheet web).
+    /// Texto localizado por kind (paridade NotificationsSheet web, PT/EN).
     public var message: String {
         switch kind {
-        case "like": return "curtiu seu treino"
-        case "comment": return "comentou no seu treino"
-        case "comment_like": return "curtiu seu comentário"
-        case "comment_reply": return "respondeu seu comentário"
-        case "follow": return "começou a te seguir"
-        case "follow_request": return "quer te seguir"
-        case "mention": return "mencionou você"
-        case "story_like": return "curtiu seu story"
-        case "post_tag": return "te marcou num treino"
-        case "story_tag": return "te marcou num story"
-        default: return body ?? "nova notificação"
+        case "like": return Loc.notifLike()
+        case "comment": return Loc.notifComment()
+        case "comment_like": return Loc.notifCommentLike()
+        case "comment_reply": return Loc.notifCommentReply()
+        case "follow": return Loc.notifFollow()
+        case "follow_request": return Loc.notifFollowRequest()
+        case "mention": return Loc.notifMention()
+        case "story_like": return Loc.notifStoryLike()
+        case "post_tag": return Loc.notifPostTag()
+        case "story_tag": return Loc.notifStoryTag()
+        default: return body ?? Loc.notifDefault
         }
     }
 }

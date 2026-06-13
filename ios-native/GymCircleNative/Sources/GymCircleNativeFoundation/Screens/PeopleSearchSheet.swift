@@ -25,7 +25,7 @@ public struct PeopleSearchSheet: View {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
-                    TextField("Buscar pessoas...", text: $query)
+                    TextField(Loc.searchPeoplePlaceholder, text: $query)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 }
@@ -43,8 +43,8 @@ public struct PeopleSearchSheet: View {
                 } else if results.isEmpty && !query.isEmpty {
                     Spacer()
                     GCEmptyState(
-                        title: "Ninguem encontrado",
-                        subtitle: "Tenta outro nome ou @username."
+                        title: Loc.noneFoundTitle,
+                        subtitle: Loc.noneFoundSubtitle
                     )
                     Spacer()
                 } else if query.isEmpty && !suggestions.isEmpty {
@@ -59,7 +59,7 @@ public struct PeopleSearchSheet: View {
                             .listRowSeparator(.hidden)
                         } header: {
                             GCText(
-                                "Sugestões pra você",
+                                Loc.suggestionsForYou,
                                 style: .caption,
                                 color: GymCircleTheme.ColorToken.secondaryText
                             )
@@ -100,11 +100,11 @@ public struct PeopleSearchSheet: View {
                 }
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Buscar")
+            .navigationTitle(Loc.search)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fechar") { dismiss() }
+                    Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }

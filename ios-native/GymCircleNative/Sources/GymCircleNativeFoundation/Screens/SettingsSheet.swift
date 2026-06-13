@@ -26,12 +26,12 @@ public struct SettingsSheet: View {
     public var body: some View {
         NavigationStack {
             List {
-                Section("Privacidade") {
+                Section(Loc.privacy) {
                     Toggle(isOn: $isPrivate) {
                         VStack(alignment: .leading, spacing: 2) {
-                            GCText("Perfil privado", style: .body)
+                            GCText(Loc.privateProfile, style: .body)
                             GCText(
-                                "So quem voce aceitar ve seus posts.",
+                                Loc.privateProfileSubtitle,
                                 style: .caption,
                                 color: GymCircleTheme.ColorToken.secondaryText
                             )
@@ -44,41 +44,41 @@ public struct SettingsSheet: View {
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
-                Section("Idioma") {
+                Section(Loc.language) {
                     HStack {
-                        GCText("Idioma do app", style: .body)
+                        GCText(Loc.appLanguage, style: .body)
                         Spacer()
                         GCText(
-                            Locale.current.identifier.hasPrefix("pt") ? "Português" : "English",
+                            Locale.current.identifier.hasPrefix("pt") ? Loc.portuguese : Loc.english,
                             style: .body,
                             color: GymCircleTheme.ColorToken.secondaryText
                         )
                     }
                     GCText(
-                        "Segue o idioma do iPhone (Ajustes > Geral > Idioma).",
+                        Loc.languageFollowsPhone,
                         style: .caption,
                         color: GymCircleTheme.ColorToken.secondaryText
                     )
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
-                Section("iPhone") {
+                Section(Loc.iphoneSection) {
                     Button {
                         Task { await enablePush() }
                     } label: {
                         settingsActionRow(
-                            "Ativar notificações",
+                            Loc.enableNotifications,
                             systemImage: "bell.badge",
-                            subtitle: "Mensagens, curtidas e marcações quando o envio push estiver ativo."
+                            subtitle: Loc.enableNotificationsSubtitle
                         )
                     }
                     Button {
                         Task { await enableHealth() }
                     } label: {
                         settingsActionRow(
-                            "Conectar Apple Saúde",
+                            Loc.connectAppleHealth,
                             systemImage: "heart.text.square",
-                            subtitle: "Preparado para kcal, duração e treinos nos resumos futuros."
+                            subtitle: Loc.connectAppleHealthSubtitle
                         )
                     }
                     if let nativeFeedback {
@@ -87,23 +87,23 @@ public struct SettingsSheet: View {
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
-                Section("Legal") {
-                    Link(destination: Self.privacyURL) { settingsRow("Política de Privacidade") }
-                    Link(destination: Self.termsURL) { settingsRow("Termos de Uso") }
-                    Link(destination: Self.supportURL) { settingsRow("Suporte") }
+                Section(Loc.legal) {
+                    Link(destination: Self.privacyURL) { settingsRow(Loc.privacyPolicy) }
+                    Link(destination: Self.termsURL) { settingsRow(Loc.termsOfUse) }
+                    Link(destination: Self.supportURL) { settingsRow(Loc.support) }
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
-                Section("Conta") {
+                Section(Loc.account) {
                     Button {
                         confirmSuspend = true
                     } label: {
-                        GCText("Suspender conta", style: .body, color: GymCircleTheme.ColorToken.rarityLegendary)
+                        GCText(Loc.suspendAccount, style: .body, color: GymCircleTheme.ColorToken.rarityLegendary)
                     }
                     Button {
                         confirmDelete = true
                     } label: {
-                        GCText("Apagar conta", style: .body, color: GymCircleTheme.ColorToken.pink)
+                        GCText(Loc.deleteAccount, style: .body, color: GymCircleTheme.ColorToken.pink)
                     }
                     Button {
                         Task {
@@ -111,18 +111,18 @@ public struct SettingsSheet: View {
                             dismiss()
                         }
                     } label: {
-                        GCText("Sair", style: .body)
+                        GCText(Loc.signOut, style: .body)
                     }
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
             }
             .scrollContentBackground(.hidden)
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Configurações")
+            .navigationTitle(Loc.settings)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fechar") { dismiss() }
+                    Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }
@@ -130,11 +130,11 @@ public struct SettingsSheet: View {
         }
         .preferredColorScheme(.dark)
         .confirmationDialog(
-            "Suspender sua conta? Seu perfil some até você reativar pelo link enviado por e-mail.",
+            Loc.suspendConfirm,
             isPresented: $confirmSuspend,
             titleVisibility: .visible
         ) {
-            Button("Suspender conta", role: .destructive) {
+            Button(Loc.suspendAccount, role: .destructive) {
                 Task {
                     isWorking = true
                     await model.suspendAccount()
@@ -142,14 +142,14 @@ public struct SettingsSheet: View {
                     dismiss()
                 }
             }
-            Button("Cancelar", role: .cancel) {}
+            Button(Loc.cancel, role: .cancel) {}
         }
         .confirmationDialog(
-            "Apagar sua conta? A exclusão é definitiva após o período de carência.",
+            Loc.deleteAccountConfirm,
             isPresented: $confirmDelete,
             titleVisibility: .visible
         ) {
-            Button("Apagar conta", role: .destructive) {
+            Button(Loc.deleteAccount, role: .destructive) {
                 Task {
                     isWorking = true
                     await model.deleteAccount()
@@ -157,7 +157,7 @@ public struct SettingsSheet: View {
                     dismiss()
                 }
             }
-            Button("Cancelar", role: .cancel) {}
+            Button(Loc.cancel, role: .cancel) {}
         }
     }
 
@@ -188,15 +188,15 @@ public struct SettingsSheet: View {
         isWorking = true
         defer { isWorking = false }
         nativeFeedback = await model.enablePushNotifications()
-            ? "Notificações ativadas neste iPhone."
-            : (model.error ?? "Não foi possível ativar notificações.")
+            ? Loc.notifEnabledFeedback
+            : (model.error ?? Loc.notifEnableFailed)
     }
 
     private func enableHealth() async {
         isWorking = true
         defer { isWorking = false }
         nativeFeedback = await model.requestHealthKitAccess()
-            ? "Apple Saúde conectado para leitura de treinos."
-            : (model.error ?? "Não foi possível conectar o Apple Saúde.")
+            ? Loc.healthConnectedFeedback
+            : (model.error ?? Loc.healthConnectFailed)
     }
 }

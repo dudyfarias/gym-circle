@@ -8,6 +8,8 @@ public enum GymCircleTheme {
         public static let separator = Color.white.opacity(0.06)
         public static let primaryText = Color.white
         public static let secondaryText = Color(red: 0.631, green: 0.631, blue: 0.667)
+        /// --gc-text-tertiary do web (rgba 255 52%).
+        public static let tertiaryText = Color.white.opacity(0.52)
         /// --gc-brand exato do web (#8af7ff).
         public static let cyan = Color(red: 0.541, green: 0.969, blue: 1.0)
         /// Sprint 20.3a — coração curtido (gc-pink #ff2d55 da web).

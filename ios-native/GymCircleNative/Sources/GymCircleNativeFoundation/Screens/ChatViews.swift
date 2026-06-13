@@ -27,11 +27,11 @@ public struct ChatListView: View {
     public var body: some View {
         Group {
             if isLoading {
-                GCLoadingView("Carregando conversas")
+                GCLoadingView(Loc.loadingConversations)
             } else if threads.isEmpty {
                 GCEmptyState(
-                    title: "Nenhuma conversa",
-                    subtitle: "Chama alguem do circle pra trocar ideia sobre treino."
+                    title: Loc.noConversationsTitle,
+                    subtitle: Loc.noConversationsSubtitle
                 )
             } else {
                 List {
@@ -53,7 +53,7 @@ public struct ChatListView: View {
                                     threads.removeAll { $0.id == thread.id }
                                 }
                             } label: {
-                                Label("Apagar pra mim", systemImage: "trash")
+                                Label(Loc.deleteForMe, systemImage: "trash")
                             }
                         }
                     }
@@ -63,7 +63,7 @@ public struct ChatListView: View {
             }
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-        .navigationTitle("Chat")
+        .navigationTitle(Loc.chat)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -72,7 +72,7 @@ public struct ChatListView: View {
                     Image(systemName: "square.and.pencil")
                         .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                 }
-                .accessibilityLabel("Nova mensagem")
+                .accessibilityLabel(Loc.newMessage)
             }
         }
         .task {
@@ -136,13 +136,13 @@ public struct ChatListView: View {
             Group {
                 if following.isEmpty {
                     GCEmptyState(
-                        title: "Voce ainda nao segue ninguem",
-                        subtitle: "Siga pessoas pra puxar conversa."
+                        title: Loc.noFollowsTitle,
+                        subtitle: Loc.noFollowsSubtitle
                     )
                 } else {
                     List {
                         if groupMode {
-                            TextField("Nome do grupo", text: $groupName)
+                            TextField(Loc.groupName, text: $groupName)
                                 .padding(.vertical, 8)
                                 .listRowBackground(GymCircleTheme.ColorToken.card)
                         }
@@ -184,11 +184,11 @@ public struct ChatListView: View {
                 }
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Nova mensagem")
+            .navigationTitle(Loc.newMessage)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(groupMode ? "Direto" : "Grupo") {
+                    Button(groupMode ? Loc.directChat : Loc.group) {
                         groupMode.toggle()
                         selectedGroupMemberIds = []
                     }
@@ -202,7 +202,7 @@ public struct ChatListView: View {
                             if isCreatingGroup {
                                 ProgressView().tint(GymCircleTheme.ColorToken.cyan)
                             } else {
-                                Text("Criar").bold()
+                                Text(Loc.create).bold()
                             }
                         }
                         .disabled(selectedGroupMemberIds.isEmpty || isCreatingGroup)
@@ -310,11 +310,11 @@ public struct ConversationView: View {
             VStack(spacing: 0) {
                 if isLoading {
                     Spacer()
-                    GCLoadingView("Carregando mensagens")
+                    GCLoadingView(Loc.loadingMessages)
                     Spacer()
                 } else if messages.isEmpty {
                     Spacer()
-                    GCEmptyState(title: "Comeca o papo", subtitle: "Manda a primeira mensagem.")
+                    GCEmptyState(title: Loc.startChatTitle, subtitle: Loc.startChatSubtitle)
                     Spacer()
                 } else {
                     ScrollViewReader { proxy in
@@ -347,7 +347,7 @@ public struct ConversationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fechar") { dismiss() }
+                    Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }
@@ -365,7 +365,7 @@ public struct ConversationView: View {
             VStack(alignment: .leading, spacing: 4) {
                 if message.replyToStory == true {
                     GCText(
-                        "Respondeu ao story",
+                        Loc.repliedToStory,
                         style: .caption,
                         color: isMine ? .black.opacity(0.6) : GymCircleTheme.ColorToken.secondaryText
                     )
@@ -424,7 +424,7 @@ public struct ConversationView: View {
             }
             .buttonStyle(.plain)
             .disabled(isSending)
-            TextField("Mensagem...", text: $draft, axis: .vertical)
+            TextField(Loc.messagePlaceholder, text: $draft, axis: .vertical)
                 .lineLimit(1...4)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)

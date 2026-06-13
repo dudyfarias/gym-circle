@@ -29,14 +29,14 @@ public struct MainTabView: View {
                 FeedView(model: model, myCircle: myCircle)
             }
             .tabItem {
-                Label("Início", systemImage: "house.fill")
+                Label(Loc.t("Home", "Início"), systemImage: "house.fill")
             }
 
             NavigationStack {
                 ChatListView(model: model)
             }
             .tabItem {
-                Label("Conversas", systemImage: "bubble.left.and.bubble.right")
+                Label(Loc.t("Chats", "Conversas"), systemImage: "bubble.left.and.bubble.right")
             }
             .badge(model.unreadMessages > 0 ? model.unreadMessages : 0)
 
@@ -44,14 +44,14 @@ public struct MainTabView: View {
                 ComposerView(model: model)
             }
             .tabItem {
-                Label("Postar", systemImage: "camera.fill")
+                Label(Loc.t("Post", "Postar"), systemImage: "camera.fill")
             }
 
             NavigationStack {
                 CheckInView(model: model)
             }
             .tabItem {
-                Label("Mapa", systemImage: "mappin.and.ellipse")
+                Label(Loc.t("Map", "Mapa"), systemImage: "mappin.and.ellipse")
             }
 
             NavigationStack {
@@ -64,7 +64,7 @@ public struct MainTabView: View {
                 )
             }
             .tabItem {
-                Label("Perfil", systemImage: "person.crop.circle")
+                Label(Loc.profile, systemImage: "person.crop.circle")
             }
         }
         .tint(GymCircleTheme.ColorToken.cyan)

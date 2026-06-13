@@ -45,13 +45,13 @@ public struct CommentsSheet: View {
             VStack(spacing: 0) {
                 if isLoading {
                     Spacer()
-                    GCLoadingView("Carregando comentarios")
+                    GCLoadingView(Loc.loadingComments)
                     Spacer()
                 } else if comments.isEmpty {
                     Spacer()
                     GCEmptyState(
-                        title: "Nenhum comentario ainda",
-                        subtitle: "Puxa o papo: elogia o treino ou chama pro proximo."
+                        title: Loc.noCommentsTitle,
+                        subtitle: Loc.noCommentsSubtitle
                     )
                     Spacer()
                 } else {
@@ -72,11 +72,11 @@ public struct CommentsSheet: View {
                 inputBar
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Comentarios")
+            .navigationTitle(Loc.comments)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fechar") { dismiss() }
+                    Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }
@@ -108,7 +108,7 @@ public struct CommentsSheet: View {
                     }
                     inputFocused = true
                 } label: {
-                    GCText("Responder", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    GCText(Loc.reply, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 }
                 .buttonStyle(.plain)
             }
@@ -138,7 +138,7 @@ public struct CommentsSheet: View {
                 Button(role: .destructive) {
                     Task { await delete(comment) }
                 } label: {
-                    Label("Apagar", systemImage: "trash")
+                    Label(Loc.delete, systemImage: "trash")
                 }
             }
         }
@@ -149,7 +149,7 @@ public struct CommentsSheet: View {
             if let replyingTo {
                 HStack {
                     GCText(
-                        "Respondendo @\(replyingTo.authorUsername)",
+                        Loc.replyingTo(replyingTo.authorUsername),
                         style: .caption,
                         color: GymCircleTheme.ColorToken.cyan
                     )
@@ -165,7 +165,7 @@ public struct CommentsSheet: View {
                 .padding(.horizontal, 16)
             }
             HStack(spacing: 10) {
-                TextField("Comentar...", text: $draft, axis: .vertical)
+                TextField(Loc.commentPlaceholder, text: $draft, axis: .vertical)
                     .lineLimit(1...4)
                     .focused($inputFocused)
                     .textFieldStyle(.plain)
@@ -280,7 +280,7 @@ public struct CommentsSheet: View {
             return formatter.date(from: isoString) ?? .now
         }()
         let seconds = Date.now.timeIntervalSince(date)
-        if seconds < 60 { return "agora" }
+        if seconds < 60 { return Loc.t("now", "agora") }
         if seconds < 3600 { return "\(Int(seconds / 60))min" }
         if seconds < 86400 { return "\(Int(seconds / 3600))h" }
         return "\(Int(seconds / 86400))d"

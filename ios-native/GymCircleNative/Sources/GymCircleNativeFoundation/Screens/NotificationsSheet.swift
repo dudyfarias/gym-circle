@@ -22,11 +22,11 @@ public struct NotificationsSheet: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    GCLoadingView("Carregando notificacoes")
+                    GCLoadingView(Loc.loadingNotifications)
                 } else if notifications.isEmpty {
                     GCEmptyState(
-                        title: "Nada por aqui",
-                        subtitle: "Curtidas, comentarios e novos seguidores aparecem aqui."
+                        title: Loc.noNotificationsTitle,
+                        subtitle: Loc.noNotificationsSubtitle
                     )
                 } else {
                     List(notifications) { notification in
@@ -44,11 +44,11 @@ public struct NotificationsSheet: View {
                 }
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Notificações")
+            .navigationTitle(Loc.notifications)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fechar") { dismiss() }
+                    Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }
@@ -71,11 +71,11 @@ public struct NotificationsSheet: View {
                     .padding(20)
                 }
                 .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-                .navigationTitle("Post")
+                .navigationTitle(Loc.post)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Fechar") { openedPost = nil }
+                        Button(Loc.close) { openedPost = nil }
                             .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                     }
                 }

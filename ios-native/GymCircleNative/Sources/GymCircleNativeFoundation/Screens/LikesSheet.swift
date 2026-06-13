@@ -18,11 +18,11 @@ public struct LikesSheet: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    GCLoadingView("Carregando curtidas")
+                    GCLoadingView(Loc.loadingLikes)
                 } else if likers.isEmpty {
                     GCEmptyState(
-                        title: "Nenhuma curtida ainda",
-                        subtitle: "Seja o primeiro a curtir este treino."
+                        title: Loc.noLikesTitle,
+                        subtitle: Loc.noLikesSubtitle
                     )
                 } else {
                     List(likers) { liker in
@@ -48,11 +48,11 @@ public struct LikesSheet: View {
                 }
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Curtidas")
+            .navigationTitle(Loc.likesTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fechar") { dismiss() }
+                    Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }

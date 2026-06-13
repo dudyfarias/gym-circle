@@ -52,8 +52,8 @@ public struct AchievementsView: View {
                         overview
                     case .all:
                         gridView(
-                            title: "Todos os prêmios",
-                            subtitle: "Tudo que dá pra conquistar no Gym Circle.",
+                            title: Loc.allPrizes,
+                            subtitle: Loc.allPrizesSubtitle,
                             items: achievements
                         )
                     case .category(let kind):
@@ -84,12 +84,12 @@ public struct AchievementsView: View {
                         .padding(8)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Voltar")
+                .accessibilityLabel(Loc.back)
             }
             VStack(alignment: .leading, spacing: 2) {
-                GCText("Hall da Fama", style: .title)
+                GCText(Loc.hallTitle, style: .title)
                 GCText(
-                    "\(earnedCount) de \(achievements.count) conquistadas",
+                    Loc.earnedOf(earnedCount, achievements.count),
                     style: .caption,
                     color: GymCircleTheme.ColorToken.secondaryText
                 )
@@ -133,7 +133,7 @@ public struct AchievementsView: View {
                         size: 52
                     )
                     VStack(alignment: .leading, spacing: 4) {
-                        GCText("PRÓXIMO PRÊMIO", style: .caption, color: GymCircleTheme.ColorToken.cyan)
+                        GCText(Loc.nextPrize, style: .caption, color: GymCircleTheme.ColorToken.cyan)
                         GCText(secretSafeLabel(achievement), style: .headline)
                         if !achievement.secret {
                             GCText(achievement.description, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
@@ -151,7 +151,7 @@ public struct AchievementsView: View {
                                 }
                                 .frame(height: 5)
                                 GCText(
-                                    "\(progress.current) de \(progress.target)",
+                                    Loc.progressOf(progress.current, progress.target),
                                     style: .caption,
                                     color: GymCircleTheme.ColorToken.secondaryText
                                 )
@@ -173,7 +173,7 @@ public struct AchievementsView: View {
                 BadgeIconNativeView(iconKey: star.iconKey, earned: true, size: 96)
                     .onTapGesture { onTap(star) }
                 GCText(star.label, style: .headline)
-                GCText("Sua conquista em destaque", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                GCText(Loc.featuredOne, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
 
                 let minis = Array(featured.dropFirst().prefix(3))
                 if !minis.isEmpty {
@@ -203,7 +203,7 @@ public struct AchievementsView: View {
                 Button {
                     withAnimation(.easeOut(duration: 0.18)) { mode = .all }
                 } label: {
-                    GCText("Mostrar tudo", style: .caption, color: GymCircleTheme.ColorToken.cyan)
+                    GCText(Loc.showAll, style: .caption, color: GymCircleTheme.ColorToken.cyan)
                 }
                 .buttonStyle(.plain)
             }
@@ -240,7 +240,7 @@ public struct AchievementsView: View {
                     }
                     GCText(Self.kindTitle(kind), style: .headline)
                     GCText(
-                        "\(earned.count) de \(items.count)",
+                        Loc.countOf(earned.count, items.count),
                         style: .caption,
                         color: GymCircleTheme.ColorToken.secondaryText
                     )
@@ -269,7 +269,7 @@ public struct AchievementsView: View {
                 GCText(title, style: .title)
                 GCText(subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 GCText(
-                    "\(items.filter(\.earned).count) de \(items.count)",
+                    Loc.countOf(items.filter(\.earned).count, items.count),
                     style: .caption,
                     color: GymCircleTheme.ColorToken.secondaryText
                 )
@@ -315,12 +315,12 @@ public struct AchievementsView: View {
     }
 
     private func subInfo(_ achievement: Achievement) -> String {
-        if achievement.earned { return "Conquistado" }
+        if achievement.earned { return Loc.earned }
         if achievement.secret { return "???" }
         if let progress = achievement.progress {
-            return "\(progress.current) de \(progress.target)"
+            return Loc.progressOf(progress.current, progress.target)
         }
-        return "Bloqueado"
+        return Loc.locked
     }
 
     /// Ordenação Apple: earned primeiro, depois em progresso (% desc),
@@ -345,21 +345,21 @@ public struct AchievementsView: View {
 
     static func kindTitle(_ kind: AchievementKind) -> String {
         switch kind {
-        case .badge: return "Badges"
-        case .medal: return "Medalhas"
-        case .trophy: return "Troféus"
-        case .relic: return "Relíquias"
-        case .challenge: return "Desafios"
+        case .badge: return Loc.badges
+        case .medal: return Loc.medals
+        case .trophy: return Loc.trophies
+        case .relic: return Loc.relics
+        case .challenge: return Loc.challenges
         }
     }
 
     static func kindDescription(_ kind: AchievementKind) -> String {
         switch kind {
-        case .badge: return "As conquistas de entrada da sua jornada."
-        case .medal: return "Marcos históricos de streak e constância."
-        case .trophy: return "Feitos sociais e recordes do circle."
-        case .relic: return "Raridades míticas — pouquíssimos têm."
-        case .challenge: return "Os desafios temáticos de cada mês."
+        case .badge: return Loc.badgesDesc
+        case .medal: return Loc.medalsDesc
+        case .trophy: return Loc.trophiesDesc
+        case .relic: return Loc.relicsDesc
+        case .challenge: return Loc.challengesDesc
         }
     }
 }

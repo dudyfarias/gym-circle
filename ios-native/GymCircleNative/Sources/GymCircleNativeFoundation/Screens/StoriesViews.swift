@@ -179,7 +179,7 @@ public struct StoryViewerScreen: View {
 
                 overlayChrome(item: item)
             } else {
-                GCEmptyState(title: "Sem stories", subtitle: "Esse story expirou ou nao esta mais disponivel.")
+                GCEmptyState(title: Loc.noStoriesTitle, subtitle: Loc.noStoriesSubtitle)
             }
         }
         .task(id: authorIndex) {
@@ -257,14 +257,14 @@ public struct StoryViewerScreen: View {
             }
             .padding(.horizontal, 12)
             .confirmationDialog(
-                "Silenciar stories desse usuário?",
+                Loc.muteStoriesConfirm,
                 isPresented: $confirmMute,
                 titleVisibility: .visible
             ) {
-                Button("Silenciar", role: .destructive) {
+                Button(Loc.mute, role: .destructive) {
                     Task { await muteCurrentAuthor() }
                 }
-                Button("Cancelar", role: .cancel) {}
+                Button(Loc.cancel, role: .cancel) {}
             }
 
             Spacer()
@@ -279,7 +279,7 @@ public struct StoryViewerScreen: View {
             // Sprint 20.6 — reply por DM (send_direct_message com
             // story_id + reply_to_story) + like.
             HStack(spacing: 10) {
-                TextField("Responder...", text: $replyDraft)
+                TextField(Loc.replyPlaceholder, text: $replyDraft)
                     .focused($replyFocused)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)

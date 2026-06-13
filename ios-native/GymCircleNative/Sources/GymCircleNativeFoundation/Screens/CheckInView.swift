@@ -31,7 +31,7 @@ public struct CheckInView: View {
             .padding(20)
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-        .navigationTitle("Check-in")
+        .navigationTitle(Loc.checkIn)
         .onChange(of: query) { value in
             searchTask?.cancel()
             searchTask = Task {
@@ -48,10 +48,10 @@ public struct CheckInView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "mappin.and.ellipse")
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                    GCText("Marque onde voce treinou", style: .headline)
+                    GCText(Loc.checkInHeader, style: .headline)
                 }
                 GCText(
-                    "Use uma academia cadastrada ou encontre lugares próximos pelo Apple Maps.",
+                    Loc.checkInSubtitle,
                     style: .caption,
                     color: GymCircleTheme.ColorToken.secondaryText
                 )
@@ -90,7 +90,7 @@ public struct CheckInView: View {
                                 ProgressView().tint(.black)
                             } else {
                                 Image(systemName: "checkmark.circle.fill")
-                                Text("Confirmar check-in")
+                                Text(Loc.confirmCheckIn)
                                     .fontWeight(.black)
                             }
                         }
@@ -111,8 +111,8 @@ public struct CheckInView: View {
 
     private var searchSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            GCText("Buscar academia", style: .headline)
-            TextField("Nome da academia", text: $query)
+            GCText(Loc.searchGym, style: .headline)
+            TextField(Loc.gymNamePlaceholder, text: $query)
                 .textInputAutocapitalization(.words)
                 .padding(12)
                 .background(
@@ -133,7 +133,7 @@ public struct CheckInView: View {
             } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "location.fill")
-                    Text(isLocating ? "Buscando perto de você..." : "Usar minha localização")
+                    Text(isLocating ? Loc.searchingNearby : Loc.useMyLocation)
                         .fontWeight(.bold)
                     Spacer()
                     if isLocating {
@@ -151,7 +151,7 @@ public struct CheckInView: View {
             .disabled(isLocating)
 
             if !nearbyGyms.isEmpty {
-                GCText("Academias cadastradas perto de você", style: .headline)
+                GCText(Loc.registeredGymsNearby, style: .headline)
                 ForEach(nearbyGyms.prefix(6)) { gym in
                     gymRow(gym)
                 }
@@ -171,7 +171,7 @@ public struct CheckInView: View {
                                 }
                             }
                             Spacer()
-                            GCText("Cadastrar", style: .caption, color: GymCircleTheme.ColorToken.cyan)
+                            GCText(Loc.register, style: .caption, color: GymCircleTheme.ColorToken.cyan)
                         }
                         .padding(.vertical, 7)
                     }
@@ -211,11 +211,11 @@ public struct CheckInView: View {
             nearbyGyms = await dbGyms
             nearbyPlaces = (try? await mapPlaces) ?? []
             if nearbyGyms.isEmpty && nearbyPlaces.isEmpty {
-                feedback = "Não encontramos academias próximas. Tente buscar pelo nome."
+                feedback = Loc.noNearbyGyms
             }
         } catch {
             Haptics.error()
-            feedback = "Não foi possível acessar sua localização."
+            feedback = Loc.locationDenied
         }
     }
 
@@ -225,7 +225,7 @@ public struct CheckInView: View {
             selectedGym = gym
             Haptics.selection()
         } else {
-            feedback = model.error ?? "Não foi possível cadastrar este local."
+            feedback = model.error ?? Loc.couldNotRegisterPlace
         }
     }
 
@@ -234,6 +234,6 @@ public struct CheckInView: View {
         isCheckingIn = true
         defer { isCheckingIn = false }
         let ok = await model.checkIn(gym: selectedGym)
-        feedback = ok ? "Check-in confirmado. Seu circle sabe que você treinou." : (model.error ?? "Não foi possível fazer check-in.")
+        feedback = ok ? Loc.checkInConfirmed : (model.error ?? Loc.checkInFailed)
     }
 }

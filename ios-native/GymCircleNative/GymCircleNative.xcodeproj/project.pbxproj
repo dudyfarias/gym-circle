@@ -16,6 +16,7 @@
 		2496096D16FB3A31867719D8 /* StoriesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49F315E719C5717C0921BD96 /* StoriesService.swift */; };
 		24F7215A55C676294FD8637E /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */; };
 		33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */; };
+		35A25A287E4965812D1AA957 /* Loc.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47AE961E11AFF3C73DF8065F /* Loc.swift */; };
 		37DBCB626C8C2EE28FF85195 /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F892E8E46567D4BA8D201DD3 /* SettingsSheet.swift */; };
 		393BD8E161911AB7E888D27E /* LikesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72238BD5ABE755DFFAE5E8C5 /* LikesSheet.swift */; };
 		3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D272642D5EA4B50216927502 /* ProfilesService.swift */; };
@@ -118,6 +119,7 @@
 		42B8BFA2187D25EB54BECC01 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		465041DF7DF6A1000F0BC96E /* PostParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostParticipant.swift; sourceTree = "<group>"; };
 		46FCDA3F30345C295BB0257C /* SafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyService.swift; sourceTree = "<group>"; };
+		47AE961E11AFF3C73DF8065F /* Loc.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Loc.swift; sourceTree = "<group>"; };
 		489ABF91A6CB491B111116DC /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		49F315E719C5717C0921BD96 /* StoriesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesService.swift; sourceTree = "<group>"; };
 		4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
@@ -302,6 +304,7 @@
 				F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */,
 				D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */,
 				6C49CF73E5FC4231EF022A24 /* L10n.swift */,
+				47AE961E11AFF3C73DF8065F /* Loc.swift */,
 			);
 			path = Theme;
 			sourceTree = "<group>";
@@ -509,6 +512,7 @@
 				C416FF9CA4CAA548444AD3AA /* HealthKitService.swift in Sources */,
 				DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */,
 				393BD8E161911AB7E888D27E /* LikesSheet.swift in Sources */,
+				35A25A287E4965812D1AA957 /* Loc.swift in Sources */,
 				7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */,
 				FB1C810F996E874492D37712 /* MainTabView.swift in Sources */,
 				81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */,

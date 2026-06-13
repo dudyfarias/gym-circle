@@ -7,6 +7,9 @@ public struct GCText: View {
         case body
         case caption
         case number
+        /// Punch-list #1 — section label do web: 11px font-heavy UPPERCASE
+        /// tracking 0.8, cor terciária. Usado nos cabeçalhos de seção.
+        case sectionLabel
     }
 
     private let text: String
@@ -20,10 +23,11 @@ public struct GCText: View {
     }
 
     public var body: some View {
-        Text(text)
+        Text(style == .sectionLabel ? text.uppercased() : text)
             .font(font)
             .fontWeight(weight)
-            .foregroundStyle(color)
+            .tracking(style == .sectionLabel ? 0.8 : 0)
+            .foregroundStyle(style == .sectionLabel ? GymCircleTheme.ColorToken.tertiaryText : color)
             .lineLimit(style == .caption ? 2 : nil)
     }
 
@@ -39,6 +43,8 @@ public struct GCText: View {
             return .system(size: 13, design: .rounded)
         case .number:
             return .system(size: 48, design: .rounded)
+        case .sectionLabel:
+            return .system(size: 11, design: .rounded)
         }
     }
 
@@ -52,6 +58,78 @@ public struct GCText: View {
             return .semibold
         case .caption:
             return .bold
+        case .sectionLabel:
+            return .heavy
+        }
+    }
+}
+
+/// Punch-list #6 — skeleton shimmer (paridade FeedSkeleton web). Barra
+/// com gradiente que varre da esquerda pra direita em loop.
+public struct GCSkeleton: View {
+    private let height: CGFloat
+    private let cornerRadius: CGFloat
+    @State private var phase: CGFloat = -1
+
+    public init(height: CGFloat = 14, cornerRadius: CGFloat = 8) {
+        self.height = height
+        self.cornerRadius = cornerRadius
+    }
+
+    public var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(GymCircleTheme.ColorToken.elevatedCard)
+            .frame(height: height)
+            .overlay {
+                GeometryReader { geo in
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    .clear,
+                                    GymCircleTheme.ColorToken.cyan.opacity(0.14),
+                                    .clear,
+                                ],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .offset(x: phase * geo.size.width)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .onAppear {
+                withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                    phase = 1.4
+                }
+            }
+    }
+}
+
+/// Skeleton de um card de post do feed (avatar + linhas + mídia).
+public struct GCFeedSkeleton: View {
+    public init() {}
+    public var body: some View {
+        VStack(spacing: 18) {
+            ForEach(0..<3, id: \.self) { _ in
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 12) {
+                        Circle()
+                            .fill(GymCircleTheme.ColorToken.elevatedCard)
+                            .frame(width: 44, height: 44)
+                        VStack(alignment: .leading, spacing: 6) {
+                            GCSkeleton(height: 12).frame(width: 120)
+                            GCSkeleton(height: 10).frame(width: 70)
+                        }
+                        Spacer()
+                    }
+                    GCSkeleton(height: 220, cornerRadius: 22)
+                    GCSkeleton(height: 12).frame(width: 180)
+                }
+                .padding(GymCircleTheme.Spacing.lg)
+                .background(GymCircleTheme.ColorToken.card)
+                .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous))
+            }
         }
     }
 }

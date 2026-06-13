@@ -36,11 +36,11 @@ public struct FeedView: View {
                 }
 
                 if model.isLoading && model.posts.isEmpty {
-                    GCLoadingView("Carregando feed")
+                    GCFeedSkeleton()
                 } else if model.posts.isEmpty {
                     GCEmptyState(
-                        title: "Seu circle esta quieto",
-                        subtitle: "Quando as pessoas que voce segue postarem, os treinos aparecem aqui."
+                        title: Loc.feedEmptyTitle,
+                        subtitle: Loc.feedEmptySubtitle
                     )
                 } else {
                     ForEach(model.posts) { post in
@@ -115,7 +115,7 @@ public struct FeedView: View {
                     .padding(.vertical, 6)
                     .background(Capsule().fill(GymCircleTheme.ColorToken.elevatedCard))
                 }
-                .accessibilityLabel("Meu Circle")
+                .accessibilityLabel(Loc.myCircle)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -132,7 +132,7 @@ public struct FeedView: View {
                             }
                         }
                 }
-                .accessibilityLabel("Notificações")
+                .accessibilityLabel(Loc.notifications)
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -141,7 +141,7 @@ public struct FeedView: View {
                     Image(systemName: "magnifyingglass")
                         .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                 }
-                .accessibilityLabel("Buscar pessoas")
+                .accessibilityLabel(Loc.searchPeople)
             }
         }
         .sheet(isPresented: $notificationsPresented) {
@@ -174,11 +174,11 @@ public struct FeedView: View {
         .sheet(isPresented: $myCirclePresented) {
             NavigationStack {
                 MyCircleView(data: myCircle)
-                    .navigationTitle("Meu Circle")
+                    .navigationTitle(Loc.myCircle)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("Fechar") { myCirclePresented = false }
+                            Button(Loc.close) { myCirclePresented = false }
                                 .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                         }
                     }
@@ -201,7 +201,7 @@ public struct FeedView: View {
             )
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-        .navigationTitle("Hoje")
+        .navigationTitle(Loc.t("Today", "Hoje"))
     }
 }
 
@@ -306,9 +306,9 @@ public struct FeedPostCard: View {
                 }
             }
         }
-        .confirmationDialog("Apagar este post?", isPresented: $confirmDelete, titleVisibility: .visible) {
-            Button("Apagar post", role: .destructive) { onDelete?() }
-            Button("Cancelar", role: .cancel) {}
+        .confirmationDialog(Loc.deletePostConfirm, isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button(Loc.deletePost, role: .destructive) { onDelete?() }
+            Button(Loc.cancel, role: .cancel) {}
         }
     }
 
@@ -330,23 +330,23 @@ public struct FeedPostCard: View {
                     Button {
                         onEdit?()
                     } label: {
-                        Label("Editar post", systemImage: "pencil")
+                        Label(Loc.editPost, systemImage: "pencil")
                     }
                     Button(role: .destructive) {
                         confirmDelete = true
                     } label: {
-                        Label("Apagar post", systemImage: "trash")
+                        Label(Loc.deletePost, systemImage: "trash")
                     }
                 } else {
                     Button {
                         onMute?()
                     } label: {
-                        Label("Silenciar @\(post.username)", systemImage: "speaker.slash")
+                        Label(Loc.muteUser(post.username), systemImage: "speaker.slash")
                     }
                     Button(role: .destructive) {
                         onReport?()
                     } label: {
-                        Label("Denunciar post", systemImage: "exclamationmark.bubble")
+                        Label(Loc.reportPost, systemImage: "exclamationmark.bubble")
                     }
                 }
             } label: {
@@ -368,7 +368,7 @@ public struct FeedPostCard: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 GCText(
-                    "com \(accepted.map(\.displayedName).joined(separator: ", "))",
+                    Loc.withPeople(accepted.map(\.displayedName).joined(separator: ", ")),
                     style: .caption,
                     color: GymCircleTheme.ColorToken.secondaryText
                 )
@@ -380,15 +380,15 @@ public struct FeedPostCard: View {
     private var pendingInviteBanner: some View {
         if post.pendingInvite(for: currentUserId) != nil {
             HStack(spacing: 10) {
-                GCText("Te marcaram neste treino", style: .caption)
+                GCText(Loc.taggedInWorkout, style: .caption)
                 Spacer()
-                Button("Aceitar") { onRespondInvite?(true) }
+                Button(Loc.accept) { onRespondInvite?(true) }
                     .font(.system(size: 13, weight: .black, design: .rounded))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
-                Button("Recusar") { onRespondInvite?(false) }
+                Button(Loc.decline) { onRespondInvite?(false) }
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
             }
@@ -415,7 +415,7 @@ public struct FeedPostCard: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(post.likedByMe == true ? "Descurtir" : "Curtir")
+                .accessibilityLabel(post.likedByMe == true ? Loc.unlike : Loc.like)
 
                 // Sprint 20.3c — o NÚMERO abre o "quem curtiu".
                 Button {
@@ -424,7 +424,7 @@ public struct FeedPostCard: View {
                     Text("\(post.likesCount)")
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Ver quem curtiu")
+                .accessibilityLabel(Loc.seeWhoLiked)
             }
 
             Button {
@@ -433,7 +433,7 @@ public struct FeedPostCard: View {
                 Label("\(post.commentsCount)", systemImage: "bubble.right")
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Comentarios")
+            .accessibilityLabel(Loc.comments)
 
             Spacer()
             if let workoutType = post.workoutType, !workoutType.isEmpty {
@@ -500,7 +500,7 @@ public struct PostCarouselView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .accessibilityLabel("Mídia \(currentIndex + 1) de \(items.count)")
+                .accessibilityLabel(Loc.mediaOf(currentIndex + 1, items.count))
             }
         }
     }

@@ -54,7 +54,7 @@ public struct ProfileView: View {
             .padding(20)
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-        .navigationTitle("Perfil")
+        .navigationTitle(Loc.profile)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -63,7 +63,7 @@ public struct ProfileView: View {
                     Image(systemName: "gearshape.fill")
                         .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                 }
-                .accessibilityLabel("Configurações")
+                .accessibilityLabel(Loc.settings)
             }
         }
         .sheet(isPresented: $settingsPresented) {
@@ -97,11 +97,11 @@ public struct ProfileView: View {
                     .padding(20)
                 }
                 .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-                .navigationTitle("Post")
+                .navigationTitle(Loc.post)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Fechar") { openedPost = nil }
+                        Button(Loc.close) { openedPost = nil }
                             .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                     }
                 }

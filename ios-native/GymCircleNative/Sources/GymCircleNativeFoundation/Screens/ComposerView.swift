@@ -61,7 +61,7 @@ public struct ComposerView: View {
             .padding(20)
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-        .navigationTitle("Criar treino")
+        .navigationTitle(Loc.createWorkout)
         .onChange(of: pickerItems) { newItems in
             Task { await loadPicked(newItems) }
         }
@@ -85,10 +85,10 @@ public struct ComposerView: View {
             }
             .ignoresSafeArea()
         }
-        .alert("Treino publicado!", isPresented: $publishedOK) {
-            Button("Fechar", role: .cancel) {}
+        .alert(Loc.publishedTitle, isPresented: $publishedOK) {
+            Button(Loc.close, role: .cancel) {}
         } message: {
-            Text("Seu post ja esta no feed do circle.")
+            Text(Loc.publishedBody)
         }
     }
 
@@ -103,9 +103,9 @@ public struct ComposerView: View {
                     .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 VStack(alignment: .leading, spacing: 2) {
-                    GCText("Fazer check-in", style: .headline)
+                    GCText(Loc.doCheckIn, style: .headline)
                     GCText(
-                        "Marque a academia sem postar foto.",
+                        Loc.checkInShortcut,
                         style: .caption,
                         color: GymCircleTheme.ColorToken.secondaryText
                     )
@@ -126,7 +126,7 @@ public struct ComposerView: View {
 
     private var mediaSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            GCText("Midias do treino", style: .headline)
+            GCText(Loc.workoutMedias, style: .headline)
 
             if !pickedMedia.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -162,10 +162,10 @@ public struct ComposerView: View {
                                     Spacer()
                                     HStack(spacing: 4) {
                                         if index == 0 {
-                                            chipLabel("Capa")
+                                            chipLabel(Loc.cover)
                                         }
                                         if item.isVideo {
-                                            chipLabel("Vídeo")
+                                            chipLabel(Loc.video)
                                         }
                                     }
                                     .padding(6)
@@ -184,14 +184,14 @@ public struct ComposerView: View {
                     matching: .any(of: [.images, .videos])
                 ) {
                     pickButtonLabel(
-                        "Galeria (\(pickedMedia.count)/\(Self.maxMedias))",
+                        "\(Loc.gallery) (\(pickedMedia.count)/\(Self.maxMedias))",
                         systemImage: "photo.on.rectangle.angled"
                     )
                 }
                 Button {
                     cameraPresented = true
                 } label: {
-                    pickButtonLabel("Câmera", systemImage: "camera.fill")
+                    pickButtonLabel(Loc.camera, systemImage: "camera.fill")
                 }
                 .buttonStyle(.plain)
                 .disabled(pickedMedia.count >= Self.maxMedias)
@@ -220,8 +220,8 @@ public struct ComposerView: View {
 
     private var captionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            GCText("Legenda", style: .headline)
-            TextField("Como foi o treino?", text: $caption, axis: .vertical)
+            GCText(Loc.caption, style: .headline)
+            TextField(Loc.captionPlaceholder, text: $caption, axis: .vertical)
                 .lineLimit(3...6)
                 .padding(12)
                 .background(
@@ -234,7 +234,7 @@ public struct ComposerView: View {
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                GCText("Tipo de treino", style: .headline)
+                GCText(Loc.workoutType, style: .headline)
                 Spacer()
                 GCText(
                     "\(selectedTags.count)/\(Self.maxTags)",
@@ -250,7 +250,7 @@ public struct ComposerView: View {
             )
 
             HStack(spacing: 8) {
-                TextField("Outro (ex: Natação)", text: $customTag)
+                TextField(Loc.otherTag, text: $customTag)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(
@@ -275,7 +275,7 @@ public struct ComposerView: View {
     // 20.4b — academia opcional (location_source gym).
     private var gymSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            GCText("Academia (opcional)", style: .headline)
+            GCText(Loc.gymOptional, style: .headline)
 
             if let selectedGym {
                 HStack(spacing: 8) {
@@ -302,7 +302,7 @@ public struct ComposerView: View {
                         .fill(GymCircleTheme.ColorToken.quietBlue)
                 )
             } else {
-                TextField("Buscar academia...", text: $gymQuery)
+                TextField(Loc.searchGymPlaceholder, text: $gymQuery)
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -336,7 +336,7 @@ public struct ComposerView: View {
     private var participantsSection: some View {
         if !following.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                GCText("Treinou com alguem?", style: .headline)
+                GCText(Loc.trainedWithSomeone, style: .headline)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(following) { person in
@@ -378,12 +378,12 @@ public struct ComposerView: View {
 
     private var destinationsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            GCText("Destino", style: .headline)
+            GCText(Loc.destination, style: .headline)
             Toggle(isOn: $alsoPublishStory) {
                 VStack(alignment: .leading, spacing: 2) {
-                    GCText("Também publicar nos stories", style: .body)
+                    GCText(Loc.alsoPublishStory, style: .body)
                     GCText(
-                        "Usa a primeira mídia e expira em 24h.",
+                        Loc.storyHint,
                         style: .caption,
                         color: GymCircleTheme.ColorToken.secondaryText
                     )
@@ -410,7 +410,7 @@ public struct ComposerView: View {
                     if isPublishing {
                         ProgressView().tint(.black)
                     } else {
-                        Text("Publicar treino")
+                        Text(Loc.publishWorkout)
                             .font(.system(size: 16, weight: .black, design: .rounded))
                     }
                 }
@@ -489,7 +489,7 @@ public struct ComposerView: View {
             publishedOK = true
         } else {
             Haptics.error()
-            errorMessage = model.error ?? "Nao foi possivel publicar. Tenta de novo."
+            errorMessage = model.error ?? Loc.publishFailed
         }
     }
 }
@@ -584,8 +584,8 @@ public struct EditPostSheet: View {
                     mediaEditor
 
                     VStack(alignment: .leading, spacing: 8) {
-                        GCText("Legenda", style: .headline)
-                        TextField("Como foi o treino?", text: $caption, axis: .vertical)
+                        GCText(Loc.caption, style: .headline)
+                        TextField(Loc.captionPlaceholder, text: $caption, axis: .vertical)
                             .lineLimit(3...6)
                             .padding(12)
                             .background(
@@ -595,7 +595,7 @@ public struct EditPostSheet: View {
                     }
 
                     VStack(alignment: .leading, spacing: 10) {
-                        GCText("Tipo de treino", style: .headline)
+                        GCText(Loc.workoutType, style: .headline)
                         TagChipsRow(
                             presets: ["Musculação", "Corrida", "Bike", "Funcional", "Cardio", "Mobilidade"],
                             selected: selectedTags,
@@ -608,7 +608,7 @@ public struct EditPostSheet: View {
                             }
                         )
                         HStack(spacing: 8) {
-                            TextField("Outro", text: $customTag)
+                            TextField(Loc.t("Other", "Outro"), text: $customTag)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
                                 .background(Capsule().fill(GymCircleTheme.ColorToken.elevatedCard))
@@ -633,11 +633,11 @@ public struct EditPostSheet: View {
                 .padding(20)
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle("Editar post")
+            .navigationTitle(Loc.editPost)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancelar") { dismiss() }
+                    Button(Loc.cancel) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -647,7 +647,7 @@ public struct EditPostSheet: View {
                         if isSaving {
                             ProgressView().tint(GymCircleTheme.ColorToken.cyan)
                         } else {
-                            Text("Salvar").bold()
+                            Text(Loc.save).bold()
                                 .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                         }
                     }
@@ -664,7 +664,7 @@ public struct EditPostSheet: View {
     private var mediaEditor: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                GCText("Mídias", style: .headline)
+                GCText(Loc.medias, style: .headline)
                 Spacer()
                 GCText("\(totalCount)/10", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
             }
@@ -695,7 +695,7 @@ public struct EditPostSheet: View {
                 maxSelectionCount: max(0, 10 - totalCount),
                 matching: .images
             ) {
-                Label("Adicionar fotos", systemImage: "plus.square.on.square")
+                Label(Loc.addPhotos, systemImage: "plus.square.on.square")
                     .font(.system(size: 14, weight: .bold, design: .rounded))
                     .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                     .frame(maxWidth: .infinity)
@@ -734,7 +734,7 @@ public struct EditPostSheet: View {
             if isExisting && index == 0 {
                 VStack {
                     Spacer()
-                    GCText("Capa", style: .caption, color: .white)
+                    GCText(Loc.cover, style: .caption, color: .white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 1)
                         .background(Capsule().fill(.black.opacity(0.55)))
@@ -768,7 +768,7 @@ public struct EditPostSheet: View {
             var combined = existingItems
             for data in newImageDatas {
                 guard let uploaded = await model.uploadEditImage(data: data) else {
-                    errorMessage = model.error ?? "Falha no upload de uma das fotos."
+                    errorMessage = model.error ?? Loc.photoUploadFailed
                     return
                 }
                 combined.append(
@@ -796,7 +796,7 @@ public struct EditPostSheet: View {
             Haptics.success()
             dismiss()
         } else {
-            errorMessage = model.error ?? "Não foi possível salvar."
+            errorMessage = model.error ?? Loc.couldNotSave
         }
     }
 }
