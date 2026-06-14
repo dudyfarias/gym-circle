@@ -1,4 +1,5 @@
 import type {
+  ConversationParticipantRow,
   PostCommentLikeRow,
   PostCommentRow,
   PostLikeRow,
@@ -22,11 +23,12 @@ import {
   filterMutedStories,
   hasUserLikedStory,
 } from "./storyInteractions";
-import { calculateWorkoutStats } from "./streak";
+import { buildMonthWorkoutDays, calculateWorkoutStats } from "./streak";
 import {
   accentForId,
   deriveAchievements,
   getDailyPresenceFromStats,
+  getSharedGymCount,
   getSmartReason,
   getSmartScore,
   mergeRowsByKey,
@@ -37,10 +39,14 @@ import type {
   ProfileRowWithRecapCovers,
 } from "./supabaseSocialTypes";
 import type {
+  ChatConversation,
+  ChatMessage,
   EnrichedPost,
   EnrichedStory,
   EnrichedUser,
+  GymLocationOption,
   GymPost,
+  GymUser,
   PostMediaType,
 } from "./types";
 
@@ -594,4 +600,282 @@ export function buildStoryItems(ctx: StoryItemsContext): EnrichedStory[] {
     });
   }
   return sortStoriesNewestFirst(out);
+}
+
+/**
+ * EnrichedUser do usuário logado, com fallback "vazio" quando o profile ainda
+ * não hidratou (boot frio antes do refreshHomeCritical).
+ */
+export function buildCurrentUser(
+  enrichedAll: Map<string, EnrichedUser>,
+  currentUserId: string,
+): EnrichedUser {
+  return (
+    enrichedAll.get(currentUserId) ?? {
+      id: currentUserId,
+      createdAt: undefined,
+      name: "—",
+      username: "—",
+      accent: "var(--gc-brand)",
+      avatarUrl: null,
+      bio: "",
+      goal: "",
+      instagramUsername: null,
+      birthDate: null,
+      age: null,
+      isBirthday: false,
+      sports: [],
+      onboardingCompletedAt: null,
+      profileCompletionNoticeDismissed: false,
+      alphaTermsAcceptedAt: null,
+      privacyPolicyAcceptedAt: null,
+      accountStatus: "active",
+      suspendedAt: null,
+      reactivationSentAt: null,
+      reactivationExpiresAt: null,
+      mainGymId: null,
+      location: "",
+      gyms: [],
+      preferredTimes: [],
+      currentStreak: 0,
+      longestStreak: 0,
+      lastWorkoutDate: "",
+      workoutsThisWeek: 0,
+      workoutsThisMonth: 0,
+      activeDaysCount: 0,
+      streakRestoresAvailable: 3,
+      lastStreakRestoreUsedAt: null,
+      lastStreakRestoreEarnedAt: null,
+      streakRestoreDeadlineAt: null,
+      streakRestoreMissedDate: null,
+      streakRestoreStatus: null,
+      checkInsCount: 0,
+      achievements: [],
+      followersCount: 0,
+      followingCount: 0,
+      isFollowing: false,
+      followStatus: "none",
+      isPrivate: false,
+      workoutDays: [],
+      streakLitToday: false,
+      streakPresenceSource: "none",
+    }
+  );
+}
+
+/** Record id → user (lookup O(1) pros componentes que recebem mapa). */
+export function buildUsersRecord(
+  enrichedAll: Map<string, EnrichedUser>,
+): Record<string, GymUser> {
+  const record: Record<string, GymUser> = {};
+  enrichedAll.forEach((user, id) => {
+    record[id] = user;
+  });
+  return record;
+}
+
+/** Opções de academia (gyms) pro seletor de localização do composer. */
+export function buildGymOptions(
+  gyms: AggregateState["gyms"],
+): GymLocationOption[] {
+  return gyms.map((gym) => ({
+    id: gym.id,
+    name: gym.name,
+    address: gym.address,
+    city: gym.city,
+    state: gym.state,
+    latitude: gym.latitude,
+    longitude: gym.longitude,
+  }));
+}
+
+export type SuggestedUsersContext = {
+  suggestedUserIds: string[];
+  enrichedAll: Map<string, EnrichedUser>;
+  currentUser: EnrichedUser;
+  currentUserId: string;
+};
+
+/**
+ * Sugestões de pessoas: usa os IDs do RPC get_user_suggestions quando existem;
+ * senão cai num ranking client-side (academia em comum > aceso hoje > streak).
+ */
+export function buildSuggestedUsers(ctx: SuggestedUsersContext): EnrichedUser[] {
+  const { suggestedUserIds, enrichedAll, currentUser, currentUserId } = ctx;
+  if (suggestedUserIds.length > 0) {
+    return suggestedUserIds
+      .map((userId) => enrichedAll.get(userId))
+      .filter((user): user is EnrichedUser => Boolean(user));
+  }
+  const list: EnrichedUser[] = [];
+  enrichedAll.forEach((u) => {
+    if (u.id !== currentUserId) list.push(u);
+  });
+  return list.sort((a, b) => {
+    const aScore =
+      getSharedGymCount(currentUser, a) * 10 +
+      (a.streakLitToday ? 5 : 0) +
+      a.currentStreak;
+    const bScore =
+      getSharedGymCount(currentUser, b) * 10 +
+      (b.streakLitToday ? 5 : 0) +
+      b.currentStreak;
+    return bScore - aScore;
+  });
+}
+
+export type SocialStatsContext = {
+  feedPosts: AggregateState["feedPosts"];
+  stories: AggregateState["stories"];
+  checkinsToday: AggregateState["checkinsToday"];
+  currentUser: EnrichedUser;
+};
+
+/** Stats da home: quantos treinaram hoje, check-ins de hoje, dias do mês. */
+export function buildSocialStats(ctx: SocialStatsContext) {
+  const { feedPosts, stories, checkinsToday, currentUser } = ctx;
+  return {
+    trainedToday: new Set(
+      [
+        ...feedPosts
+          .filter((p) => p.workout_date === new Date().toISOString().slice(0, 10))
+          .map((p) => p.user_id),
+        ...stories
+          .filter((story) => story.created_at.slice(0, 10) === new Date().toISOString().slice(0, 10))
+          .map((story) => story.user_id),
+      ],
+    ).size,
+    checkInsToday: checkinsToday.length,
+    monthDays: buildMonthWorkoutDays(currentUser.workoutDays),
+  };
+}
+
+export type ChatMessagesContext = {
+  chatMessages: AggregateState["chatMessages"];
+  conversationParticipants: ConversationParticipantRow[];
+  blockedSet: Set<string>;
+  currentUserId: string;
+};
+
+/**
+ * Mensagens do chat em modelo de domínio. Esconde mensagens de/para bloqueados
+ * e as anteriores ao "apagar pra mim" (deleted_at do participante).
+ */
+export function buildChatMessages(ctx: ChatMessagesContext): ChatMessage[] {
+  const { chatMessages, conversationParticipants, blockedSet, currentUserId } = ctx;
+  const deletedByConversation = new Map(
+    conversationParticipants
+      .filter(
+        (participant) =>
+          participant.user_id === currentUserId && Boolean(participant.deleted_at),
+      )
+      .map((participant) => [
+        participant.conversation_id,
+        new Date(participant.deleted_at as string).getTime(),
+      ]),
+  );
+
+  return chatMessages
+    // Mensagens de/para usuários bloqueados não aparecem no chat.
+    // Eu também não consigo enviar — RPC do server bloqueia (já tratado
+    // em outros lugares por RLS de safety/messages). Aqui só hide UI.
+    .filter((message) => {
+      if (
+        blockedSet.has(message.sender_id) ||
+        (message.receiver_id ? blockedSet.has(message.receiver_id) : false)
+      ) {
+        return false;
+      }
+      const deletedAt = message.conversation_id
+        ? deletedByConversation.get(message.conversation_id)
+        : null;
+      return !deletedAt || new Date(message.created_at).getTime() > deletedAt;
+    })
+    .map((message) => ({
+        id: message.id,
+        conversationId: message.conversation_id,
+        senderId: message.sender_id,
+        receiverId: message.receiver_id,
+        body: message.body,
+        mediaUrl: message.media_url,
+        thumbnailUrl: message.thumbnail_url ?? null,
+        posterUrl: message.poster_url ?? null,
+        mediaWidth: message.media_width ?? null,
+        mediaHeight: message.media_height ?? null,
+        mediaDurationSeconds: message.media_duration_seconds ?? null,
+        blurDataUrl: message.blur_data_url ?? null,
+        mediaType: message.media_type,
+        storyId: message.story_id,
+        replyToStory: message.reply_to_story,
+        storyPreviewUrl: message.story_preview_url,
+        createdAt: message.created_at,
+        readAt: message.read_at,
+      }));
+}
+
+export type ChatConversationsContext = {
+  conversations: AggregateState["conversations"];
+  conversationParticipants: ConversationParticipantRow[];
+  conversationUnreadCounts: Record<string, number>;
+  chatMessages: ChatMessage[];
+  currentUserId: string;
+};
+
+/**
+ * Conversas em modelo de domínio. Exclui as que o usuário apagou (a menos que
+ * tenha mensagem nova depois do delete) e anexa unread count + membros.
+ */
+export function buildChatConversations(
+  ctx: ChatConversationsContext,
+): ChatConversation[] {
+  const {
+    conversations,
+    conversationParticipants,
+    conversationUnreadCounts,
+    chatMessages,
+    currentUserId,
+  } = ctx;
+  const participantsByConversation = new Map<string, ConversationParticipantRow[]>();
+  for (const participant of conversationParticipants) {
+    const list = participantsByConversation.get(participant.conversation_id) ?? [];
+    list.push(participant);
+    participantsByConversation.set(participant.conversation_id, list);
+  }
+  const messagesByConversation = new Map<string, ChatMessage[]>();
+  for (const message of chatMessages) {
+    if (!message.conversationId) continue;
+    const list = messagesByConversation.get(message.conversationId) ?? [];
+    list.push(message);
+    messagesByConversation.set(message.conversationId, list);
+  }
+
+  return conversations
+    .map<ChatConversation | null>((conversation) => {
+      const participants = participantsByConversation.get(conversation.id) ?? [];
+      const currentParticipant = participants.find((p) => p.user_id === currentUserId);
+      if (!currentParticipant) return null;
+      if (currentParticipant.deleted_at) {
+        const lastVisibleMessage = messagesByConversation.get(conversation.id)?.at(-1);
+        if (
+          !lastVisibleMessage ||
+          new Date(lastVisibleMessage.createdAt).getTime() <=
+            new Date(currentParticipant.deleted_at).getTime()
+        ) {
+          return null;
+        }
+      }
+      return {
+        id: conversation.id,
+        type: conversation.type === "group" ? "group" : "direct",
+        name: conversation.name,
+        imageUrl: conversation.image_url,
+        memberIds: participants.map((participant) => participant.user_id),
+        role: currentParticipant.role,
+        lastReadAt: currentParticipant.last_read_at,
+        deletedAt: currentParticipant.deleted_at,
+        lastMessageAt: conversation.last_message_at,
+        unreadCount: conversationUnreadCounts[conversation.id] ?? 0,
+      } satisfies ChatConversation;
+    })
+    .filter((conversation): conversation is ChatConversation => Boolean(conversation));
 }

@@ -108,9 +108,16 @@ import {
   queryUserSuggestionsSurface,
 } from "./supabaseSocialSurfaces";
 import {
+  buildChatConversations,
+  buildChatMessages,
+  buildCurrentUser,
   buildEnrichedUsers,
+  buildGymOptions,
   buildProfilePosts,
+  buildSocialStats,
   buildStoryItems,
+  buildSuggestedUsers,
+  buildUsersRecord,
 } from "./supabaseSocialSelectors";
 import type {
   AggregateState,
@@ -1629,79 +1636,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [agg, currentUserId, blockedSet],
   );
 
-  const currentUser = useMemo<EnrichedUser>(() => {
-    return (
-      enrichedAll.get(currentUserId) ?? {
-        id: currentUserId,
-        createdAt: undefined,
-        name: "—",
-        username: "—",
-        accent: "var(--gc-brand)",
-        avatarUrl: null,
-        bio: "",
-        goal: "",
-        instagramUsername: null,
-        birthDate: null,
-        age: null,
-        isBirthday: false,
-        sports: [],
-        onboardingCompletedAt: null,
-        profileCompletionNoticeDismissed: false,
-        alphaTermsAcceptedAt: null,
-        privacyPolicyAcceptedAt: null,
-        accountStatus: "active",
-        suspendedAt: null,
-        reactivationSentAt: null,
-        reactivationExpiresAt: null,
-        mainGymId: null,
-        location: "",
-        gyms: [],
-        preferredTimes: [],
-        currentStreak: 0,
-        longestStreak: 0,
-        lastWorkoutDate: "",
-        workoutsThisWeek: 0,
-        workoutsThisMonth: 0,
-        activeDaysCount: 0,
-        streakRestoresAvailable: 3,
-        lastStreakRestoreUsedAt: null,
-        lastStreakRestoreEarnedAt: null,
-        streakRestoreDeadlineAt: null,
-        streakRestoreMissedDate: null,
-        streakRestoreStatus: null,
-        checkInsCount: 0,
-        achievements: [],
-        followersCount: 0,
-        followingCount: 0,
-        isFollowing: false,
-        followStatus: "none",
-        isPrivate: false,
-        workoutDays: [],
-        streakLitToday: false,
-        streakPresenceSource: "none",
-      }
-    );
-  }, [enrichedAll, currentUserId]);
+  const currentUser = useMemo<EnrichedUser>(
+    () => buildCurrentUser(enrichedAll, currentUserId),
+    [enrichedAll, currentUserId],
+  );
 
-  const usersRecord = useMemo<Record<string, GymUser>>(() => {
-    const record: Record<string, GymUser> = {};
-    enrichedAll.forEach((user, id) => {
-      record[id] = user;
-    });
-    return record;
-  }, [enrichedAll]);
+  const usersRecord = useMemo<Record<string, GymUser>>(
+    () => buildUsersRecord(enrichedAll),
+    [enrichedAll],
+  );
 
   const gymOptions = useMemo<GymLocationOption[]>(
-    () =>
-      agg.gyms.map((gym) => ({
-        id: gym.id,
-        name: gym.name,
-        address: gym.address,
-        city: gym.city,
-        state: gym.state,
-        latitude: gym.latitude,
-        longitude: gym.longitude,
-      })),
+    () => buildGymOptions(agg.gyms),
     [agg.gyms],
   );
 
@@ -1802,28 +1748,16 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [selectedStoryGroup, selectedStoryId, storyItems],
   );
 
-  const suggestedUsers = useMemo<EnrichedUser[]>(() => {
-    if (agg.suggestedUserIds.length > 0) {
-      return agg.suggestedUserIds
-        .map((userId) => enrichedAll.get(userId))
-        .filter((user): user is EnrichedUser => Boolean(user));
-    }
-    const list: EnrichedUser[] = [];
-    enrichedAll.forEach((u) => {
-      if (u.id !== currentUserId) list.push(u);
-    });
-    return list.sort((a, b) => {
-      const aScore =
-        getSharedGymCount(currentUser, a) * 10 +
-        (a.streakLitToday ? 5 : 0) +
-        a.currentStreak;
-      const bScore =
-        getSharedGymCount(currentUser, b) * 10 +
-        (b.streakLitToday ? 5 : 0) +
-        b.currentStreak;
-      return bScore - aScore;
-    });
-  }, [agg.suggestedUserIds, enrichedAll, currentUser, currentUserId]);
+  const suggestedUsers = useMemo<EnrichedUser[]>(
+    () =>
+      buildSuggestedUsers({
+        suggestedUserIds: agg.suggestedUserIds,
+        enrichedAll,
+        currentUser,
+        currentUserId,
+      }),
+    [agg.suggestedUserIds, enrichedAll, currentUser, currentUserId],
+  );
 
   const nearbyUsers = useMemo<EnrichedUser[]>(
     () => suggestedUsers.filter((u) => getSharedGymCount(currentUser, u) > 0),
@@ -1831,130 +1765,46 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const socialStats = useMemo(
-    () => ({
-      trainedToday: new Set(
-        [
-          ...agg.feedPosts
-            .filter((p) => p.workout_date === new Date().toISOString().slice(0, 10))
-            .map((p) => p.user_id),
-          ...agg.stories
-            .filter((story) => story.created_at.slice(0, 10) === new Date().toISOString().slice(0, 10))
-            .map((story) => story.user_id),
-        ],
-      ).size,
-      checkInsToday: agg.checkinsToday.length,
-      monthDays: buildMonthWorkoutDays(currentUser.workoutDays),
-    }),
-    [agg.feedPosts, agg.stories, agg.checkinsToday, currentUser.workoutDays],
+    () =>
+      buildSocialStats({
+        feedPosts: agg.feedPosts,
+        stories: agg.stories,
+        checkinsToday: agg.checkinsToday,
+        currentUser,
+      }),
+    // `currentUser` muda na mesma cadência de `currentUser.workoutDays` (a
+    // memo recria o array a cada mudança), então a dep é equivalente à antiga.
+    [agg.feedPosts, agg.stories, agg.checkinsToday, currentUser],
   );
 
-  const chatMessages = useMemo<ChatMessage[]>(() => {
-    const deletedByConversation = new Map(
-      agg.conversationParticipants
-        .filter(
-          (participant) =>
-            participant.user_id === currentUserId && Boolean(participant.deleted_at),
-        )
-        .map((participant) => [
-          participant.conversation_id,
-          new Date(participant.deleted_at as string).getTime(),
-        ]),
-    );
+  const chatMessages = useMemo<ChatMessage[]>(
+    () =>
+      buildChatMessages({
+        chatMessages: agg.chatMessages,
+        conversationParticipants: agg.conversationParticipants,
+        blockedSet,
+        currentUserId,
+      }),
+    [agg.chatMessages, agg.conversationParticipants, blockedSet, currentUserId],
+  );
 
-    return agg.chatMessages
-      // Mensagens de/para usuários bloqueados não aparecem no chat.
-      // Eu também não consigo enviar — RPC do server bloqueia (já tratado
-      // em outros lugares por RLS de safety/messages). Aqui só hide UI.
-      .filter((message) => {
-        if (
-          blockedSet.has(message.sender_id) ||
-          (message.receiver_id ? blockedSet.has(message.receiver_id) : false)
-        ) {
-          return false;
-        }
-        const deletedAt = message.conversation_id
-          ? deletedByConversation.get(message.conversation_id)
-          : null;
-        return !deletedAt || new Date(message.created_at).getTime() > deletedAt;
-      })
-      .map((message) => ({
-          id: message.id,
-          conversationId: message.conversation_id,
-          senderId: message.sender_id,
-          receiverId: message.receiver_id,
-          body: message.body,
-          mediaUrl: message.media_url,
-          thumbnailUrl: message.thumbnail_url ?? null,
-          posterUrl: message.poster_url ?? null,
-          mediaWidth: message.media_width ?? null,
-          mediaHeight: message.media_height ?? null,
-          mediaDurationSeconds: message.media_duration_seconds ?? null,
-          blurDataUrl: message.blur_data_url ?? null,
-          mediaType: message.media_type,
-          storyId: message.story_id,
-          replyToStory: message.reply_to_story,
-          storyPreviewUrl: message.story_preview_url,
-          createdAt: message.created_at,
-          readAt: message.read_at,
-        }));
-  }, [
-    agg.chatMessages,
-    agg.conversationParticipants,
-    blockedSet,
-    currentUserId,
-  ]);
-
-  const chatConversations = useMemo<ChatConversation[]>(() => {
-    const participantsByConversation = new Map<string, ConversationParticipantRow[]>();
-    for (const participant of agg.conversationParticipants) {
-      const list = participantsByConversation.get(participant.conversation_id) ?? [];
-      list.push(participant);
-      participantsByConversation.set(participant.conversation_id, list);
-    }
-    const messagesByConversation = new Map<string, ChatMessage[]>();
-    for (const message of chatMessages) {
-      if (!message.conversationId) continue;
-      const list = messagesByConversation.get(message.conversationId) ?? [];
-      list.push(message);
-      messagesByConversation.set(message.conversationId, list);
-    }
-
-    return agg.conversations
-      .map<ChatConversation | null>((conversation) => {
-        const participants = participantsByConversation.get(conversation.id) ?? [];
-        const currentParticipant = participants.find((p) => p.user_id === currentUserId);
-        if (!currentParticipant) return null;
-        if (currentParticipant.deleted_at) {
-          const lastVisibleMessage = messagesByConversation.get(conversation.id)?.at(-1);
-          if (
-            !lastVisibleMessage ||
-            new Date(lastVisibleMessage.createdAt).getTime() <=
-              new Date(currentParticipant.deleted_at).getTime()
-          ) {
-            return null;
-          }
-        }
-        return {
-          id: conversation.id,
-          type: conversation.type === "group" ? "group" : "direct",
-          name: conversation.name,
-          imageUrl: conversation.image_url,
-          memberIds: participants.map((participant) => participant.user_id),
-          role: currentParticipant.role,
-          lastReadAt: currentParticipant.last_read_at,
-          deletedAt: currentParticipant.deleted_at,
-          lastMessageAt: conversation.last_message_at,
-          unreadCount: agg.conversationUnreadCounts[conversation.id] ?? 0,
-        } satisfies ChatConversation;
-      })
-      .filter((conversation): conversation is ChatConversation => Boolean(conversation));
-  }, [
-    agg.conversations,
-    agg.conversationParticipants,
-    agg.conversationUnreadCounts,
-    chatMessages,
-    currentUserId,
-  ]);
+  const chatConversations = useMemo<ChatConversation[]>(
+    () =>
+      buildChatConversations({
+        conversations: agg.conversations,
+        conversationParticipants: agg.conversationParticipants,
+        conversationUnreadCounts: agg.conversationUnreadCounts,
+        chatMessages,
+        currentUserId,
+      }),
+    [
+      agg.conversations,
+      agg.conversationParticipants,
+      agg.conversationUnreadCounts,
+      chatMessages,
+      currentUserId,
+    ],
+  );
 
   const actions = useMemo<SupabaseSocialActions>(
     () => ({

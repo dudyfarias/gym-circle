@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { ProfileRow, StoryRow } from "@gym-circle/core";
 import { EMPTY } from "./supabaseSocialConstants";
 import {
+  buildChatConversations,
+  buildChatMessages,
+  buildCurrentUser,
   buildEnrichedUsers,
   buildStoryItems,
+  buildSuggestedUsers,
 } from "./supabaseSocialSelectors";
 import type { AggregateState } from "./supabaseSocialTypes";
 import type { EnrichedUser } from "./types";
@@ -195,5 +199,153 @@ describe("buildStoryItems", () => {
       viewedStoryIds: new Set(),
     });
     expect(items).toHaveLength(0);
+  });
+});
+
+describe("buildCurrentUser", () => {
+  it("retorna o user do mapa quando existe", () => {
+    const me = followedAuthor("me");
+    const map = new Map<string, EnrichedUser>([["me", me]]);
+    expect(buildCurrentUser(map, "me")).toBe(me);
+  });
+  it("cai no fallback vazio quando ainda não hidratou", () => {
+    const fallback = buildCurrentUser(new Map(), "me");
+    expect(fallback.id).toBe("me");
+    expect(fallback.name).toBe("—");
+    expect(fallback.streakRestoresAvailable).toBe(3);
+  });
+});
+
+describe("buildSuggestedUsers", () => {
+  const enrichedAll = new Map<string, EnrichedUser>([
+    ["me", followedAuthor("me")],
+    ["a", followedAuthor("a")],
+    ["b", followedAuthor("b")],
+  ]);
+
+  it("usa os IDs do RPC quando fornecidos (preserva ordem, ignora inexistente)", () => {
+    const out = buildSuggestedUsers({
+      suggestedUserIds: ["b", "a", "ghost"],
+      enrichedAll,
+      currentUser: followedAuthor("me"),
+      currentUserId: "me",
+    });
+    expect(out.map((u) => u.id)).toEqual(["b", "a"]);
+  });
+
+  it("sem IDs do RPC, ranqueia client-side e exclui o próprio user", () => {
+    const out = buildSuggestedUsers({
+      suggestedUserIds: [],
+      enrichedAll,
+      currentUser: followedAuthor("me"),
+      currentUserId: "me",
+    });
+    expect(out.every((u) => u.id !== "me")).toBe(true);
+    expect(out).toHaveLength(2);
+  });
+});
+
+// buildChatMessages recebe a ROW crua (DirectMessageRow, snake_case) e mapeia
+// pro modelo de domínio ChatMessage.
+function makeDirectRow(
+  overrides: { id: string; sender_id: string; created_at?: string },
+): AggregateState["chatMessages"][number] {
+  return {
+    id: overrides.id,
+    conversation_id: "c1",
+    sender_id: overrides.sender_id,
+    receiver_id: null,
+    body: "oi",
+    media_url: null,
+    thumbnail_url: null,
+    poster_url: null,
+    media_width: null,
+    media_height: null,
+    media_duration_seconds: null,
+    blur_data_url: null,
+    media_type: null,
+    story_id: null,
+    reply_to_story: false,
+    story_preview_url: null,
+    created_at: overrides.created_at ?? "2026-06-13T10:00:00.000Z",
+    read_at: null,
+  } as AggregateState["chatMessages"][number];
+}
+
+describe("buildChatMessages", () => {
+  it("esconde mensagens de/para usuário bloqueado", () => {
+    const out = buildChatMessages({
+      chatMessages: [
+        makeDirectRow({ id: "m1", sender_id: "blocked" }),
+        makeDirectRow({ id: "m2", sender_id: "friend" }),
+      ],
+      conversationParticipants: [],
+      blockedSet: new Set(["blocked"]),
+      currentUserId: "me",
+    });
+    expect(out.map((m) => m.id)).toEqual(["m2"]);
+  });
+
+  it("esconde mensagens anteriores ao 'apagar pra mim'", () => {
+    const out = buildChatMessages({
+      chatMessages: [
+        makeDirectRow({ id: "old", sender_id: "friend", created_at: "2026-06-13T09:00:00.000Z" }),
+        makeDirectRow({ id: "new", sender_id: "friend", created_at: "2026-06-13T11:00:00.000Z" }),
+      ],
+      conversationParticipants: [
+        {
+          conversation_id: "c1",
+          user_id: "me",
+          deleted_at: "2026-06-13T10:00:00.000Z",
+          role: "member",
+          last_read_at: null,
+        },
+      ] as AggregateState["conversationParticipants"],
+      blockedSet: new Set(),
+      currentUserId: "me",
+    });
+    expect(out.map((m) => m.id)).toEqual(["new"]);
+  });
+});
+
+describe("buildChatConversations", () => {
+  it("exclui conversa apagada sem mensagem nova depois do delete", () => {
+    const out = buildChatConversations({
+      conversations: [
+        { id: "c1", type: "direct", name: null, image_url: null, last_message_at: null },
+      ] as AggregateState["conversations"],
+      conversationParticipants: [
+        {
+          conversation_id: "c1",
+          user_id: "me",
+          deleted_at: "2026-06-13T12:00:00.000Z",
+          role: "member",
+          last_read_at: null,
+        },
+      ] as AggregateState["conversationParticipants"],
+      conversationUnreadCounts: {},
+      chatMessages: [],
+      currentUserId: "me",
+    });
+    expect(out).toHaveLength(0);
+  });
+
+  it("inclui conversa viva com unread count", () => {
+    const out = buildChatConversations({
+      conversations: [
+        { id: "c1", type: "group", name: "Grupo", image_url: null, last_message_at: "x" },
+      ] as AggregateState["conversations"],
+      conversationParticipants: [
+        { conversation_id: "c1", user_id: "me", deleted_at: null, role: "member", last_read_at: null },
+        { conversation_id: "c1", user_id: "friend", deleted_at: null, role: "member", last_read_at: null },
+      ] as AggregateState["conversationParticipants"],
+      conversationUnreadCounts: { c1: 4 },
+      chatMessages: [],
+      currentUserId: "me",
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].type).toBe("group");
+    expect(out[0].unreadCount).toBe(4);
+    expect(out[0].memberIds).toEqual(["me", "friend"]);
   });
 });
