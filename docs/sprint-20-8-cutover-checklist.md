@@ -33,9 +33,12 @@
 1. **Apple Developer** (dashboard): no App ID `com.gymcircle.app`,
    habilitar Push Notifications, Associated Domains e HealthKit
    (capabilities do entitlement novo). Regenerar provisioning.
-2. **project.yml**: trocar `PRODUCT_BUNDLE_IDENTIFIER` de
-   `com.gymcircle.native.dev` → `com.gymcircle.app`; CFBundleShortVersionString
-   `2.0.0`; CFBundleVersion `1`. `xcodegen generate`.
+2. **project.yml**: ✅ versão já bumpada no repo (CFBundleShortVersionString +
+   MARKETING_VERSION `2.0.0`, CFBundleVersion/CURRENT_PROJECT_VERSION `1`).
+   ⏳ FALTA (depende do passo 1): trocar `PRODUCT_BUNDLE_IDENTIFIER` de
+   `com.gymcircle.native.dev` → `com.gymcircle.app` e `xcodegen generate`. O
+   bundle id ficou em `.dev` de propósito — só virar `com.gymcircle.app`
+   DEPOIS de habilitar as capabilities, senão o signing local quebra.
 3. **Ícones/splash**: copiar o asset catalog do shell (ios/App) pro
    target nativo — mesmos ícones da marca.
 4. **APNs**: o trigger SQL (Sprint 10.7) e a Edge Function já mandam

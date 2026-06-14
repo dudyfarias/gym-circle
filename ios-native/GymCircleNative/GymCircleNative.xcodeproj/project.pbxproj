@@ -673,7 +673,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.native.dev;
 				PRODUCT_NAME = GymCircleNative;
 				SDKROOT = iphoneos;
@@ -699,7 +699,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 2.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.native.dev;
 				PRODUCT_NAME = GymCircleNative;
 				SDKROOT = iphoneos;

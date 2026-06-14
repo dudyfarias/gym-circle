@@ -32,7 +32,8 @@ targets:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: Gym Circle Native
-        CFBundleShortVersionString: "1.1"
+        # Sprint 20.8 cutover — versão de marketing 2.0.0 (salto pro nativo).
+        CFBundleShortVersionString: "2.0.0"
         CFBundleVersion: "1"
         LSRequiresIPhoneOS: true
         # Sprint 20.0 — resolvidas no build a partir do xcconfig; o
@@ -53,9 +54,11 @@ targets:
         NSHealthUpdateUsageDescription: O Gym Circle pode preparar treinos para o Apple Saúde em versões futuras, sempre com sua permissão.
     settings:
       base:
+        # Cutover: bundle id continua .dev ate o Eduardo habilitar as
+        # capabilities no Apple Developer (entao vira com.gymcircle.app).
         PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev
         PRODUCT_NAME: GymCircleNative
-        MARKETING_VERSION: "1.1"
+        MARKETING_VERSION: "2.0.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
