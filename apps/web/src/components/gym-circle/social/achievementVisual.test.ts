@@ -40,21 +40,25 @@ describe("getAchievementVisual", () => {
     ).toBe("badge3d");
   });
 
-  it("medalha usa o tier como tone (bronze/prata/ouro)", () => {
-    for (const tier of ["bronze", "silver", "gold"] as const) {
-      const visual = getAchievementVisual(
-        makeBase({ kind: "medal", id: "streak-7", tier } as Partial<Achievement>),
-      );
-      expect(visual.tone).toBe(tier);
-    }
+  it("Sprint 19 — medalha usa RARIDADE como tone (bronze/prata/ouro aposentados)", () => {
+    expect(
+      getAchievementVisual(
+        makeBase({ kind: "medal", id: "streak-7", tier: "bronze", rarity: "common" } as Partial<Achievement>),
+      ).tone,
+    ).toBe("stone");
+    expect(
+      getAchievementVisual(
+        makeBase({ kind: "medal", id: "streak-30", tier: "gold", rarity: "rare" } as Partial<Achievement>),
+      ).tone,
+    ).toBe("sapphire");
   });
 
-  it("challenge usa difficulty como tone", () => {
+  it("challenge usa difficulty como tone (palette de raridade)", () => {
     const cases = [
-      ["easy", "cyan"],
-      ["medium", "silver"],
-      ["hard", "gold"],
-      ["legendary", "crystal"],
+      ["easy", "stone"],
+      ["medium", "emerald"],
+      ["hard", "amethyst"],
+      ["legendary", "amber"],
     ] as const;
     for (const [difficulty, tone] of cases) {
       const visual = getAchievementVisual(
@@ -69,13 +73,13 @@ describe("getAchievementVisual", () => {
     }
   });
 
-  it("demais kinds usam rarity como tone (fallback cyan)", () => {
-    expect(getAchievementVisual(makeBase({ rarity: "common" })).tone).toBe("cyan");
-    expect(getAchievementVisual(makeBase({ rarity: "uncommon" })).tone).toBe("silver");
-    expect(getAchievementVisual(makeBase({ rarity: "rare" })).tone).toBe("gold");
-    expect(getAchievementVisual(makeBase({ rarity: "epic" })).tone).toBe("crystal");
-    expect(getAchievementVisual(makeBase({ rarity: "legendary" })).tone).toBe("dark");
-    expect(getAchievementVisual(makeBase({ rarity: undefined })).tone).toBe("cyan");
+  it("demais kinds usam rarity como tone (fallback stone)", () => {
+    expect(getAchievementVisual(makeBase({ rarity: "common" })).tone).toBe("stone");
+    expect(getAchievementVisual(makeBase({ rarity: "uncommon" })).tone).toBe("emerald");
+    expect(getAchievementVisual(makeBase({ rarity: "rare" })).tone).toBe("sapphire");
+    expect(getAchievementVisual(makeBase({ rarity: "epic" })).tone).toBe("amethyst");
+    expect(getAchievementVisual(makeBase({ rarity: "legendary" })).tone).toBe("amber");
+    expect(getAchievementVisual(makeBase({ rarity: undefined })).tone).toBe("stone");
   });
 
   it("monogramas do mapa estático", () => {
@@ -134,7 +138,7 @@ describe("getAchievementVisual", () => {
     const revealed = getAchievementVisual(
       makeBase({ id: "early-bird", secret: true, earned: true, rarity: "uncommon" }),
     );
-    expect(revealed.tone).toBe("silver");
+    expect(revealed.tone).toBe("emerald");
     expect(revealed.monogram).toBe("M");
   });
 });

@@ -3,10 +3,11 @@
 import { ChevronRight, HelpCircle, Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AchievementArtifact3D } from "./AchievementArtifact3D";
-import type {
-  Achievement,
-  AchievementKind,
-} from "../social/achievements";
+import type { Achievement } from "../social/achievements";
+import {
+  getAchievementVisual,
+  type AchievementVisualTone,
+} from "../social/achievementVisual";
 
 /**
  * Sprint 7.5.5 — Conquistas em Destaque (Section 13 do brief).
@@ -111,7 +112,9 @@ function FeaturedCard({
   const { t } = useTranslation();
   const isMystery = Boolean(achievement.secret && !achievement.earned);
   const Tag = onTap ? "button" : "div";
-  const tone = KIND_TONE[achievement.kind];
+  // Sprint 19 — card colorido por RARIDADE (mesmo adapter do artefato), não
+  // mais por categoria (medal perdeu o dourado fixo).
+  const tone = TONE_CARD[getAchievementVisual(achievement).tone];
 
   return (
     <Tag
@@ -154,37 +157,21 @@ function FeaturedCard({
 }
 
 /**
- * Paleta por categoria — bg subtle + glow shadow + text tone.
- * Cores escolhidas pra dar hierarquia visual: relic (purple) > trophy
- * (brand) > medal (gold) > badge (white).
+ * Sprint 19 — paleta do card por RARIDADE (tom do adapter): bg subtle + text.
+ * comum(cinza) < incomum(verde) < raro(azul) < épico(roxo) < lendário(laranja).
  */
-const KIND_TONE: Record<
-  AchievementKind,
-  { bg: string; glow: string; text: string }
-> = {
-  relic: {
-    bg: "bg-[#A78BFA]/12",
-    glow: "shadow-[0_0_24px_rgba(167,139,250,0.32)]",
-    text: "text-[#A78BFA]",
-  },
-  trophy: {
-    bg: "bg-[var(--gc-brand)]/14",
-    glow: "shadow-[0_0_24px_rgba(48,213,255,0.28)]",
-    text: "text-[var(--gc-brand)]",
-  },
-  medal: {
-    bg: "bg-[#FBBF24]/14",
-    glow: "shadow-[0_0_24px_rgba(251,191,36,0.24)]",
-    text: "text-[#FBBF24]",
-  },
-  badge: {
-    bg: "bg-white/[0.06]",
-    glow: "shadow-[0_0_18px_rgba(255,255,255,0.12)]",
-    text: "text-white",
-  },
-  challenge: {
-    bg: "bg-[#34D399]/12",
-    glow: "shadow-[0_0_24px_rgba(52,211,153,0.28)]",
-    text: "text-[#34D399]",
-  },
+const TONE_CARD: Record<AchievementVisualTone, { bg: string; text: string }> = {
+  stone: { bg: "bg-white/[0.06]", text: "text-white/82" },
+  emerald: { bg: "bg-[#34D399]/12", text: "text-[#34D399]" },
+  sapphire: { bg: "bg-[#3B82F6]/14", text: "text-[#60A5FA]" },
+  amethyst: { bg: "bg-[#A855F7]/14", text: "text-[#C4B5FD]" },
+  amber: { bg: "bg-[#F59E0B]/14", text: "text-[#FBBF24]" },
+  dark: { bg: "bg-white/[0.04]", text: "text-white/56" },
+  // Legados (não produzidos pelo mapa atual) — fallback razoável.
+  cyan: { bg: "bg-[var(--gc-brand)]/14", text: "text-[var(--gc-brand)]" },
+  blue: { bg: "bg-[#009DFF]/14", text: "text-[#60A5FA]" },
+  bronze: { bg: "bg-[#B87536]/14", text: "text-[#D9A066]" },
+  silver: { bg: "bg-white/[0.07]", text: "text-white/82" },
+  gold: { bg: "bg-[#F5B83B]/14", text: "text-[#FBBF24]" },
+  crystal: { bg: "bg-[#8CFBFF]/14", text: "text-[#8CFBFF]" },
 };

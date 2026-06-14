@@ -13,13 +13,21 @@ import type { Achievement } from "./achievements";
 export type AchievementVisualKind = "badge3d" | "medal3d" | "trophy3d" | "relic3d";
 
 export type AchievementVisualTone =
+  // Sprint 19 — palette de raridade (mais difícil = mais raro):
+  | "stone" // comum (cinza, sem brilho)
+  | "emerald" // incomum (verde)
+  | "sapphire" // raro (azul)
+  | "amethyst" // épico (roxo)
+  | "amber" // lendário (laranja)
+  | "dark" // secret não-conquistado ("???")
+  // Tons legados (Sprint 15) — mantidos pro CSS não quebrar; não mais
+  // produzidos pelo mapa de raridade/dificuldade.
   | "cyan"
   | "blue"
   | "bronze"
   | "silver"
   | "gold"
-  | "crystal"
-  | "dark";
+  | "crystal";
 
 export type AchievementVisual = {
   kind: AchievementVisualKind;
@@ -36,21 +44,28 @@ const KIND_SHAPE: Record<Achievement["kind"], AchievementVisualKind> = {
   challenge: "badge3d",
 };
 
-/** Acabamento metálico por raridade (badges/troféus/relíquias). */
+/**
+ * Sprint 19 — cor por RARIDADE (esquema clássico, mais difícil = mais raro).
+ * Vale pra TODOS os tipos, inclusive medalhas (bronze/prata/ouro aposentados).
+ */
 const RARITY_TONE: Record<NonNullable<Achievement["rarity"]>, AchievementVisualTone> = {
-  common: "cyan",
-  uncommon: "silver",
-  rare: "gold",
-  epic: "crystal",
-  legendary: "dark",
+  common: "stone",
+  uncommon: "emerald",
+  rare: "sapphire",
+  epic: "amethyst",
+  legendary: "amber",
 };
 
-/** Acabamento por dificuldade (desafios mensais). */
+/**
+ * Dificuldade de desafio → tom, alinhado ao mapa difficulty→rarity de
+ * achievements.ts buildChallenges (easy=common, medium=uncommon, hard=epic,
+ * legendary=legendary).
+ */
 const DIFFICULTY_TONE: Record<string, AchievementVisualTone> = {
-  easy: "cyan",
-  medium: "silver",
-  hard: "gold",
-  legendary: "crystal",
+  easy: "stone",
+  medium: "emerald",
+  hard: "amethyst",
+  legendary: "amber",
 };
 
 /**
@@ -109,14 +124,13 @@ export function getAchievementVisual(achievement: Achievement): AchievementVisua
     return { kind: KIND_SHAPE[achievement.kind], tone: "dark", monogram: "?" };
   }
 
+  // Sprint 19 — TODOS coloridos por raridade (medalhas perderam bronze/prata/
+  // ouro; agora "mais difícil = mais raro"). Desafio deriva da dificuldade.
   let tone: AchievementVisualTone;
-  if (achievement.kind === "medal") {
-    // Bronze/prata/ouro 1:1 com o tier (analogia olímpica do modelo).
-    tone = achievement.tier;
-  } else if (achievement.kind === "challenge") {
-    tone = DIFFICULTY_TONE[achievement.difficulty] ?? "cyan";
+  if (achievement.kind === "challenge") {
+    tone = DIFFICULTY_TONE[achievement.difficulty] ?? "stone";
   } else {
-    tone = achievement.rarity ? RARITY_TONE[achievement.rarity] : "cyan";
+    tone = achievement.rarity ? RARITY_TONE[achievement.rarity] : "stone";
   }
 
   return {

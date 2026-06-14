@@ -374,8 +374,9 @@ function getIntensity(achievement: Achievement | null): Intensity {
         particles: 90,
         spread: 80,
         scalar: 1.0,
-        colors: ["#30D5FF", "#8CFBFF", "#0066FF", "#FFFFFF"],
-        glowColor: "rgba(48,213,255,0.36)",
+        // Sprint 19 — raro = azul (sapphire).
+        colors: ["#3B82F6", "#BFDBFE", "#1D4ED8", "#FFFFFF"],
+        glowColor: "rgba(59,130,246,0.36)",
         autoDismissMs: 5000,
         haptic: "follow",
       };
@@ -395,8 +396,9 @@ function getIntensity(achievement: Achievement | null): Intensity {
         particles: 35,
         spread: 60,
         scalar: 0.9,
-        colors: ["#30D5FF", "#8CFBFF", "#FFFFFF"],
-        glowColor: "rgba(48,213,255,0.28)",
+        // Sprint 19 — comum = cinza (stone).
+        colors: ["#D1D5DB", "#9CA3AF", "#FFFFFF"],
+        glowColor: "rgba(156,163,175,0.26)",
         autoDismissMs: 3500,
         haptic: "brand",
       };
