@@ -1,3 +1,9 @@
+import type {
+  CircleRankingRow,
+  RankingPeriod,
+  RankingScope,
+} from "./supabaseSocialTypes";
+
 export type FollowStatus = "none" | "pending" | "accepted";
 export type FollowActionResult = { followStatus: FollowStatus };
 
@@ -490,4 +496,15 @@ export type SocialBundle = {
   feedLoadingMore?: boolean;
   feedHasMore?: boolean;
   refresh?: () => void | Promise<void>;
+  /** Sprint 19 — Competição: ranking sob demanda (escopo × período). */
+  ranking?: {
+    rows: CircleRankingRow[];
+    scope: RankingScope;
+    period: RankingPeriod;
+    loading: boolean;
+  };
+  loadRanking?: (
+    scope: RankingScope,
+    period: RankingPeriod,
+  ) => void | Promise<void>;
 };

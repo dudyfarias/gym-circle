@@ -1863,6 +1863,9 @@ export function GymCirclePreview({
             monthlyRecap={
               myCircleUser?.id === social.currentUser.id ? monthlyRecap : null
             }
+            ranking={social.ranking}
+            onLoadRanking={social.loadRanking}
+            currentUserId={social.currentUser.id}
             onClose={closeMyCircle}
             onOpenBadges={openBadges}
             // Sprint 15.5 — tap em artefato das Conquistas em destaque abre

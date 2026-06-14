@@ -93,6 +93,7 @@ import {
 import {
   logSurfaceFallback,
   optionalStorySocialRows,
+  queryCircleRankingSurface,
   queryHomeFeedSurface,
   queryStoryTraySurface,
   queryStoryViewerItemsSurface,
@@ -113,10 +114,13 @@ import {
 import { createSocialActions } from "./supabaseSocialActions";
 import type {
   AggregateState,
+  CircleRankingRow,
   ConversationSummaryParticipant,
   ConversationSummaryRow,
   HomeRefreshSnapshot,
   ProfileExtras,
+  RankingPeriod,
+  RankingScope,
   RealtimePayload,
   StoryTrayRow,
   SurfacePostRow,
@@ -230,6 +234,16 @@ export type SupabaseSocialResult = {
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  /** Sprint 19 — Competição: ranking carregado sob demanda (escopo × período). */
+  ranking: RankingState;
+  loadRanking: (scope: RankingScope, period: RankingPeriod) => Promise<void>;
+};
+
+type RankingState = {
+  rows: CircleRankingRow[];
+  scope: RankingScope;
+  period: RankingPeriod;
+  loading: boolean;
 };
 
 export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
@@ -249,6 +263,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     loadStoredViewedStoryIds(currentUserId),
   );
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
+  // Sprint 19 — Competição: ranking sob demanda (a UI dispara loadRanking ao
+  // abrir/trocar escopo×período). Fora do agg porque já vem agregado da RPC.
+  const [ranking, setRanking] = useState<RankingState>({
+    rows: [],
+    scope: "circle",
+    period: "week",
+    loading: false,
+  });
   const mountedRef = useRef(true);
   const aggRef = useRef<AggregateState>(EMPTY);
   const analyticsBootRef = useRef(false);
@@ -1435,6 +1457,22 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     services.client,
   ]);
 
+  // Sprint 19 — carrega o ranking da Competição (escopo × período) sob demanda.
+  const loadRanking = useCallback(
+    async (scope: RankingScope, period: RankingPeriod) => {
+      setRanking((prev) => ({ ...prev, scope, period, loading: true }));
+      const res = await queryCircleRankingSurface(services.client, scope, period);
+      if (!mountedRef.current) return;
+      setRanking({
+        rows: res.error ? [] : (res.data as CircleRankingRow[]),
+        scope,
+        period,
+        loading: false,
+      });
+    },
+    [services.client],
+  );
+
   const scheduleRefresh = useCallback(() => {
     if (refreshTimerRef.current !== null) {
       window.clearTimeout(refreshTimerRef.current);
@@ -1977,5 +2015,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     loading,
     error,
     refresh,
+    ranking,
+    loadRanking,
   };
 }

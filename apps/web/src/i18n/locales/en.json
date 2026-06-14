@@ -168,7 +168,27 @@
     },
     "competition": {
       "title": "Competition",
-      "description": "Weekly, monthly, and yearly rankings coming soon."
+      "scope": {
+        "circle": "Friends",
+        "global": "Global"
+      },
+      "period": {
+        "week": "Week",
+        "month": "Month",
+        "year": "Year"
+      },
+      "yourPoints": "Your points",
+      "rankBadge": "#{{position}}",
+      "pts": "pts",
+      "workoutsCount_one": "{{count}} workout",
+      "workoutsCount_other": "{{count}} workouts",
+      "breakdown": {
+        "workouts": "Workouts",
+        "bonus": "Bonus",
+        "achievements": "Achievements"
+      },
+      "emptyCircle": "Follow people to compete in the ranking.",
+      "emptyGlobal": "No one scored this period yet."
     }
   },
   "settings": {

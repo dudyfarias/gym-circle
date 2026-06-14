@@ -1,9 +1,12 @@
 import type { StoryRow } from "@gym-circle/core";
 import type {
+  CircleRankingRow,
   DiscoveryProfileRow,
   GymCircleSupabaseClient,
   MediaMetadata,
   OptionalStorySocialTable,
+  RankingPeriod,
+  RankingScope,
   StoryTrayRow,
   StoryViewerItemRow,
   SurfacePostRow,
@@ -219,5 +222,31 @@ export async function querySearchProfilesSurface(
   }
 
   logSurfaceFallback("profile search", rpcRes.error);
+  return { data: [], error: rpcRes.error };
+}
+
+/** Sprint 19 — ranking da Competição (escopo × período). Fail-soft em []. */
+export async function queryCircleRankingSurface(
+  client: GymCircleSupabaseClient,
+  scope: RankingScope,
+  period: RankingPeriod,
+  limit = 50,
+): Promise<{ data: CircleRankingRow[]; error: unknown }> {
+  // RPC nova ainda não está nos tipos gerados do Supabase (symlink quirk do
+  // core lag-a a worktree) — cast loose até o próximo generate de tipos.
+  const rpc = client.rpc as unknown as (
+    fn: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: unknown }>;
+  const rpcRes = await rpc("get_circle_ranking", {
+    p_scope: scope,
+    p_period: period,
+    p_limit: limit,
+  });
+  if (!rpcRes.error) {
+    return { data: (rpcRes.data ?? []) as CircleRankingRow[], error: null };
+  }
+
+  logSurfaceFallback("circle ranking", rpcRes.error);
   return { data: [], error: rpcRes.error };
 }

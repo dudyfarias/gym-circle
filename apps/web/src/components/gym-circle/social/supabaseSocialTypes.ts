@@ -251,3 +251,21 @@ export type RealtimePayload = {
   new?: Record<string, unknown>;
   old?: Record<string, unknown>;
 };
+
+/** Sprint 19 — Competição. */
+export type RankingScope = "circle" | "global";
+export type RankingPeriod = "week" | "month" | "year";
+
+/** Linha agregada da RPC get_circle_ranking (já pronta pra render). */
+export type CircleRankingRow = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  current_streak: number | null;
+  badge_is_active_today: boolean | null;
+  workout_days: number | null;
+  achievement_points: number | null;
+  total_points: number | null;
+  rank: number | null;
+};

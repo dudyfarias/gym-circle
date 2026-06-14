@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, Lock, Share2, Trophy, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Share2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   AvatarConsistencyRings,
@@ -27,7 +27,8 @@ import {
   getTotalDaysInMonth,
   getTotalDaysInYear,
 } from "./social/streak";
-import type { EnrichedPost, EnrichedUser } from "./social/types";
+import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
+import { CompetitionSection } from "./CompetitionSection";
 
 /**
  * MyCircleSheet — Sprint 3.5.3.
@@ -122,6 +123,13 @@ type MyCircleSheetProps = {
    * dependem disso (user_activity_days é fetch completo).
    */
   onVisibleMonthChange?: (monthKey: string) => void;
+  /**
+   * Sprint 19 — Competição. Ranking sob demanda + loader, vindos do social
+   * bundle. Só renderiza no MyCircle próprio (isOwn).
+   */
+  ranking?: SocialBundle["ranking"];
+  onLoadRanking?: SocialBundle["loadRanking"];
+  currentUserId?: string;
 };
 
 export function MyCircleSheet({
@@ -142,6 +150,9 @@ export function MyCircleSheet({
   monthlyChallenges,
   onOpenAchievementDetail,
   onVisibleMonthChange,
+  ranking,
+  onLoadRanking,
+  currentUserId,
 }: MyCircleSheetProps) {
   const { t, i18n } = useTranslation();
   // Mês exibido no calendário (default = mês atual). Navegação ← / →.
@@ -673,16 +684,14 @@ export function MyCircleSheet({
                 </section>
               ) : null}
 
-              {/* G. Competição (placeholder) */}
-              <section className="mt-8 rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] p-5 text-center">
-                <Trophy className="mx-auto text-white/32" size={28} strokeWidth={2} />
-                <p className="mt-3 text-[14px] font-black text-white">
-                  {t("myCircle.competition.title")} · {t("common.comingSoon")}
-                </p>
-                <p className="mt-1.5 text-[12px] font-bold text-white/52">
-                  {t("myCircle.competition.description")}
-                </p>
-              </section>
+              {/* G. Competição — Sprint 19 (ranking por pontos). */}
+              {ranking && onLoadRanking && currentUserId ? (
+                <CompetitionSection
+                  ranking={ranking}
+                  onLoad={onLoadRanking}
+                  currentUserId={currentUserId}
+                />
+              ) : null}
             </>
           )}
         </div>

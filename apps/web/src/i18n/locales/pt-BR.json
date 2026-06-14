@@ -168,7 +168,27 @@
     },
     "competition": {
       "title": "Competição",
-      "description": "Ranking semanal, mensal e anual em breve."
+      "scope": {
+        "circle": "Amigos",
+        "global": "Geral"
+      },
+      "period": {
+        "week": "Semana",
+        "month": "Mês",
+        "year": "Ano"
+      },
+      "yourPoints": "Seus pontos",
+      "rankBadge": "{{position}}º lugar",
+      "pts": "pts",
+      "workoutsCount_one": "{{count}} treino",
+      "workoutsCount_other": "{{count}} treinos",
+      "breakdown": {
+        "workouts": "Treinos",
+        "bonus": "Bônus",
+        "achievements": "Conquistas"
+      },
+      "emptyCircle": "Siga pessoas pra competir no ranking.",
+      "emptyGlobal": "Ninguém pontuou neste período ainda."
     }
   },
   "settings": {
