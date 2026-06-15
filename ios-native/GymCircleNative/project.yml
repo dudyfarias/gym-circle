@@ -67,11 +67,9 @@ targets:
         CODE_SIGN_ENTITLEMENTS: Support/GymCircleNative.entitlements
         SWIFT_VERSION: "5.9"
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: "NO"
-      configs:
-        Debug:
-          CODE_SIGNING_ALLOWED: "NO"
-        Release:
-          CODE_SIGNING_ALLOWED: "NO"
+        # Cutover: simulador/CI buildam sem signing (sem team); o DEVICE
+        # (archive/TestFlight) assina normal com o Team setado no Xcode.
+        "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": "NO"
 
   # Sprint 9.9.7 — unit-test target (P1 #6).
   GymCircleNativeTests:
@@ -87,11 +85,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.app.tests
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
-      configs:
-        Debug:
-          CODE_SIGNING_ALLOWED: "NO"
-        Release:
-          CODE_SIGNING_ALLOWED: "NO"
+        "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": "NO"
 
 schemes:
   GymCircleNative:
