@@ -39,6 +39,10 @@ targets:
         # build 2 (15/jun): o build 1 subiu quebrado (modo demo + login só-email);
         # App Store Connect rejeita reupload do mesmo build number.
         CFBundleVersion: "2"
+        # Conformidade de exportação: o app só usa HTTPS/TLS padrão + Keychain
+        # (criptografia ISENTA, sem nada proprietário). NO limpa o "Faltam dados
+        # de conformidade" automaticamente nos próximos builds.
+        ITSAppUsesNonExemptEncryption: false
         LSRequiresIPhoneOS: true
         # Sprint 20.0 — resolvidas no build a partir do xcconfig; o
         # AppConfiguration.fromBundle() lê daqui (vazio ⇒ modo demo).
