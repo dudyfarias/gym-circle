@@ -322,22 +322,24 @@ public struct MonthlyChallengeRowView: View {
             .foregroundColor(difficultyTone)
     }
 
-    // Sprint 9.7.4 — L10n PT/EN
+    // Sprint 22 — rótulo e cor por RARIDADE (não mais dificuldade).
     private var difficultyLabel: String {
-        switch challenge.difficulty {
-        case .easy:      return L10n.challengeDifficultyEasy.string
-        case .medium:    return L10n.challengeDifficultyMedium.string
-        case .hard:      return L10n.challengeDifficultyHard.string
-        case .legendary: return L10n.challengeDifficultyLegendary.string
+        switch challenge.rarity {
+        case .common:    return Loc.rarityCommonTitle
+        case .uncommon:  return Loc.rarityUncommonTitle
+        case .rare:      return Loc.rarityRareTitle
+        case .epic:      return Loc.rarityEpicTitle
+        case .legendary: return Loc.rarityLegendaryTitle
         }
     }
 
     private var difficultyTone: Color {
-        switch challenge.difficulty {
-        case .easy: return GymCircleTheme.ColorToken.difficultyEasy
-        case .medium: return GymCircleTheme.ColorToken.difficultyMedium
-        case .hard: return GymCircleTheme.ColorToken.difficultyHard
-        case .legendary: return GymCircleTheme.ColorToken.difficultyLegendary
+        switch challenge.rarity {
+        case .common: return GymCircleTheme.ColorToken.rarityCommon
+        case .uncommon: return GymCircleTheme.ColorToken.rarityUncommon
+        case .rare: return GymCircleTheme.ColorToken.rarityRare
+        case .epic: return GymCircleTheme.ColorToken.rarityEpic
+        case .legendary: return GymCircleTheme.ColorToken.rarityLegendary
         }
     }
 }

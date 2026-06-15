@@ -26,6 +26,8 @@ public struct MonthlyChallengeDefinition: Codable, Hashable, Sendable {
     public let descriptionPt: String
     public let descriptionEn: String
     public let difficulty: ChallengeDifficulty
+    // Sprint 22 — raridade direta (5 níveis), fonte de verdade de pontos/visual.
+    public let rarity: AchievementRarity
     public let goalKind: ChallengeGoalKind
     public let goalTarget: Int
     public let startDate: Date
@@ -43,6 +45,7 @@ public struct MonthlyChallengeDefinition: Codable, Hashable, Sendable {
         case descriptionPt = "description_pt"
         case descriptionEn = "description_en"
         case difficulty
+        case rarity
         case goalKind = "goal_kind"
         case goalTarget = "goal_target"
         case startDate = "start_date"
@@ -92,6 +95,7 @@ public struct MonthlyChallenge: Identifiable, Hashable, Sendable {
     public let title: String              // já localizada
     public let description: String        // já localizada
     public let difficulty: ChallengeDifficulty
+    public let rarity: AchievementRarity
     public let goalKind: ChallengeGoalKind
     public let goalTarget: Int
     public let trophyId: String
@@ -115,6 +119,7 @@ public struct MonthlyChallenge: Identifiable, Hashable, Sendable {
         title: String,
         description: String,
         difficulty: ChallengeDifficulty,
+        rarity: AchievementRarity,
         goalKind: ChallengeGoalKind,
         goalTarget: Int,
         trophyId: String,
@@ -128,6 +133,7 @@ public struct MonthlyChallenge: Identifiable, Hashable, Sendable {
         self.title = title
         self.description = description
         self.difficulty = difficulty
+        self.rarity = rarity
         self.goalKind = goalKind
         self.goalTarget = goalTarget
         self.trophyId = trophyId
@@ -149,6 +155,7 @@ public struct MonthlyChallenge: Identifiable, Hashable, Sendable {
             title: definition.localizedTitle(locale: locale),
             description: definition.localizedDescription(locale: locale),
             difficulty: definition.difficulty,
+            rarity: definition.rarity,
             goalKind: definition.goalKind,
             goalTarget: definition.goalTarget,
             trophyId: definition.trophyId,

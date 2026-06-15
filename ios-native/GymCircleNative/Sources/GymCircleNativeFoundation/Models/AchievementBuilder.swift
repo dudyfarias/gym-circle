@@ -354,15 +354,7 @@ public enum AchievementBuilder {
 
     private static func buildChallenges(_ monthlyChallenges: [MonthlyChallenge]) -> [Achievement] {
         monthlyChallenges.map { challenge in
-            let rarity: AchievementRarity = {
-                switch challenge.difficulty {
-                case .legendary: return .legendary
-                case .hard: return .epic
-                case .medium: return .uncommon
-                case .easy: return .common
-                }
-            }()
-
+            // Sprint 22 — raridade direta (sem mapping de difficulty).
             return Achievement(
                 kind: .challenge,
                 achievementId: challenge.id,
@@ -370,7 +362,7 @@ public enum AchievementBuilder {
                 description: challenge.description,
                 earned: challenge.isCompleted,
                 iconKey: .trophy,
-                rarity: rarity,
+                rarity: challenge.rarity,
                 progress: challenge.isCompleted ? nil : AchievementProgress(
                     current: challenge.progress,
                     target: challenge.goalTarget

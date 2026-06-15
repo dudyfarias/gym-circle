@@ -145,42 +145,9 @@ public struct AchievementDetailView: View {
                 .opacity(animateIn && achievement.earned ? 1 : 0)
                 .animation(.easeOut(duration: 0.8), value: animateIn)
 
-            // Icon
-            if achievement.isMysterySecret {
-                Image(systemName: "questionmark")
-                    .font(.system(size: 80, weight: .heavy))
-                    .foregroundColor(.white.opacity(0.4))
-            } else if !achievement.earned {
-                // Locked: ícone dim+blur com Lock overlay flutuante.
-                // Paridade ArtworkPlaceholder.locked em AchievementDetailOverlay.tsx
-                ZStack {
-                    BadgeIconNativeView(
-                        iconKey: achievement.iconKey,
-                        earned: false,
-                        size: 140
-                    )
-                    .opacity(0.32)
-                    .blur(radius: 2)
-
-                    // Lock pill central com glass effect
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 24, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.72))
-                        .frame(width: 56, height: 56)
-                        .background(
-                            Circle()
-                                .fill(Color.white.opacity(0.08))
-                                .background(.ultraThinMaterial, in: Circle())
-                        )
-                        .shadow(color: .black.opacity(0.5), radius: 12, y: 4)
-                }
-            } else {
-                BadgeIconNativeView(
-                    iconKey: achievement.iconKey,
-                    earned: true,
-                    size: 140
-                )
-            }
+            // Icon — Sprint 22: artefato único (mistério / locked / earned são
+            // tratados DENTRO do AchievementArtifactView, paridade web).
+            AchievementArtifactView(achievement: achievement, size: 140, glow: true)
         }
         .scaleEffect(animateIn ? 1.0 : 0.5)
         .animation(.spring(response: 0.6, dampingFraction: 0.65, blendDuration: 0.4), value: animateIn)

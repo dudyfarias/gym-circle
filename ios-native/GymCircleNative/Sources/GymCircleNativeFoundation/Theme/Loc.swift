@@ -217,13 +217,13 @@ public enum Loc {
 
     // MARK: - Hall (Achievements)
     public static var hallTitle: String { t("Hall of Fame", "Hall da Fama") }
-    public static func earnedOf(_ n: Int, _ total: Int) -> String { t("\(n) of \(total) earned", "\(n) de \(total) conquistadas") }
+    public static func earnedOf(_ n: Int, _ total: Int) -> String { t("\(n) of \(total) challenges", "\(n) de \(total) desafios") }
     public static func countOf(_ n: Int, _ total: Int) -> String { t("\(n) of \(total)", "\(n) de \(total)") }
-    public static var nextPrize: String { t("NEXT PRIZE", "PRÓXIMO PRÊMIO") }
+    public static var nextPrize: String { t("NEXT CHALLENGE", "PRÓXIMO DESAFIO") }
     public static func progressOf(_ current: Int, _ target: Int) -> String { t("\(current) of \(target)", "\(current) de \(target)") }
     public static var featuredOne: String { t("Your featured achievement", "Sua conquista em destaque") }
     public static var showAll: String { t("Show all", "Mostrar tudo") }
-    public static var allPrizes: String { t("All prizes", "Todos os prêmios") }
+    public static var allPrizes: String { t("All challenges", "Todos os desafios") }
     public static var allPrizesSubtitle: String { t("Everything you can earn on Gym Circle.", "Tudo que dá pra conquistar no Gym Circle.") }
     public static var earned: String { t("Earned", "Conquistado") }
     public static var locked: String { t("Locked", "Bloqueado") }
@@ -238,6 +238,17 @@ public enum Loc {
     public static var trophiesDesc: String { t("Social feats and circle records.", "Feitos sociais e recordes do circle.") }
     public static var relicsDesc: String { t("Mythic rarities — very few have them.", "Raridades míticas — pouquíssimos têm.") }
     public static var challengesDesc: String { t("The themed challenges of each month.", "Os desafios temáticos de cada mês.") }
+    // Sprint 22 — Hall agrupado por RARIDADE (mais raro → mais comum).
+    public static var rarityCommonTitle: String { t("Common", "Comum") }
+    public static var rarityUncommonTitle: String { t("Uncommon", "Incomum") }
+    public static var rarityRareTitle: String { t("Rare", "Raro") }
+    public static var rarityEpicTitle: String { t("Epic", "Épico") }
+    public static var rarityLegendaryTitle: String { t("Legendary", "Lendário") }
+    public static var rarityCommonDesc: String { t("First steps and everyday wins.", "Os primeiros passos e vitórias do dia a dia.") }
+    public static var rarityUncommonDesc: String { t("Solid consistency milestones.", "Marcos sólidos de consistência.") }
+    public static var rarityRareDesc: String { t("Rare challenges for the committed.", "Desafios raros, de quem treina firme.") }
+    public static var rarityEpicDesc: String { t("Epic feats. Few make it here.", "Feitos épicos. Poucos chegam aqui.") }
+    public static var rarityLegendaryDesc: String { t("The rarest challenges in Gym Circle.", "Os desafios mais raros do Gym Circle.") }
 
     // MARK: - Profile / generic
     public static var profile: String { t("Profile", "Perfil") }

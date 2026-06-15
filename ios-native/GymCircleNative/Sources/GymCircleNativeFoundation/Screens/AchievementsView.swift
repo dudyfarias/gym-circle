@@ -16,7 +16,7 @@ public struct AchievementsView: View {
     private enum Mode: Equatable {
         case overview
         case all
-        case category(AchievementKind)
+        case category(AchievementRarity)
     }
 
     @State private var mode: Mode = .overview
@@ -56,11 +56,11 @@ public struct AchievementsView: View {
                             subtitle: Loc.allPrizesSubtitle,
                             items: achievements
                         )
-                    case .category(let kind):
+                    case .category(let rarity):
                         gridView(
-                            title: Self.kindTitle(kind),
-                            subtitle: Self.kindDescription(kind),
-                            items: achievements.filter { $0.kind == kind }
+                            title: Self.rarityTitle(rarity),
+                            subtitle: Self.rarityDescription(rarity),
+                            items: achievements.filter { Self.rarityOf($0) == rarity }
                         )
                     }
                 }
@@ -127,11 +127,7 @@ public struct AchievementsView: View {
         } label: {
             GCCard {
                 HStack(spacing: 14) {
-                    BadgeIconNativeView(
-                        iconKey: achievement.iconKey,
-                        earned: false,
-                        size: 52
-                    )
+                    AchievementArtifactView(achievement: achievement, size: 52, glow: true)
                     VStack(alignment: .leading, spacing: 4) {
                         GCText(Loc.nextPrize, style: .caption, color: GymCircleTheme.ColorToken.cyan)
                         GCText(secretSafeLabel(achievement), style: .headline)
@@ -170,7 +166,7 @@ public struct AchievementsView: View {
     private func featuredCard(_ star: Achievement) -> some View {
         GCCard {
             VStack(spacing: 14) {
-                BadgeIconNativeView(iconKey: star.iconKey, earned: true, size: 96)
+                AchievementArtifactView(achievement: star, size: 96, glow: true)
                     .onTapGesture { onTap(star) }
                 GCText(star.label, style: .headline)
                 GCText(Loc.featuredOne, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
@@ -182,7 +178,7 @@ public struct AchievementsView: View {
                             Button {
                                 onTap(mini)
                             } label: {
-                                BadgeIconNativeView(iconKey: mini.iconKey, earned: true, size: 38)
+                                AchievementArtifactView(achievement: mini, size: 38)
                             }
                             .buttonStyle(.plain)
                         }
@@ -211,34 +207,30 @@ public struct AchievementsView: View {
         }
     }
 
-    /// Grid 2-col de categorias (paridade Sprint 15: 5 kinds).
+    /// Grid 2-col por RARIDADE (Sprint 22: mais raro → mais comum).
     private var categoryGrid: some View {
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-            ForEach(AchievementKind.allCases, id: \.self) { kind in
-                categoryCard(kind)
+            ForEach(Self.rarityOrder, id: \.self) { rarity in
+                categoryCard(rarity)
             }
         }
     }
 
-    private func categoryCard(_ kind: AchievementKind) -> some View {
-        let items = achievements.filter { $0.kind == kind }
+    private func categoryCard(_ rarity: AchievementRarity) -> some View {
+        let items = achievements.filter { Self.rarityOf($0) == rarity }
         let earned = items.filter(\.earned)
         // Melhor earned como capa; sem earned → primeiro item apagado.
         let cover = earned.first ?? items.first
 
         return Button {
-            withAnimation(.easeOut(duration: 0.18)) { mode = .category(kind) }
+            withAnimation(.easeOut(duration: 0.18)) { mode = .category(rarity) }
         } label: {
             GCCard {
                 VStack(alignment: .leading, spacing: 10) {
                     if let cover {
-                        BadgeIconNativeView(
-                            iconKey: cover.iconKey,
-                            earned: cover.earned,
-                            size: 56
-                        )
+                        AchievementArtifactView(achievement: cover, size: 56)
                     }
-                    GCText(Self.kindTitle(kind), style: .headline)
+                    GCText(Self.rarityTitle(rarity), style: .headline)
                     GCText(
                         Loc.countOf(earned.count, items.count),
                         style: .caption,
@@ -246,7 +238,7 @@ public struct AchievementsView: View {
                     )
                     HStack(spacing: 8) {
                         ForEach(Array(earned.prefix(3))) { mini in
-                            BadgeIconNativeView(iconKey: mini.iconKey, earned: true, size: 24)
+                            AchievementArtifactView(achievement: mini, size: 24)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -284,11 +276,7 @@ public struct AchievementsView: View {
                         onTap(achievement)
                     } label: {
                         VStack(spacing: 6) {
-                            BadgeIconNativeView(
-                                iconKey: achievement.iconKey,
-                                earned: achievement.earned,
-                                size: 56
-                            )
+                            AchievementArtifactView(achievement: achievement, size: 56)
                             GCText(secretSafeLabel(achievement), style: .caption)
                                 .lineLimit(2)
                                 .multilineTextAlignment(.center)
@@ -343,23 +331,30 @@ public struct AchievementsView: View {
         }
     }
 
-    static func kindTitle(_ kind: AchievementKind) -> String {
-        switch kind {
-        case .badge: return Loc.badges
-        case .medal: return Loc.medals
-        case .trophy: return Loc.trophies
-        case .relic: return Loc.relics
-        case .challenge: return Loc.challenges
+    // Sprint 22 — agrupamento por RARIDADE (mais raro → mais comum).
+    static let rarityOrder: [AchievementRarity] = [.legendary, .epic, .rare, .uncommon, .common]
+
+    static func rarityOf(_ achievement: Achievement) -> AchievementRarity {
+        achievement.rarity ?? .common
+    }
+
+    static func rarityTitle(_ rarity: AchievementRarity) -> String {
+        switch rarity {
+        case .common: return Loc.rarityCommonTitle
+        case .uncommon: return Loc.rarityUncommonTitle
+        case .rare: return Loc.rarityRareTitle
+        case .epic: return Loc.rarityEpicTitle
+        case .legendary: return Loc.rarityLegendaryTitle
         }
     }
 
-    static func kindDescription(_ kind: AchievementKind) -> String {
-        switch kind {
-        case .badge: return Loc.badgesDesc
-        case .medal: return Loc.medalsDesc
-        case .trophy: return Loc.trophiesDesc
-        case .relic: return Loc.relicsDesc
-        case .challenge: return Loc.challengesDesc
+    static func rarityDescription(_ rarity: AchievementRarity) -> String {
+        switch rarity {
+        case .common: return Loc.rarityCommonDesc
+        case .uncommon: return Loc.rarityUncommonDesc
+        case .rare: return Loc.rarityRareDesc
+        case .epic: return Loc.rarityEpicDesc
+        case .legendary: return Loc.rarityLegendaryDesc
         }
     }
 }

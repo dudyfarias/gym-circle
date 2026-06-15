@@ -48,7 +48,7 @@ public actor ChallengesService {
     private func fetchDefinitions(periodKey: String) async throws -> [MonthlyChallengeDefinition] {
         try await client
             .from("monthly_challenges")
-            .select("id,period_key,title_pt,title_en,description_pt,description_en,difficulty,goal_kind,goal_target,start_date,end_date,trophy_id,is_secret,goal_config")
+            .select("id,period_key,title_pt,title_en,description_pt,description_en,difficulty,rarity,goal_kind,goal_target,start_date,end_date,trophy_id,is_secret,goal_config")
             .eq("period_key", value: periodKey)
             .order("difficulty", ascending: true)
             .execute()

@@ -87,11 +87,7 @@ public struct AchievementCelebrationView: View {
                         .blur(radius: 50)
                         .opacity(animateIn ? 1 : 0)
 
-                    BadgeIconNativeView(
-                        iconKey: achievement.iconKey,
-                        earned: true,
-                        size: 140
-                    )
+                    AchievementArtifactView(achievement: achievement, size: 140, glow: true)
                     .scaleEffect(animateIn ? 1.0 : 0.35)
                     .animation(.spring(response: 0.6, dampingFraction: 0.65, blendDuration: 0.4), value: animateIn)
 

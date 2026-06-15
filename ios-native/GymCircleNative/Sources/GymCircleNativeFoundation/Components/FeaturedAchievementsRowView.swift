@@ -87,7 +87,7 @@ public struct FeaturedAchievementsRowView: View {
     @ViewBuilder
     private func card(_ achievement: Achievement) -> some View {
         let content = VStack(spacing: 6) {
-            BadgeIconNativeView(iconKey: achievement.iconKey, earned: achievement.earned, size: 36)
+            AchievementArtifactView(achievement: achievement, size: 36)
             GCText(
                 achievement.label,
                 style: .caption,
