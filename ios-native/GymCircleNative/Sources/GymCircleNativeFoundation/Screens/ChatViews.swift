@@ -1,5 +1,7 @@
 import SwiftUI
 import PhotosUI
+import AVKit
+import UniformTypeIdentifiers
 
 /// ChatViews — Sprint 20.6. Mata o placeholder "fase futura" da tab Chat.
 ///
@@ -395,6 +397,13 @@ public struct ConversationView: View {
                     .frame(width: 180, height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
+                if let mediaURL = message.mediaURL,
+                   message.mediaType == "video",
+                   let url = URL(string: mediaURL) {
+                    VideoPlayer(player: AVPlayer(url: url))
+                        .frame(width: 180, height: 220)
+                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
                 GCText(
                     CommentsSheet.relativeTime(from: message.createdAt),
                     style: .caption,
@@ -417,7 +426,7 @@ public struct ConversationView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
-            PhotosPicker(selection: $pickedImage, matching: .images) {
+            PhotosPicker(selection: $pickedImage, matching: .any(of: [.images, .videos])) {
                 Image(systemName: "photo")
                     .font(.system(size: 22, weight: .bold))
                     .foregroundStyle(GymCircleTheme.ColorToken.cyan)
@@ -510,12 +519,14 @@ public struct ConversationView: View {
             Haptics.error()
             return
         }
+        let isVideo = item.supportedContentTypes.contains { $0.conforms(to: .movie) }
 
         let sent = await model.sendChatImage(
             conversationId: conversationId,
             peerUserId: peerUserId,
             isGroup: isGroup,
-            imageData: data
+            imageData: data,
+            isVideo: isVideo
         )
         guard let sent else {
             Haptics.error()

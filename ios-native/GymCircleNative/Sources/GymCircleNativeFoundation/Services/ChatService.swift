@@ -161,14 +161,19 @@ public actor ChatService {
             .value
     }
 
-    public func uploadImage(userId: String, data: Data) async throws -> String {
+    public func uploadImage(
+        userId: String,
+        data: Data,
+        fileExtension: String = "jpg",
+        contentType: String = "image/jpeg"
+    ) async throws -> String {
         let stamp = Int(Date().timeIntervalSince1970 * 1000)
         let rand = String(UUID().uuidString.prefix(6)).lowercased()
-        let path = "\(userId)/\(stamp)-\(rand).jpg"
+        let path = "\(userId)/\(stamp)-\(rand).\(fileExtension)"
         _ = try await client.storage.from("chat-media").upload(
             path,
             data: data,
-            options: FileOptions(cacheControl: "3600", contentType: "image/jpeg")
+            options: FileOptions(cacheControl: "3600", contentType: contentType)
         )
         return try client.storage.from("chat-media").getPublicURL(path: path).absoluteString
     }

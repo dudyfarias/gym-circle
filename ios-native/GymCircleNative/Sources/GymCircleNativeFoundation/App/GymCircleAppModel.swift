@@ -722,17 +722,24 @@ public final class GymCircleAppModel: ObservableObject {
         conversationId: String?,
         peerUserId: String?,
         isGroup: Bool,
-        imageData: Data
+        imageData: Data,
+        isVideo: Bool = false
     ) async -> ChatMessage? {
         guard let chatService, let userId = sessionStore?.currentUserId else { return nil }
+        let mediaType = isVideo ? "video" : "image"
         do {
-            let url = try await chatService.uploadImage(userId: userId, data: imageData)
+            let url = try await chatService.uploadImage(
+                userId: userId,
+                data: imageData,
+                fileExtension: isVideo ? "mp4" : "jpg",
+                contentType: isVideo ? "video/mp4" : "image/jpeg"
+            )
             if let conversationId, isGroup {
                 return try await chatService.sendGroup(
                     conversationId: conversationId,
                     body: nil,
                     mediaURL: url,
-                    mediaType: "image"
+                    mediaType: mediaType
                 )
             }
             if let peerUserId {
@@ -740,7 +747,7 @@ public final class GymCircleAppModel: ObservableObject {
                     receiverId: peerUserId,
                     body: nil,
                     mediaURL: url,
-                    mediaType: "image"
+                    mediaType: mediaType
                 )
             }
             if let conversationId {
@@ -748,7 +755,7 @@ public final class GymCircleAppModel: ObservableObject {
                     conversationId: conversationId,
                     body: nil,
                     mediaURL: url,
-                    mediaType: "image"
+                    mediaType: mediaType
                 )
             }
             return nil
