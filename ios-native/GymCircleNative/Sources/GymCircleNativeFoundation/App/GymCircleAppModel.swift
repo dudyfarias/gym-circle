@@ -280,12 +280,16 @@ public final class GymCircleAppModel: ObservableObject {
             let stream = channel.postgresChange(AnyAction.self, schema: "public", table: table)
             let task = Task { [weak self] in
                 for await _ in stream {
-                    await self?.scheduleRealtimeRefresh()
+                    // Task herda o @MainActor do AppModel; scheduleRealtimeRefresh
+                    // é síncrono no mesmo ator, então não precisa de await.
+                    self?.scheduleRealtimeRefresh()
                 }
             }
             realtimeStreamTasks.append(task)
         }
-        await channel.subscribe()
+        // subscribe() foi deprecado em favor de subscribeWithError(); fail-soft
+        // (try?) mantém o realtime best-effort, igual ao comportamento antigo.
+        try? await channel.subscribeWithError()
         realtimeChannel = channel
     }
 
