@@ -250,6 +250,25 @@ public enum Loc {
     public static var rarityEpicDesc: String { t("Epic feats. Few make it here.", "Feitos épicos. Poucos chegam aqui.") }
     public static var rarityLegendaryDesc: String { t("The rarest challenges in Gym Circle.", "Os desafios mais raros do Gym Circle.") }
 
+    // Sprint 19 — Competição (ranking por pontos).
+    public static var competitionTitle: String { t("Competition", "Competição") }
+    public static var competitionScopeCircle: String { t("Friends", "Amigos") }
+    public static var competitionScopeGlobal: String { t("Global", "Geral") }
+    public static var competitionPeriodWeek: String { t("Week", "Semana") }
+    public static var competitionPeriodMonth: String { t("Month", "Mês") }
+    public static var competitionPeriodYear: String { t("Year", "Ano") }
+    public static var competitionYourPoints: String { t("YOUR POINTS", "SEUS PONTOS") }
+    public static func competitionRankBadge(_ position: Int) -> String { t("#\(position)", "\(position)º") }
+    public static var competitionBreakdownWorkouts: String { t("Workouts", "Treino") }
+    public static var competitionBreakdownBonus: String { t("Bonus", "Bônus") }
+    public static var competitionBreakdownAchievements: String { t("Achievements", "Conquistas") }
+    public static var competitionEmptyCircle: String { t("Follow people to compete with your circle.", "Siga pessoas pra competir com seu circle.") }
+    public static var competitionEmptyGlobal: String { t("No active athletes yet.", "Nenhum atleta ativo ainda.") }
+    public static var competitionPts: String { t("pts", "pts") }
+    public static func competitionWorkoutsCount(_ n: Int) -> String {
+        n == 1 ? t("1 workout", "1 treino") : t("\(n) workouts", "\(n) treinos")
+    }
+
     // MARK: - Profile / generic
     public static var profile: String { t("Profile", "Perfil") }
     public static var noStoriesTitle: String { t("No stories", "Sem stories") }

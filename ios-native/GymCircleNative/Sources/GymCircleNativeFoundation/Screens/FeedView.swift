@@ -173,7 +173,12 @@ public struct FeedView: View {
         }
         .sheet(isPresented: $myCirclePresented) {
             NavigationStack {
-                MyCircleView(data: myCircle)
+                MyCircleView(
+                    data: myCircle,
+                    onLoadRanking: { scope, period in
+                        await model.loadRanking(scope, period)
+                    }
+                )
                     .navigationTitle(Loc.myCircle)
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

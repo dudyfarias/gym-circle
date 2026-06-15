@@ -29,6 +29,9 @@ public struct MyCircleView: View {
     /// Sprint 8.11.3 — recebe offset de mês (-1, 0, +1...) pra recarregar
     /// `data.calendarDays`. Quando nil, chevrons não aparecem (back-compat).
     public let onChangeMonth: ((Int) -> Void)?
+    /// Sprint 19 — loader do ranking da Competição (escopo × período). Quando
+    /// nil, a seção mostra o placeholder "Em breve" (back-compat / demo).
+    public let onLoadRanking: ((RankingScope, RankingPeriod) async -> [CircleRankingRow])?
 
     /// Sprint 8.11.3 — offset atual do mês exibido no calendar. 0 = hoje.
     @State private var calendarMonthOffset: Int = 0
@@ -51,7 +54,8 @@ public struct MyCircleView: View {
         onTapChallenge: ((MonthlyChallenge) -> Void)? = nil,
         onTapRecap: (() -> Void)? = nil,
         onTapPickPeriod: (() -> Void)? = nil,
-        onChangeMonth: ((Int) -> Void)? = nil
+        onChangeMonth: ((Int) -> Void)? = nil,
+        onLoadRanking: ((RankingScope, RankingPeriod) async -> [CircleRankingRow])? = nil
     ) {
         self.data = data
         self.onClose = onClose
@@ -60,6 +64,7 @@ public struct MyCircleView: View {
         self.onTapRecap = onTapRecap
         self.onTapPickPeriod = onTapPickPeriod
         self.onChangeMonth = onChangeMonth
+        self.onLoadRanking = onLoadRanking
     }
 
     public var body: some View {
@@ -100,7 +105,7 @@ public struct MyCircleView: View {
                         }
                         if data.isOwn {
                             recapCTASection
-                            competitionPlaceholderSection
+                            competitionSection
                         }
                     }
                     Spacer(minLength: 32)
@@ -577,7 +582,16 @@ public struct MyCircleView: View {
         )
     }
 
-    // MARK: - I. Competição placeholder (Sprint 8.12.3, paridade web seção G)
+    // MARK: - I. Competição (Sprint 19 — ranking real; placeholder se sem loader)
+
+    @ViewBuilder
+    private var competitionSection: some View {
+        if let onLoadRanking {
+            CompetitionSectionView(currentUserId: data.userId, onLoad: onLoadRanking)
+        } else {
+            competitionPlaceholderSection
+        }
+    }
 
     private var competitionPlaceholderSection: some View {
         VStack(spacing: 10) {

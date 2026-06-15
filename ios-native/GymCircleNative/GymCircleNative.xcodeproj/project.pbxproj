@@ -59,6 +59,8 @@
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
 		AE315F4F956A28DA13D582C6 /* PostParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465041DF7DF6A1000F0BC96E /* PostParticipant.swift */; };
 		B2AB591D79BDE6D323F6E7B9 /* AchievementArtifactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7116C972083F9CD05FC48694 /* AchievementArtifactView.swift */; };
+		B346B994AE66D1137B5CD9FD /* RankingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C1A4E0E663643D7BF57928D /* RankingModels.swift */; };
+		B79FE1096D0D9FFC34DB9D55 /* CompetitionSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35C282A33EA581B6F7F27212 /* CompetitionSectionView.swift */; };
 		B8BADDC3F2F1DB2E20D317F6 /* FeaturedAchievementsRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */; };
 		BBE4C5ED1604B5BF51F36B23 /* NativeModelsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */; };
 		BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E02612239E7BC217D0CE54E /* AchievementsView.swift */; };
@@ -115,6 +117,7 @@
 		2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeRootView.swift; sourceTree = "<group>"; };
 		317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBuilderTests.swift; sourceTree = "<group>"; };
+		35C282A33EA581B6F7F27212 /* CompetitionSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompetitionSectionView.swift; sourceTree = "<group>"; };
 		381506FB324FA418FAD1FEBF /* MyCircleService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyCircleService.swift; sourceTree = "<group>"; };
 		3CD5A151A6BF89D3869A206C /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		42B8BFA2187D25EB54BECC01 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
@@ -135,6 +138,7 @@
 		671BB7E573CC14848641536D /* NotificationsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsSheet.swift; sourceTree = "<group>"; };
 		682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeaturedAchievementsRowView.swift; sourceTree = "<group>"; };
 		6A44D5666AF9C52ED99FE84E /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
+		6C1A4E0E663643D7BF57928D /* RankingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RankingModels.swift; sourceTree = "<group>"; };
 		6C49CF73E5FC4231EF022A24 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		6D2F3C03BC2098846FF44D01 /* FollowsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowsService.swift; sourceTree = "<group>"; };
 		70CEB07821E09F169BDBDA40 /* RetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryTests.swift; sourceTree = "<group>"; };
@@ -215,6 +219,7 @@
 				641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */,
 				069AF1E053D24164413598B0 /* BaseComponents.swift */,
 				6A44D5666AF9C52ED99FE84E /* CameraPicker.swift */,
+				35C282A33EA581B6F7F27212 /* CompetitionSectionView.swift */,
 				682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */,
 				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
 				89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */,
@@ -295,6 +300,7 @@
 				E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */,
 				7D2D9BAF75EF15E3A3E7DAF8 /* PostComment.swift */,
 				465041DF7DF6A1000F0BC96E /* PostParticipant.swift */,
+				6C1A4E0E663643D7BF57928D /* RankingModels.swift */,
 				15CF77117635F0D69B78BE8C /* StoryModels.swift */,
 				4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */,
 			);
@@ -500,6 +506,7 @@
 				A5A6D40CD56C0495A971AE73 /* CheckInView.swift in Sources */,
 				14A45B815BD3F8556D41CA9E /* CommentsService.swift in Sources */,
 				437FF8ED624FEBE121C0AE42 /* CommentsSheet.swift in Sources */,
+				B79FE1096D0D9FFC34DB9D55 /* CompetitionSectionView.swift in Sources */,
 				509C986FA5F2D6C42D51A689 /* ComposerView.swift in Sources */,
 				AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */,
 				B8BADDC3F2F1DB2E20D317F6 /* FeaturedAchievementsRowView.swift in Sources */,
@@ -539,6 +546,7 @@
 				660226AA88621F665F2A4A5F /* PressableButtonStyle.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
 				3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */,
+				B346B994AE66D1137B5CD9FD /* RankingModels.swift in Sources */,
 				A237D22A211DEBC05FFAFE2F /* RecapCoverPickerSheet.swift in Sources */,
 				C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */,
 				DB1B30BE14F3C9A97AF5FB6E /* Retry.swift in Sources */,

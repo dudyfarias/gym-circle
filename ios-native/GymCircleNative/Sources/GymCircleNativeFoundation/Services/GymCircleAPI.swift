@@ -59,6 +59,24 @@ public actor GymCircleAPI {
             .value
     }
 
+    /// Sprint 19 — Competição. Ranking por pontos (escopo × período). Só
+    /// agregado; o RPC é SECURITY DEFINER e resolve o viewer via auth.uid().
+    public func circleRanking(
+        scope: RankingScope,
+        period: RankingPeriod,
+        limit: Int = 50
+    ) async throws -> [CircleRankingRow] {
+        let params = CircleRankingParams(
+            p_scope: scope.rawValue,
+            p_period: period.rawValue,
+            p_limit: limit
+        )
+        return try await client
+            .rpc("get_circle_ranking", params: params)
+            .execute()
+            .value
+    }
+
     /// Sprint 20.3a — mídias do carrossel pros posts dados (post_media
     /// ordenado por position). Retorna dicionário post_id → itens; posts
     /// sem entrada são mídia única.

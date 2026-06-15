@@ -229,6 +229,19 @@ public final class GymCircleAppModel: ObservableObject {
         myCircleData = nil
     }
 
+    // MARK: - Competição (Sprint 19 — ranking sob demanda)
+
+    /// Carrega o ranking (escopo × período) via RPC. Fail-soft em [] (paridade
+    /// queryCircleRankingSurface web). A UI dispara ao abrir/trocar seleção.
+    public func loadRanking(_ scope: RankingScope, _ period: RankingPeriod) async -> [CircleRankingRow] {
+        guard let api else { return [] }
+        do {
+            return try await api.circleRanking(scope: scope, period: period)
+        } catch {
+            return []
+        }
+    }
+
     // MARK: - Surfaces
 
     public func loadInitialSurfaces() async {
