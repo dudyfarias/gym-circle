@@ -1,16 +1,21 @@
-import type { Achievement } from "./achievements";
+import type { Achievement, AchievementRarity } from "./achievements";
 
 /**
  * Sprint 15 — adapter visual pro `AchievementArtifact3D` (port da release).
  *
- * O componente 3D espera `{ kind, tone, monogram }`, mas o modelo do main não
- * tem campo `visual` (o comentário em `achievements.ts` previa: "fallback 2D
- * enquanto arte 3D não chega" — chegou). Este adapter deriva o visual de cada
- * conquista de forma PURA e determinística, sem mexer no modelo base (que é
- * espelhado pelo nativo SwiftUI — não quebra o bridge).
+ * O componente 3D espera `{ shape, tone, monogram }`, mas o modelo do main não
+ * tem campo `visual`. Este adapter deriva o visual de cada conquista de forma
+ * PURA e determinística, sem mexer no modelo base (espelhado pelo nativo
+ * SwiftUI — não quebra o bridge).
+ *
+ * Sprint 22 — "tudo é desafio, agrupado por raridade": a FORMA passa a
+ * codificar a RARIDADE (não mais a categoria). disco→quadrado→hexágono→
+ * escudo→estrela conforme sobe a raridade. A cor já vinha da raridade
+ * (Sprint 19). A distinção de categoria (badge/medal/trophy/relic) some do
+ * visual — `kind` continua só como chave interna do banco.
  */
 
-export type AchievementVisualKind = "badge3d" | "medal3d" | "trophy3d" | "relic3d";
+export type AchievementVisualShape = "disc" | "square" | "hex" | "shield" | "star";
 
 export type AchievementVisualTone =
   // Sprint 19 — palette de raridade (mais difícil = mais raro):
@@ -21,7 +26,7 @@ export type AchievementVisualTone =
   | "amber" // lendário (laranja)
   | "dark" // secret não-conquistado ("???")
   // Tons legados (Sprint 15) — mantidos pro CSS não quebrar; não mais
-  // produzidos pelo mapa de raridade/dificuldade.
+  // produzidos pelo mapa de raridade.
   | "cyan"
   | "blue"
   | "bronze"
@@ -30,41 +35,32 @@ export type AchievementVisualTone =
   | "crystal";
 
 export type AchievementVisual = {
-  kind: AchievementVisualKind;
+  shape: AchievementVisualShape;
   tone: AchievementVisualTone;
   monogram: string;
 };
 
-/** Shape 3D por categoria. Challenge usa o quadrado arredondado do badge. */
-const KIND_SHAPE: Record<Achievement["kind"], AchievementVisualKind> = {
-  badge: "badge3d",
-  medal: "medal3d",
-  trophy: "trophy3d",
-  relic: "relic3d",
-  challenge: "badge3d",
+/**
+ * Sprint 22 — FORMA por raridade (a silhueta fica mais "especial" conforme
+ * sobe a raridade). Vale pra TODOS (inclusive desafios mensais, que agora
+ * carregam rarity direto).
+ */
+const RARITY_SHAPE: Record<AchievementRarity, AchievementVisualShape> = {
+  common: "disc",
+  uncommon: "square",
+  rare: "hex",
+  epic: "shield",
+  legendary: "star",
 };
 
 /**
- * Sprint 19 — cor por RARIDADE (esquema clássico, mais difícil = mais raro).
- * Vale pra TODOS os tipos, inclusive medalhas (bronze/prata/ouro aposentados).
+ * Sprint 19 — COR por raridade (esquema clássico, mais difícil = mais raro).
  */
-const RARITY_TONE: Record<NonNullable<Achievement["rarity"]>, AchievementVisualTone> = {
+const RARITY_TONE: Record<AchievementRarity, AchievementVisualTone> = {
   common: "stone",
   uncommon: "emerald",
   rare: "sapphire",
   epic: "amethyst",
-  legendary: "amber",
-};
-
-/**
- * Dificuldade de desafio → tom, alinhado ao mapa difficulty→rarity de
- * achievements.ts buildChallenges (easy=common, medium=uncommon, hard=epic,
- * legendary=legendary).
- */
-const DIFFICULTY_TONE: Record<string, AchievementVisualTone> = {
-  easy: "stone",
-  medium: "emerald",
-  hard: "amethyst",
   legendary: "amber",
 };
 
@@ -119,23 +115,18 @@ function deriveMonogram(achievement: Achievement): string {
 }
 
 export function getAchievementVisual(achievement: Achievement): AchievementVisual {
-  // Secret não-conquistado: NUNCA vaza tom/monograma real — artefato "mistério".
+  // Secret não-conquistado: NUNCA vaza forma/tom/monograma reais — artefato
+  // "mistério" neutro (disco escuro), sem entregar a raridade pela silhueta.
   if (achievement.secret && !achievement.earned) {
-    return { kind: KIND_SHAPE[achievement.kind], tone: "dark", monogram: "?" };
+    return { shape: "disc", tone: "dark", monogram: "?" };
   }
 
-  // Sprint 19 — TODOS coloridos por raridade (medalhas perderam bronze/prata/
-  // ouro; agora "mais difícil = mais raro"). Desafio deriva da dificuldade.
-  let tone: AchievementVisualTone;
-  if (achievement.kind === "challenge") {
-    tone = DIFFICULTY_TONE[achievement.difficulty] ?? "stone";
-  } else {
-    tone = achievement.rarity ? RARITY_TONE[achievement.rarity] : "stone";
-  }
-
+  // Sprint 22 — forma E cor por raridade, pra TODOS. Sem rarity (não deveria
+  // acontecer) cai no disco/stone neutro.
+  const rarity = achievement.rarity;
   return {
-    kind: KIND_SHAPE[achievement.kind],
-    tone,
+    shape: rarity ? RARITY_SHAPE[rarity] : "disc",
+    tone: rarity ? RARITY_TONE[rarity] : "stone",
     monogram: deriveMonogram(achievement),
   };
 }

@@ -45,7 +45,7 @@ function makeChallenge(
     periodKey: "2026-06",
     title: "Teste",
     description: "Desc",
-    difficulty: "easy",
+    rarity: "common",
     goalKind: "workouts_in_month",
     goalTarget: 3,
     trophyId: "trophy-1",

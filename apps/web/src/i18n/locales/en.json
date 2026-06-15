@@ -871,23 +871,30 @@
       "medium": "Medium",
       "hard": "Hard",
       "legendary": "Legendary"
+    },
+    "rarity": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
     }
   },
   "achievementsSheet": {
     "title": "Hall of Fame",
-    "hero": "{{earned}} of {{total}} earned",
+    "hero": "{{earned}} of {{total}} challenges",
     "progress": "{{current}}/{{target}}",
-    "empty": "No achievements in this category yet.",
+    "empty": "No challenges in this rarity yet.",
     "challengesArePersonal": "Challenges have not loaded yet.",
     "secretMystery": "Secret achievement",
     "secretHint": "Figure out how to unlock",
     "tabs": {
       "all": "All",
-      "badge": "Badges",
-      "medal": "Medals",
-      "trophy": "Trophies",
-      "relic": "Relics",
-      "challenge": "Challenges"
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
     },
     "section": {
       "earned": "Earned · {{count}}",
@@ -902,11 +909,11 @@
     "showAll": "Show all",
     "categoryCount": "{{earned}} of {{total}}",
     "categoryDescription": {
-      "badge": "First-time feats and special moments.",
-      "medal": "Consistency milestones — bronze, silver and gold.",
-      "trophy": "Big training and community feats.",
-      "relic": "The rarest achievements in Gym Circle.",
-      "challenge": "Exclusive monthly challenges. They don't come back."
+      "common": "First steps and everyday wins.",
+      "uncommon": "Solid consistency milestones.",
+      "rare": "Rare challenges for the committed.",
+      "epic": "Epic feats. Few make it here.",
+      "legendary": "The rarest challenges in Gym Circle."
     }
   },
   "achievementDetail": {

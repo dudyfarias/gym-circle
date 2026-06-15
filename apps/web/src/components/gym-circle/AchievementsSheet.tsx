@@ -12,7 +12,7 @@ import {
   getNextAchievement,
   suggestFeaturedAchievements,
   type Achievement,
-  type AchievementKind,
+  type AchievementRarity,
 } from "./social/achievements";
 import {
   loadUserAchievementMeta,
@@ -66,15 +66,20 @@ type AchievementsSheetProps = {
   monthlyChallenges?: ReadonlyArray<MonthlyChallengeData>;
 };
 
-type SheetView = "overview" | "all" | AchievementKind;
+type SheetView = "overview" | "all" | AchievementRarity;
 
-const CATEGORY_ORDER: ReadonlyArray<AchievementKind> = [
-  "badge",
-  "medal",
-  "trophy",
-  "relic",
-  "challenge",
+// Sprint 22 — "tudo é desafio, agrupado por RARIDADE": o Hall deixa de agrupar
+// por categoria (badge/medal/trophy/relic/challenge) e passa a agrupar por
+// raridade, do mais raro pro mais comum.
+const RARITY_ORDER: ReadonlyArray<AchievementRarity> = [
+  "legendary",
+  "epic",
+  "rare",
+  "uncommon",
+  "common",
 ];
+
+const rarityOf = (a: Achievement): AchievementRarity => a.rarity ?? "common";
 
 export function AchievementsSheet({
   open,
@@ -167,7 +172,7 @@ export function AchievementsSheet({
       ? []
       : view === "all"
         ? achievements
-        : achievements.filter((a) => a.kind === view);
+        : achievements.filter((a) => rarityOf(a) === view);
 
   // Ordenação Apple-like da vista de categoria: earned (recentes primeiro) →
   // em progresso (% desc) → locked → secrets misteriosos por último.
@@ -399,8 +404,8 @@ export function AchievementsSheet({
 
               {/* D. Grid 2-col de categorias */}
               <div className="grid grid-cols-2 gap-2.5">
-                {CATEGORY_ORDER.map((kind) => {
-                  const items = achievements.filter((a) => a.kind === kind);
+                {RARITY_ORDER.map((rarity) => {
+                  const items = achievements.filter((a) => rarityOf(a) === rarity);
                   const earnedInKind = sortEarnedByRecency(
                     items.filter((a) => a.earned),
                   );
@@ -412,12 +417,12 @@ export function AchievementsSheet({
                   return (
                     <button
                       className="gc-pressable flex flex-col items-center gap-2 rounded-[20px] bg-white/[0.04] px-3 pb-3 pt-4 text-center"
-                      key={kind}
-                      onClick={() => setView(kind)}
+                      key={rarity}
+                      onClick={() => setView(rarity)}
                       type="button"
                     >
                       <p className="w-full text-left text-[13px] font-black text-white">
-                        {t(`achievementsSheet.tabs.${kind}`)}
+                        {t(`achievementsSheet.tabs.${rarity}`)}
                       </p>
                       {heroItem ? (
                         <AchievementArtifact3D
@@ -445,11 +450,7 @@ export function AchievementsSheet({
                           </>
                         ) : items.length === 0 ? (
                           <p className="line-clamp-2 text-[10px] font-bold text-white/36">
-                            {/* Se challenges ainda não carregaram, evita a
-                                categoria parecer quebrada. */}
-                            {kind === "challenge" && monthlyChallenges === undefined
-                              ? t("achievementsSheet.challengesArePersonal")
-                              : t("achievementsSheet.empty")}
+                            {t("achievementsSheet.empty")}
                           </p>
                         ) : (
                           <p className="text-[10.5px] font-bold text-white/46">

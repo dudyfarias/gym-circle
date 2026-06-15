@@ -77,10 +77,10 @@ export type ChallengeAchievement = AchievementBase & {
   kind: "challenge";
   /** "YYYY-MM" — desafio é exclusivo desse período. Não repete. */
   periodKey: string;
-  /** Dificuldade do desafio mensal. */
-  difficulty: "easy" | "medium" | "hard" | "legendary";
   /** Trophy id atribuído ao completar. */
   trophyId?: string;
+  // Sprint 22 — o desafio carrega `rarity` (da base) direto, no lugar de
+  // `difficulty`. "mais difícil = mais raro" agora é a mesma coisa.
 };
 
 export type Achievement =
@@ -155,7 +155,8 @@ type AchievementsInput = {
     periodKey: string;
     title: string;
     description: string;
-    difficulty: "easy" | "medium" | "hard" | "legendary";
+    /** Sprint 22 — raridade do desafio (5 níveis), no lugar de difficulty. */
+    rarity: AchievementRarity;
     goalTarget: number;
     trophyId?: string;
     progress: number;
@@ -538,19 +539,12 @@ function buildChallenges(
     description: c.description,
     earned: c.completedAt !== null,
     iconKey: "trophy",
-    difficulty: c.difficulty,
     trophyId: c.trophyId,
     // Sprint 15 — propaga secret: sem isso o título de desafio secreto vazava
     // no Hall da Fama (UI mostra "???" pra secret não-conquistado).
     secret: c.isSecret,
-    rarity:
-      c.difficulty === "legendary"
-        ? "legendary"
-        : c.difficulty === "hard"
-          ? "epic"
-          : c.difficulty === "medium"
-            ? "uncommon"
-            : "common",
+    // Sprint 22 — raridade direta (sem mapping de difficulty).
+    rarity: c.rarity,
     progress:
       c.completedAt === null
         ? { current: c.progress, target: c.goalTarget }
@@ -630,14 +624,9 @@ export function suggestFeaturedAchievements(
   count: number = 3,
 ): Achievement[] {
   const earned = achievements.filter((a) => a.earned);
+  // Sprint 22 — ranqueia só por RARIDADE (a distinção de categoria saiu). Em
+  // empate de raridade, a ordem estável de definição decide (sort estável).
   const priorityScore = (a: Achievement): number => {
-    const kindRank: Record<AchievementKind, number> = {
-      relic: 5,
-      trophy: 4,
-      medal: 3,
-      badge: 2,
-      challenge: 1,
-    };
     const rarityRank: Record<AchievementRarity, number> = {
       legendary: 5,
       epic: 4,
@@ -645,7 +634,7 @@ export function suggestFeaturedAchievements(
       uncommon: 2,
       common: 1,
     };
-    return kindRank[a.kind] * 10 + (a.rarity ? rarityRank[a.rarity] : 0);
+    return a.rarity ? rarityRank[a.rarity] : 0;
   };
   return [...earned]
     .sort((a, b) => priorityScore(b) - priorityScore(a))

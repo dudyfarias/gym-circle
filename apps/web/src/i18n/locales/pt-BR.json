@@ -871,23 +871,30 @@
       "medium": "Médio",
       "hard": "Difícil",
       "legendary": "Lendário"
+    },
+    "rarity": {
+      "common": "Comum",
+      "uncommon": "Incomum",
+      "rare": "Raro",
+      "epic": "Épico",
+      "legendary": "Lendário"
     }
   },
   "achievementsSheet": {
     "title": "Hall da Fama",
-    "hero": "{{earned}} de {{total}} conquistadas",
+    "hero": "{{earned}} de {{total}} desafios",
     "progress": "{{current}}/{{target}}",
-    "empty": "Nenhuma conquista nesta categoria ainda.",
+    "empty": "Nenhum desafio nesta raridade ainda.",
     "challengesArePersonal": "Desafios ainda não carregaram.",
     "secretMystery": "Conquista secreta",
     "secretHint": "Descubra como desbloquear",
     "tabs": {
       "all": "Tudo",
-      "badge": "Badges",
-      "medal": "Medalhas",
-      "trophy": "Troféus",
-      "relic": "Relíquias",
-      "challenge": "Desafios"
+      "common": "Comum",
+      "uncommon": "Incomum",
+      "rare": "Raro",
+      "epic": "Épico",
+      "legendary": "Lendário"
     },
     "section": {
       "earned": "Conquistados · {{count}}",
@@ -902,11 +909,11 @@
     "showAll": "Mostrar tudo",
     "categoryCount": "{{earned}} de {{total}}",
     "categoryDescription": {
-      "badge": "Conquistas de primeiras vezes e momentos especiais.",
-      "medal": "Marcos de consistência — bronze, prata e ouro.",
-      "trophy": "Grandes feitos de treino e comunidade.",
-      "relic": "As conquistas mais raras do Gym Circle.",
-      "challenge": "Desafios mensais exclusivos. Não voltam."
+      "common": "Os primeiros passos e vitórias do dia a dia.",
+      "uncommon": "Marcos sólidos de consistência.",
+      "rare": "Desafios raros, de quem treina firme.",
+      "epic": "Feitos épicos. Poucos chegam aqui.",
+      "legendary": "Os desafios mais raros do Gym Circle."
     }
   },
   "achievementDetail": {

@@ -13,7 +13,12 @@
      `workouts_in_month`, `workout_type_specific`, `group_workouts`,
      `distinct_types`, `streak_in_month` (sequência consecutiva no mês) e
      `perfect_month` (seed deve definir goal_target = nº de dias do mês).
-   - 4 desafios: easy (público) / medium (secreto) / hard (público) / legendary (secreto).
+   - 4 desafios (esqueleto). **Sprint 22** — cada desafio carrega `rarity` (a
+     fonte de verdade de pontos e visual: comum 1 / incomum 2 / raro 3 / épico
+     5 / lendário 10). O gerador emite `rarity` E `difficulty` (esta fica inerte
+     até o nativo migrar). Defaults: comum (público) / incomum (secreto) / épico
+     (público) / lendário (secreto) — edite à vontade, **inclusive usando
+     `rare`/azul** (antes os desafios pulavam esse tier).
    - `workout_type_specific`: o matching é fuzzy (sem acento, case-insensitive,
      `includes`) e considera TODAS as tags do post. Tipos fora dos chips
      (futebol, tênis…) são alcançáveis via "Outro" — ok pra secretos.

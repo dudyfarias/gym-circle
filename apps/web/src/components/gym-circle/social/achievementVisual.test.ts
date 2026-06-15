@@ -10,90 +10,69 @@ function makeBase(overrides: Partial<Achievement>): Achievement {
     description: "x",
     earned: true,
     iconKey: "trophy",
+    rarity: "common",
     ...overrides,
   } as Achievement;
 }
 
 describe("getAchievementVisual", () => {
-  it("mapeia shape por kind (challenge usa badge3d)", () => {
-    expect(getAchievementVisual(makeBase({ kind: "badge" })).kind).toBe("badge3d");
-    expect(
-      getAchievementVisual(
-        makeBase({ kind: "medal", id: "streak-7", tier: "bronze" } as Partial<Achievement>),
-      ).kind,
-    ).toBe("medal3d");
-    expect(
-      getAchievementVisual(makeBase({ kind: "trophy", id: "streak-60" })).kind,
-    ).toBe("trophy3d");
-    expect(
-      getAchievementVisual(makeBase({ kind: "relic", id: "unbreakable" })).kind,
-    ).toBe("relic3d");
-    expect(
-      getAchievementVisual(
-        makeBase({
-          kind: "challenge",
-          id: "projeto-verao",
-          periodKey: "2026-06",
-          difficulty: "easy",
-        } as Partial<Achievement>),
-      ).kind,
-    ).toBe("badge3d");
-  });
-
-  it("Sprint 19 — medalha usa RARIDADE como tone (bronze/prata/ouro aposentados)", () => {
-    expect(
-      getAchievementVisual(
-        makeBase({ kind: "medal", id: "streak-7", tier: "bronze", rarity: "common" } as Partial<Achievement>),
-      ).tone,
-    ).toBe("stone");
-    expect(
-      getAchievementVisual(
-        makeBase({ kind: "medal", id: "streak-30", tier: "gold", rarity: "rare" } as Partial<Achievement>),
-      ).tone,
-    ).toBe("sapphire");
-  });
-
-  it("challenge usa difficulty como tone (palette de raridade)", () => {
+  it("Sprint 22 — FORMA vem da raridade (não da categoria)", () => {
     const cases = [
-      ["easy", "stone"],
-      ["medium", "emerald"],
-      ["hard", "amethyst"],
+      ["common", "disc"],
+      ["uncommon", "square"],
+      ["rare", "hex"],
+      ["epic", "shield"],
+      ["legendary", "star"],
+    ] as const;
+    for (const [rarity, shape] of cases) {
+      expect(getAchievementVisual(makeBase({ rarity })).shape).toBe(shape);
+    }
+    expect(getAchievementVisual(makeBase({ rarity: undefined })).shape).toBe("disc");
+  });
+
+  it("o tom vem da raridade (palette da Sprint 19)", () => {
+    const cases = [
+      ["common", "stone"],
+      ["uncommon", "emerald"],
+      ["rare", "sapphire"],
+      ["epic", "amethyst"],
       ["legendary", "amber"],
     ] as const;
-    for (const [difficulty, tone] of cases) {
-      const visual = getAchievementVisual(
-        makeBase({
-          kind: "challenge",
-          id: "x",
-          periodKey: "2026-06",
-          difficulty,
-        } as Partial<Achievement>),
-      );
-      expect(visual.tone).toBe(tone);
+    for (const [rarity, tone] of cases) {
+      expect(getAchievementVisual(makeBase({ rarity })).tone).toBe(tone);
     }
+    expect(getAchievementVisual(makeBase({ rarity: undefined })).tone).toBe("stone");
   });
 
-  it("demais kinds usam rarity como tone (fallback stone)", () => {
-    expect(getAchievementVisual(makeBase({ rarity: "common" })).tone).toBe("stone");
-    expect(getAchievementVisual(makeBase({ rarity: "uncommon" })).tone).toBe("emerald");
-    expect(getAchievementVisual(makeBase({ rarity: "rare" })).tone).toBe("sapphire");
-    expect(getAchievementVisual(makeBase({ rarity: "epic" })).tone).toBe("amethyst");
-    expect(getAchievementVisual(makeBase({ rarity: "legendary" })).tone).toBe("amber");
-    expect(getAchievementVisual(makeBase({ rarity: undefined })).tone).toBe("stone");
+  it("desafio mensal usa rarity igual a todo o resto (forma + cor)", () => {
+    const visual = getAchievementVisual(
+      makeBase({
+        kind: "challenge",
+        id: "x",
+        periodKey: "2026-06",
+        rarity: "epic",
+      } as Partial<Achievement>),
+    );
+    expect(visual.shape).toBe("shield");
+    expect(visual.tone).toBe("amethyst");
   });
 
   it("monogramas do mapa estático", () => {
     expect(getAchievementVisual(makeBase({})).monogram).toBe("1"); // badge:first-workout
     expect(
       getAchievementVisual(
-        makeBase({ kind: "medal", id: "streak-30", tier: "gold" } as Partial<Achievement>),
+        makeBase({ kind: "medal", id: "streak-30", rarity: "rare" } as Partial<Achievement>),
       ).monogram,
     ).toBe("30");
     expect(
-      getAchievementVisual(makeBase({ kind: "relic", id: "unbreakable" })).monogram,
+      getAchievementVisual(
+        makeBase({ kind: "relic", id: "unbreakable", rarity: "epic" }),
+      ).monogram,
     ).toBe("∞");
     expect(
-      getAchievementVisual(makeBase({ kind: "relic", id: "founder-2026" })).monogram,
+      getAchievementVisual(
+        makeBase({ kind: "relic", id: "founder-2026", rarity: "legendary" }),
+      ).monogram,
     ).toBe("26");
   });
 
@@ -103,7 +82,7 @@ describe("getAchievementVisual", () => {
         kind: "challenge",
         id: "novo",
         periodKey: "2026-06",
-        difficulty: "easy",
+        rarity: "common",
       } as Partial<Achievement>),
     );
     expect(june.monogram).toBe("6");
@@ -112,7 +91,7 @@ describe("getAchievementVisual", () => {
         kind: "challenge",
         id: "novo",
         periodKey: "????",
-        difficulty: "easy",
+        rarity: "common",
       } as Partial<Achievement>),
     );
     expect(broken.monogram).toBe("★");
@@ -129,15 +108,16 @@ describe("getAchievementVisual", () => {
     expect(noProgress.monogram).toBe("Z");
   });
 
-  it("secret não-conquistado vira mistério (dark + ?) — sem leak", () => {
+  it("secret não-conquistado vira mistério (disco escuro + ?) — sem leak", () => {
     const mystery = getAchievementVisual(
       makeBase({ id: "early-bird", secret: true, earned: false, rarity: "uncommon" }),
     );
-    expect(mystery).toEqual({ kind: "badge3d", tone: "dark", monogram: "?" });
-    // Conquistado revela o visual real.
+    expect(mystery).toEqual({ shape: "disc", tone: "dark", monogram: "?" });
+    // Conquistado revela o visual real (incomum → quadrado verde, "M").
     const revealed = getAchievementVisual(
       makeBase({ id: "early-bird", secret: true, earned: true, rarity: "uncommon" }),
     );
+    expect(revealed.shape).toBe("square");
     expect(revealed.tone).toBe("emerald");
     expect(revealed.monogram).toBe("M");
   });

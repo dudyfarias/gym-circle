@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AchievementRarity } from "./achievements";
 
 /**
  * Sprint 7.5.6 — Monthly Challenges client-side service.
@@ -28,7 +29,9 @@ type MonthlyChallengeRow = {
   title_en: string;
   description_pt: string;
   description_en: string;
-  difficulty: string;
+  // Sprint 22 — raridade direta (5 níveis). `difficulty` segue na tabela
+  // (inerte) até o nativo migrar, mas o web lê `rarity`.
+  rarity: string;
   goal_kind: string;
   goal_target: number;
   start_date: string;
@@ -52,7 +55,7 @@ export type MonthlyChallengeData = {
   periodKey: string;
   title: string; // já localizada
   description: string; // já localizada
-  difficulty: "easy" | "medium" | "hard" | "legendary";
+  rarity: AchievementRarity;
   goalKind: string;
   goalTarget: number;
   trophyId: string;
@@ -131,7 +134,7 @@ export async function loadMonthlyChallenges(
     .from("monthly_challenges")
     .select(
       "id,period_key,title_pt,title_en,description_pt,description_en," +
-        "difficulty,goal_kind,goal_target,start_date,end_date,trophy_id," +
+        "rarity,goal_kind,goal_target,start_date,end_date,trophy_id," +
         "is_secret,goal_config,created_at",
     )
     .eq("period_key", periodKey);
@@ -162,7 +165,7 @@ export async function loadMonthlyChallenges(
       periodKey: c.period_key,
       title: usePtBR ? c.title_pt : c.title_en,
       description: usePtBR ? c.description_pt : c.description_en,
-      difficulty: c.difficulty as MonthlyChallengeData["difficulty"],
+      rarity: c.rarity as MonthlyChallengeData["rarity"],
       goalKind: c.goal_kind,
       goalTarget: c.goal_target,
       trophyId: c.trophy_id,
@@ -411,7 +414,7 @@ export async function syncChallengeProgress(
           earned_at: new Date().toISOString(),
           last_earned_at: new Date().toISOString(),
           count: 1,
-          metadata: { difficulty: challenge.difficulty, trophyId: challenge.trophyId },
+          metadata: { rarity: challenge.rarity, trophyId: challenge.trophyId },
         },
         { onConflict: "user_id,achievement_id" },
       );

@@ -2,6 +2,9 @@
 node_modules
 **/node_modules
 
+# Superpowers brainstorm scratch (mockups locais — não versionar)
+.superpowers/
+
 # Next.js
 .next
 **/.next

@@ -2,6 +2,7 @@
 
 import { Check, HelpCircle, Trophy } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { AchievementRarity } from "./social/achievements";
 import {
   formatChallengePeriodLabel,
   type MonthlyChallengeData,
@@ -10,14 +11,14 @@ import {
 /**
  * Sprint 7.5.6 — MonthlyChallengesCard.
  *
- * Card no MyCircleSheet listando os 4 desafios do mês corrente (easy/
- * medium/hard/legendary) com progresso real-time. Visual diferenciado
- * por dificuldade:
+ * Card no MyCircleSheet listando os desafios do mês corrente com progresso
+ * real-time. Sprint 22 — visual por RARIDADE (não mais "dificuldade"):
  *
- *   easy      → cyan (acessível)
- *   medium    → blue (mais difícil)
- *   hard      → purple (raro)
- *   legendary → gold (extremo)
+ *   comum     → cinza   (1 pt)
+ *   incomum   → verde   (2 pts)
+ *   raro      → azul    (3 pts)
+ *   épico     → roxo    (5 pts)
+ *   lendário  → laranja (10 pts)
  *
  * Completed challenges ganham um check brilhante + tone destaque do
  * troféu. Estado "expirado mas não completou" (futuro, quando mês acabar)
@@ -42,9 +43,9 @@ export function MonthlyChallengesCard({
     i18n.language,
   );
 
-  // Ordenar por dificuldade ascendente
+  // Ordenar por raridade ascendente (comum → lendário)
   const ordered = [...challenges].sort(
-    (a, b) => DIFFICULTY_ORDER[a.difficulty] - DIFFICULTY_ORDER[b.difficulty],
+    (a, b) => RARITY_ORDER[a.rarity] - RARITY_ORDER[b.rarity],
   );
 
   return (
@@ -63,7 +64,7 @@ export function MonthlyChallengesCard({
 
 function ChallengeRow({ challenge }: { challenge: MonthlyChallengeData }) {
   const { t } = useTranslation();
-  const tone = DIFFICULTY_TONE[challenge.difficulty];
+  const tone = RARITY_TONE[challenge.rarity];
   const isCompleted = challenge.completedAt !== null;
   // Sprint 7.5.10 — esconde título/descrição/progresso pra secret
   // challenges não completados. Quando completar, revela tudo.
@@ -115,7 +116,7 @@ function ChallengeRow({ challenge }: { challenge: MonthlyChallengeData }) {
                 tone.chip,
               ].join(" ")}
             >
-              {t(`monthlyChallenges.difficulty.${challenge.difficulty}`)}
+              {t(`monthlyChallenges.rarity.${challenge.rarity}`)}
             </span>
           </div>
           <p className="mt-0.5 line-clamp-1 text-[11.5px] font-bold text-white/56">
@@ -145,15 +146,18 @@ function ChallengeRow({ challenge }: { challenge: MonthlyChallengeData }) {
   );
 }
 
-const DIFFICULTY_ORDER = {
-  easy: 0,
-  medium: 1,
-  hard: 2,
-  legendary: 3,
-} as const;
+// Sprint 22 — ordem e tom por RARIDADE (paleta da Sprint 19:
+// cinza/verde/azul/roxo/laranja).
+const RARITY_ORDER: Record<AchievementRarity, number> = {
+  common: 0,
+  uncommon: 1,
+  rare: 2,
+  epic: 3,
+  legendary: 4,
+};
 
-const DIFFICULTY_TONE: Record<
-  "easy" | "medium" | "hard" | "legendary",
+const RARITY_TONE: Record<
+  AchievementRarity,
   {
     chip: string;
     iconBg: string;
@@ -161,28 +165,34 @@ const DIFFICULTY_TONE: Record<
     progressBar: string;
   }
 > = {
-  easy: {
-    chip: "bg-[#22D3EE]/16 text-[#22D3EE]",
-    iconBg: "bg-[#22D3EE]/20 text-[#22D3EE]",
-    completedBg: "bg-[#22D3EE]/8 border-[#22D3EE]/16",
-    progressBar: "bg-[#22D3EE]/72",
+  common: {
+    chip: "bg-[#9CA3AF]/16 text-[#D1D5DB]",
+    iconBg: "bg-[#9CA3AF]/20 text-[#D1D5DB]",
+    completedBg: "bg-[#9CA3AF]/8 border-[#9CA3AF]/16",
+    progressBar: "bg-[#9CA3AF]/72",
   },
-  medium: {
-    chip: "bg-[var(--gc-brand)]/16 text-[var(--gc-brand)]",
-    iconBg: "bg-[var(--gc-brand)]/20 text-[var(--gc-brand)]",
-    completedBg: "bg-[var(--gc-brand)]/8 border-[var(--gc-brand)]/16",
-    progressBar: "bg-[var(--gc-brand)]/72",
+  uncommon: {
+    chip: "bg-[#34D399]/16 text-[#34D399]",
+    iconBg: "bg-[#34D399]/20 text-[#34D399]",
+    completedBg: "bg-[#34D399]/8 border-[#34D399]/16",
+    progressBar: "bg-[#34D399]/72",
   },
-  hard: {
-    chip: "bg-[#A78BFA]/16 text-[#A78BFA]",
-    iconBg: "bg-[#A78BFA]/20 text-[#A78BFA]",
-    completedBg: "bg-[#A78BFA]/8 border-[#A78BFA]/16",
-    progressBar: "bg-[#A78BFA]/72",
+  rare: {
+    chip: "bg-[#3B82F6]/16 text-[#60A5FA]",
+    iconBg: "bg-[#3B82F6]/20 text-[#60A5FA]",
+    completedBg: "bg-[#3B82F6]/8 border-[#3B82F6]/16",
+    progressBar: "bg-[#3B82F6]/72",
+  },
+  epic: {
+    chip: "bg-[#A855F7]/16 text-[#C084FC]",
+    iconBg: "bg-[#A855F7]/20 text-[#C084FC]",
+    completedBg: "bg-[#A855F7]/8 border-[#A855F7]/16",
+    progressBar: "bg-[#A855F7]/72",
   },
   legendary: {
-    chip: "bg-[#FBBF24]/16 text-[#FBBF24]",
-    iconBg: "bg-[#FBBF24]/20 text-[#FBBF24]",
-    completedBg: "bg-[#FBBF24]/8 border-[#FBBF24]/20",
-    progressBar: "bg-[#FBBF24]/82",
+    chip: "bg-[#F59E0B]/16 text-[#FBBF24]",
+    iconBg: "bg-[#F59E0B]/20 text-[#FBBF24]",
+    completedBg: "bg-[#F59E0B]/8 border-[#F59E0B]/20",
+    progressBar: "bg-[#F59E0B]/82",
   },
 };

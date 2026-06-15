@@ -3,7 +3,7 @@
 import type { Achievement } from "../social/achievements";
 import {
   getAchievementVisual,
-  type AchievementVisualKind,
+  type AchievementVisualShape,
   type AchievementVisualTone,
 } from "../social/achievementVisual";
 
@@ -73,11 +73,15 @@ const glowClass: Record<AchievementVisualTone, string> = {
   crystal: "bg-[#8CFBFF]/26 opacity-100",
 };
 
-const shapeClass: Record<AchievementVisualKind, string> = {
-  badge3d: "rounded-[28%]",
-  medal3d: "rounded-full",
-  trophy3d: "rounded-[34%_34%_42%_42%]",
-  relic3d: "rounded-[34%] rotate-45",
+// Sprint 22 — forma = raridade. Disco→quadrado→hexágono→escudo→estrela.
+// Hex/escudo/estrela usam clip-path (espaços viram "_" no valor arbitrário do
+// Tailwind); o clip aplica-se ao shell e recorta os overlays de brilho juntos.
+const shapeClass: Record<AchievementVisualShape, string> = {
+  disc: "rounded-full",
+  square: "rounded-[22%]",
+  hex: "[clip-path:polygon(50%_0,93%_25%,93%_75%,50%_100%,7%_75%,7%_25%)]",
+  shield: "[clip-path:polygon(10%_6%,90%_6%,90%_50%,50%_100%,10%_50%)]",
+  star: "[clip-path:polygon(50%_0,61%_35%,98%_35%,68%_57%,79%_91%,50%_70%,21%_91%,32%_57%,2%_35%,39%_35%)]",
 };
 
 export function AchievementArtifact3D({
@@ -89,7 +93,6 @@ export function AchievementArtifact3D({
 }: AchievementArtifact3DProps) {
   const visual = getAchievementVisual(achievement as Achievement);
   const locked = muted || !achievement.earned;
-  const isRelic = visual.kind === "relic3d";
 
   return (
     <div
@@ -112,24 +115,16 @@ export function AchievementArtifact3D({
         className={[
           "relative grid h-full w-full place-items-center overflow-hidden bg-gradient-to-br transition duration-300 [transform:rotateX(18deg)_rotateY(-16deg)_translateZ(0)]",
           shellClass[visual.tone],
-          shapeClass[visual.kind],
+          shapeClass[visual.shape],
           locked ? "grayscale opacity-45 shadow-none" : "opacity-100",
-          isRelic ? "scale-[0.82]" : "",
         ].join(" ")}
       >
         <div className="absolute inset-[7%] rounded-[inherit] bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.92),rgba(255,255,255,0.22)_18%,rgba(255,255,255,0)_46%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.5),rgba(255,255,255,0)_34%,rgba(0,0,0,0.28)_100%)]" />
         <div className="absolute bottom-0 left-[10%] right-[10%] h-[22%] rounded-t-full bg-black/18 blur-[2px]" />
-        {visual.kind === "trophy3d" ? (
-          <>
-            <div className="absolute left-[-12%] top-[28%] h-[28%] w-[26%] rounded-full border-[5px] border-white/22" />
-            <div className="absolute right-[-12%] top-[28%] h-[28%] w-[26%] rounded-full border-[5px] border-white/22" />
-          </>
-        ) : null}
         <span
           className={[
             "relative z-10 font-black tracking-[-0.02em] text-black/78 drop-shadow-[0_1px_0_rgba(255,255,255,0.28)]",
-            isRelic ? "-rotate-45" : "",
             locked ? "text-white/34" : "",
           ].join(" ")}
         >

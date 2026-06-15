@@ -69,6 +69,7 @@ const challenges = [
     description_pt: `Treine 8 dias em ${period}.`,
     description_en: `Train 8 days in ${period}.`,
     difficulty: "easy",
+    rarity: "common",
     goal_kind: "workouts_in_month",
     goal_target: 8,
     is_secret: false,
@@ -81,6 +82,7 @@ const challenges = [
     description_pt: "Publique 3 treinos de TIPO.",
     description_en: "Post 3 TYPE workouts.",
     difficulty: "medium",
+    rarity: "uncommon",
     goal_kind: "workout_type_specific",
     goal_target: 3,
     is_secret: true,
@@ -93,6 +95,7 @@ const challenges = [
     description_pt: "Treine com amigos 4 vezes.",
     description_en: "Work out with friends 4 times.",
     difficulty: "hard",
+    rarity: "epic",
     goal_kind: "group_workouts",
     goal_target: 4,
     is_secret: false,
@@ -105,6 +108,7 @@ const challenges = [
     description_pt: "Varie em 5 modalidades diferentes.",
     description_en: "Vary across 5 different workout types.",
     difficulty: "legendary",
+    rarity: "legendary",
     goal_kind: "distinct_types",
     goal_target: 5,
     is_secret: true,
@@ -132,6 +136,7 @@ const values = challenges
       '${esc(c.description_pt)}',
       '${esc(c.description_en)}',
       '${c.difficulty}',
+      '${c.rarity}',
       '${c.goal_kind}',
       ${c.goal_target},
       '${startDate}',
@@ -168,7 +173,7 @@ begin
 
   insert into public.monthly_challenges (
     period_key, title_pt, title_en, description_pt, description_en,
-    difficulty, goal_kind, goal_target, start_date, end_date, trophy_id,
+    difficulty, rarity, goal_kind, goal_target, start_date, end_date, trophy_id,
     is_secret, goal_config
   ) values
 ${values};
