@@ -19,6 +19,8 @@ targets:
     sources:
       - path: Sources/GymCircleNativeFoundation
       - path: Sources/GymCircleNativeApp
+      # Sprint 20.8 cutover — ícones/splash da marca (copiados do shell ios/App).
+      - path: Resources/Assets.xcassets
     dependencies:
       - package: Supabase
         product: Supabase

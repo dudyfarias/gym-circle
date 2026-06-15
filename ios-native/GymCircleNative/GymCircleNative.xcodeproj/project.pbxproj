@@ -25,6 +25,7 @@
 		425F19777DF07AA72E43F4F2 /* AchievementsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */; };
 		437FF8ED624FEBE121C0AE42 /* CommentsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1242B1DB1FF1D257EF8CFF0B /* CommentsSheet.swift */; };
 		49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55AE3C88470738904E400FD /* AppConfiguration.swift */; };
+		4C3D78C6CD33A58BFC7BB027 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D92E793C72F1D68E9C1CFA21 /* Assets.xcassets */; };
 		4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381506FB324FA418FAD1FEBF /* MyCircleService.swift */; };
 		509C986FA5F2D6C42D51A689 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B8BFA2187D25EB54BECC01 /* ComposerView.swift */; };
 		52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069AF1E053D24164413598B0 /* BaseComponents.swift */; };
@@ -170,6 +171,7 @@
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
 		D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyRecapSheet.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
+		D92E793C72F1D68E9C1CFA21 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		E087C67B003F78048FBA47EC /* OtherProfileSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherProfileSummary.swift; sourceTree = "<group>"; };
 		E4FB4D5BE0EA70E00B2010ED /* NotificationsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationsService.swift; sourceTree = "<group>"; };
@@ -355,6 +357,7 @@
 			isa = PBXGroup;
 			children = (
 				9DF4578379CB90ECD92047D8 /* Config */,
+				F94D43A92797C6CFAF020F0B /* Resources */,
 				87532101CD0BC195B0B2FED4 /* Sources */,
 				4C71A8B40816BD2AF4BF18EE /* Tests */,
 				2CE83B2EAC00497021A2C889 /* Products */,
@@ -401,6 +404,14 @@
 			path = Config;
 			sourceTree = "<group>";
 		};
+		F94D43A92797C6CFAF020F0B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D92E793C72F1D68E9C1CFA21 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -409,6 +420,7 @@
 			buildConfigurationList = 2D627CB5E0A885F54354F9A7 /* Build configuration list for PBXNativeTarget "GymCircleNative" */;
 			buildPhases = (
 				8AA2E55A92092EB04D99848F /* Sources */,
+				6C412EE67D7B304D17D8FBBE /* Resources */,
 				76E2CBC96EB1345850F8A6D4 /* Frameworks */,
 			);
 			buildRules = (
@@ -480,6 +492,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		6C412EE67D7B304D17D8FBBE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C3D78C6CD33A58BFC7BB027 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8AA2E55A92092EB04D99848F /* Sources */ = {
