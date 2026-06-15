@@ -47,6 +47,10 @@ public final class GymCircleAppModel: ObservableObject {
     /// useViewerLocation). Lazy: só liga o CoreLocation quando pedido.
     private lazy var locationProvider: NativeLocationProviding = AppleMapsLocationProvider()
     @Published public private(set) var viewerCoordinate: GymCircleCoordinate?
+    // Sprint 20.7 — realtime (postgres_changes) pra liveness do feed/badges.
+    private var realtimeChannel: RealtimeChannelV2?
+    private var realtimeStreamTasks: [Task<Void, Never>] = []
+    private var realtimeRefreshTask: Task<Void, Never>?
     private let myCircleService: MyCircleService?
     private let achievementsService: AchievementsService?
     private let challengesService: ChallengesService?
@@ -224,6 +228,7 @@ public final class GymCircleAppModel: ObservableObject {
     }
 
     public func signOut() async {
+        await stopRealtime()
         await sessionStore?.signOut()
         // Limpa estado in-memory
         posts = []
@@ -255,6 +260,57 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    // MARK: - Realtime (Sprint 20.7 — paridade canal "supabase-social" do web)
+
+    /// Tabelas que disparam refresh (espelha o canal único do web). Mudança em
+    /// qualquer uma agenda um refresh debounced de feed + badges.
+    private static let realtimeTables = [
+        "posts", "post_likes", "post_comments", "post_participants",
+        "stories", "story_likes", "follows", "checkins", "user_stats",
+        "direct_messages", "conversations", "notifications",
+    ]
+
+    /// Assina postgres_changes das tabelas-chave e mantém o feed/badges vivos.
+    /// Só no modo real (api presente). Idempotente.
+    public func startRealtime() async {
+        guard let api, realtimeChannel == nil else { return }
+        let channel = await api.realtimeChannel("supabase-social-native")
+        for table in Self.realtimeTables {
+            let stream = channel.postgresChange(AnyAction.self, schema: "public", table: table)
+            let task = Task { [weak self] in
+                for await _ in stream {
+                    await self?.scheduleRealtimeRefresh()
+                }
+            }
+            realtimeStreamTasks.append(task)
+        }
+        await channel.subscribe()
+        realtimeChannel = channel
+    }
+
+    public func stopRealtime() async {
+        realtimeRefreshTask?.cancel()
+        realtimeRefreshTask = nil
+        realtimeStreamTasks.forEach { $0.cancel() }
+        realtimeStreamTasks.removeAll()
+        if let channel = realtimeChannel {
+            await channel.unsubscribe()
+        }
+        realtimeChannel = nil
+    }
+
+    /// Debounce 0,6s — coalesce rajadas de eventos num refresh leve.
+    private func scheduleRealtimeRefresh() {
+        realtimeRefreshTask?.cancel()
+        realtimeRefreshTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard !Task.isCancelled, let self else { return }
+            await self.refreshFeed()
+            await self.refreshUnreadMessages()
+            await self.refreshUnreadNotifications()
+        }
+    }
+
     // MARK: - Surfaces
 
     public func loadInitialSurfaces() async {
@@ -277,6 +333,7 @@ public final class GymCircleAppModel: ObservableObject {
         } catch {
             self.error = error.localizedDescription
         }
+        await startRealtime()
     }
 
     // MARK: - Sprint 20.3a — feed interativo (carrossel, like, paginação)

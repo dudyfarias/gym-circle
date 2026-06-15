@@ -16,6 +16,12 @@ public actor GymCircleAPI {
         try await client.auth.signOut()
     }
 
+    /// Sprint 20.7 — canal de realtime (postgres_changes). O channel é Sendable;
+    /// o AppModel monta os streams + subscribe (paridade web "supabase-social").
+    public func realtimeChannel(_ name: String) -> RealtimeChannelV2 {
+        client.channel(name)
+    }
+
     public func homeFeed(cursorCreatedAt: String? = nil, limit: Int = 30) async throws -> [FeedPost] {
         let params = HomeFeedParams(
             p_cursor_created_at: cursorCreatedAt,
