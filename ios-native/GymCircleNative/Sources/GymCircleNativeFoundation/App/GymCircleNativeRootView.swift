@@ -42,8 +42,8 @@ public struct GymCircleNativeRootView: View {
                     )
                 )
             } else {
-                LoginView { email, password in
-                    try await model.signIn(email: email, password: password)
+                LoginView { identifier, password in
+                    try await model.signIn(identifier: identifier, password: password)
                 }
             }
         }

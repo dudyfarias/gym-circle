@@ -200,13 +200,14 @@ public final class GymCircleAppModel: ObservableObject {
 
     /// Login + boot completo. Wrapper que SessionStore signIn já cobre,
     /// mas garante data load depois.
-    public func signIn(email: String, password: String) async throws {
+    /// Sprint 22.1 — `identifier` aceita email OU username (paridade web).
+    public func signIn(identifier: String, password: String) async throws {
         guard let sessionStore else {
             // Demo mode — login fake instantâneo
             loadDemoData()
             return
         }
-        try await sessionStore.signIn(email: email, password: password)
+        try await sessionStore.signIn(identifier: identifier, password: password)
         await loadProfile()
         await loadInitialSurfaces()
         await loadMyCircle()

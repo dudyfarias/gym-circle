@@ -78,6 +78,7 @@
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
 		CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489ABF91A6CB491B111116DC /* FeedView.swift */; };
 		CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */; };
+		D534BDAA7DBEED4E15DA27B2 /* AuthIdentifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1206CCEEDE7CBE7C81736011 /* AuthIdentifierTests.swift */; };
 		D807A08401BF9BEBFCEF2E8D /* NotificationsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4FB4D5BE0EA70E00B2010ED /* NotificationsService.swift */; };
 		DB1B30BE14F3C9A97AF5FB6E /* Retry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5989A86000B1F2D61679FD2A /* Retry.swift */; };
 		DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C49CF73E5FC4231EF022A24 /* L10n.swift */; };
@@ -101,13 +102,14 @@
 
 /* Begin PBXFileReference section */
 		02BBAAE9105A431DC140AFE9 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
-		03CDD21B0D4FDE6BBE28118E /* GymCircleNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GymCircleNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		03CDD21B0D4FDE6BBE28118E /* GymCircleNative.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GymCircleNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		069AF1E053D24164413598B0 /* BaseComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseComponents.swift; sourceTree = "<group>"; };
 		0973110CDA21450BFC9B8CB6 /* CommentsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsService.swift; sourceTree = "<group>"; };
 		0A25EE1B0649D40C491D4501 /* AchievementBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementBuilder.swift; sourceTree = "<group>"; };
 		0AD1AB193A5FDA3AB7B141AE /* GymCircleNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeApp.swift; sourceTree = "<group>"; };
 		0F5A004267A6D5354857ABFD /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		0FB7A0E8635F10DB44C9E017 /* CalendarBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarBuilderTests.swift; sourceTree = "<group>"; };
+		1206CCEEDE7CBE7C81736011 /* AuthIdentifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthIdentifierTests.swift; sourceTree = "<group>"; };
 		1242B1DB1FF1D257EF8CFF0B /* CommentsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsSheet.swift; sourceTree = "<group>"; };
 		12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
 		15CF77117635F0D69B78BE8C /* StoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryModels.swift; sourceTree = "<group>"; };
@@ -128,7 +130,7 @@
 		489ABF91A6CB491B111116DC /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		49F315E719C5717C0921BD96 /* StoriesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesService.swift; sourceTree = "<group>"; };
 		4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
-		51796CCB19CDEB956ACF59AB /* GymCircleNativeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GymCircleNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		51796CCB19CDEB956ACF59AB /* GymCircleNativeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GymCircleNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementCelebrationView.swift; sourceTree = "<group>"; };
 		5989A86000B1F2D61679FD2A /* Retry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Retry.swift; sourceTree = "<group>"; };
 		61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChallengesService.swift; sourceTree = "<group>"; };
@@ -379,6 +381,7 @@
 			children = (
 				317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */,
 				12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */,
+				1206CCEEDE7CBE7C81736011 /* AuthIdentifierTests.swift */,
 				0FB7A0E8635F10DB44C9E017 /* CalendarBuilderTests.swift */,
 				F874705DD0B3FD6ACE50C3C1 /* NativeModelsTests.swift */,
 				BB837287D72E60A143DA73B0 /* NativePlatformServicesTests.swift */,
@@ -460,7 +463,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 2650;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					7F9EC759185D80D8151F1B38 = {
 						ProvisioningStyle = Automatic;
@@ -590,6 +593,7 @@
 			files = (
 				88263A3ED7D173C5FC3EC4B0 /* AchievementBuilderTests.swift in Sources */,
 				C2EDF86FCE4D0E48A33B6068 /* AppConfigurationTests.swift in Sources */,
+				D534BDAA7DBEED4E15DA27B2 /* AuthIdentifierTests.swift in Sources */,
 				CABAF9C24A6B73D53E850AE5 /* CalendarBuilderTests.swift in Sources */,
 				BBE4C5ED1604B5BF51F36B23 /* NativeModelsTests.swift in Sources */,
 				80BA5C8F7DB2A4DFA6E01B1F /* NativePlatformServicesTests.swift in Sources */,
@@ -612,7 +616,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -646,7 +649,6 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -667,7 +669,6 @@
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -750,7 +751,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -784,7 +784,6 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -798,7 +797,6 @@
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.0;

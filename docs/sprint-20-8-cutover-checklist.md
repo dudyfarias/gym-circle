@@ -28,6 +28,26 @@
 3. **Janela**: cutover só depois de 1 ciclo de TestFlight do standalone
    com o bundle `.dev` validado no aparelho.
 
+## ⚠️ Bug de cutover (15/jun) — login travado na v2.0
+
+O **primeiro archive 2.0.0 subiu em MODO DEMO**: `Config/Secrets.xcconfig` é
+gitignored e não existia na máquina nem no Xcode Cloud, então `SupabaseURL`/
+`SupabaseAnonKey` resolveram pra string vazia no Info.plist → `fromBundle` = nil
+→ sem client Supabase real → `signIn` cai em `loadDemoData()` mas `isAuthenticated`
+nunca vira true → **trava no login com qualquer credencial**. Somado a isso, o
+`AuthService` nativo só fazia `auth.signIn(email:)` (sem a Edge Function de
+username da Sprint 21.2), então o handle falhava mesmo com config certa.
+
+**Causa-raiz da falha de processo:** o smoke do `.dev` no aparelho (pré-condição
+acima, nunca marcada) teria pego isso. NÃO arquivar sem smoke autenticado.
+
+**Fixes (15/jun):** (1) `Config/Secrets.xcconfig` criado com a anon key PÚBLICA →
+archive conecta no Supabase real; (2) `AuthService.signIn(identifier:)` porta o
+login email-OU-username (Edge Function `login-with-username` + `setSession`) +
+teste unitário. **TODO durável:** o anon URL/key são públicos (o web já embarca) —
+avaliar commitar um default não-secreto pra Xcode Cloud/clones não caírem em demo,
+OU setar como env vars no Xcode Cloud. Hoje só a máquina do Eduardo tem o xcconfig.
+
 ## Passos técnicos (em ordem)
 
 1. ✅ **Apple Developer** (15/jun): no App ID `com.gymcircle.app`,

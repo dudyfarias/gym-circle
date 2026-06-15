@@ -1,13 +1,20 @@
 // Sprint 20.0 — config compartilhada do app nativo standalone.
 //
-// Os valores reais vivem em Secrets.xcconfig (GITIGNORADO — crie o seu a
-// partir do Secrets.example.xcconfig). O include é OPCIONAL (#include?):
-// sem o arquivo, o projeto ainda gera/builda e o app cai no modo demo.
+// Sprint 22.1 (15/jun): a URL + anon key PÚBLICAS do projeto prod ficam
+// AQUI como default versionado. Motivo: o primeiro archive 2.0.0 subiu em
+// modo demo porque o Secrets.xcconfig (gitignored) não existia no Xcode
+// Cloud nem em clones → SUPABASE_URL vazio → app sem backend → login travado.
+// Essas credenciais já são públicas (o site/shell as embarcam no bundle);
+// o segredo de verdade (service role) vive só no env das Edge Functions.
+//
+// O Secrets.xcconfig (gitignored) continua como OVERRIDE OPCIONAL — útil
+// pra apontar pra um projeto de staging numa máquina específica. Se existir,
+// os valores dele sobrescrevem os defaults abaixo (#include? no fim).
 //
 // GOTCHA de xcconfig: "//" inicia comentário — numa URL use $() pra
 // quebrar a sequência: SUPABASE_URL = https:/$()/seu-projeto.supabase.co
 
-SUPABASE_URL =
-SUPABASE_ANON_KEY =
+SUPABASE_URL = https:/$()/qajjpjmybmqqwflytcpr.supabase.co
+SUPABASE_ANON_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhampwam15Ym1xcXdmbHl0Y3ByIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgwOTU5MTksImV4cCI6MjA5MzY3MTkxOX0.mnwXnpMLg38LeBIoQm6gg5dc0EEEZS9F3MFQp7wXm3I
 
 #include? "Secrets.xcconfig"

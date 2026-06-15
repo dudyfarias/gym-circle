@@ -1,7 +1,9 @@
 import SwiftUI
 
 public struct LoginView: View {
-    @State private var email = ""
+    // Sprint 22.1 — aceita email OU username (paridade web). Antes o campo
+    // era email-only e quem entrava com o handle ficava preso no login.
+    @State private var identifier = ""
     @State private var password = ""
     @State private var isSubmitting = false
     @State private var error: String?
@@ -23,10 +25,11 @@ public struct LoginView: View {
 
             GCCard {
                 VStack(spacing: 12) {
-                    TextField("email", text: $email)
-                        .textContentType(.emailAddress)
+                    TextField("email ou usuário", text: $identifier)
+                        .textContentType(.username)
                         .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
+                        .autocorrectionDisabled()
+                        .keyboardType(.default)
                         .formField()
 
                     SecureField("senha", text: $password)
@@ -56,7 +59,7 @@ public struct LoginView: View {
         defer { isSubmitting = false }
 
         do {
-            try await onSignIn(email, password)
+            try await onSignIn(identifier, password)
         } catch {
             self.error = error.localizedDescription
         }

@@ -45,10 +45,12 @@ public final class SessionStore: ObservableObject {
         }
     }
 
-    public func signIn(email: String, password: String) async throws {
+    /// Sprint 22.1 — `identifier` aceita email OU username (o AuthService
+    /// resolve via Edge Function quando for handle).
+    public func signIn(identifier: String, password: String) async throws {
         authError = nil
         do {
-            let session = try await authService.signIn(email: email, password: password)
+            let session = try await authService.signIn(identifier: identifier, password: password)
             apply(session: session)
         } catch {
             authError = Self.friendlyAuthError(error)
@@ -74,10 +76,14 @@ public final class SessionStore: ObservableObject {
     }
 
     public static func friendlyAuthError(_ error: Error) -> String {
+        // AuthError já vem com mensagem amigável em PT (ex.: username/senha).
+        if let authError = error as? AuthError, let description = authError.errorDescription {
+            return description
+        }
         let message = error.localizedDescription
         if message.localizedCaseInsensitiveContains("invalid") ||
             message.localizedCaseInsensitiveContains("credentials") {
-            return "Email ou senha incorretos."
+            return "Usuário/email ou senha incorretos."
         }
         if message.localizedCaseInsensitiveContains("network") {
             return "Nao foi possivel conectar. Tente novamente."
