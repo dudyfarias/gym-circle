@@ -55,6 +55,9 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let createdAt: String
     public let locationSource: String?
     public let locationName: String?
+    // Sprint 20.7 — coords do local (RPC get_home_feed) pra distância do viewer.
+    public let locationLatitude: Double?
+    public let locationLongitude: Double?
     // Sprint 20.3a/b — vars pra update otimista de like e contador de
     // comentários (sheet reporta delta).
     public var likesCount: Int
@@ -99,6 +102,12 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         thumbnailURL ?? posterURL ?? imageURL
     }
 
+    /// Coordenada do local do post (quando tem lat/lng) — base da distância.
+    public var coordinate: GymCircleCoordinate? {
+        guard let locationLatitude, let locationLongitude else { return nil }
+        return GymCircleCoordinate(latitude: locationLatitude, longitude: locationLongitude)
+    }
+
     /// Itens prontos pro carrossel: post_media quando existe (≥1), senão a
     /// capa vira o único item — espelho do media[] sempre ≥1 da web.
     public var carouselItems: [PostMediaItem] {
@@ -139,6 +148,8 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         createdAt: String,
         locationSource: String?,
         locationName: String?,
+        locationLatitude: Double? = nil,
+        locationLongitude: Double? = nil,
         likesCount: Int,
         commentsCount: Int,
         username: String,
@@ -168,6 +179,8 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         self.createdAt = createdAt
         self.locationSource = locationSource
         self.locationName = locationName
+        self.locationLatitude = locationLatitude
+        self.locationLongitude = locationLongitude
         self.likesCount = likesCount
         self.commentsCount = commentsCount
         self.username = username
@@ -199,6 +212,8 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         case createdAt = "created_at"
         case locationSource = "location_source"
         case locationName = "location_name"
+        case locationLatitude = "location_latitude"
+        case locationLongitude = "location_longitude"
         case likesCount = "likes_count"
         case commentsCount = "comments_count"
         case username

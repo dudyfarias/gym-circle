@@ -43,6 +43,10 @@ public final class GymCircleAppModel: ObservableObject {
     public let sessionStore: SessionStore?
 
     private let api: GymCircleAPI?
+    /// Sprint 20.7 — localização do viewer pra distância no feed (paridade web
+    /// useViewerLocation). Lazy: só liga o CoreLocation quando pedido.
+    private lazy var locationProvider: NativeLocationProviding = AppleMapsLocationProvider()
+    @Published public private(set) var viewerCoordinate: GymCircleCoordinate?
     private let myCircleService: MyCircleService?
     private let achievementsService: AchievementsService?
     private let challengesService: ChallengesService?
@@ -239,6 +243,15 @@ public final class GymCircleAppModel: ObservableObject {
             return try await api.circleRanking(scope: scope, period: period)
         } catch {
             return []
+        }
+    }
+
+    /// Sprint 20.7 — pede a localização do viewer (1x) pra calcular distância
+    /// dos posts. Silencioso se negado/erro — o feed só não mostra distância.
+    public func requestViewerLocation() async {
+        guard viewerCoordinate == nil else { return }
+        if let coordinate = try? await locationProvider.currentPosition() {
+            viewerCoordinate = coordinate
         }
     }
 

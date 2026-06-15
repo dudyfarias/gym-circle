@@ -47,6 +47,7 @@ public struct FeedView: View {
                         FeedPostCard(
                             post: post,
                             currentUserId: model.currentUserId,
+                            viewerCoordinate: model.viewerCoordinate,
                             onLike: {
                                 Haptics.impactLight()
                                 Task { await model.toggleLike(postId: post.id) }
@@ -150,6 +151,7 @@ public struct FeedView: View {
         .task {
             await model.refreshUnreadNotifications()
             await model.refreshUnreadMessages()
+            await model.requestViewerLocation()
         }
         .sheet(item: $commentsPost) { post in
             CommentsSheet(
@@ -252,6 +254,7 @@ struct VideoPlayerScreen: View {
 public struct FeedPostCard: View {
     private let post: FeedPost
     private let currentUserId: String?
+    private let viewerCoordinate: GymCircleCoordinate?
     private let onLike: (() -> Void)?
     private let onComments: (() -> Void)?
     private let onOpenLikes: (() -> Void)?
@@ -267,6 +270,7 @@ public struct FeedPostCard: View {
     public init(
         post: FeedPost,
         currentUserId: String? = nil,
+        viewerCoordinate: GymCircleCoordinate? = nil,
         onLike: (() -> Void)? = nil,
         onComments: (() -> Void)? = nil,
         onOpenLikes: (() -> Void)? = nil,
@@ -279,6 +283,7 @@ public struct FeedPostCard: View {
     ) {
         self.post = post
         self.currentUserId = currentUserId
+        self.viewerCoordinate = viewerCoordinate
         self.onLike = onLike
         self.onComments = onComments
         self.onOpenLikes = onOpenLikes
@@ -292,6 +297,14 @@ public struct FeedPostCard: View {
 
     private var isOwnPost: Bool {
         currentUserId != nil && post.userId == currentUserId
+    }
+
+    /// Sprint 20.7 — anexa a distância do viewer ao local (quando há coords +
+    /// permissão). Paridade web FeedScreen distance.
+    private func distanceSuffixed(_ location: String) -> String {
+        guard let viewerCoordinate, let postCoordinate = post.coordinate else { return location }
+        let km = NativeLocationProvider.distanceKm(from: viewerCoordinate, to: postCoordinate)
+        return "\(location) · \(NativeLocationProvider.formattedDistanceKm(km))"
     }
 
     public var body: some View {
@@ -323,7 +336,7 @@ public struct FeedPostCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 GCText(post.displayAuthorName, style: .body)
                 if let location = post.locationName {
-                    GCText(location, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    GCText(distanceSuffixed(location), style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 }
             }
             Spacer()
