@@ -36,7 +36,9 @@ targets:
         CFBundleDisplayName: Gym Circle Native
         # Sprint 20.8 cutover — versão de marketing 2.0.0 (salto pro nativo).
         CFBundleShortVersionString: "2.0.0"
-        CFBundleVersion: "1"
+        # build 2 (15/jun): o build 1 subiu quebrado (modo demo + login só-email);
+        # App Store Connect rejeita reupload do mesmo build number.
+        CFBundleVersion: "2"
         LSRequiresIPhoneOS: true
         # Sprint 20.0 — resolvidas no build a partir do xcconfig; o
         # AppConfiguration.fromBundle() lê daqui (vazio ⇒ modo demo).
@@ -61,7 +63,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.app
         PRODUCT_NAME: GymCircleNative
         MARKETING_VERSION: "2.0.0"
-        CURRENT_PROJECT_VERSION: "1"
+        CURRENT_PROJECT_VERSION: "2"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_ENTITLEMENTS: Support/GymCircleNative.entitlements
