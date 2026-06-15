@@ -30,17 +30,17 @@
 
 ## Passos técnicos (em ordem)
 
-1. **Apple Developer** (dashboard): no App ID `com.gymcircle.app`,
-   habilitar Push Notifications, Associated Domains e HealthKit
-   (capabilities do entitlement novo). Regenerar provisioning.
-2. **project.yml**: ✅ versão já bumpada no repo (CFBundleShortVersionString +
-   MARKETING_VERSION `2.0.0`, CFBundleVersion/CURRENT_PROJECT_VERSION `1`).
-   ⏳ FALTA (depende do passo 1): trocar `PRODUCT_BUNDLE_IDENTIFIER` de
-   `com.gymcircle.native.dev` → `com.gymcircle.app` e `xcodegen generate`. O
-   bundle id ficou em `.dev` de propósito — só virar `com.gymcircle.app`
-   DEPOIS de habilitar as capabilities, senão o signing local quebra.
-3. **Ícones/splash**: copiar o asset catalog do shell (ios/App) pro
-   target nativo — mesmos ícones da marca.
+1. ✅ **Apple Developer** (15/jun): no App ID `com.gymcircle.app`,
+   habilitadas Push Notifications, Associated Domains e HealthKit
+   (Eduardo). Provisioning regenerado/automático.
+2. ✅ **project.yml** (15/jun): versão `2.0.0`/build `1` + bundle id flipado
+   `com.gymcircle.native.dev` → `com.gymcircle.app` (e `.tests`) +
+   `xcodegen generate`. Build + 50/50 testes verdes no simulador.
+   `CODE_SIGNING_ALLOWED: NO` mantido (sim/CI); o signing/team do archive é
+   no Xcode/Xcode Cloud (não vai no repo, regra do CLAUDE.md).
+3. ✅ **Ícones/splash** (15/jun): asset catalog do shell copiado pra
+   `Resources/Assets.xcassets` + registrado no project.yml; actool compila
+   `--app-icon AppIcon` (antes subia em branco).
 4. **APNs**: o trigger SQL (Sprint 10.7) e a Edge Function já mandam
    push pros tokens de device_push_tokens — o nativo registra na mesma
    tabela (platform ios). Validar 1 push end-to-end no TestFlight.

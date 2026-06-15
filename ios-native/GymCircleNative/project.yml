@@ -56,9 +56,9 @@ targets:
         NSHealthUpdateUsageDescription: O Gym Circle pode preparar treinos para o Apple Saúde em versões futuras, sempre com sua permissão.
     settings:
       base:
-        # Cutover: bundle id continua .dev ate o Eduardo habilitar as
-        # capabilities no Apple Developer (entao vira com.gymcircle.app).
-        PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev
+        # Cutover (15/jun): bundle id flipado pra com.gymcircle.app DEPOIS de
+        # habilitar Push + Associated Domains + HealthKit no Apple Developer.
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.app
         PRODUCT_NAME: GymCircleNative
         MARKETING_VERSION: "2.0.0"
         CURRENT_PROJECT_VERSION: "1"
@@ -84,7 +84,7 @@ targets:
       - target: GymCircleNative
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.native.dev.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.app.tests
         CODE_SIGN_STYLE: Automatic
         SWIFT_VERSION: "5.9"
       configs:

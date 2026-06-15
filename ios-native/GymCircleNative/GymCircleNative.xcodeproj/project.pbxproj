@@ -683,7 +683,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.native.dev.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.app.tests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -709,7 +709,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.native.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.app;
 				PRODUCT_NAME = GymCircleNative;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
@@ -735,7 +735,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 2.0.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.native.dev;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.app;
 				PRODUCT_NAME = GymCircleNative;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
@@ -811,7 +811,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.native.dev.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.gymcircle.app.tests;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
