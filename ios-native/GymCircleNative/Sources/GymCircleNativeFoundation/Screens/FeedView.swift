@@ -336,12 +336,13 @@ public struct FeedView: View {
                 currentUserId: model.currentUserId,
                 onCountDelta: { delta in
                     model.adjustCommentsCount(postId: post.id, delta: delta)
-                }
+                },
+                model: model
             )
             .presentationDetents([.medium, .large])
         }
         .sheet(item: $likesPost) { post in
-            LikesSheet(post: post) { postId in
+            LikesSheet(post: post, model: model) { postId in
                 await model.fetchPostLikers(postId: postId)
             }
             .presentationDetents([.medium, .large])

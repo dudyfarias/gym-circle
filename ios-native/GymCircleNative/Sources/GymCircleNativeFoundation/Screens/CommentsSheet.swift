@@ -11,6 +11,9 @@ public struct CommentsSheet: View {
     private let currentUserId: String?
     /// Delta aplicado no commentsCount do card do feed (+1 add, -1 delete).
     private let onCountDelta: (Int) -> Void
+    /// Necessário pra abrir o perfil do autor de um comentário (tap no
+    /// nome/avatar). Apresenta a partir desta sheet (evita sheet aninhada).
+    private let model: GymCircleAppModel?
 
     @Environment(\.dismiss) private var dismiss
     @State private var comments: [PostComment] = []
@@ -18,18 +21,31 @@ public struct CommentsSheet: View {
     @State private var draft = ""
     @State private var replyingTo: PostComment?
     @State private var isSending = false
+    @State private var openedProfile: OtherProfileSummary?
     @FocusState private var inputFocused: Bool
 
     public init(
         post: FeedPost,
         service: CommentsService?,
         currentUserId: String?,
-        onCountDelta: @escaping (Int) -> Void
+        onCountDelta: @escaping (Int) -> Void,
+        model: GymCircleAppModel? = nil
     ) {
         self.post = post
         self.service = service
         self.currentUserId = currentUserId
         self.onCountDelta = onCountDelta
+        self.model = model
+    }
+
+    /// Abre o perfil do autor do comentário (ignora o próprio user).
+    private func openProfile(userId: String) {
+        guard let model, userId != currentUserId else { return }
+        Task {
+            if let summary = await model.fetchOtherProfileSummary(userId: userId) {
+                openedProfile = summary
+            }
+        }
     }
 
     private var topLevel: [PostComment] {
@@ -83,6 +99,11 @@ public struct CommentsSheet: View {
         }
         .preferredColorScheme(.dark)
         .task { await load() }
+        .sheet(item: $openedProfile) { summary in
+            if let model {
+                OtherProfileHostView(model: model, summary: summary)
+            }
+        }
     }
 
     // MARK: - Rows
@@ -90,11 +111,19 @@ public struct CommentsSheet: View {
     @ViewBuilder
     private func commentRow(_ comment: PostComment, isReply: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            GCAvatar(url: comment.authorAvatarURL, fallback: comment.authorUsername)
-                .scaleEffect(isReply ? 0.8 : 1)
+            Button { openProfile(userId: comment.userId) } label: {
+                GCAvatar(url: comment.authorAvatarURL, fallback: comment.authorUsername)
+                    .scaleEffect(isReply ? 0.8 : 1)
+            }
+            .buttonStyle(.plain)
+            .disabled(model == nil)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    GCText(comment.displayAuthorName, style: .caption)
+                    Button { openProfile(userId: comment.userId) } label: {
+                        GCText(comment.displayAuthorName, style: .caption)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(model == nil)
                     GCText(
                         Self.relativeTime(from: comment.createdAt),
                         style: .caption,
