@@ -71,7 +71,11 @@ public final class SessionStore: ObservableObject {
     }
 
     private func apply(session: Session) {
-        state = .signedIn(userId: session.user.id.uuidString)
+        // UUID.uuidString do Swift é MAIÚSCULO; o Postgres devolve UUIDs em
+        // minúsculas. Sem normalizar, toda comparação client-side com ids do
+        // banco (peer do chat, "post é meu?", etc.) falhava — o chat mostrava
+        // "conversa comigo mesmo" e não deixava enviar. .lowercased() alinha.
+        state = .signedIn(userId: session.user.id.uuidString.lowercased())
         currentUserEmail = session.user.email
     }
 

@@ -19,9 +19,20 @@ public struct PostMediaItem: Identifiable, Codable, Hashable, Sendable {
     public let mediaWidth: Int?
     public let mediaHeight: Int?
 
-    /// Mesma regra de exibição da capa: thumbnail → poster → original.
+    /// Thumbnail (≈720px) — pra GRIDS (perfil/calendário), onde o item é
+    /// pequeno. Não usar na imagem grande do feed.
     public var displayURL: String {
         thumbnailURL ?? posterURL ?? imageURL
+    }
+
+    /// URL pra a imagem GRANDE do feed: foto usa o original full-res (≈1600px),
+    /// vídeo usa o poster/thumbnail (still). Antes o feed usava `displayURL`
+    /// (thumbnail 720px) → fotos borradas/baixa qualidade no card grande.
+    public var feedURL: String {
+        if mediaType == .video {
+            return posterURL ?? thumbnailURL ?? imageURL
+        }
+        return imageURL
     }
 
     enum CodingKeys: String, CodingKey {

@@ -527,7 +527,9 @@ public struct PostCarouselView: View {
     private func mediaView(for item: PostMediaItem?) -> some View {
         let isVideo = item?.mediaType == .video
         MediaView(
-            url: item?.displayURL ?? "",
+            // feedURL = original full-res na foto (≈1600px); displayURL (720px)
+            // ficou só pra grids. Antes o feed mostrava o thumbnail borrado.
+            url: item?.feedURL ?? "",
             aspectRatio: aspectRatio,
             isVideo: isVideo
         )
