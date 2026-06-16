@@ -1090,6 +1090,18 @@ public final class GymCircleAppModel: ObservableObject {
         return (try? await participantsService.followingProfiles(userId: userId)) ?? []
     }
 
+    /// Sprint 22.x — listas de seguidores/seguindo de QUALQUER user (perfil
+    /// próprio ou de outro). Fail-soft: lista vazia.
+    public func fetchFollowing(userId: String) async -> [DiscoveredProfile] {
+        guard let participantsService else { return [] }
+        return (try? await participantsService.followingProfiles(userId: userId)) ?? []
+    }
+
+    public func fetchFollowers(userId: String) async -> [DiscoveredProfile] {
+        guard let participantsService else { return [] }
+        return (try? await participantsService.followersProfiles(userId: userId)) ?? []
+    }
+
     // MARK: - Sprint 8.11.3 — calendar navigation
 
     /// Carrega dias treinados de um mês específico (offset relativo ao hoje:

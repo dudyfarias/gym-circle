@@ -39,6 +39,9 @@ public struct OtherProfileView: View {
     /// Sprint 22.x — carrega os anéis de consistência do user (paridade web).
     /// Opcional/fail-soft: nil → header cai no avatar simples.
     public let loadRings: ((String) async -> ConsistencyRings?)?
+    /// Sprint 22.x — stats clicáveis (host apresenta a lista). nil → não-tap.
+    public let onOpenFollowers: (() -> Void)?
+    public let onOpenFollowing: (() -> Void)?
 
     @State private var rings: ConsistencyRings?
 
@@ -59,7 +62,9 @@ public struct OtherProfileView: View {
         onBlock: @escaping () -> Void,
         onOpenPost: ((String) -> Void)? = nil,
         onClose: @escaping () -> Void,
-        loadRings: ((String) async -> ConsistencyRings?)? = nil
+        loadRings: ((String) async -> ConsistencyRings?)? = nil,
+        onOpenFollowers: (() -> Void)? = nil,
+        onOpenFollowing: (() -> Void)? = nil
     ) {
         self.profile = profile
         self.posts = posts
@@ -78,6 +83,8 @@ public struct OtherProfileView: View {
         self.onOpenPost = onOpenPost
         self.onClose = onClose
         self.loadRings = loadRings
+        self.onOpenFollowers = onOpenFollowers
+        self.onOpenFollowing = onOpenFollowing
     }
 
     public var body: some View {
@@ -192,11 +199,11 @@ public struct OtherProfileView: View {
                     .padding(.horizontal, 24)
             }
 
-            // Stats Instagram-style: Posts · Seguidores · Seguindo.
+            // Stats Instagram-style: Posts · Seguidores · Seguindo (clicáveis).
             HStack(spacing: 16) {
                 stat(L10n.profilePosts.string, value: formatCount(postsCount))
-                stat(L10n.profileFollowers.string, value: formatCount(followersCount))
-                stat(L10n.profileFollowing.string, value: formatCount(followingCount))
+                statButton(L10n.profileFollowers.string, value: formatCount(followersCount), action: onOpenFollowers)
+                statButton(L10n.profileFollowing.string, value: formatCount(followingCount), action: onOpenFollowing)
             }
             .padding(.top, 4)
         }
@@ -248,6 +255,16 @@ public struct OtherProfileView: View {
             GCText(title, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
         }
         .frame(minWidth: 72)
+    }
+
+    @ViewBuilder
+    private func statButton(_ title: String, value: String, action: (() -> Void)?) -> some View {
+        if let action {
+            Button(action: action) { stat(title, value: value) }
+                .buttonStyle(.plain)
+        } else {
+            stat(title, value: value)
+        }
     }
 
     // MARK: - Action row (Follow / Message / Report / Block)

@@ -121,6 +121,35 @@ public actor PostParticipantsService {
         }
     }
 
+    /// Sprint 22.x — quem SEGUE o user (espelho de followingProfiles, sentido
+    /// invertido): linhas com `following_id = userId` → resolve `follower_id`.
+    public func followersProfiles(userId: String) async throws -> [DiscoveredProfile] {
+        struct FollowRow: Decodable { let follower_id: String }
+        let follows: [FollowRow] = try await client
+            .from("follows")
+            .select("follower_id")
+            .eq("following_id", value: userId)
+            .eq("status", value: "accepted")
+            .execute()
+            .value
+        guard !follows.isEmpty else { return [] }
+        let authors: [AuthorRow] = try await client
+            .from("profiles")
+            .select("user_id,username,display_name,avatar_url")
+            .in("user_id", values: follows.map(\.follower_id))
+            .execute()
+            .value
+        return authors.map {
+            DiscoveredProfile(
+                userId: $0.user_id,
+                username: $0.username,
+                displayName: $0.display_name,
+                avatarURL: $0.avatar_url,
+                currentStreak: nil
+            )
+        }
+    }
+
     /// Aceitar/recusar a própria marcação (respondToPostTag web).
     public func respond(postId: String, taggedUserId: String, accepted: Bool) async throws {
         try await client

@@ -171,6 +171,8 @@ struct OtherProfileHostView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var isFollowing: Bool
+    @State private var followersPresented = false
+    @State private var followingPresented = false
 
     init(model: GymCircleAppModel, summary: OtherProfileSummary) {
         self.model = model
@@ -199,8 +201,16 @@ struct OtherProfileHostView: View {
             onReport: {},
             onBlock: {},
             onClose: { dismiss() },
-            loadRings: { await model.fetchConsistencyRings(userId: $0) }
+            loadRings: { await model.fetchConsistencyRings(userId: $0) },
+            onOpenFollowers: { followersPresented = true },
+            onOpenFollowing: { followingPresented = true }
         )
+        .sheet(isPresented: $followersPresented) {
+            FollowListSheet(model: model, userId: summary.profile.userId, mode: .followers)
+        }
+        .sheet(isPresented: $followingPresented) {
+            FollowListSheet(model: model, userId: summary.profile.userId, mode: .following)
+        }
     }
 }
 

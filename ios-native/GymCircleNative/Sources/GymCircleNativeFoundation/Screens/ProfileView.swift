@@ -20,6 +20,8 @@ public struct ProfileView: View {
     @State private var editPresented = false
     @State private var followersCount = 0
     @State private var followingCount = 0
+    @State private var followersPresented = false
+    @State private var followingPresented = false
 
     public init(
         model: GymCircleAppModel,
@@ -100,6 +102,16 @@ public struct ProfileView: View {
                     onUploadAvatar: { data in await model.uploadAvatar(imageData: data) },
                     onClose: { editPresented = false }
                 )
+            }
+        }
+        .sheet(isPresented: $followersPresented) {
+            if let profile {
+                FollowListSheet(model: model, userId: profile.userId, mode: .followers)
+            }
+        }
+        .sheet(isPresented: $followingPresented) {
+            if let profile {
+                FollowListSheet(model: model, userId: profile.userId, mode: .following)
             }
         }
         .sheet(isPresented: $hallPresented) {
@@ -246,13 +258,25 @@ public struct ProfileView: View {
     private var statsRow: some View {
         HStack(spacing: 4) {
             statCol(value: posts.count, label: L10n.profilePosts.string)
-            statCol(value: followersCount, label: L10n.profileFollowers.string)
-            statCol(value: followingCount, label: L10n.profileFollowing.string)
+            statCol(value: followersCount, label: L10n.profileFollowers.string) { followersPresented = true }
+            statCol(value: followingCount, label: L10n.profileFollowing.string) { followingPresented = true }
         }
         .frame(maxWidth: 320)
     }
 
-    private func statCol(value: Int, label: String) -> some View {
+    @ViewBuilder
+    private func statCol(value: Int, label: String, action: (() -> Void)? = nil) -> some View {
+        if let action {
+            Button(action: action) { statColContent(value: value, label: label) }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+        } else {
+            statColContent(value: value, label: label)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func statColContent(value: Int, label: String) -> some View {
         VStack(spacing: 2) {
             Text("\(value)")
                 .font(.system(size: 18, weight: .black))
@@ -261,7 +285,6 @@ public struct ProfileView: View {
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color.white.opacity(0.52))
         }
-        .frame(maxWidth: .infinity)
     }
 
     private var postsGrid: some View {
