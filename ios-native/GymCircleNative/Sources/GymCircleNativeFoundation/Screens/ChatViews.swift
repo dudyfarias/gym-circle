@@ -301,6 +301,10 @@ public struct ConversationView: View {
     @State private var isSending = false
     @State private var isLoading = true
     @State private var pickedImage: PhotosPickerItem?
+    /// Cache de remetentes (userId minúsculo → perfil) pra rotular bolhas em
+    /// grupo com `@username` (paridade web). Resolvido lazy: só os senderIds
+    /// que aparecem na thread, só uma vez cada.
+    @State private var senderChips: [String: DiscoveredProfile] = [:]
 
     public init(
         model: GymCircleAppModel,
@@ -377,6 +381,14 @@ public struct ConversationView: View {
         HStack {
             if isMine { Spacer(minLength: 48) }
             VStack(alignment: .leading, spacing: 4) {
+                // Em grupo, rotula a bolha do outro com @username (paridade web).
+                if isGroup, !isMine,
+                   let chip = senderChips[message.senderId.lowercased()],
+                   let username = chip.username, !username.isEmpty {
+                    Text("@\(username)")
+                        .font(.system(size: 10, weight: .black, design: .default))
+                        .foregroundStyle(Color.white.opacity(0.34))
+                }
                 if message.replyToStory == true {
                     GCText(
                         Loc.repliedToStory,
@@ -491,7 +503,24 @@ public struct ConversationView: View {
         }
         messages = await model.fetchChatMessages(conversationId: conversationId)
         isLoading = false
+        await refreshSenderChips()
         await model.markConversationRead(conversationId: conversationId)
+    }
+
+    /// Resolve os remetentes de grupo ainda não cacheados (exclui eu mesmo).
+    /// No-op fora de grupo ou quando todos já estão em cache — não bate na
+    /// rede à toa.
+    private func refreshSenderChips() async {
+        guard isGroup else { return }
+        let myId = model.currentUserId?.lowercased()
+        let needed = Set(messages.map { $0.senderId.lowercased() })
+            .subtracting(myId.map { [$0] } ?? [])
+            .subtracting(senderChips.keys)
+        guard !needed.isEmpty else { return }
+        let chips = await model.fetchChatSenderChips(userIds: Array(needed))
+        for chip in chips {
+            senderChips[chip.userId.lowercased()] = chip
+        }
     }
 
     private func send() async {
@@ -568,6 +597,7 @@ public struct ConversationView: View {
             let latest = await model.fetchChatMessages(conversationId: conversationId)
             if latest != messages {
                 messages = latest
+                await refreshSenderChips()
             }
         }
     }

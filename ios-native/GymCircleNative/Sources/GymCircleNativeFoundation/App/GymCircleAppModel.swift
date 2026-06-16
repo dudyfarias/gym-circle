@@ -798,6 +798,13 @@ public final class GymCircleAppModel: ObservableObject {
         return page.sorted { $0.createdAt < $1.createdAt }
     }
 
+    /// Sprint 22.x — resolve remetentes (username/nome/avatar) pra rotular
+    /// bolhas em grupo. Fail-soft: lista vazia se não houver service.
+    public func fetchChatSenderChips(userIds: [String]) async -> [DiscoveredProfile] {
+        guard let chatService else { return [] }
+        return (try? await chatService.senderChips(userIds: userIds)) ?? []
+    }
+
     public func sendDirectMessage(receiverId: String, body: String) async -> ChatMessage? {
         guard let chatService else { return nil }
         do {

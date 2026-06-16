@@ -64,6 +64,22 @@ public actor ChatService {
         .sorted { ($0.summary.lastMessageAt ?? "") > ($1.summary.lastMessageAt ?? "") }
     }
 
+    /// Sprint 22.x — "chips" de remetente (username/nome/avatar) pra rotular
+    /// bolhas em conversas de grupo (paridade web: `@username` na bolha dos
+    /// outros). 1 query `IN` em profiles — bem mais leve que o
+    /// getOtherProfileSummary (6 queries). Decodifica direto em
+    /// DiscoveredProfile (a coluna `current_streak` ausente vira nil).
+    public func senderChips(userIds: [String]) async throws -> [DiscoveredProfile] {
+        let ids = Array(Set(userIds)).filter { !$0.isEmpty }
+        guard !ids.isEmpty else { return [] }
+        return (try? await client
+            .from("profiles")
+            .select("user_id,username,display_name,avatar_url")
+            .in("user_id", values: ids)
+            .execute()
+            .value) ?? []
+    }
+
     public func messages(
         conversationId: String,
         cursorCreatedAt: String? = nil,
