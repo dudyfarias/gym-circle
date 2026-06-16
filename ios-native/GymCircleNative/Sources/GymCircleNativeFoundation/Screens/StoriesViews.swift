@@ -160,12 +160,25 @@ public struct StoryViewerScreen: View {
             if isLoading {
                 ProgressView().tint(GymCircleTheme.ColorToken.cyan)
             } else if let item = currentItem {
-                MediaView(
-                    url: item.displayMediaURL,
-                    aspectRatio: 9 / 16,
-                    isVideo: item.mediaType == .video
-                )
-                .ignoresSafeArea(edges: .bottom)
+                // Imagem full-bleed (cover): preenche a tela com frame CLAMPADO
+                // + clipped, então o scaledToFill não transborda nem empurra o
+                // overlay pra fora (era a causa do "tudo torto/cortado").
+                ZStack {
+                    AsyncImage(url: URL(string: item.displayMediaURL)) { image in
+                        image.resizable().scaledToFill()
+                    } placeholder: {
+                        Color.clear
+                    }
+                    if item.mediaType == .video {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 44, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .shadow(radius: 8)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
+                .ignoresSafeArea()
 
                 // Tap zones: 1/3 esquerdo volta, 2/3 direito avança.
                 HStack(spacing: 0) {
@@ -178,14 +191,17 @@ public struct StoryViewerScreen: View {
                         .fill(.clear)
                         .contentShape(Rectangle())
                         .frame(maxWidth: .infinity)
-                        .frame(maxWidth: .infinity)
                         .onTapGesture { advance() }
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onLongPressGesture(minimumDuration: 0.15, pressing: { pressing in
                     isPaused = pressing
                 }, perform: {})
 
+                // Overlay CLAMPADO na tela (top-aligned; o Spacer interno empurra
+                // o campo de resposta pro rodapé).
                 overlayChrome(item: item)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
                 GCEmptyState(title: Loc.noStoriesTitle, subtitle: Loc.noStoriesSubtitle)
             }
