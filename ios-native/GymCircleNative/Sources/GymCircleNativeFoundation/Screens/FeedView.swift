@@ -147,6 +147,8 @@ public struct FeedView: View {
                 .accessibilityLabel(Loc.searchPeople)
             }
         }
+        // Paridade web: título grande "Hoje" (antes vinha "Today" hardcoded).
+        .navigationTitle(Loc.t("Today", "Hoje"))
         .sheet(isPresented: $notificationsPresented) {
             NotificationsSheet(model: model)
         }
@@ -495,6 +497,8 @@ public struct FeedPostCard: View {
                         radius: 9
                     )
                     .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.white.opacity(0.055)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(post.likedByMe == true ? Loc.unlike : Loc.like)
@@ -505,6 +509,8 @@ public struct FeedPostCard: View {
                 Image(systemName: "message")
                     .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                     .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.white.opacity(0.055)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Loc.comments)
@@ -516,6 +522,8 @@ public struct FeedPostCard: View {
                 Image(systemName: "paperplane")
                     .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                     .frame(width: 44, height: 44)
+                    .background(Circle().fill(Color.white.opacity(0.055)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Loc.t("Share workout", "Compartilhar treino"))
