@@ -267,31 +267,42 @@ public struct FeedView: View {
                     .foregroundStyle(Color.white.opacity(0.44))
                     .accessibilityHidden(true)
             }
+            // Busca + sino em 2 CÍRCULOS separados (paridade web; busca à esquerda),
+            // num único ToolbarItem pra o iOS não agrupar num pill só.
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    notificationsPresented = true
-                } label: {
-                    Image(systemName: "bell")
-                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                        .overlay(alignment: .topTrailing) {
-                            if model.unreadNotifications > 0 {
-                                Circle()
-                                    .fill(GymCircleTheme.ColorToken.pink)
-                                    .frame(width: 9, height: 9)
-                                    .offset(x: 3, y: -3)
+                HStack(spacing: 10) {
+                    Button {
+                        searchPresented = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                            .frame(width: 38, height: 38)
+                            .background(Circle().fill(GymCircleTheme.ColorToken.elevatedCard))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Loc.searchPeople)
+
+                    Button {
+                        notificationsPresented = true
+                    } label: {
+                        Image(systemName: "bell")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                            .frame(width: 38, height: 38)
+                            .background(Circle().fill(GymCircleTheme.ColorToken.elevatedCard))
+                            .overlay(alignment: .topTrailing) {
+                                if model.unreadNotifications > 0 {
+                                    Circle()
+                                        .fill(GymCircleTheme.ColorToken.pink)
+                                        .frame(width: 9, height: 9)
+                                        .offset(x: -2, y: 2)
+                                }
                             }
-                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Loc.notifications)
                 }
-                .accessibilityLabel(Loc.notifications)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    searchPresented = true
-                } label: {
-                    Image(systemName: "magnifyingglass")
-                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                }
-                .accessibilityLabel(Loc.searchPeople)
             }
         }
         // Paridade web: título grande "Hoje" (antes vinha "Today" hardcoded).
