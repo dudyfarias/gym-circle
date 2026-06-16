@@ -849,6 +849,68 @@ public struct PostCarouselView: View {
     }
 }
 
+/// Pinch-to-"peek" zoom (paridade PinchZoomImage web): a pinça amplia a foto
+/// de 1→3, arrasto com 1 dedo faz pan quando ampliada, e ao soltar a imagem
+/// volta suave pra escala 1 — não é zoom persistente (igual ao feed do
+/// Instagram e ao web). Só em imagem; vídeo mantém o tap-to-play.
+/// MagnificationGesture roda no iOS 16+ (deploy target do app); o
+/// MagnifyGesture com anchor no midpoint exigiria iOS 17.
+private struct PinchToPeekModifier: ViewModifier {
+    let enabled: Bool
+    @State private var scale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    private let maxScale: CGFloat = 3
+
+    func body(content: Content) -> some View {
+        guard enabled else { return AnyView(content) }
+        return AnyView(
+            content
+                .scaleEffect(scale, anchor: .center)
+                .offset(offset)
+                .gesture(
+                    MagnificationGesture()
+                        .onChanged { value in
+                            // value começa em 1 e cresce; como sempre voltamos
+                            // pra 1 ao soltar, ele mapeia direto pra escala
+                            // absoluta. Trava em [1, 3] (= MIN/MAX_SCALE web).
+                            scale = min(max(value, 1), maxScale)
+                        }
+                        .onEnded { _ in
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                scale = 1
+                                offset = .zero
+                                lastOffset = .zero
+                            }
+                        }
+                )
+                .simultaneousGesture(
+                    DragGesture()
+                        .onChanged { value in
+                            // Pan só quando ampliada; em repouso é no-op pra o
+                            // swipe do carrossel / scroll do feed seguirem.
+                            guard scale > 1 else { return }
+                            offset = CGSize(
+                                width: lastOffset.width + value.translation.width,
+                                height: lastOffset.height + value.translation.height
+                            )
+                        }
+                        .onEnded { _ in
+                            if scale > 1 { lastOffset = offset }
+                        }
+                )
+        )
+    }
+}
+
+extension View {
+    /// Habilita o pinch-to-peek (zoom temporário) numa mídia de imagem.
+    func pinchToPeek(enabled: Bool) -> some View {
+        modifier(PinchToPeekModifier(enabled: enabled))
+    }
+}
+
 /// Carregamento PROGRESSIVO (paridade web blur→thumb→full): o thumbnail
 /// (~720px) aparece quase na hora e segura a imagem; o original (~1600px)
 /// entra por cima com fade-in suave quando termina de carregar. Se não há
@@ -918,6 +980,10 @@ public struct MediaView: View {
                     .shadow(radius: 8)
             }
         }
+        // Zoom temporário (pinch-to-peek) só em imagem. Aplicado ANTES do
+        // aspectRatio/clip pra a foto ampliada ficar recortada no retângulo
+        // da mídia (não vaza pro card).
+        .pinchToPeek(enabled: !isVideo)
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
         .clipped()
