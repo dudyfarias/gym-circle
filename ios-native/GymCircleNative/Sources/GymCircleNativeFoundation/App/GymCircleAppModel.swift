@@ -1313,6 +1313,20 @@ public final class GymCircleAppModel: ObservableObject {
         return (try? await profilesService.followCounts(userId: userId)) ?? (0, 0)
     }
 
+    /// Sprint 22.x — estado do restaurador de streak do próprio user (card do
+    /// perfil, paridade web). Fail-soft nil.
+    public func fetchStreakRestoreInfo() async -> MyCircleService.StreakRestoreInfo? {
+        guard let myCircleService, let userId = sessionStore?.currentUserId else { return nil }
+        return try? await myCircleService.streakRestoreInfo(userId: userId)
+    }
+
+    /// Consome 1 restaurador e recarrega o perfil.
+    public func useStreakRestore() async {
+        guard let myCircleService else { return }
+        try? await myCircleService.consumeStreakRestore()
+        await loadProfile()
+    }
+
     /// Sprint 22.x — anéis de consistência (semana/mês/ano) de um user pro
     /// header do OtherProfile (paridade web AvatarConsistencyRings). Fail-soft
     /// nil quando indisponível (ex.: perfil privado que não sigo — a RLS de

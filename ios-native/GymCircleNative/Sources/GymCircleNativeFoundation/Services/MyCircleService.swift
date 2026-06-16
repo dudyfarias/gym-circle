@@ -342,6 +342,64 @@ public actor MyCircleService {
         return rows.first?.lastStreakRestoreUsedAt != nil
     }
 
+    // MARK: - Sprint 22.x — Streak restore (card do perfil, paridade web)
+
+    public struct StreakRestoreInfo: Sendable {
+        public let status: String
+        public let available: Int
+        public let deadlineAt: Date?
+
+        /// Mesma condição do web (canRestoreStreak): disponível, tem restaurador
+        /// e o prazo ainda não venceu.
+        public var canRestore: Bool {
+            status == "available" && available > 0 && (deadlineAt.map { $0 > Date() } ?? false)
+        }
+    }
+
+    /// Recomputa (sync_my_streak_restores) e lê o estado do restaurador de
+    /// streak do user — espelha o services.stats do web (sync no load + leitura
+    /// das colunas de user_stats).
+    public func streakRestoreInfo(userId: String) async throws -> StreakRestoreInfo {
+        _ = try? await client.rpc("sync_my_streak_restores").execute()
+        struct Row: Decodable {
+            let status: String?
+            let available: Int?
+            let deadlineAt: String?
+            enum CodingKeys: String, CodingKey {
+                case status = "streak_restore_status"
+                case available = "streak_restores_available"
+                case deadlineAt = "streak_restore_deadline_at"
+            }
+        }
+        let rows: [Row] = try await client
+            .from("user_stats")
+            .select("streak_restore_status,streak_restores_available,streak_restore_deadline_at")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        let row = rows.first
+        return StreakRestoreInfo(
+            status: row?.status ?? "none",
+            available: row?.available ?? 0,
+            deadlineAt: row?.deadlineAt.flatMap(Self.parseTimestamp)
+        )
+    }
+
+    /// Consome 1 restaurador (RPC use_streak_restore).
+    public func consumeStreakRestore() async throws {
+        _ = try await client.rpc("use_streak_restore").execute()
+    }
+
+    private static func parseTimestamp(_ s: String) -> Date? {
+        let withFrac = ISO8601DateFormatter()
+        withFrac.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let d = withFrac.date(from: s) { return d }
+        let plain = ISO8601DateFormatter()
+        plain.formatOptions = [.withInternetDateTime]
+        return plain.date(from: s)
+    }
+
     private func startOfYear(for date: Date) -> String {
         let year = calendar.component(.year, from: date)
         return "\(year)-01-01"

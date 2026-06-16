@@ -22,6 +22,7 @@ public struct ProfileView: View {
     @State private var followingCount = 0
     @State private var followersPresented = false
     @State private var followingPresented = false
+    @State private var streakRestore: MyCircleService.StreakRestoreInfo?
 
     public init(
         model: GymCircleAppModel,
@@ -51,6 +52,9 @@ public struct ProfileView: View {
                         onOpenDetail: { hallDetailAchievement = $0 },
                         onOpenHall: { hallPresented = true }
                     )
+                    if let restore = streakRestore, restore.canRestore {
+                        streakRestoreCard(restore)
+                    }
                     postsGrid
                 } else {
                     GCEmptyState(
@@ -79,6 +83,7 @@ public struct ProfileView: View {
             let counts = await model.fetchFollowCounts()
             followersCount = counts.followers
             followingCount = counts.following
+            streakRestore = await model.fetchStreakRestoreInfo()
         }
         .sheet(isPresented: $settingsPresented) {
             SettingsSheet(model: model)
@@ -285,6 +290,76 @@ public struct ProfileView: View {
                 .font(.system(size: 11, weight: .bold))
                 .foregroundStyle(Color.white.opacity(0.52))
         }
+    }
+
+    // Card de restaurar streak (paridade ProfileScreen web) — só aparece quando
+    // há restaurador disponível e o prazo ainda não venceu.
+    private func streakRestoreCard(_ restore: MyCircleService.StreakRestoreInfo) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "lifepreserver")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(GymCircleTheme.ColorToken.cyan.opacity(0.14)))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(Loc.t("Restore streak?", "Restaurar streak?"))
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                Text(Loc.t("Use 1 restore to save yesterday's missed day.", "Use 1 restaurador para proteger o dia que passou."))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.58))
+                    .fixedSize(horizontal: false, vertical: true)
+                if let countdown = restoreCountdown(restore.deadlineAt) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "clock").font(.system(size: 11, weight: .bold))
+                        Text(countdown).font(.system(size: 11, weight: .black))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.black.opacity(0.24)))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .padding(.top, 2)
+                }
+            }
+            Spacer(minLength: 8)
+            Button {
+                Task {
+                    await model.useStreakRestore()
+                    streakRestore = await model.fetchStreakRestoreInfo()
+                }
+            } label: {
+                Text(Loc.t("Restore", "Restaurar"))
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 16)
+                    .frame(height: 36)
+                    .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.cyan.opacity(0.07))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.2), lineWidth: 1)
+                )
+        )
+    }
+
+    /// Espelha formatRestoreCountdown do web: "Restam Xh" ou "Restam Xmin".
+    private func restoreCountdown(_ deadline: Date?) -> String? {
+        guard let deadline else { return nil }
+        let diff = deadline.timeIntervalSinceNow
+        guard diff > 0 else { return nil }
+        let hours = Int(diff / 3600)
+        let minutes = max(1, Int((diff.truncatingRemainder(dividingBy: 3600) / 60).rounded(.up)))
+        if hours <= 0 {
+            return Loc.t("\(minutes)min left", "Restam \(minutes)min")
+        }
+        return Loc.t("\(hours)h left", "Restam \(hours)h")
     }
 
     private var postsGrid: some View {
