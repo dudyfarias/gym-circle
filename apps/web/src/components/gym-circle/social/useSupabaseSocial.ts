@@ -91,9 +91,9 @@ import {
   writeNativeStoryTrayCache,
 } from "./supabaseSocialCache";
 import {
-  filterCircleRankingRows,
   logSurfaceFallback,
   optionalStorySocialRows,
+  queryCircleRankingClientFallback,
   queryCircleRankingSurface,
   queryHomeFeedSurface,
   queryStoryTraySurface,
@@ -1459,42 +1459,6 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     services.client,
   ]);
 
-  const loadCircleRankingFallback = useCallback(
-    async (period: RankingPeriod): Promise<CircleRankingRow[]> => {
-      const followingIds = new Set(
-        aggRef.current.follows
-          .filter(
-            (follow) =>
-              follow.follower_id === currentUserId && follow.status === "accepted",
-          )
-          .map((follow) => follow.following_id),
-      );
-
-      const followsRes = await services.client
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", currentUserId)
-        .eq("status", "accepted");
-
-      if (!followsRes.error) {
-        for (const row of (followsRes.data ?? []) as Array<{ following_id: string }>) {
-          followingIds.add(row.following_id);
-        }
-      }
-
-      const globalRes = await queryCircleRankingSurface(
-        services.client,
-        "global",
-        period,
-        200,
-      );
-      if (globalRes.error) return [];
-
-      return filterCircleRankingRows(globalRes.data, currentUserId, followingIds);
-    },
-    [currentUserId, services.client],
-  );
-
   // Sprint 19 — carrega o ranking da Competição (escopo × período) sob demanda.
   const loadRanking = useCallback(
     async (scope: RankingScope, period: RankingPeriod) => {
@@ -1503,8 +1467,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       setRanking((prev) => ({ ...prev, scope, period, loading: true }));
       const res = await queryCircleRankingSurface(services.client, scope, period);
       let rows = res.error ? [] : res.data;
-      if (scope === "circle" && rows.length <= 1) {
-        rows = await loadCircleRankingFallback(period);
+      const shouldUseClientFallback =
+        rows.length === 0 || (scope === "circle" && rows.length <= 1);
+      if (shouldUseClientFallback) {
+        const fallbackRows = await queryCircleRankingClientFallback(
+          services.client,
+          scope,
+          period,
+          currentUserId,
+          scope === "global" ? 50 : 200,
+        );
+        if (fallbackRows.length > 0 || rows.length === 0) {
+          rows = fallbackRows;
+        }
       }
       if (!mountedRef.current || requestId !== rankingRequestRef.current) return;
       setRanking({
@@ -1514,7 +1489,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         loading: false,
       });
     },
-    [loadCircleRankingFallback, services.client],
+    [currentUserId, services.client],
   );
 
   const scheduleRefresh = useCallback(() => {

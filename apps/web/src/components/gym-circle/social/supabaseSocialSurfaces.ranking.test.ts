@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildCircleRankingRowsFromSnapshots,
   filterCircleRankingRows,
   normalizeCircleRankingRows,
   queryCircleRankingSurface,
@@ -102,6 +103,89 @@ describe("circle ranking surface", () => {
       ["me", 2],
     ]);
   });
+
+  it("builds global fallback rows from activity days when the RPC returns empty", () => {
+    const rows = buildCircleRankingRowsFromSnapshots({
+      profiles: [
+        profile({ user_id: "me", username: "dudy" }),
+        profile({ user_id: "friend", username: "johnny" }),
+      ],
+      stats: [
+        { user_id: "me", current_streak: 4, badge_is_active_today: true },
+        { user_id: "friend", current_streak: 2, badge_is_active_today: false },
+      ],
+      activityDays: [
+        { user_id: "me", activity_date: "2026-06-15" },
+        { user_id: "me", activity_date: "2026-06-16" },
+        { user_id: "friend", activity_date: "2026-06-16" },
+      ],
+      achievements: [],
+      scope: "global",
+      period: "year",
+      currentUserId: "me",
+      now: new Date("2026-06-16T18:00:00.000Z"),
+    });
+
+    expect(rows.map((row) => [row.user_id, row.total_points, row.rank])).toEqual([
+      ["me", 20, 1],
+      ["friend", 10, 2],
+    ]);
+  });
+
+  it("keeps circle fallback limited to me and accepted following ids", () => {
+    const rows = buildCircleRankingRowsFromSnapshots({
+      profiles: [
+        profile({ user_id: "me", username: "dudy" }),
+        profile({ user_id: "friend", username: "johnny" }),
+        profile({ user_id: "stranger", username: "nobody" }),
+      ],
+      stats: [],
+      activityDays: [
+        { user_id: "me", activity_date: "2026-06-16" },
+        { user_id: "friend", activity_date: "2026-06-16" },
+        { user_id: "stranger", activity_date: "2026-06-16" },
+      ],
+      achievements: [],
+      scope: "circle",
+      period: "week",
+      currentUserId: "me",
+      followingIds: ["friend"],
+      now: new Date("2026-06-16T18:00:00.000Z"),
+    });
+
+    expect(rows.map((row) => row.user_id).sort()).toEqual(["friend", "me"]);
+  });
+
+  it("only scores achievements earned inside the selected period", () => {
+    const rows = buildCircleRankingRowsFromSnapshots({
+      profiles: [profile({ user_id: "me", username: "dudy" })],
+      stats: [],
+      activityDays: [],
+      achievements: [
+        {
+          user_id: "me",
+          achievement_id: "badge:first-workout",
+          earned_at: "2026-06-14T18:00:00.000Z",
+        },
+        {
+          user_id: "me",
+          achievement_id: "badge:first-workout",
+          earned_at: "2026-06-15T18:00:00.000Z",
+        },
+      ],
+      scope: "global",
+      period: "week",
+      currentUserId: "me",
+      now: new Date("2026-06-16T18:00:00.000Z"),
+    });
+
+    expect(rows[0]).toMatchObject({
+      user_id: "me",
+      workout_days: 0,
+      achievement_points: 1,
+      total_points: 1,
+    });
+  });
 });
 
 function rankingRow(
@@ -118,6 +202,20 @@ function rankingRow(
     achievement_points: 0,
     total_points: 0,
     rank: null,
+    ...overrides,
+  };
+}
+
+function profile(
+  overrides: Partial<Parameters<typeof buildCircleRankingRowsFromSnapshots>[0]["profiles"][number]>,
+): Parameters<typeof buildCircleRankingRowsFromSnapshots>[0]["profiles"][number] {
+  return {
+    user_id: "user",
+    username: null,
+    display_name: null,
+    avatar_url: null,
+    account_status: "active",
+    deleted_at: null,
     ...overrides,
   };
 }

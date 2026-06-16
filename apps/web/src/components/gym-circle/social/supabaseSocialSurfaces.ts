@@ -1,4 +1,12 @@
 import type { StoryRow } from "@gym-circle/core";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  FULL_MONTH_BONUS,
+  FULL_WEEK_BONUS,
+  WORKOUT_DAY_POINTS,
+  pointsForDifficulty,
+  pointsForStaticAchievement,
+} from "./rankingPoints";
 import type {
   CircleRankingRow,
   DiscoveryProfileRow,
@@ -256,6 +264,235 @@ export async function queryCircleRankingSurface(
   }
 }
 
+type RankingProfileSnapshot = {
+  user_id: string;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  account_status?: string | null;
+  deleted_at?: string | null;
+};
+
+type RankingStatsSnapshot = {
+  user_id: string;
+  current_streak?: number | null;
+  badge_is_active_today?: boolean | null;
+};
+
+type RankingActivitySnapshot = {
+  user_id: string;
+  activity_date: string;
+};
+
+type RankingAchievementSnapshot = {
+  user_id: string;
+  achievement_id: string;
+  earned_at?: string | null;
+};
+
+type RankingChallengeSnapshot = {
+  id: string;
+  difficulty?: string | null;
+};
+
+type RankingPeriodBounds = {
+  startDate: string;
+  endDate: string;
+  startIso: string;
+  endIso: string;
+};
+
+const SAO_PAULO_TIME_ZONE = "America/Sao_Paulo";
+const MAX_RANKING_FALLBACK_USERS = 500;
+
+/**
+ * Browser-safe fallback para a Competição. Ele existe porque alguns clients
+ * podem ficar sem linhas da RPC por cache/schema/RLS transitório; a tela não
+ * deve ficar vazia se as tabelas base estão acessíveis.
+ */
+export async function queryCircleRankingClientFallback(
+  client: GymCircleSupabaseClient,
+  scope: RankingScope,
+  period: RankingPeriod,
+  currentUserId: string,
+  limit = 50,
+): Promise<CircleRankingRow[]> {
+  try {
+    const looseClient = client as unknown as SupabaseClient;
+    const followingIds = new Set<string>();
+    if (scope === "circle") {
+      const followsRes = await client
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", currentUserId)
+        .eq("status", "accepted");
+      if (followsRes.error) throw followsRes.error;
+      for (const row of (followsRes.data ?? []) as Array<{ following_id: string }>) {
+        if (row.following_id) followingIds.add(row.following_id);
+      }
+    }
+
+    let profileQuery = client
+      .from("profiles")
+      .select("user_id,username,display_name,avatar_url,account_status,deleted_at")
+      .eq("account_status", "active")
+      .is("deleted_at", null)
+      .limit(MAX_RANKING_FALLBACK_USERS);
+    if (scope === "circle") {
+      profileQuery = profileQuery.in("user_id", [currentUserId, ...followingIds]);
+    }
+
+    const profilesRes = await profileQuery;
+    if (profilesRes.error) throw profilesRes.error;
+    const profiles = (profilesRes.data ?? []) as RankingProfileSnapshot[];
+    const userIds = profiles
+      .map((profile) => profile.user_id)
+      .filter((id): id is string => Boolean(id));
+    if (userIds.length === 0) return [];
+
+    const bounds = getRankingPeriodBounds(period);
+    const [statsRes, activityRes, achievementsRes] = await Promise.all([
+      client
+        .from("user_stats_live")
+        .select("user_id,current_streak,badge_is_active_today")
+        .in("user_id", userIds),
+      client
+        .from("user_activity_days")
+        .select("user_id,activity_date")
+        .in("user_id", userIds)
+        .gte("activity_date", bounds.startDate)
+        .lt("activity_date", bounds.endDate),
+      looseClient
+        .from("user_achievements")
+        .select("user_id,achievement_id,earned_at")
+        .in("user_id", userIds)
+        .gte("earned_at", bounds.startIso)
+        .lt("earned_at", bounds.endIso),
+    ]);
+
+    if (statsRes.error) throw statsRes.error;
+    if (activityRes.error) throw activityRes.error;
+    if (achievementsRes.error) throw achievementsRes.error;
+
+    const achievements = (achievementsRes.data ?? []) as RankingAchievementSnapshot[];
+    const challengeIds = Array.from(
+      new Set(
+        achievements
+          .map((row) => parseChallengeId(row.achievement_id))
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    let challenges: RankingChallengeSnapshot[] = [];
+    if (challengeIds.length > 0) {
+      const challengesRes = await looseClient
+        .from("monthly_challenges")
+        .select("id,difficulty")
+        .in("id", challengeIds);
+      if (!challengesRes.error) {
+        challenges = (challengesRes.data ?? []) as RankingChallengeSnapshot[];
+      }
+    }
+
+    return buildCircleRankingRowsFromSnapshots({
+      profiles,
+      stats: (statsRes.data ?? []) as RankingStatsSnapshot[],
+      activityDays: (activityRes.data ?? []) as RankingActivitySnapshot[],
+      achievements,
+      challenges,
+      scope,
+      period,
+      currentUserId,
+      followingIds,
+      limit,
+    });
+  } catch (error) {
+    logSurfaceFallback("circle ranking client fallback", error);
+    return [];
+  }
+}
+
+export function buildCircleRankingRowsFromSnapshots(input: {
+  profiles: readonly RankingProfileSnapshot[];
+  stats: readonly RankingStatsSnapshot[];
+  activityDays: readonly RankingActivitySnapshot[];
+  achievements: readonly RankingAchievementSnapshot[];
+  challenges?: readonly RankingChallengeSnapshot[];
+  scope: RankingScope;
+  period: RankingPeriod;
+  currentUserId: string;
+  followingIds?: Iterable<string>;
+  limit?: number;
+  now?: Date;
+}): CircleRankingRow[] {
+  const bounds = getRankingPeriodBounds(input.period, input.now);
+  const allowedIds =
+    input.scope === "circle"
+      ? new Set<string>([input.currentUserId, ...(input.followingIds ?? [])])
+      : null;
+  const statsByUser = new Map(input.stats.map((row) => [row.user_id, row]));
+  const challengeDifficultyById = new Map(
+    (input.challenges ?? []).map((row) => [row.id, row.difficulty ?? null]),
+  );
+  const activityDatesByUser = new Map<string, Set<string>>();
+  const achievementPointsByUser = new Map<string, number>();
+
+  for (const row of input.activityDays) {
+    if (!row.user_id || !isDateKeyInRange(row.activity_date, bounds)) continue;
+    const dates = activityDatesByUser.get(row.user_id) ?? new Set<string>();
+    dates.add(row.activity_date.slice(0, 10));
+    activityDatesByUser.set(row.user_id, dates);
+  }
+
+  for (const row of input.achievements) {
+    if (!row.user_id || !isIsoInRange(row.earned_at, bounds)) continue;
+    const challengeId = parseChallengeId(row.achievement_id);
+    const difficulty = challengeId ? challengeDifficultyById.get(challengeId) : null;
+    const points = difficulty
+      ? pointsForChallengeDifficulty(difficulty)
+      : pointsForStaticAchievement(row.achievement_id);
+    achievementPointsByUser.set(
+      row.user_id,
+      (achievementPointsByUser.get(row.user_id) ?? 0) + points,
+    );
+  }
+
+  return rerankCircleRows(
+    input.profiles
+      .filter((profile) => {
+        if (!profile.user_id) return false;
+        if (allowedIds && !allowedIds.has(profile.user_id)) return false;
+        if (profile.account_status && profile.account_status !== "active") return false;
+        return !profile.deleted_at;
+      })
+      .map((profile) => {
+        const dates = Array.from(activityDatesByUser.get(profile.user_id) ?? []);
+        const workoutDays = dates.length;
+        const fullWeeks = countFullWeeks(dates);
+        const fullMonths = countFullMonths(dates);
+        const achievementPoints = achievementPointsByUser.get(profile.user_id) ?? 0;
+        const stats = statsByUser.get(profile.user_id);
+        const totalPoints =
+          workoutDays * WORKOUT_DAY_POINTS +
+          fullWeeks * FULL_WEEK_BONUS +
+          fullMonths * FULL_MONTH_BONUS +
+          achievementPoints;
+        return {
+          user_id: profile.user_id,
+          username: profile.username,
+          display_name: profile.display_name,
+          avatar_url: profile.avatar_url,
+          current_streak: numberValue(stats?.current_streak) ?? 0,
+          badge_is_active_today: booleanValue(stats?.badge_is_active_today) ?? false,
+          workout_days: workoutDays,
+          achievement_points: achievementPoints,
+          total_points: totalPoints,
+          rank: null,
+        };
+      })
+      .filter((row) => (row.total_points ?? 0) > 0),
+  ).slice(0, input.limit ?? 50);
+}
+
 export function normalizeCircleRankingRows(data: unknown): CircleRankingRow[] {
   if (!Array.isArray(data)) return [];
 
@@ -313,6 +550,125 @@ function rerankCircleRows(rows: readonly CircleRankingRow[]): CircleRankingRow[]
       );
     })
     .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function getRankingPeriodBounds(
+  period: RankingPeriod,
+  now = new Date(),
+): RankingPeriodBounds {
+  const today = getSaoPauloDateKey(now);
+  const startDate =
+    period === "week"
+      ? startOfWeekDateKey(today)
+      : period === "month"
+        ? `${today.slice(0, 8)}01`
+        : `${today.slice(0, 4)}-01-01`;
+  const endDate =
+    period === "week"
+      ? addDaysDateKey(startDate, 7)
+      : period === "month"
+        ? addMonthsDateKey(startDate, 1)
+        : `${Number(today.slice(0, 4)) + 1}-01-01`;
+
+  return {
+    startDate,
+    endDate,
+    startIso: saoPauloDateStartIso(startDate),
+    endIso: saoPauloDateStartIso(endDate),
+  };
+}
+
+function getSaoPauloDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: SAO_PAULO_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function saoPauloDateStartIso(dateKey: string): string {
+  return `${dateKey}T03:00:00.000Z`;
+}
+
+function isDateKeyInRange(value: string | null | undefined, bounds: RankingPeriodBounds) {
+  if (!value) return false;
+  const dateKey = value.slice(0, 10);
+  return dateKey >= bounds.startDate && dateKey < bounds.endDate;
+}
+
+function isIsoInRange(value: string | null | undefined, bounds: RankingPeriodBounds) {
+  if (!value) return false;
+  return value >= bounds.startIso && value < bounds.endIso;
+}
+
+function startOfWeekDateKey(dateKey: string): string {
+  const date = parseDateKeyAsUtcNoon(dateKey);
+  const day = date.getUTCDay();
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  date.setUTCDate(date.getUTCDate() + mondayOffset);
+  return toDateKey(date);
+}
+
+function addDaysDateKey(dateKey: string, days: number): string {
+  const date = parseDateKeyAsUtcNoon(dateKey);
+  date.setUTCDate(date.getUTCDate() + days);
+  return toDateKey(date);
+}
+
+function addMonthsDateKey(dateKey: string, months: number): string {
+  const date = parseDateKeyAsUtcNoon(dateKey);
+  date.setUTCMonth(date.getUTCMonth() + months);
+  return toDateKey(date);
+}
+
+function parseDateKeyAsUtcNoon(dateKey: string): Date {
+  return new Date(`${dateKey}T12:00:00.000Z`);
+}
+
+function toDateKey(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function countFullWeeks(dateKeys: readonly string[]): number {
+  const byWeek = new Map<string, Set<string>>();
+  for (const dateKey of dateKeys) {
+    const weekStart = startOfWeekDateKey(dateKey);
+    const dates = byWeek.get(weekStart) ?? new Set<string>();
+    dates.add(dateKey);
+    byWeek.set(weekStart, dates);
+  }
+  return Array.from(byWeek.values()).filter((dates) => dates.size >= 7).length;
+}
+
+function countFullMonths(dateKeys: readonly string[]): number {
+  const byMonth = new Map<string, Set<string>>();
+  for (const dateKey of dateKeys) {
+    const monthKey = dateKey.slice(0, 7);
+    const dates = byMonth.get(monthKey) ?? new Set<string>();
+    dates.add(dateKey);
+    byMonth.set(monthKey, dates);
+  }
+  return Array.from(byMonth.entries()).filter(([monthKey, dates]) => {
+    const [year, month] = monthKey.split("-").map(Number);
+    return dates.size >= new Date(Date.UTC(year, month, 0)).getUTCDate();
+  }).length;
+}
+
+function parseChallengeId(achievementId: string): string | null {
+  const [kind, , id] = achievementId.split(":");
+  return kind === "challenge" && id ? id : null;
+}
+
+function pointsForChallengeDifficulty(difficulty: string): number {
+  return difficulty === "easy" ||
+    difficulty === "medium" ||
+    difficulty === "hard" ||
+    difficulty === "legendary"
+    ? pointsForDifficulty(difficulty)
+    : pointsForStaticAchievement("");
 }
 
 function stringValue(value: unknown): string | null {
