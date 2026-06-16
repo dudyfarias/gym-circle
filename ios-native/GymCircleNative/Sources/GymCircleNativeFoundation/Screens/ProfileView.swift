@@ -23,6 +23,9 @@ public struct ProfileView: View {
     @State private var followersPresented = false
     @State private var followingPresented = false
     @State private var streakRestore: MyCircleService.StreakRestoreInfo?
+    // Chips de completar perfil já dispensados (tracking local em UserDefaults,
+    // como o first-visit hint — single-device).
+    @State private var dismissedHints: Set<String> = []
 
     public init(
         model: GymCircleAppModel,
@@ -52,6 +55,7 @@ public struct ProfileView: View {
                         onOpenDetail: { hallDetailAchievement = $0 },
                         onOpenHall: { hallPresented = true }
                     )
+                    completionSection(profile)
                     if let restore = streakRestore, restore.canRestore {
                         streakRestoreCard(restore)
                     }
@@ -84,6 +88,9 @@ public struct ProfileView: View {
             followersCount = counts.followers
             followingCount = counts.following
             streakRestore = await model.fetchStreakRestoreInfo()
+            dismissedHints = Set(Self.completionIDs.filter {
+                UserDefaults.standard.bool(forKey: "profile-complete-seen-\($0)")
+            })
         }
         .sheet(isPresented: $settingsPresented) {
             SettingsSheet(model: model)
@@ -360,6 +367,108 @@ public struct ProfileView: View {
             return Loc.t("\(minutes)min left", "Restam \(minutes)min")
         }
         return Loc.t("\(hours)h left", "Restam \(hours)h")
+    }
+
+    // MARK: - Completar perfil (paridade ProfileScreen web)
+
+    private struct CompletionItem: Identifiable {
+        let id: String
+        let label: String
+        let icon: String
+        let weight: Int
+        let complete: Bool
+    }
+
+    private static let completionIDs = ["identity", "avatar", "goal", "bio", "preferredTimes"]
+
+    private func calculateCompletion(_ p: UserProfile) -> (percentage: Int, missing: [CompletionItem]) {
+        func hasText(_ s: String?) -> Bool {
+            !(s ?? "").trimmingCharacters(in: .whitespaces).isEmpty
+        }
+        // Itens do web menos "academia" (sem fonte no UserProfile nativo).
+        let items: [CompletionItem] = [
+            CompletionItem(id: "identity", label: Loc.t("Name and username", "Nome e username"), icon: "person.crop.circle", weight: 40,
+                           complete: hasText(p.displayName) && p.displayName != "—" && hasText(p.username) && p.username != "—"),
+            CompletionItem(id: "avatar", label: Loc.t("Profile photo", "Foto de perfil"), icon: "camera", weight: 15, complete: hasText(p.avatarURL)),
+            CompletionItem(id: "goal", label: Loc.t("Fitness goal", "Objetivo fitness"), icon: "target", weight: 10, complete: hasText(p.fitnessGoal)),
+            CompletionItem(id: "bio", label: Loc.t("Bio", "Bio"), icon: "person", weight: 10, complete: hasText(p.bio)),
+            CompletionItem(id: "preferredTimes", label: Loc.t("Workout times", "Horários de treino"), icon: "clock", weight: 10, complete: !p.preferredTrainingTimes.isEmpty),
+        ]
+        let total = items.reduce(0) { $0 + $1.weight }
+        let earned = items.reduce(0) { $0 + ($1.complete ? $1.weight : 0) }
+        let pct = total > 0 ? Int((Double(earned) / Double(total) * 100).rounded()) : 0
+        return (pct, items.filter { !$0.complete })
+    }
+
+    @ViewBuilder
+    private func completionSection(_ profile: UserProfile) -> some View {
+        let result = calculateCompletion(profile)
+        let pending = result.missing
+            .filter { !dismissedHints.contains($0.id) }
+            .sorted { $0.weight > $1.weight }
+            .prefix(2)
+        if result.percentage < 100, !pending.isEmpty {
+            VStack(spacing: 6) {
+                // Mini barra de progresso (paridade web).
+                HStack(spacing: 8) {
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.06))
+                            Capsule()
+                                .fill(LinearGradient(
+                                    colors: [GymCircleTheme.ColorToken.cyan, GymCircleTheme.ColorToken.electricBlue, GymCircleTheme.ColorToken.deepBlue],
+                                    startPoint: .leading, endPoint: .trailing
+                                ))
+                                .frame(width: geo.size.width * CGFloat(result.percentage) / 100)
+                        }
+                    }
+                    .frame(height: 4)
+                    Text("\(result.percentage)%")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.52))
+                }
+                .padding(.horizontal, 2)
+
+                ForEach(Array(pending)) { item in completionChip(item) }
+            }
+        }
+    }
+
+    private func completionChip(_ item: CompletionItem) -> some View {
+        HStack(spacing: 8) {
+            Button { editPresented = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: item.icon)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        .frame(width: 28, height: 28)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(GymCircleTheme.ColorToken.cyan.opacity(0.12)))
+                    Text(item.label)
+                        .font(.system(size: 12.5, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.86))
+                        .lineLimit(1)
+                    Spacer(minLength: 4)
+                    Text("→")
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.52))
+                }
+            }
+            .buttonStyle(.plain)
+            Button { dismissHint(item.id) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.4))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white.opacity(0.04)))
+    }
+
+    private func dismissHint(_ id: String) {
+        UserDefaults.standard.set(true, forKey: "profile-complete-seen-\(id)")
+        dismissedHints.insert(id)
     }
 
     private var postsGrid: some View {
