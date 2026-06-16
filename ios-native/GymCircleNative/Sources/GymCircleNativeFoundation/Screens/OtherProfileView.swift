@@ -36,6 +36,11 @@ public struct OtherProfileView: View {
     public let onBlock: () -> Void
     public let onOpenPost: ((String) -> Void)?
     public let onClose: () -> Void
+    /// Sprint 22.x — carrega os anéis de consistência do user (paridade web).
+    /// Opcional/fail-soft: nil → header cai no avatar simples.
+    public let loadRings: ((String) async -> ConsistencyRings?)?
+
+    @State private var rings: ConsistencyRings?
 
     public init(
         profile: UserProfile,
@@ -53,7 +58,8 @@ public struct OtherProfileView: View {
         onReport: @escaping () -> Void,
         onBlock: @escaping () -> Void,
         onOpenPost: ((String) -> Void)? = nil,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        loadRings: ((String) async -> ConsistencyRings?)? = nil
     ) {
         self.profile = profile
         self.posts = posts
@@ -71,11 +77,20 @@ public struct OtherProfileView: View {
         self.onBlock = onBlock
         self.onOpenPost = onOpenPost
         self.onClose = onClose
+        self.loadRings = loadRings
     }
 
     public var body: some View {
         accessibleBody
             .accessibilityAddTraits(.isModal) // Sprint 9.8.5
+            .task {
+                // Anéis só quando posso ver os posts (mesma porta da RLS de
+                // user_activity_days). Perfil privado não-seguido → fica no
+                // avatar simples.
+                if canSeePosts, rings == nil, let loadRings {
+                    rings = await loadRings(profile.userId)
+                }
+            }
     }
 
     private var accessibleBody: some View {
@@ -135,45 +150,83 @@ public struct OtherProfileView: View {
 
     private var identitySection: some View {
         VStack(spacing: 12) {
-            GCAvatar(url: profile.avatarURL, fallback: profile.username, size: 96)
+            // Anéis de consistência com a foto (paridade web). Cai no avatar
+            // simples quando os anéis não carregaram (privado não-seguido).
+            Group {
+                if let rings {
+                    AvatarConsistencyRings(
+                        rings: rings,
+                        avatarURL: profile.avatarURL,
+                        fallback: profile.username,
+                        size: 132
+                    )
+                } else {
+                    GCAvatar(url: profile.avatarURL, fallback: profile.username, size: 96)
+                }
+            }
 
             VStack(spacing: 4) {
                 HStack(spacing: 6) {
-                    GCText(profile.displayName ?? profile.username, style: .title)
+                    Text(profile.displayName ?? profile.username)
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
                     if profile.isPrivate {
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 11, weight: .heavy))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.white.opacity(0.52))
                     }
                 }
-                GCText("@\(profile.username)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                Text("@\(profile.username)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.white.opacity(0.52))
             }
 
+            chipsRow
+
             if let bio = profile.bio, !bio.isEmpty {
-                GCText(bio, style: .body)
+                Text(bio)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.white.opacity(0.86))
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }
 
-            // Sprint 11.1 — Stats Instagram-style com counts reais
-            // (posts, seguidores, seguindo). Streak/best moveram pra
-            // linha menor abaixo pra preservar info de consistência.
+            // Stats Instagram-style: Posts · Seguidores · Seguindo.
             HStack(spacing: 16) {
                 stat(L10n.profilePosts.string, value: formatCount(postsCount))
                 stat(L10n.profileFollowers.string, value: formatCount(followersCount))
                 stat(L10n.profileFollowing.string, value: formatCount(followingCount))
             }
             .padding(.top, 4)
+        }
+    }
 
-            if realCurrentStreak > 0 || realBestStreak > 0 {
-                HStack(spacing: 12) {
-                    statSecondary(L10n.profileStreak.string, value: "\(realCurrentStreak)d")
-                    Text("•")
-                        .font(.system(size: 11, weight: .heavy))
-                        .foregroundColor(.white.opacity(0.32))
-                    statSecondary(L10n.profileMaior.string, value: "\(realBestStreak)d")
+    // Chips streak + nível (paridade ProfileIdentity web).
+    @ViewBuilder
+    private var chipsRow: some View {
+        let lit = profile.badgeIsActiveToday
+        let hasStreak = realCurrentStreak > 0 || lit
+        if hasStreak {
+            let level = StreakLevel.current(for: realCurrentStreak)
+            HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: lit ? "flame.fill" : "flame")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("\(realCurrentStreak)d")
+                        .font(.system(size: 11, weight: .black))
                 }
-                .padding(.top, 2)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(lit ? GymCircleTheme.ColorToken.cyan.opacity(0.14) : Color.white.opacity(0.06)))
+                .foregroundColor(lit ? GymCircleTheme.ColorToken.cyan : Color.white.opacity(0.72))
+
+                Text(level.shortLabel)
+                    .font(.system(size: 11, weight: .black))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(0.06)))
+                    .foregroundColor(.white.opacity(0.72))
             }
         }
     }
@@ -187,13 +240,6 @@ public struct OtherProfileView: View {
             return String(format: "%.1fk", Double(n) / 1_000).replacingOccurrences(of: ".0k", with: "k")
         }
         return "\(n)"
-    }
-
-    private func statSecondary(_ title: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            GCText(value, style: .caption, color: GymCircleTheme.ColorToken.cyan)
-            GCText(title.lowercased(), style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
-        }
     }
 
     private func stat(_ title: String, value: String) -> some View {

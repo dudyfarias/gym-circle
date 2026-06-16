@@ -1301,6 +1301,15 @@ public final class GymCircleAppModel: ObservableObject {
         return (try? await profilesService.followCounts(userId: userId)) ?? (0, 0)
     }
 
+    /// Sprint 22.x — anéis de consistência (semana/mês/ano) de um user pro
+    /// header do OtherProfile (paridade web AvatarConsistencyRings). Fail-soft
+    /// nil quando indisponível (ex.: perfil privado que não sigo — a RLS de
+    /// user_activity_days bloqueia via can_view_profile_posts).
+    public func fetchConsistencyRings(userId: String) async -> ConsistencyRings? {
+        guard let myCircleService else { return nil }
+        return try? await myCircleService.getConsistencyRings(userId: userId)
+    }
+
     /// Sprint 9.2 — upload de avatar. Wrapper ProfilesService.uploadAvatar
     /// + reload profile pra atualizar @Published.
     public func uploadAvatar(imageData: Data) async -> String? {

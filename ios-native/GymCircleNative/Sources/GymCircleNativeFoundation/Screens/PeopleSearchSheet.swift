@@ -198,7 +198,8 @@ struct OtherProfileHostView: View {
             onMessage: {},
             onReport: {},
             onBlock: {},
-            onClose: { dismiss() }
+            onClose: { dismiss() },
+            loadRings: { await model.fetchConsistencyRings(userId: $0) }
         )
     }
 }
