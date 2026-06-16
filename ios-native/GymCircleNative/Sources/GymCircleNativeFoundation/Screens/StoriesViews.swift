@@ -87,9 +87,17 @@ public struct StoryBubble: View {
                             .stroke(GymCircleTheme.ColorToken.separator, lineWidth: 3)
                     }
                 }
+                // StreakBadge sobreposto no fundo do avatar (paridade StoryBubbles web).
+                .overlay(alignment: .bottom) {
+                    if group.currentStreak > 0 {
+                        StreakBadgeView(streak: group.currentStreak, size: .xs)
+                            .offset(y: 9)
+                    }
+                }
             GCText(group.username, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 .lineLimit(1)
                 .frame(width: 76)
+                .padding(.top, 6)
         }
     }
 }

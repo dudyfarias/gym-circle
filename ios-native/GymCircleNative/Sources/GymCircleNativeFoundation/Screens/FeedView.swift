@@ -149,6 +149,15 @@ public struct FeedView: View {
                 }
                 .accessibilityLabel(Loc.myCircle)
             }
+            // Marca "GYM CIRCLE" no centro (paridade web) — o botão de fogo
+            // (atalho do MyCircle) fica à esquerda.
+            ToolbarItem(placement: .principal) {
+                Text("GYM CIRCLE")
+                    .font(.system(size: 11, weight: .black, design: .default))
+                    .tracking(2)
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan.opacity(0.9))
+                    .accessibilityHidden(true)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     notificationsPresented = true
@@ -403,19 +412,10 @@ public struct FeedPostCard: View {
                         .font(.system(size: 15, weight: .black, design: .default))
                         .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                         .lineLimit(1)
-                    // StreakBadge xs (chama + número) AO LADO do nome, como no web
-                    // (antes ficava solto na direita).
+                    // StreakBadge (ícone por nível + "{N}d") AO LADO do nome,
+                    // componente compartilhado com os stories (paridade web).
                     if let streak = post.authorCurrentStreak, streak > 0 {
-                        HStack(spacing: 2) {
-                            Image(systemName: "flame.fill")
-                                .font(.system(size: 9, weight: .bold))
-                            Text("\(streak)")
-                                .font(.system(size: 11, weight: .black, design: .default))
-                        }
-                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Capsule().fill(GymCircleTheme.ColorToken.cyan.opacity(0.12)))
+                        StreakBadgeView(streak: streak, size: .sm)
                     }
                 }
                 if let location = post.locationName {
