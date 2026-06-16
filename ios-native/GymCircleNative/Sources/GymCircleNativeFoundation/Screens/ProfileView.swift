@@ -265,16 +265,10 @@ public struct ProfileView: View {
     }
 
     private var postsGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
-            ForEach(posts) { post in
-                Button {
-                    openedPost = post
-                } label: {
-                    MediaView(url: post.displayMediaURL, aspectRatio: 1)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        ProfilePostsGridView(
+            posts: posts,
+            emptyTitle: Loc.t("Your workouts will show up here", "Seus treinos vão aparecer aqui"),
+            onOpenPost: { openedPost = $0 }
+        )
     }
 }

@@ -399,14 +399,10 @@ public struct OtherProfileView: View {
     // MARK: - Posts grid
 
     private var postsGrid: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 3), spacing: 2) {
-            ForEach(posts) { post in
-                Button(action: { onOpenPost?(post.id) }) {
-                    MediaView(url: post.displayMediaURL, aspectRatio: 1)
-                }
-                .buttonStyle(PressableButtonStyle())
-            }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        ProfilePostsGridView(
+            posts: posts,
+            emptyTitle: Loc.t("No workouts posted yet", "Nenhum treino publicado ainda"),
+            onOpenPost: { onOpenPost?($0.id) }
+        )
     }
 }
