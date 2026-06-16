@@ -327,8 +327,13 @@ public struct FeedPostCard: View {
                 participantsRow
                 pendingInviteBanner
                 actionsRow
-                if let caption = post.caption, !caption.isEmpty {
-                    GCText(caption, style: .body)
+                // Curtidas/comentários/legenda agrupados tight (estilo Instagram).
+                VStack(alignment: .leading, spacing: 4) {
+                    likesLine
+                    commentsLine
+                    if let caption = post.caption, !caption.isEmpty {
+                        GCText(caption, style: .body)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -460,54 +465,91 @@ public struct FeedPostCard: View {
         }
     }
 
+    // Paridade web: action row só com ÍCONES (44px, gap 8), contadores viram
+    // linhas estilo Instagram abaixo. workoutType = chip pill.
     private var actionsRow: some View {
-        HStack(spacing: 18) {
-            HStack(spacing: 6) {
-                Button {
-                    onLike?()
-                } label: {
-                    Image(systemName: post.likedByMe == true ? "heart.fill" : "heart")
-                        .foregroundStyle(
-                            post.likedByMe == true
-                                ? GymCircleTheme.ColorToken.electricBlue
-                                : GymCircleTheme.ColorToken.primaryText
-                        )
-                        // Paridade web: curtido = azul (--gc-blue) com glow.
-                        .shadow(
-                            color: post.likedByMe == true
-                                ? GymCircleTheme.ColorToken.electricBlue.opacity(0.55)
-                                : .clear,
-                            radius: 9
-                        )
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(post.likedByMe == true ? Loc.unlike : Loc.like)
-
-                // Sprint 20.3c — o NÚMERO abre o "quem curtiu".
-                Button {
-                    onOpenLikes?()
-                } label: {
-                    Text("\(post.likesCount)")
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Loc.seeWhoLiked)
+        HStack(spacing: 8) {
+            Button {
+                onLike?()
+            } label: {
+                Image(systemName: post.likedByMe == true ? "heart.fill" : "heart")
+                    .foregroundStyle(
+                        post.likedByMe == true
+                            ? GymCircleTheme.ColorToken.electricBlue
+                            : GymCircleTheme.ColorToken.primaryText
+                    )
+                    // curtido = azul (--gc-blue) com glow, como no web.
+                    .shadow(
+                        color: post.likedByMe == true
+                            ? GymCircleTheme.ColorToken.electricBlue.opacity(0.55)
+                            : .clear,
+                        radius: 9
+                    )
+                    .frame(width: 44, height: 44)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(post.likedByMe == true ? Loc.unlike : Loc.like)
 
             Button {
                 onComments?()
             } label: {
-                Label("\(post.commentsCount)", systemImage: "bubble.right")
+                Image(systemName: "message")
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Loc.comments)
 
             Spacer()
             if let workoutType = post.workoutType, !workoutType.isEmpty {
-                GCText(workoutType, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                Text(workoutType)
+                    .font(.system(size: 12, weight: .bold, design: .default))
+                    .foregroundStyle(Color.white.opacity(0.72))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(Capsule().fill(Color.white.opacity(0.06)))
             }
         }
-        .font(.system(size: 15, weight: .bold, design: .default))
-        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+        .font(.system(size: 19, weight: .medium, design: .default))
+    }
+
+    /// Linha "N curtidas" (estilo Instagram, paridade web) — abre quem curtiu.
+    @ViewBuilder
+    private var likesLine: some View {
+        if post.likesCount > 0 {
+            Button {
+                onOpenLikes?()
+            } label: {
+                Text(
+                    post.likesCount == 1
+                        ? Loc.t("1 like", "1 curtida")
+                        : Loc.t("\(post.likesCount) likes", "\(post.likesCount) curtidas")
+                )
+                .font(.system(size: 13, weight: .black, design: .default))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Loc.seeWhoLiked)
+        }
+    }
+
+    /// Linha "Ver os N comentários" (paridade web) — abre o sheet de comentários.
+    @ViewBuilder
+    private var commentsLine: some View {
+        if post.commentsCount > 0 {
+            Button {
+                onComments?()
+            } label: {
+                Text(
+                    post.commentsCount == 1
+                        ? Loc.t("View 1 comment", "Ver 1 comentário")
+                        : Loc.t("View all \(post.commentsCount) comments", "Ver os \(post.commentsCount) comentários")
+                )
+                .font(.system(size: 13, weight: .bold, design: .default))
+                .foregroundStyle(Color.white.opacity(0.46))
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     private var mediaAspectRatio: CGFloat {
