@@ -35,6 +35,7 @@
 		5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52D40B4007DAC206C665780 /* FeedPost.swift */; };
 		5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */; };
 		5EEBF3147E247A6E731BA17D /* AchievementDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */; };
+		5F5FEEF6B191981104672376 /* ProfilePostsGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */; };
 		629E7B2103435F4952232CEA /* PostComposerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6296E65B7AAB500C0D264474 /* PostComposerService.swift */; };
 		660226AA88621F665F2A4A5F /* PressableButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */; };
 		6E4E8259331D8C795CB94EEE /* StoriesViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20940CB53959FF53CFF9C75 /* StoriesViews.swift */; };
@@ -168,6 +169,7 @@
 		A52D40B4007DAC206C665780 /* FeedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPost.swift; sourceTree = "<group>"; };
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapCoverPickerSheet.swift; sourceTree = "<group>"; };
+		B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePostsGridView.swift; sourceTree = "<group>"; };
 		BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleSearchSheet.swift; sourceTree = "<group>"; };
 		BB837287D72E60A143DA73B0 /* NativePlatformServicesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePlatformServicesTests.swift; sourceTree = "<group>"; };
 		BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapPeriodPickerSheet.swift; sourceTree = "<group>"; };
@@ -234,6 +236,7 @@
 				682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */,
 				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
 				89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */,
+				B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */,
 				DAE0677C174BF83D3C158CD7 /* StreakBadgeView.swift */,
 			);
 			path = Components;
@@ -581,6 +584,7 @@
 				AE315F4F956A28DA13D582C6 /* PostParticipant.swift in Sources */,
 				5AA2AA7FB9BD8C9094651FAC /* PostParticipantsService.swift in Sources */,
 				660226AA88621F665F2A4A5F /* PressableButtonStyle.swift in Sources */,
+				5F5FEEF6B191981104672376 /* ProfilePostsGridView.swift in Sources */,
 				24F7215A55C676294FD8637E /* ProfileView.swift in Sources */,
 				3DD13EDB275328C3D6D50ADF /* ProfilesService.swift in Sources */,
 				B346B994AE66D1137B5CD9FD /* RankingModels.swift in Sources */,
@@ -717,7 +721,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -743,7 +747,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 22;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
