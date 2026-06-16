@@ -122,6 +122,8 @@ public struct StoryViewerScreen: View {
     // Sprint 20.6 — reply por DM.
     @State private var replyDraft = ""
     @State private var confirmMute = false
+    // Perfil aberto ao tocar no header do autor (pausa o story enquanto aberto).
+    @State private var openedProfile: OtherProfileSummary?
     @FocusState private var replyFocused: Bool
 
     private let tick: Double = 0.05
@@ -212,6 +214,9 @@ public struct StoryViewerScreen: View {
         .task(id: "\(authorIndex)-\(itemIndex)") {
             await runTimer()
         }
+        .sheet(item: $openedProfile, onDismiss: { isPaused = false }) { summary in
+            OtherProfileHostView(model: model, summary: summary)
+        }
         .gesture(
             DragGesture(minimumDistance: 40).onEnded { value in
                 if value.translation.height > 60 { dismiss() }
@@ -246,8 +251,13 @@ public struct StoryViewerScreen: View {
 
             HStack(spacing: 10) {
                 if let group = currentGroup {
-                    GCAvatar(url: group.avatarURL, fallback: group.username, size: 34)
-                    GCText(group.username, style: .caption, color: .white)
+                    Button { openProfile(userId: group.authorId) } label: {
+                        HStack(spacing: 10) {
+                            GCAvatar(url: group.avatarURL, fallback: group.username, size: 34)
+                            GCText(group.username, style: .caption, color: .white)
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
                 Spacer()
                 if let url = URL(string: item.mediaURL) {
@@ -367,6 +377,20 @@ public struct StoryViewerScreen: View {
         items = await model.fetchStoryItems(authorId: group.authorId)
         isLoading = false
         await markCurrentSeen()
+    }
+
+    /// Abre o perfil do autor do story (tap no header). Pausa o story
+    /// enquanto o perfil estiver aberto; despausa no onDismiss da sheet.
+    private func openProfile(userId: String) {
+        guard userId != model.currentUserId else { return }
+        isPaused = true
+        Task {
+            if let summary = await model.fetchOtherProfileSummary(userId: userId) {
+                openedProfile = summary
+            } else {
+                isPaused = false
+            }
+        }
     }
 
     private func runTimer() async {
