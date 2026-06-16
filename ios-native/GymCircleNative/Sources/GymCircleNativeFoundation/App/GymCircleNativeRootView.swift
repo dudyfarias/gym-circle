@@ -7,6 +7,9 @@ public struct GymCircleNativeRootView: View {
     // scheme gymcircle://). O entitlement applinks já está no target.
     @State private var deepLinkPost: FeedPost?
     @State private var deepLinkProfile: OtherProfileSummary?
+    // Sprint 22.2 — idioma do app (independente do iPhone). Observado aqui pra
+    // re-renderizar a árvore quando o usuário troca em Ajustes.
+    @ObservedObject private var localization = LocalizationStore.shared
 
     public init() {
         // Sprint 20.0 — o standalone agora resolve a config real
@@ -27,26 +30,14 @@ public struct GymCircleNativeRootView: View {
     }
 
     public var body: some View {
-        Group {
-            if model.isAuthenticated {
-                MainTabView(
-                    // Sprint 20.3a — feed interativo observa o model direto.
-                    model: model,
-                    profile: model.profile,
-                    profilePosts: model.profilePosts,
-                    // Sprint 8.3 — usa MyCircleViewData real quando disponível
-                    // (fetchado via MyCircleService no boot), demo como fallback.
-                    myCircle: model.myCircleData ?? MyCircleViewData.demo(
-                        userId: model.profile?.userId ?? "demo-user",
-                        isOwn: true
-                    )
-                )
-            } else {
-                LoginView { identifier, password in
-                    try await model.signIn(identifier: identifier, password: password)
-                }
-            }
+        // O ZStack tem identidade ESTÁVEL: o `.task`/sheets ficam aqui e rodam
+        // 1x. Só o `authContent` interno leva `.id(idioma)`, então a troca de
+        // idioma re-renderiza as strings SEM re-disparar o boot/recarregar feed.
+        ZStack {
+            authContent
+                .id(localization.language)
         }
+        .environment(\.locale, localization.locale)
         .preferredColorScheme(.dark)
         .task {
             // Sprint 8.3 — boot dispara restoreSession + loadInitialSurfaces +
@@ -87,6 +78,30 @@ public struct GymCircleNativeRootView: View {
         }
         .sheet(item: $deepLinkProfile) { summary in
             OtherProfileHostView(model: model, summary: summary)
+        }
+    }
+
+    /// Conteúdo autenticado vs login. Levado num `.id(idioma)` no body pra
+    /// re-renderizar as strings quando o usuário troca o idioma em Ajustes.
+    @ViewBuilder
+    private var authContent: some View {
+        if model.isAuthenticated {
+            MainTabView(
+                // Sprint 20.3a — feed interativo observa o model direto.
+                model: model,
+                profile: model.profile,
+                profilePosts: model.profilePosts,
+                // Sprint 8.3 — usa MyCircleViewData real quando disponível
+                // (fetchado via MyCircleService no boot), demo como fallback.
+                myCircle: model.myCircleData ?? MyCircleViewData.demo(
+                    userId: model.profile?.userId ?? "demo-user",
+                    isOwn: true
+                )
+            )
+        } else {
+            LoginView { identifier, password in
+                try await model.signIn(identifier: identifier, password: password)
+            }
         }
     }
 

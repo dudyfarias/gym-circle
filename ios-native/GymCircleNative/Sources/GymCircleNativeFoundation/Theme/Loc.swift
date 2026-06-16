@@ -8,14 +8,14 @@ import Foundation
 ///
 /// Default PT-BR (mercado v1.1); EN quando o idioma do device não é pt.
 public enum Loc {
-    /// Resolve PT/EN pelo idioma do device. `pt` recebe o texto português.
+    /// Resolve PT/EN pelo idioma EFETIVO do app — o override do usuário em
+    /// AppLocalization (Ajustes), ou o idioma do device se ele nunca escolheu.
     public static func t(_ en: String, _ pt: String) -> String {
-        let code = Locale.current.language.languageCode?.identifier ?? "pt"
-        return code == "pt" ? pt : en
+        AppLocalization.code == "pt" ? pt : en
     }
 
     private static var isEN: Bool {
-        (Locale.current.language.languageCode?.identifier ?? "pt") != "pt"
+        AppLocalization.code == "en"
     }
 
     // MARK: - Feed
@@ -180,6 +180,11 @@ public enum Loc {
     public static var languageFollowsPhone: String {
         t("Follows the iPhone language (Settings > General > Language).",
           "Segue o idioma do iPhone (Ajustes > Geral > Idioma).")
+    }
+    public static var languageSystem: String { t("System (iPhone)", "Sistema (iPhone)") }
+    public static var languagePickerHint: String {
+        t("Choose the app language, independent of your iPhone. New installs start in the iPhone's language.",
+          "Escolha o idioma do app, independente do iPhone. Numa instalação nova ele começa no idioma do iPhone.")
     }
     public static var iphoneSection: String { t("iPhone", "iPhone") }
     public static var enableNotifications: String { t("Enable notifications", "Ativar notificações") }

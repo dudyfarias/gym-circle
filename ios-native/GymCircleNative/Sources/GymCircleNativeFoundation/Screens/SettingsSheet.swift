@@ -6,6 +6,8 @@ import SwiftUI
 /// (/privacy e /terms do site), suspender conta, apagar conta e sair.
 public struct SettingsSheet: View {
     @ObservedObject private var model: GymCircleAppModel
+    // Sprint 22.2 — seletor de idioma do app (independente do iPhone).
+    @ObservedObject private var localization = LocalizationStore.shared
 
     @Environment(\.dismiss) private var dismiss
     @State private var isPrivate: Bool
@@ -45,17 +47,23 @@ public struct SettingsSheet: View {
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
                 Section(Loc.language) {
-                    HStack {
-                        GCText(Loc.appLanguage, style: .body)
-                        Spacer()
-                        GCText(
-                            Locale.current.identifier.hasPrefix("pt") ? Loc.portuguese : Loc.english,
-                            style: .body,
-                            color: GymCircleTheme.ColorToken.secondaryText
+                    Picker(
+                        selection: Binding(
+                            get: { localization.language },
+                            set: { localization.set($0) }
                         )
+                    ) {
+                        Text(Loc.languageSystem).tag(AppLanguage.system)
+                        Text(Loc.portuguese).tag(AppLanguage.pt)
+                        Text(Loc.english).tag(AppLanguage.en)
+                    } label: {
+                        GCText(Loc.appLanguage, style: .body)
                     }
+                    .pickerStyle(.menu)
+                    .tint(GymCircleTheme.ColorToken.cyan)
+
                     GCText(
-                        Loc.languageFollowsPhone,
+                        Loc.languagePickerHint,
                         style: .caption,
                         color: GymCircleTheme.ColorToken.secondaryText
                     )

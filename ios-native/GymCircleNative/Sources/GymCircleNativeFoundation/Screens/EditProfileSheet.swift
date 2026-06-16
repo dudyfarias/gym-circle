@@ -492,7 +492,7 @@ public struct EditProfileSheet: View {
     }
 
     private func localizedTimeLabel(_ slot: (id: String, labelEN: String, labelPT: String)) -> String {
-        let isEN = Locale.current.language.languageCode?.identifier.hasPrefix("en") ?? false
+        let isEN = AppLocalization.code == "en"
         return isEN ? slot.labelEN : slot.labelPT
     }
 

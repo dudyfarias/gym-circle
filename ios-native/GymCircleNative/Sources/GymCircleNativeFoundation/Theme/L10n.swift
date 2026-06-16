@@ -418,8 +418,8 @@ public enum L10n {
     }
 
     private static func isEnglishLocale() -> Bool {
-        let code = Locale.current.language.languageCode?.identifier
-            ?? Locale.current.identifier.prefix(2).lowercased()
-        return code.hasPrefix("en")
+        // Idioma efetivo do app (override do usuário ou device) — paridade
+        // com o Loc.t, pra o seletor de Ajustes valer aqui também.
+        AppLocalization.code == "en"
     }
 }

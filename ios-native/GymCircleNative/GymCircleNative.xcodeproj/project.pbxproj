@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0354468C7B0BC903D046010B /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904A51CF546A088EF47E87BD /* AppLocalization.swift */; };
 		079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15CF77117635F0D69B78BE8C /* StoryModels.swift */; };
 		12816EF8CCF3450B4AD7E4E3 /* GymCircleTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */; };
 		14A45B815BD3F8556D41CA9E /* CommentsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0973110CDA21450BFC9B8CB6 /* CommentsService.swift */; };
@@ -153,6 +154,7 @@
 		7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
 		7E02612239E7BC217D0CE54E /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressableButtonStyle.swift; sourceTree = "<group>"; };
+		904A51CF546A088EF47E87BD /* AppLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocalization.swift; sourceTree = "<group>"; };
 		92A6946799511E3778D09B6B /* GymCircleNativeAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeAppDelegate.swift; sourceTree = "<group>"; };
 		938F0854F909B3772AE14447 /* AchievementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementModels.swift; sourceTree = "<group>"; };
 		96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAppModel.swift; sourceTree = "<group>"; };
@@ -314,6 +316,7 @@
 		9B3EF177DA798A630D0521B8 /* Theme */ = {
 			isa = PBXGroup;
 			children = (
+				904A51CF546A088EF47E87BD /* AppLocalization.swift */,
 				F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */,
 				D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */,
 				6C49CF73E5FC4231EF022A24 /* L10n.swift */,
@@ -521,6 +524,7 @@
 				BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */,
 				A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */,
 				49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */,
+				0354468C7B0BC903D046010B /* AppLocalization.swift in Sources */,
 				1EEF102EFB0EA7E7396B94BB /* AuthService.swift in Sources */,
 				5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */,
 				52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */,
