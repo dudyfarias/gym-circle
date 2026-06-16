@@ -264,7 +264,7 @@ public struct FeedView: View {
                 Text("GYM CIRCLE")
                     .font(.system(size: 11, weight: .black, design: .default))
                     .tracking(2)
-                    .foregroundStyle(GymCircleTheme.ColorToken.cyan.opacity(0.9))
+                    .foregroundStyle(Color.white.opacity(0.44))
                     .accessibilityHidden(true)
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -468,6 +468,23 @@ public struct FeedPostCard: View {
         return "\(location) · \(NativeLocationProvider.formattedDistanceKm(km))"
     }
 
+    /// Hora do post (paridade formatTime web): HH:mm se hoje, senão "Nd".
+    private var postTimeLabel: String {
+        let parser = ISO8601DateFormatter()
+        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = parser.date(from: post.createdAt)
+            ?? { let p = ISO8601DateFormatter(); return p.date(from: post.createdAt) }()
+        guard let date else { return "" }
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: date)
+        }
+        let days = calendar.dateComponents([.day], from: date, to: Date()).day ?? 0
+        return days <= 0 ? Loc.t("now", "agora") : "\(days)d"
+    }
+
     public var body: some View {
         // Paridade SocialPostCard web (Fase 2): card edge-to-edge — mídia colada
         // nas bordas, header/ações com padding próprio (px-4 py-3.5 = 16/14),
@@ -530,13 +547,20 @@ public struct FeedPostCard: View {
                         StreakBadgeView(streak: streak, size: .sm)
                     }
                 }
-                if let location = post.locationName {
-                    // Paridade web: meta 12px font-bold white/46.
-                    Text(distanceSuffixed(location))
-                        .font(.system(size: 12, weight: .bold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.46))
-                        .lineLimit(1)
+                // Paridade web: meta "📍 local · distância · hora" (a hora sempre
+                // aparece; o pin só quando há local).
+                HStack(spacing: 4) {
+                    if let location = post.locationName, !location.isEmpty {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 10, weight: .bold))
+                        Text(distanceSuffixed(location))
+                            .lineLimit(1)
+                        Text("·").foregroundStyle(Color.white.opacity(0.28))
+                    }
+                    Text(postTimeLabel)
                 }
+                .font(.system(size: 12, weight: .bold, design: .default))
+                .foregroundStyle(Color.white.opacity(0.46))
             }
             Spacer()
 
@@ -569,8 +593,9 @@ public struct FeedPostCard: View {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
-                    .padding(.vertical, 8)
-                    .padding(.leading, 8)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Color.white.opacity(0.055)))
+                    .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             }
         }
     }
@@ -763,6 +788,16 @@ public struct PostCarouselView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .aspectRatio(aspectRatio, contentMode: .fit)
+                // Contador "N/total" no topo-direito (paridade MediaCarousel web).
+                .overlay(alignment: .topTrailing) {
+                    Text("\(currentIndex + 1)/\(items.count)")
+                        .font(.system(size: 11, weight: .black, design: .default))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(Color.black.opacity(0.56)))
+                        .padding(12)
+                }
 
                 HStack(spacing: 5) {
                     ForEach(items.indices, id: \.self) { index in
