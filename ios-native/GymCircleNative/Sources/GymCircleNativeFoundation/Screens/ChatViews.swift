@@ -305,6 +305,8 @@ public struct ConversationView: View {
     /// grupo com `@username` (paridade web). Resolvido lazy: só os senderIds
     /// que aparecem na thread, só uma vez cada.
     @State private var senderChips: [String: DiscoveredProfile] = [:]
+    // Perfil aberto ao tocar no título (1:1) ou no @username (grupo).
+    @State private var openedProfile: OtherProfileSummary?
 
     public init(
         model: GymCircleAppModel,
@@ -361,9 +363,22 @@ public struct ConversationView: View {
                 inputBar
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle(title)
+            .navigationTitle(isGroup ? title : "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // 1:1 — título vira tap pro perfil do peer (paridade web).
+                if !isGroup, let peerUserId {
+                    ToolbarItem(placement: .principal) {
+                        Button {
+                            openProfile(userId: peerUserId)
+                        } label: {
+                            Text(title)
+                                .font(.system(size: 16, weight: .heavy))
+                                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(Loc.close) { dismiss() }
                         .foregroundStyle(GymCircleTheme.ColorToken.cyan)
@@ -373,6 +388,19 @@ public struct ConversationView: View {
         .preferredColorScheme(.dark)
         .task { await load() }
         .task(id: conversationId) { await pollForUpdates() }
+        .sheet(item: $openedProfile) { summary in
+            OtherProfileHostView(model: model, summary: summary)
+        }
+    }
+
+    /// Abre o perfil de um user da conversa (peer no 1:1, remetente no grupo).
+    private func openProfile(userId: String) {
+        guard userId.lowercased() != model.currentUserId?.lowercased() else { return }
+        Task {
+            if let summary = await model.fetchOtherProfileSummary(userId: userId) {
+                openedProfile = summary
+            }
+        }
     }
 
     @ViewBuilder
@@ -385,9 +413,12 @@ public struct ConversationView: View {
                 if isGroup, !isMine,
                    let chip = senderChips[message.senderId.lowercased()],
                    let username = chip.username, !username.isEmpty {
-                    Text("@\(username)")
-                        .font(.system(size: 10, weight: .black, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.34))
+                    Button { openProfile(userId: message.senderId) } label: {
+                        Text("@\(username)")
+                            .font(.system(size: 10, weight: .black, design: .default))
+                            .foregroundStyle(Color.white.opacity(0.34))
+                    }
+                    .buttonStyle(.plain)
                 }
                 if message.replyToStory == true {
                     GCText(
