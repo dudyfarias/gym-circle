@@ -28,6 +28,9 @@ public struct FeedView: View {
     @State private var suggestions: [DiscoveredProfile] = []
     @State private var followedSuggestions: Set<String> = []
     @State private var distanceCardDismissed = false
+    // Perfil aberto ao tocar num nome/avatar (autor do post, participante,
+    // story, sugestão). Tap em qualquer user → perfil dele.
+    @State private var openedProfile: OtherProfileSummary?
 
     public init(model: GymCircleAppModel, myCircle: MyCircleViewData) {
         self.model = model
@@ -91,11 +94,18 @@ public struct FeedView: View {
     private func suggestionCard(_ person: DiscoveredProfile) -> some View {
         let isFollowing = followedSuggestions.contains(person.userId)
         return VStack(spacing: 8) {
-            GCAvatar(url: person.avatarURL, fallback: person.username ?? "user", size: 56)
-            Text(person.displayedName)
-                .font(.system(size: 13, weight: .black, design: .default))
-                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                .lineLimit(1)
+            Button {
+                openProfile(userId: person.userId)
+            } label: {
+                VStack(spacing: 8) {
+                    GCAvatar(url: person.avatarURL, fallback: person.username ?? "user", size: 56)
+                    Text(person.displayedName)
+                        .font(.system(size: 13, weight: .black, design: .default))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        .lineLimit(1)
+                }
+            }
+            .buttonStyle(.plain)
             Button {
                 Task {
                     _ = await model.toggleFollow(targetUserId: person.userId)
@@ -183,7 +193,8 @@ public struct FeedView: View {
                             onPlayVideo: { url in
                                 playingVideo = PlayableVideo(url: url)
                             },
-                            onShare: { sharingPost = post }
+                            onShare: { sharingPost = post },
+                            onOpenProfile: { openProfile(userId: $0) }
                         )
                         .onAppear {
                             // Dispara o load more no penúltimo post (espelho
@@ -335,6 +346,9 @@ public struct FeedView: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .sheet(item: $openedProfile) { summary in
+            OtherProfileHostView(model: model, summary: summary)
+        }
         .sheet(isPresented: $searchPresented) {
             PeopleSearchSheet(model: model)
         }
@@ -378,6 +392,18 @@ public struct FeedView: View {
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .navigationTitle(Loc.t("Today", "Hoje"))
+    }
+
+    /// Abre o perfil de um user (tap em nome/avatar). Ignora o próprio user
+    /// (no web, clicar em si mesmo não navega). Busca o summary e apresenta.
+    private func openProfile(userId: String) {
+        guard !userId.isEmpty,
+              userId.lowercased() != model.currentUserId?.lowercased() else { return }
+        Task {
+            if let summary = await model.fetchOtherProfileSummary(userId: userId) {
+                openedProfile = summary
+            }
+        }
     }
 }
 
@@ -434,6 +460,7 @@ public struct FeedPostCard: View {
     private let onRespondInvite: ((Bool) -> Void)?
     private let onPlayVideo: ((URL) -> Void)?
     private let onShare: (() -> Void)?
+    private let onOpenProfile: ((String) -> Void)?
 
     @State private var confirmDelete = false
 
@@ -450,7 +477,8 @@ public struct FeedPostCard: View {
         onEdit: (() -> Void)? = nil,
         onRespondInvite: ((Bool) -> Void)? = nil,
         onPlayVideo: ((URL) -> Void)? = nil,
-        onShare: (() -> Void)? = nil
+        onShare: (() -> Void)? = nil,
+        onOpenProfile: ((String) -> Void)? = nil
     ) {
         self.post = post
         self.currentUserId = currentUserId
@@ -465,6 +493,7 @@ public struct FeedPostCard: View {
         self.onRespondInvite = onRespondInvite
         self.onPlayVideo = onPlayVideo
         self.onShare = onShare
+        self.onOpenProfile = onOpenProfile
     }
 
     private var isOwnPost: Bool {
@@ -544,35 +573,45 @@ public struct FeedPostCard: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            GCAvatar(url: post.avatarURL, fallback: post.username)
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    // Paridade web: nome 15px font-black.
-                    Text(post.displayAuthorName)
-                        .font(.system(size: 15, weight: .black, design: .default))
-                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                        .lineLimit(1)
-                    // StreakBadge (ícone por nível + "{N}d") AO LADO do nome,
-                    // componente compartilhado com os stories (paridade web).
-                    if let streak = post.authorCurrentStreak, streak > 0 {
-                        StreakBadgeView(streak: streak, size: .sm)
+            // Avatar + nome abrem o perfil do autor (paridade web onSelectUser).
+            Button {
+                onOpenProfile?(post.userId)
+            } label: {
+                HStack(spacing: 12) {
+                    GCAvatar(url: post.avatarURL, fallback: post.username)
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            // Paridade web: nome 15px font-black.
+                            Text(post.displayAuthorName)
+                                .font(.system(size: 15, weight: .black, design: .default))
+                                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                                .lineLimit(1)
+                            // StreakBadge (ícone por nível + "{N}d") AO LADO do nome,
+                            // componente compartilhado com os stories (paridade web).
+                            if let streak = post.authorCurrentStreak, streak > 0 {
+                                StreakBadgeView(streak: streak, size: .sm)
+                            }
+                        }
+                        // Paridade web: meta "📍 local · distância · hora" (a hora sempre
+                        // aparece; o pin só quando há local).
+                        HStack(spacing: 4) {
+                            if let location = post.locationName, !location.isEmpty {
+                                Image(systemName: "mappin.and.ellipse")
+                                    .font(.system(size: 10, weight: .bold))
+                                Text(distanceSuffixed(location))
+                                    .lineLimit(1)
+                                Text("·").foregroundStyle(Color.white.opacity(0.28))
+                            }
+                            Text(postTimeLabel)
+                        }
+                        .font(.system(size: 12, weight: .bold, design: .default))
+                        .foregroundStyle(Color.white.opacity(0.46))
                     }
                 }
-                // Paridade web: meta "📍 local · distância · hora" (a hora sempre
-                // aparece; o pin só quando há local).
-                HStack(spacing: 4) {
-                    if let location = post.locationName, !location.isEmpty {
-                        Image(systemName: "mappin.and.ellipse")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(distanceSuffixed(location))
-                            .lineLimit(1)
-                        Text("·").foregroundStyle(Color.white.opacity(0.28))
-                    }
-                    Text(postTimeLabel)
-                }
-                .font(.system(size: 12, weight: .bold, design: .default))
-                .foregroundStyle(Color.white.opacity(0.46))
             }
+            .buttonStyle(.plain)
+            .disabled(onOpenProfile == nil)
+
             Spacer()
 
             // Sprint 20.3c — menu do post (paridade PostMenuSheet web).
