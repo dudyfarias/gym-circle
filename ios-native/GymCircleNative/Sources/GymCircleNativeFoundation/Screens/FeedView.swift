@@ -308,14 +308,22 @@ public struct FeedPostCard: View {
     }
 
     public var body: some View {
-        GCCard {
-            VStack(alignment: .leading, spacing: 14) {
-                header
-                PostCarouselView(
-                    items: post.carouselItems,
-                    aspectRatio: mediaAspectRatio,
-                    onPlayVideo: onPlayVideo
-                )
+        // Paridade SocialPostCard web (Fase 2): card edge-to-edge — mídia colada
+        // nas bordas, header/ações com padding próprio (px-4 py-3.5 = 16/14),
+        // raio 32, bg #0c0d0e, borda branca 8% e shadow. (Antes: GCCard padded,
+        // mídia flutuando dentro.)
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+
+            PostCarouselView(
+                items: post.carouselItems,
+                aspectRatio: mediaAspectRatio,
+                onPlayVideo: onPlayVideo
+            )
+
+            VStack(alignment: .leading, spacing: 12) {
                 participantsRow
                 pendingInviteBanner
                 actionsRow
@@ -323,7 +331,17 @@ public struct FeedPostCard: View {
                     GCText(caption, style: .body)
                 }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
         }
+        .background(GymCircleTheme.ColorToken.postCard)
+        .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.postCard, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: GymCircleTheme.Radius.postCard, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.48), radius: 24, x: 0, y: 16)
         .confirmationDialog(Loc.deletePostConfirm, isPresented: $confirmDelete, titleVisibility: .visible) {
             Button(Loc.deletePost, role: .destructive) { onDelete?() }
             Button(Loc.cancel, role: .cancel) {}
@@ -334,13 +352,36 @@ public struct FeedPostCard: View {
         HStack(spacing: 12) {
             GCAvatar(url: post.avatarURL, fallback: post.username)
             VStack(alignment: .leading, spacing: 2) {
-                GCText(post.displayAuthorName, style: .body)
+                HStack(spacing: 6) {
+                    // Paridade web: nome 15px font-black.
+                    Text(post.displayAuthorName)
+                        .font(.system(size: 15, weight: .black, design: .default))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        .lineLimit(1)
+                    // StreakBadge xs (chama + número) AO LADO do nome, como no web
+                    // (antes ficava solto na direita).
+                    if let streak = post.authorCurrentStreak, streak > 0 {
+                        HStack(spacing: 2) {
+                            Image(systemName: "flame.fill")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("\(streak)")
+                                .font(.system(size: 11, weight: .black, design: .default))
+                        }
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(GymCircleTheme.ColorToken.cyan.opacity(0.12)))
+                    }
+                }
                 if let location = post.locationName {
-                    GCText(distanceSuffixed(location), style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    // Paridade web: meta 12px font-bold white/46.
+                    Text(distanceSuffixed(location))
+                        .font(.system(size: 12, weight: .bold, design: .default))
+                        .foregroundStyle(Color.white.opacity(0.46))
+                        .lineLimit(1)
                 }
             }
             Spacer()
-            GCText("\(post.authorCurrentStreak ?? 0)d", style: .caption, color: GymCircleTheme.ColorToken.cyan)
 
             // Sprint 20.3c — menu do post (paridade PostMenuSheet web).
             Menu {
@@ -428,8 +469,15 @@ public struct FeedPostCard: View {
                     Image(systemName: post.likedByMe == true ? "heart.fill" : "heart")
                         .foregroundStyle(
                             post.likedByMe == true
-                                ? GymCircleTheme.ColorToken.pink
+                                ? GymCircleTheme.ColorToken.electricBlue
                                 : GymCircleTheme.ColorToken.primaryText
+                        )
+                        // Paridade web: curtido = azul (--gc-blue) com glow.
+                        .shadow(
+                            color: post.likedByMe == true
+                                ? GymCircleTheme.ColorToken.electricBlue.opacity(0.55)
+                                : .clear,
+                            radius: 9
                         )
                 }
                 .buttonStyle(.plain)
@@ -556,7 +604,7 @@ public struct MediaView: View {
 
     public var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous)
+            RoundedRectangle(cornerRadius: 0, style: .continuous)
                 .fill(GymCircleTheme.ColorToken.elevatedCard)
 
             if let imageURL = URL(string: url) {
@@ -582,7 +630,7 @@ public struct MediaView: View {
             }
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
         .clipped()
     }
 }
