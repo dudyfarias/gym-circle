@@ -36,9 +36,9 @@ targets:
         CFBundleDisplayName: Gym Circle Native
         # Sprint 20.8 cutover — versão de marketing 2.0.0 (salto pro nativo).
         CFBundleShortVersionString: "2.0.0"
-        # build 8 (16/jun): share post por mensagem (Feed 100%).
+        # build 9 (16/jun): Feed acoes em circulos + titulo Hoje.
         # Cada archive novo precisa de build number único (ASC rejeita repetido).
-        CFBundleVersion: "8"
+        CFBundleVersion: "9"
         # Conformidade de exportação: o app só usa HTTPS/TLS padrão + Keychain
         # (criptografia ISENTA, sem nada proprietário). NO limpa o "Faltam dados
         # de conformidade" automaticamente nos próximos builds.
@@ -67,7 +67,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.gymcircle.app
         PRODUCT_NAME: GymCircleNative
         MARKETING_VERSION: "2.0.0"
-        CURRENT_PROJECT_VERSION: "8"
+        CURRENT_PROJECT_VERSION: "9"
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         CODE_SIGN_ENTITLEMENTS: Support/GymCircleNative.entitlements
