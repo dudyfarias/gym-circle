@@ -766,6 +766,31 @@ public final class GymCircleAppModel: ObservableObject {
         _ = await fetchChatThreads()
     }
 
+    /// Paridade Fase 2 (web sharePostToChat): manda o post como DM — body +
+    /// mídia do post. Retorna sucesso pra UI dar feedback.
+    @discardableResult
+    public func sharePostToChat(post: FeedPost, receiverId: String) async -> Bool {
+        guard let chatService else { return false }
+        let isOwn = post.userId == currentUserId
+        let body = isOwn
+            ? Loc.t("Shared my workout on Gym Circle.", "Compartilhei meu treino no Gym Circle.")
+            : Loc.t("Shared @\(post.username)'s workout on Gym Circle.",
+                    "Compartilhei o treino de @\(post.username) no Gym Circle.")
+        do {
+            _ = try await chatService.sendDirect(
+                receiverId: receiverId,
+                body: body,
+                mediaURL: post.imageURL,
+                mediaType: post.mediaType?.rawValue
+            )
+            await refreshUnreadMessages()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
     public func fetchChatMessages(conversationId: String) async -> [ChatMessage] {
         guard let chatService else { return [] }
         let page = (try? await chatService.messages(conversationId: conversationId)) ?? []

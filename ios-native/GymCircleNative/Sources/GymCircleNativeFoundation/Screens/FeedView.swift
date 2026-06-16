@@ -17,6 +17,7 @@ public struct FeedView: View {
     @State private var commentsPost: FeedPost?
     @State private var likesPost: FeedPost?
     @State private var editingPost: FeedPost?
+    @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
     @State private var playingVideo: PlayableVideo?
@@ -71,7 +72,8 @@ public struct FeedView: View {
                             },
                             onPlayVideo: { url in
                                 playingVideo = PlayableVideo(url: url)
-                            }
+                            },
+                            onShare: { sharingPost = post }
                         )
                         .onAppear {
                             // Dispara o load more no penúltimo post (espelho
@@ -173,6 +175,10 @@ public struct FeedView: View {
         .sheet(isPresented: $searchPresented) {
             PeopleSearchSheet(model: model)
         }
+        .sheet(item: $sharingPost) { post in
+            SharePostSheet(post: post, model: model)
+                .presentationDetents([.medium, .large])
+        }
         .sheet(isPresented: $myCirclePresented) {
             NavigationStack {
                 MyCircleView(
@@ -264,6 +270,7 @@ public struct FeedPostCard: View {
     private let onEdit: (() -> Void)?
     private let onRespondInvite: ((Bool) -> Void)?
     private let onPlayVideo: ((URL) -> Void)?
+    private let onShare: (() -> Void)?
 
     @State private var confirmDelete = false
 
@@ -279,7 +286,8 @@ public struct FeedPostCard: View {
         onDelete: (() -> Void)? = nil,
         onEdit: (() -> Void)? = nil,
         onRespondInvite: ((Bool) -> Void)? = nil,
-        onPlayVideo: ((URL) -> Void)? = nil
+        onPlayVideo: ((URL) -> Void)? = nil,
+        onShare: (() -> Void)? = nil
     ) {
         self.post = post
         self.currentUserId = currentUserId
@@ -293,6 +301,7 @@ public struct FeedPostCard: View {
         self.onEdit = onEdit
         self.onRespondInvite = onRespondInvite
         self.onPlayVideo = onPlayVideo
+        self.onShare = onShare
     }
 
     private var isOwnPost: Bool {
@@ -500,6 +509,17 @@ public struct FeedPostCard: View {
             .buttonStyle(.plain)
             .accessibilityLabel(Loc.comments)
 
+            // Paridade web: compartilhar o post por mensagem (Send/paperplane).
+            Button {
+                onShare?()
+            } label: {
+                Image(systemName: "paperplane")
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Loc.t("Share workout", "Compartilhar treino"))
+
             Spacer()
             if let workoutType = post.workoutType, !workoutType.isEmpty {
                 Text(workoutType)
@@ -674,5 +694,97 @@ public struct MediaView: View {
         .aspectRatio(aspectRatio, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 0, style: .continuous))
         .clipped()
+    }
+}
+
+/// Picker de destinatário pra compartilhar o post por mensagem (paridade do
+/// share sheet do SocialPostCard web). Lista quem você segue; tap envia a DM.
+public struct SharePostSheet: View {
+    private let post: FeedPost
+    @ObservedObject private var model: GymCircleAppModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var people: [DiscoveredProfile] = []
+    @State private var isLoading = true
+    @State private var sendingTo: String?
+    @State private var sentTo: Set<String> = []
+
+    public init(post: FeedPost, model: GymCircleAppModel) {
+        self.post = post
+        self.model = model
+    }
+
+    public var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if people.isEmpty {
+                    GCEmptyState(
+                        title: Loc.t("No one to send to", "Ninguém pra enviar"),
+                        subtitle: Loc.t("Follow people to share workouts by message.",
+                                        "Siga pessoas pra enviar treinos por mensagem.")
+                    )
+                } else {
+                    List(people) { person in
+                        Button {
+                            Task { await send(to: person) }
+                        } label: {
+                            HStack(spacing: 12) {
+                                GCAvatar(url: person.avatarURL, fallback: person.username ?? "user", size: 40)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(person.displayedName)
+                                        .font(.system(size: 15, weight: .black, design: .default))
+                                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                                    if let username = person.username {
+                                        Text("@\(username)")
+                                            .font(.system(size: 12, weight: .bold, design: .default))
+                                            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                                    }
+                                }
+                                Spacer()
+                                if sentTo.contains(person.userId) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                } else if sendingTo == person.userId {
+                                    ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                                } else {
+                                    Image(systemName: "paperplane.fill")
+                                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                }
+                            }
+                        }
+                        .disabled(sendingTo != nil || sentTo.contains(person.userId))
+                        .listRowBackground(GymCircleTheme.ColorToken.card)
+                    }
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+            .navigationTitle(Loc.t("Send to", "Enviar para"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(Loc.close) { dismiss() }
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .task {
+            people = await model.loadFollowingProfiles()
+            isLoading = false
+        }
+    }
+
+    private func send(to person: DiscoveredProfile) async {
+        sendingTo = person.userId
+        let ok = await model.sharePostToChat(post: post, receiverId: person.userId)
+        sendingTo = nil
+        if ok {
+            sentTo.insert(person.userId)
+            Haptics.success()
+        }
     }
 }
