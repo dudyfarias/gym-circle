@@ -34,17 +34,17 @@ public struct GCText: View {
     private var font: Font {
         switch style {
         case .title:
-            return .system(size: 28, design: .rounded)
+            return .system(size: 28, design: .default)
         case .headline:
-            return .system(size: 20, design: .rounded)
+            return .system(size: 20, design: .default)
         case .body:
-            return .system(size: 16, design: .rounded)
+            return .system(size: 16, design: .default)
         case .caption:
-            return .system(size: 13, design: .rounded)
+            return .system(size: 13, design: .default)
         case .number:
-            return .system(size: 48, design: .rounded)
+            return .system(size: 48, design: .default)
         case .sectionLabel:
-            return .system(size: 11, design: .rounded)
+            return .system(size: 11, design: .default)
         }
     }
 
@@ -153,7 +153,7 @@ public struct GCButton: View {
                 }
                 Text(title)
             }
-            .font(.system(size: 15, weight: .black, design: .rounded))
+            .font(.system(size: 15, weight: .black, design: .default))
             .foregroundStyle(Color.black)
             .frame(maxWidth: .infinity)
             .frame(height: 52)
@@ -246,7 +246,7 @@ public struct GCAvatar: View {
 
     private var fallbackText: some View {
         Text(String(fallback.prefix(1)).uppercased())
-            .font(.system(size: max(14, size * 0.34), weight: .black, design: .rounded))
+            .font(.system(size: max(14, size * 0.34), weight: .black, design: .default))
             .foregroundStyle(Color.black)
     }
 }

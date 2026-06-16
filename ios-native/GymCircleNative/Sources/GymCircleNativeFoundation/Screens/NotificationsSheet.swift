@@ -95,7 +95,7 @@ public struct NotificationsSheet: View {
                     Text(notification.displayedActorName).bold()
                     + Text(" \(notification.message)")
                 )
-                .font(.system(size: 14, design: .rounded))
+                .font(.system(size: 14, design: .default))
                 .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                 .multilineTextAlignment(.leading)
                 GCText(

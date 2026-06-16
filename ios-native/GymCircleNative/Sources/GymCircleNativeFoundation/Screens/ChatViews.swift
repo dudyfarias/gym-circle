@@ -374,7 +374,7 @@ public struct ConversationView: View {
                 }
                 if let body = message.body, !body.isEmpty {
                     Text(body)
-                        .font(.system(size: 15, design: .rounded))
+                        .font(.system(size: 15, design: .default))
                         .foregroundStyle(isMine ? .black : GymCircleTheme.ColorToken.primaryText)
                 }
                 if let mediaURL = message.mediaURL,

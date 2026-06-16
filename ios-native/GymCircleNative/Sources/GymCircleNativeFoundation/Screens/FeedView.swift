@@ -109,7 +109,7 @@ public struct FeedView: View {
                                     : GymCircleTheme.ColorToken.secondaryText
                             )
                         Text("\(myCircle.stats.currentStreak)")
-                            .font(.system(size: 15, weight: .black, design: .rounded))
+                            .font(.system(size: 15, weight: .black, design: .default))
                             .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                     }
                     .padding(.horizontal, 11)
@@ -401,13 +401,13 @@ public struct FeedPostCard: View {
                 GCText(Loc.taggedInWorkout, style: .caption)
                 Spacer()
                 Button(Loc.accept) { onRespondInvite?(true) }
-                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .font(.system(size: 13, weight: .black, design: .default))
                     .foregroundStyle(.black)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
                 Button(Loc.decline) { onRespondInvite?(false) }
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold, design: .default))
                     .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
             }
             .padding(10)
@@ -458,7 +458,7 @@ public struct FeedPostCard: View {
                 GCText(workoutType, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
             }
         }
-        .font(.system(size: 15, weight: .bold, design: .rounded))
+        .font(.system(size: 15, weight: .bold, design: .default))
         .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
     }
 
@@ -556,7 +556,7 @@ public struct MediaView: View {
 
     public var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous)
                 .fill(GymCircleTheme.ColorToken.elevatedCard)
 
             if let imageURL = URL(string: url) {
@@ -582,7 +582,7 @@ public struct MediaView: View {
             }
         }
         .aspectRatio(aspectRatio, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous))
         .clipped()
     }
 }

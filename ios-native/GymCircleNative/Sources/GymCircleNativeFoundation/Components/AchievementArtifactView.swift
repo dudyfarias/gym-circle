@@ -59,7 +59,7 @@ public struct AchievementArtifactView: View {
                 )
 
             Text(monogram)
-                .font(.system(size: size * 0.34, weight: .black, design: .rounded))
+                .font(.system(size: size * 0.34, weight: .black, design: .default))
                 .foregroundStyle(isMystery ? Color.white.opacity(0.5) : Color.black.opacity(0.74))
 
             if locked && !isMystery {

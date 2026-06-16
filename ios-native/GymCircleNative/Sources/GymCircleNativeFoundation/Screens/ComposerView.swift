@@ -208,7 +208,7 @@ public struct ComposerView: View {
 
     private func pickButtonLabel(_ title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
-            .font(.system(size: 14, weight: .bold, design: .rounded))
+            .font(.system(size: 14, weight: .bold, design: .default))
             .foregroundStyle(GymCircleTheme.ColorToken.cyan)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
@@ -411,7 +411,7 @@ public struct ComposerView: View {
                         ProgressView().tint(.black)
                     } else {
                         Text(Loc.publishWorkout)
-                            .font(.system(size: 16, weight: .black, design: .rounded))
+                            .font(.system(size: 16, weight: .black, design: .default))
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -513,7 +513,7 @@ struct TagChipsRow: View {
                         onToggle(tag)
                     } label: {
                         Text(tag)
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(size: 13, weight: .bold, design: .default))
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
                             .background(
@@ -696,7 +696,7 @@ public struct EditPostSheet: View {
                 matching: .images
             ) {
                 Label(Loc.addPhotos, systemImage: "plus.square.on.square")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 14, weight: .bold, design: .default))
                     .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)

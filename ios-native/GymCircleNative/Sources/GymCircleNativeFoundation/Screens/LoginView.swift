@@ -69,7 +69,7 @@ public struct LoginView: View {
 private extension View {
     func formField() -> some View {
         self
-            .font(.system(size: 15, weight: .semibold, design: .rounded))
+            .font(.system(size: 15, weight: .semibold, design: .default))
             .foregroundStyle(Color.white)
             .padding(.horizontal, 16)
             .frame(height: 52)
