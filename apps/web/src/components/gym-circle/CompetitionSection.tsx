@@ -49,6 +49,7 @@ export function CompetitionSection({
   const rows = fresh ? ranking.rows : [];
   const me = rows.find((row) => row.user_id === currentUserId);
   const showEmpty = !ranking.loading && fresh && rows.length <= 1;
+  const showSkeleton = shouldShowRankingSkeleton(ranking, fresh, rows.length);
 
   return (
     <section className="mt-8">
@@ -82,7 +83,7 @@ export function CompetitionSection({
 
       {me ? <YourPointsCard row={me} /> : null}
 
-      {ranking.loading && !fresh ? (
+      {showSkeleton ? (
         <RankingSkeleton />
       ) : showEmpty ? (
         <p className="rounded-[16px] border border-dashed border-white/[0.08] bg-white/[0.02] px-4 py-6 text-center text-[12px] font-bold text-white/52">
@@ -103,6 +104,14 @@ export function CompetitionSection({
       )}
     </section>
   );
+}
+
+export function shouldShowRankingSkeleton(
+  ranking: Pick<CompetitionSectionProps["ranking"], "loading">,
+  fresh: boolean,
+  visibleRowsCount: number,
+) {
+  return ranking.loading && (!fresh || visibleRowsCount === 0);
 }
 
 function SegmentedControl<T extends string>({

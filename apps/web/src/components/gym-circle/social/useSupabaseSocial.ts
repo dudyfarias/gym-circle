@@ -272,6 +272,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     loading: false,
   });
   const mountedRef = useRef(true);
+  const rankingRequestRef = useRef(0);
   const aggRef = useRef<AggregateState>(EMPTY);
   const analyticsBootRef = useRef(false);
   const refreshTimerRef = useRef<number | null>(null);
@@ -1460,11 +1461,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   // Sprint 19 — carrega o ranking da Competição (escopo × período) sob demanda.
   const loadRanking = useCallback(
     async (scope: RankingScope, period: RankingPeriod) => {
+      const requestId = rankingRequestRef.current + 1;
+      rankingRequestRef.current = requestId;
       setRanking((prev) => ({ ...prev, scope, period, loading: true }));
       const res = await queryCircleRankingSurface(services.client, scope, period);
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || requestId !== rankingRequestRef.current) return;
       setRanking({
-        rows: res.error ? [] : (res.data as CircleRankingRow[]),
+        rows: res.error ? [] : res.data,
         scope,
         period,
         loading: false,

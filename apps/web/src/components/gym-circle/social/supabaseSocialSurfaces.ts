@@ -238,15 +238,70 @@ export async function queryCircleRankingSurface(
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: unknown; error: unknown }>;
-  const rpcRes = await rpc("get_circle_ranking", {
-    p_scope: scope,
-    p_period: period,
-    p_limit: limit,
-  });
-  if (!rpcRes.error) {
-    return { data: (rpcRes.data ?? []) as CircleRankingRow[], error: null };
-  }
+  try {
+    const rpcRes = await rpc("get_circle_ranking", {
+      p_scope: scope,
+      p_period: period,
+      p_limit: limit,
+    });
+    if (!rpcRes.error) {
+      return { data: normalizeCircleRankingRows(rpcRes.data), error: null };
+    }
 
-  logSurfaceFallback("circle ranking", rpcRes.error);
-  return { data: [], error: rpcRes.error };
+    logSurfaceFallback("circle ranking", rpcRes.error);
+    return { data: [], error: rpcRes.error };
+  } catch (error) {
+    logSurfaceFallback("circle ranking", error);
+    return { data: [], error };
+  }
+}
+
+export function normalizeCircleRankingRows(data: unknown): CircleRankingRow[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const row = raw as Record<string, unknown>;
+    const userId = stringValue(row.user_id ?? row.userId);
+    if (!userId) return [];
+
+    return [
+      {
+        user_id: userId,
+        username: stringValue(row.username),
+        display_name: stringValue(row.display_name ?? row.displayName),
+        avatar_url: stringValue(row.avatar_url ?? row.avatarUrl),
+        current_streak: numberValue(row.current_streak ?? row.currentStreak),
+        badge_is_active_today: booleanValue(
+          row.badge_is_active_today ?? row.badgeIsActiveToday,
+        ),
+        workout_days: numberValue(row.workout_days ?? row.workoutDays),
+        achievement_points: numberValue(
+          row.achievement_points ?? row.achievementPoints,
+        ),
+        total_points: numberValue(row.total_points ?? row.totalPoints),
+        rank: numberValue(row.rank),
+      },
+    ];
+  });
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function numberValue(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function booleanValue(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
 }

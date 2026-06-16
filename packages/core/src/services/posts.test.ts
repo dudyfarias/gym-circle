@@ -5,7 +5,7 @@ import type { GymCircleClient } from "./supabase";
 function createDeleteCommentClientMock() {
   const query = {
     delete: vi.fn().mockReturnThis(),
-    match: vi.fn().mockResolvedValue({ data: null, error: null }),
+    eq: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
   const from = vi.fn(() => query);
   return {
@@ -58,10 +58,7 @@ describe("postService.deleteComment", () => {
 
     expect(from).toHaveBeenCalledWith("post_comments");
     expect(query.delete).toHaveBeenCalled();
-    expect(query.match).toHaveBeenCalledWith({
-      id: "comment-1",
-      user_id: "user-a",
-    });
+    expect(query.eq).toHaveBeenCalledWith("id", "comment-1");
   });
 });
 
