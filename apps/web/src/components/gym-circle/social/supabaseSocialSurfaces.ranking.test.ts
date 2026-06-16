@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  filterCircleRankingRows,
   normalizeCircleRankingRows,
   queryCircleRankingSurface,
 } from "./supabaseSocialSurfaces";
@@ -78,4 +79,45 @@ describe("circle ranking surface", () => {
     expect(result.data).toEqual([]);
     expect(result.error).toBeInstanceOf(Error);
   });
+
+  it("filters and reranks global rows for the circle fallback", () => {
+    const rows = filterCircleRankingRows(
+      [
+        rankingRow({ user_id: "stranger", total_points: 999, rank: 1 }),
+        rankingRow({ user_id: "me", username: "dudy", total_points: 10, rank: 2 }),
+        rankingRow({
+          user_id: "friend",
+          username: "johnny",
+          total_points: 40,
+          current_streak: 4,
+          rank: 3,
+        }),
+      ],
+      "me",
+      ["friend"],
+    );
+
+    expect(rows.map((row) => [row.user_id, row.rank])).toEqual([
+      ["friend", 1],
+      ["me", 2],
+    ]);
+  });
 });
+
+function rankingRow(
+  overrides: Partial<ReturnType<typeof normalizeCircleRankingRows>[number]>,
+): ReturnType<typeof normalizeCircleRankingRows>[number] {
+  return {
+    user_id: "user",
+    username: null,
+    display_name: null,
+    avatar_url: null,
+    current_streak: 0,
+    badge_is_active_today: false,
+    workout_days: 0,
+    achievement_points: 0,
+    total_points: 0,
+    rank: null,
+    ...overrides,
+  };
+}

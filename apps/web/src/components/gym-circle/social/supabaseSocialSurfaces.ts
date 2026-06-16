@@ -286,6 +286,35 @@ export function normalizeCircleRankingRows(data: unknown): CircleRankingRow[] {
   });
 }
 
+export function filterCircleRankingRows(
+  globalRows: readonly CircleRankingRow[],
+  currentUserId: string,
+  followingIds: Iterable<string>,
+): CircleRankingRow[] {
+  const allowedIds = new Set<string>([currentUserId]);
+  for (const id of followingIds) {
+    if (id && id !== currentUserId) allowedIds.add(id);
+  }
+
+  return rerankCircleRows(
+    globalRows.filter((row) => Boolean(row.user_id) && allowedIds.has(row.user_id)),
+  );
+}
+
+function rerankCircleRows(rows: readonly CircleRankingRow[]): CircleRankingRow[] {
+  return [...rows]
+    .sort((a, b) => {
+      const pointsDiff = (b.total_points ?? 0) - (a.total_points ?? 0);
+      if (pointsDiff !== 0) return pointsDiff;
+      const streakDiff = (b.current_streak ?? 0) - (a.current_streak ?? 0);
+      if (streakDiff !== 0) return streakDiff;
+      return (a.username ?? a.display_name ?? a.user_id).localeCompare(
+        b.username ?? b.display_name ?? b.user_id,
+      );
+    })
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
 function stringValue(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
 }

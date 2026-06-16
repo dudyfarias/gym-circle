@@ -91,6 +91,7 @@ import {
   writeNativeStoryTrayCache,
 } from "./supabaseSocialCache";
 import {
+  filterCircleRankingRows,
   logSurfaceFallback,
   optionalStorySocialRows,
   queryCircleRankingSurface,
@@ -1458,6 +1459,42 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     services.client,
   ]);
 
+  const loadCircleRankingFallback = useCallback(
+    async (period: RankingPeriod): Promise<CircleRankingRow[]> => {
+      const followingIds = new Set(
+        aggRef.current.follows
+          .filter(
+            (follow) =>
+              follow.follower_id === currentUserId && follow.status === "accepted",
+          )
+          .map((follow) => follow.following_id),
+      );
+
+      const followsRes = await services.client
+        .from("follows")
+        .select("following_id")
+        .eq("follower_id", currentUserId)
+        .eq("status", "accepted");
+
+      if (!followsRes.error) {
+        for (const row of (followsRes.data ?? []) as Array<{ following_id: string }>) {
+          followingIds.add(row.following_id);
+        }
+      }
+
+      const globalRes = await queryCircleRankingSurface(
+        services.client,
+        "global",
+        period,
+        200,
+      );
+      if (globalRes.error) return [];
+
+      return filterCircleRankingRows(globalRes.data, currentUserId, followingIds);
+    },
+    [currentUserId, services.client],
+  );
+
   // Sprint 19 — carrega o ranking da Competição (escopo × período) sob demanda.
   const loadRanking = useCallback(
     async (scope: RankingScope, period: RankingPeriod) => {
@@ -1465,15 +1502,19 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       rankingRequestRef.current = requestId;
       setRanking((prev) => ({ ...prev, scope, period, loading: true }));
       const res = await queryCircleRankingSurface(services.client, scope, period);
+      let rows = res.error ? [] : res.data;
+      if (scope === "circle" && rows.length <= 1) {
+        rows = await loadCircleRankingFallback(period);
+      }
       if (!mountedRef.current || requestId !== rankingRequestRef.current) return;
       setRanking({
-        rows: res.error ? [] : res.data,
+        rows,
         scope,
         period,
         loading: false,
       });
     },
-    [services.client],
+    [loadCircleRankingFallback, services.client],
   );
 
   const scheduleRefresh = useCallback(() => {

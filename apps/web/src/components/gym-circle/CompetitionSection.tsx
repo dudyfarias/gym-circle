@@ -48,7 +48,7 @@ export function CompetitionSection({
   const fresh = ranking.scope === scope && ranking.period === period;
   const rows = fresh ? ranking.rows : [];
   const me = rows.find((row) => row.user_id === currentUserId);
-  const showEmpty = !ranking.loading && fresh && rows.length <= 1;
+  const showEmpty = shouldShowRankingEmpty(ranking, fresh, rows.length);
   const showSkeleton = shouldShowRankingSkeleton(ranking, fresh, rows.length);
 
   return (
@@ -112,6 +112,14 @@ export function shouldShowRankingSkeleton(
   visibleRowsCount: number,
 ) {
   return ranking.loading && (!fresh || visibleRowsCount === 0);
+}
+
+export function shouldShowRankingEmpty(
+  ranking: Pick<CompetitionSectionProps["ranking"], "loading">,
+  fresh: boolean,
+  visibleRowsCount: number,
+) {
+  return !ranking.loading && fresh && visibleRowsCount === 0;
 }
 
 function SegmentedControl<T extends string>({

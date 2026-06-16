@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldShowRankingSkeleton } from "./CompetitionSection";
+import {
+  shouldShowRankingEmpty,
+  shouldShowRankingSkeleton,
+} from "./CompetitionSection";
 
 describe("CompetitionSection ranking loading state", () => {
   it("shows a skeleton on the first load for the selected ranking", () => {
@@ -17,6 +20,18 @@ describe("CompetitionSection ranking loading state", () => {
   it("shows a skeleton while a different scope or period is loading", () => {
     expect(
       shouldShowRankingSkeleton({ loading: true }, false, 3),
+    ).toBe(true);
+  });
+
+  it("does not treat a single ranking row as empty because it still contains the viewer score", () => {
+    expect(
+      shouldShowRankingEmpty({ loading: false }, true, 1),
+    ).toBe(false);
+  });
+
+  it("shows the empty state only when the selected ranking has no rows", () => {
+    expect(
+      shouldShowRankingEmpty({ loading: false }, true, 0),
     ).toBe(true);
   });
 });
