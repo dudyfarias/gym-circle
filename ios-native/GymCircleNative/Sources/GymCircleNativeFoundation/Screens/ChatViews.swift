@@ -386,7 +386,7 @@ public struct ConversationView: View {
                 }
                 if let body = message.body, !body.isEmpty {
                     Text(body)
-                        .font(.system(size: 15, design: .default))
+                        .font(.system(size: 14, weight: .bold, design: .default))
                         .foregroundStyle(isMine ? .black : GymCircleTheme.ColorToken.primaryText)
                 }
                 if let mediaURL = message.mediaURL,
@@ -406,32 +406,39 @@ public struct ConversationView: View {
                                 .tint(isMine ? .black : GymCircleTheme.ColorToken.cyan)
                         }
                     }
-                    .frame(width: 180, height: 220)
+                    .frame(width: 196, height: 196)
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 if let mediaURL = message.mediaURL,
                    message.mediaType == "video",
                    let url = URL(string: mediaURL) {
                     VideoPlayer(player: AVPlayer(url: url))
-                        .frame(width: 180, height: 220)
+                        .frame(width: 196, height: 196)
                         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
-                GCText(
-                    CommentsSheet.relativeTime(from: message.createdAt),
-                    style: .caption,
-                    color: isMine ? .black.opacity(0.5) : GymCircleTheme.ColorToken.secondaryText
-                )
+                Text(CommentsSheet.relativeTime(from: message.createdAt))
+                    .font(.system(size: 10, weight: .black, design: .default))
+                    .foregroundStyle(isMine ? Color.black.opacity(0.42) : Color.white.opacity(0.32))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(
-                        isMine
-                            ? AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
-                            : AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
-                    )
+                // Bolha com "rabinho" no canto inferior do lado do remetente
+                // (paridade web: rounded-24 + canto 8).
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 24,
+                    bottomLeadingRadius: isMine ? 24 : 8,
+                    bottomTrailingRadius: isMine ? 8 : 24,
+                    topTrailingRadius: 24,
+                    style: .continuous
+                )
+                .fill(
+                    isMine
+                        ? AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
+                        : AnyShapeStyle(Color.white.opacity(0.09))
+                )
             )
+            .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 5)
             if !isMine { Spacer(minLength: 48) }
         }
     }
