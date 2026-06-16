@@ -186,17 +186,21 @@ public struct MyCircleView: View {
 
     private var headerSection: some View {
         VStack(spacing: 12) {
-            // Sprint 9.8.3 — passa hasStory/storyViewed pro ring gradient
-            ActivityRingsView(
+            // Paridade web: o header do hub usa a foto no centro dos anéis
+            // (AvatarConsistencyRings), não o número — o número de treinos vive
+            // no summaryGrid (B) e na explicação de consistência (C).
+            AvatarConsistencyRings(
                 rings: ConsistencyRings(
                     workoutsThisWeek: data.stats.workoutsThisWeek,
                     workoutsThisMonth: data.stats.workoutsThisMonth,
                     workoutsThisYear: data.stats.workoutsThisYear
                 ),
+                avatarURL: data.avatarURL?.absoluteString,
+                fallback: data.username,
+                size: 140,
                 hasStory: data.hasStory,
                 storyViewed: data.storyViewed
             )
-            .frame(width: 130, height: 130)
 
             VStack(spacing: 4) {
                 GCText(data.displayName, style: .title, color: GymCircleTheme.ColorToken.primaryText)
