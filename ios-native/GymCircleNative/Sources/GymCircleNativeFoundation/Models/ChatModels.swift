@@ -9,6 +9,9 @@ public struct ConversationSummary: Identifiable, Decodable, Hashable, Sendable {
     public let lastMessageAt: String?
     public let unreadCount: Int?
     public let participants: [SummaryParticipant]
+    // Sprint 22.x — última mensagem (jsonb last_message do RPC), pra o preview
+    // na lista de conversas (paridade web).
+    public let lastMessage: SummaryLastMessage?
 
     public var id: String { conversationId }
     public var isGroup: Bool { type == "group" }
@@ -23,6 +26,22 @@ public struct ConversationSummary: Identifiable, Decodable, Hashable, Sendable {
         }
     }
 
+    public struct SummaryLastMessage: Decodable, Hashable, Sendable {
+        public let body: String?
+        public let mediaURL: String?
+        public let mediaType: String?
+        public let storyId: String?
+        public let replyToStory: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case body
+            case mediaURL = "media_url"
+            case mediaType = "media_type"
+            case storyId = "story_id"
+            case replyToStory = "reply_to_story"
+        }
+    }
+
     enum CodingKeys: String, CodingKey {
         case conversationId = "conversation_id"
         case type
@@ -31,6 +50,7 @@ public struct ConversationSummary: Identifiable, Decodable, Hashable, Sendable {
         case lastMessageAt = "last_message_at"
         case unreadCount = "unread_count"
         case participants
+        case lastMessage = "last_message"
     }
 
     public init(from decoder: Decoder) throws {
@@ -52,6 +72,39 @@ public struct ConversationSummary: Identifiable, Decodable, Hashable, Sendable {
         } else {
             participants = []
         }
+        // last_message também pode vir como JSON nativo OU string.
+        if let direct = try? container.decodeIfPresent(SummaryLastMessage.self, forKey: .lastMessage) {
+            lastMessage = direct
+        } else if let raw = try? container.decodeIfPresent(String.self, forKey: .lastMessage),
+                  let data = raw.data(using: .utf8),
+                  let parsed = try? JSONDecoder().decode(SummaryLastMessage.self, from: data) {
+            lastMessage = parsed
+        } else {
+            lastMessage = nil
+        }
+    }
+
+    /// Preview da última mensagem (espelha getMessagePreview do web).
+    public var lastMessagePreview: String {
+        guard let message = lastMessage else {
+            return Loc.t("No messages yet", "Nenhuma mensagem ainda")
+        }
+        if message.replyToStory == true {
+            return Loc.t("Replied to a story", "Respondeu um story")
+        }
+        if message.storyId != nil {
+            return Loc.t("Shared a story", "Compartilhou um story")
+        }
+        if let body = message.body, !body.isEmpty {
+            return body
+        }
+        if message.mediaType == "video" {
+            return Loc.t("Sent a video", "Enviou um vídeo")
+        }
+        if message.mediaURL != nil {
+            return Loc.t("Sent a photo", "Enviou uma foto")
+        }
+        return Loc.t("New message", "Nova mensagem")
     }
 }
 

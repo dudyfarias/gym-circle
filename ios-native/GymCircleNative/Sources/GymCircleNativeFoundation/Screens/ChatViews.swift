@@ -103,31 +103,43 @@ public struct ChatListView: View {
     }
 
     private func threadRow(_ thread: ChatThread) -> some View {
-        HStack(spacing: 12) {
+        let unread = thread.summary.unreadCount ?? 0
+        return HStack(spacing: 12) {
             GCAvatar(url: thread.avatarURL, fallback: thread.displayName)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
-                    GCText(thread.displayName, style: .body)
+                    Text(thread.displayName)
+                        .font(.system(size: 15, weight: .black, design: .default))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        .lineLimit(1)
                     if thread.summary.isGroup {
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 10))
                             .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
                     }
                 }
-                if let last = thread.summary.lastMessageAt {
-                    GCText(
-                        CommentsSheet.relativeTime(from: last),
-                        style: .caption,
-                        color: GymCircleTheme.ColorToken.secondaryText
-                    )
-                }
+                // Preview da última mensagem (paridade web) — mais forte quando
+                // há não-lidas.
+                Text(thread.summary.lastMessagePreview)
+                    .font(.system(size: 12, weight: unread > 0 ? .black : .bold, design: .default))
+                    .foregroundStyle(Color.white.opacity(unread > 0 ? 0.9 : 0.44))
+                    .lineLimit(1)
             }
-            Spacer()
-            if let unread = thread.summary.unreadCount, unread > 0 {
-                GCText("\(unread)", style: .caption, color: .black)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
+            Spacer(minLength: 8)
+            VStack(alignment: .trailing, spacing: 5) {
+                if let last = thread.summary.lastMessageAt {
+                    Text(CommentsSheet.relativeTime(from: last))
+                        .font(.system(size: 11, weight: .bold, design: .default))
+                        .foregroundStyle(Color.white.opacity(0.3))
+                }
+                if unread > 0 {
+                    Text("\(unread)")
+                        .font(.system(size: 11, weight: .black, design: .default))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
+                }
             }
         }
         .padding(.vertical, 6)
