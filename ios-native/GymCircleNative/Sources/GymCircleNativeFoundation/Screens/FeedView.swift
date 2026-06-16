@@ -20,6 +20,7 @@ public struct FeedView: View {
     @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
+    @State private var composerPresented = false
     @State private var playingVideo: PlayableVideo?
     // Sprint 20.5 — autor cujo story foi aberto na tray.
     @State private var openedStoryGroup: StoryAuthorGroup?
@@ -93,6 +94,34 @@ public struct FeedView: View {
                 }
             }
             .padding(20)
+            // Paridade web FloatingCreatePostButton: espaço pro botão não tapar
+            // o último post.
+            .padding(.bottom, 64)
+        }
+        // Botão flutuante "Postar treino" (paridade web) — cyan, glow, abre o composer.
+        .overlay(alignment: .bottom) {
+            Button {
+                composerPresented = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 16, weight: .heavy))
+                    Text(Loc.t("Post workout", "Postar treino"))
+                        .font(.system(size: 14, weight: .black, design: .default))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 20)
+                .frame(height: 52)
+                .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
+                .shadow(color: GymCircleTheme.ColorToken.cyan.opacity(0.28), radius: 18, x: 0, y: 8)
+                .shadow(color: .black.opacity(0.42), radius: 20, x: 0, y: 12)
+            }
+            .buttonStyle(PressableButtonStyle())
+            .padding(.bottom, 14)
+        }
+        .sheet(isPresented: $composerPresented) {
+            NavigationStack { ComposerView(model: model) }
+                .preferredColorScheme(.dark)
         }
         .refreshable {
             await model.refreshFeed()
