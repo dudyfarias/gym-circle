@@ -11,7 +11,13 @@ public final class SupabaseClientProvider: ObservableObject {
 
         client = SupabaseClient(
             supabaseURL: url,
-            supabaseKey: configuration.supabaseAnonKey
+            supabaseKey: configuration.supabaseAnonKey,
+            options: SupabaseClientOptions(
+                auth: .init(
+                    // Opt-in to new behavior to avoid warning from AuthClient.swift:1425
+                    emitLocalSessionAsInitialSession: true
+                )
+            )
         )
     }
 
