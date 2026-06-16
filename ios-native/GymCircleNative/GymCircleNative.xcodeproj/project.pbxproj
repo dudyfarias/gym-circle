@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0354468C7B0BC903D046010B /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904A51CF546A088EF47E87BD /* AppLocalization.swift */; };
+		04A7838A3EBCE934D0FD52EB /* AvatarConsistencyRings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2609487EA632835844895920 /* AvatarConsistencyRings.swift */; };
 		079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15CF77117635F0D69B78BE8C /* StoryModels.swift */; };
 		12816EF8CCF3450B4AD7E4E3 /* GymCircleTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */; };
 		14A45B815BD3F8556D41CA9E /* CommentsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0973110CDA21450BFC9B8CB6 /* CommentsService.swift */; };
@@ -116,6 +117,7 @@
 		12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
 		15CF77117635F0D69B78BE8C /* StoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryModels.swift; sourceTree = "<group>"; };
 		1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
+		2609487EA632835844895920 /* AvatarConsistencyRings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarConsistencyRings.swift; sourceTree = "<group>"; };
 		29F08F3783EAD0DC084E6E2F /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		2D24861F3677C444D1D316BD /* NativeLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLocationProvider.swift; sourceTree = "<group>"; };
 		2E1A059F5AC41A83ACC3C36F /* PostParticipantsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostParticipantsService.swift; sourceTree = "<group>"; };
@@ -224,6 +226,7 @@
 			children = (
 				7116C972083F9CD05FC48694 /* AchievementArtifactView.swift */,
 				1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */,
+				2609487EA632835844895920 /* AvatarConsistencyRings.swift */,
 				641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */,
 				069AF1E053D24164413598B0 /* BaseComponents.swift */,
 				6A44D5666AF9C52ED99FE84E /* CameraPicker.swift */,
@@ -529,6 +532,7 @@
 				49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */,
 				0354468C7B0BC903D046010B /* AppLocalization.swift in Sources */,
 				1EEF102EFB0EA7E7396B94BB /* AuthService.swift in Sources */,
+				04A7838A3EBCE934D0FD52EB /* AvatarConsistencyRings.swift in Sources */,
 				5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */,
 				52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */,
 				EB06E4A7853BD711AC9B806B /* CameraPicker.swift in Sources */,
@@ -713,7 +717,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -739,7 +743,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 20;
+				CURRENT_PROJECT_VERSION = 21;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
