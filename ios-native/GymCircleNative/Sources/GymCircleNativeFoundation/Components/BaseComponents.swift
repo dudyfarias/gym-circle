@@ -110,9 +110,9 @@ public struct GCSkeleton: View {
 public struct GCFeedSkeleton: View {
     public init() {}
     public var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 20) {
             ForEach(0..<3, id: \.self) { _ in
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(spacing: 0) {
                     HStack(spacing: 12) {
                         Circle()
                             .fill(GymCircleTheme.ColorToken.elevatedCard)
@@ -123,12 +123,22 @@ public struct GCFeedSkeleton: View {
                         }
                         Spacer()
                     }
-                    GCSkeleton(height: 220, cornerRadius: 22)
-                    GCSkeleton(height: 12).frame(width: 180)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    // Mídia edge-to-edge square (paridade card novo).
+                    GCSkeleton(height: 320, cornerRadius: 0)
+                    GCSkeleton(height: 12)
+                        .frame(width: 180)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
                 }
-                .padding(GymCircleTheme.Spacing.lg)
-                .background(GymCircleTheme.ColorToken.card)
-                .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous))
+                .background(GymCircleTheme.ColorToken.postCard)
+                .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.postCard, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: GymCircleTheme.Radius.postCard, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
             }
         }
     }

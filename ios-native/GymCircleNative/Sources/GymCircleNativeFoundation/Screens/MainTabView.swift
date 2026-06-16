@@ -23,36 +23,61 @@ public struct MainTabView: View {
         self.myCircle = myCircle
     }
 
+    // Paridade BottomTabBar web (build 12): barra customizada em pílula de
+    // vidro, ícones-only, ativo = cápsula cyan. A barra do sistema é escondida
+    // e a custom entra via safeAreaInset (mantém estado/nav + insets do conteúdo).
+    @State private var selection: Tab = .feed
+
+    enum Tab: Int, CaseIterable, Identifiable {
+        case feed, chats, post, map, profile
+        var id: Int { rawValue }
+
+        var icon: String {
+            switch self {
+            case .feed: return "house.fill"
+            case .chats: return "bubble.left.and.bubble.right.fill"
+            case .post: return "camera.fill"
+            case .map: return "mappin.and.ellipse"
+            case .profile: return "person.crop.circle.fill"
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .feed: return Loc.t("Home", "Início")
+            case .chats: return Loc.t("Chats", "Conversas")
+            case .post: return Loc.t("Post", "Postar")
+            case .map: return Loc.t("Map", "Mapa")
+            case .profile: return Loc.profile
+            }
+        }
+    }
+
     public var body: some View {
-        TabView {
+        TabView(selection: $selection) {
             NavigationStack {
                 FeedView(model: model, myCircle: myCircle)
             }
-            .tabItem {
-                Label(Loc.t("Home", "Início"), systemImage: "house.fill")
-            }
+            .tag(Tab.feed)
+            .toolbar(.hidden, for: .tabBar)
 
             NavigationStack {
                 ChatListView(model: model)
             }
-            .tabItem {
-                Label(Loc.t("Chats", "Conversas"), systemImage: "bubble.left.and.bubble.right")
-            }
-            .badge(model.unreadMessages > 0 ? model.unreadMessages : 0)
+            .tag(Tab.chats)
+            .toolbar(.hidden, for: .tabBar)
 
             NavigationStack {
                 ComposerView(model: model)
             }
-            .tabItem {
-                Label(Loc.t("Post", "Postar"), systemImage: "camera.fill")
-            }
+            .tag(Tab.post)
+            .toolbar(.hidden, for: .tabBar)
 
             NavigationStack {
                 CheckInView(model: model)
             }
-            .tabItem {
-                Label(Loc.t("Map", "Mapa"), systemImage: "mappin.and.ellipse")
-            }
+            .tag(Tab.map)
+            .toolbar(.hidden, for: .tabBar)
 
             NavigationStack {
                 ProfileView(
@@ -63,13 +88,59 @@ public struct MainTabView: View {
                     allAchievements: myCircle.allAchievements
                 )
             }
-            .tabItem {
-                Label(Loc.profile, systemImage: "person.crop.circle")
-            }
+            .tag(Tab.profile)
+            .toolbar(.hidden, for: .tabBar)
         }
         .tint(GymCircleTheme.ColorToken.cyan)
-        // Punch-list #2 — tab bar de vidro (--gc-glass do web).
-        .toolbarBackground(.ultraThinMaterial, for: .tabBar)
-        .toolbarBackground(.visible, for: .tabBar)
+        .safeAreaInset(edge: .bottom) {
+            floatingTabBar
+        }
+    }
+
+    private var floatingTabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(Tab.allCases) { tab in
+                Button {
+                    Haptics.impactLight()
+                    selection = tab
+                } label: {
+                    Image(systemName: tab.icon)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(
+                            selection == tab ? Color.black : Color.white.opacity(0.55)
+                        )
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background {
+                            if selection == tab {
+                                Capsule()
+                                    .fill(GymCircleTheme.ColorToken.cyan)
+                                    .shadow(color: GymCircleTheme.ColorToken.cyan.opacity(0.28), radius: 12)
+                            }
+                        }
+                        .overlay(alignment: .topTrailing) {
+                            if tab == .chats && model.unreadMessages > 0 {
+                                Text("\(model.unreadMessages)")
+                                    .font(.system(size: 10, weight: .black, design: .default))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(Capsule().fill(GymCircleTheme.ColorToken.pink))
+                                    .offset(x: -4, y: 3)
+                            }
+                        }
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.label)
+            }
+        }
+        .padding(4)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
+        .padding(.horizontal, 24)
+        .padding(.bottom, 2)
+        // Fica no fundo quando o teclado sobe (coberto), em vez de flutuar.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }

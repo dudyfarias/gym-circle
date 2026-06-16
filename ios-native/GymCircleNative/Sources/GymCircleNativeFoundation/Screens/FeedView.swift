@@ -24,17 +24,122 @@ public struct FeedView: View {
     @State private var playingVideo: PlayableVideo?
     // Sprint 20.5 — autor cujo story foi aberto na tray.
     @State private var openedStoryGroup: StoryAuthorGroup?
+    // Build 13 — sugestões inline (paridade web) + card de distância.
+    @State private var suggestions: [DiscoveredProfile] = []
+    @State private var followedSuggestions: Set<String> = []
+    @State private var distanceCardDismissed = false
 
     public init(model: GymCircleAppModel, myCircle: MyCircleViewData) {
         self.model = model
         self.myCircle = myCircle
     }
 
+    // Card de permissão de distância (paridade DistancePermissionCard web).
+    private var distancePermissionCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "location.fill")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Loc.t("See workout distance", "Veja a distância dos treinos"))
+                    .font(.system(size: 14, weight: .black, design: .default))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                Text(Loc.t("Allow location to show how far each gym is.",
+                           "Permita a localização pra ver a distância de cada academia."))
+                    .font(.system(size: 12, weight: .bold, design: .default))
+                    .foregroundStyle(Color.white.opacity(0.46))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+            Button {
+                distanceCardDismissed = true
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(14)
+        .background(GymCircleTheme.ColorToken.postCard)
+        .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .onTapGesture {
+            Task { await model.requestViewerLocation() }
+        }
+    }
+
+    // Linha "Sugestões pra você" (paridade DiscoveryUserCard web).
+    private var suggestionsRow: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(Loc.t("Suggestions for you", "Sugestões pra você"))
+                .font(.system(size: 17, weight: .black, design: .default))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(suggestions.prefix(8)) { person in
+                        suggestionCard(person)
+                    }
+                }
+            }
+        }
+    }
+
+    private func suggestionCard(_ person: DiscoveredProfile) -> some View {
+        let isFollowing = followedSuggestions.contains(person.userId)
+        return VStack(spacing: 8) {
+            GCAvatar(url: person.avatarURL, fallback: person.username ?? "user", size: 56)
+            Text(person.displayedName)
+                .font(.system(size: 13, weight: .black, design: .default))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                .lineLimit(1)
+            Button {
+                Task {
+                    _ = await model.toggleFollow(targetUserId: person.userId)
+                    followedSuggestions.insert(person.userId)
+                    Haptics.impactLight()
+                }
+            } label: {
+                Text(isFollowing ? Loc.t("Following", "Seguindo") : Loc.t("Follow", "Seguir"))
+                    .font(.system(size: 12, weight: .black, design: .default))
+                    .foregroundStyle(isFollowing ? GymCircleTheme.ColorToken.primaryText : .black)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(
+                        Capsule().fill(isFollowing
+                            ? Color.white.opacity(0.08)
+                            : GymCircleTheme.ColorToken.cyan)
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(isFollowing)
+        }
+        .frame(width: 132)
+        .padding(12)
+        .background(GymCircleTheme.ColorToken.postCard)
+        .clipShape(RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: GymCircleTheme.Radius.card, style: .continuous)
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
     public var body: some View {
         ScrollView {
-            LazyVStack(spacing: 18) {
+            LazyVStack(spacing: 20) {
                 StoriesTrayView(groups: model.stories, isLoading: false) { group in
                     openedStoryGroup = group
+                }
+
+                // Card de permissão de distância (paridade DistancePermissionCard
+                // web): só quando há posts com local e ainda não temos a posição.
+                if !distanceCardDismissed,
+                   model.viewerCoordinate == nil,
+                   model.posts.contains(where: { $0.coordinate != nil }) {
+                    distancePermissionCard
                 }
 
                 if model.isLoading && model.posts.isEmpty {
@@ -45,7 +150,11 @@ public struct FeedView: View {
                         subtitle: Loc.feedEmptySubtitle
                     )
                 } else {
-                    ForEach(model.posts) { post in
+                    ForEach(Array(model.posts.enumerated()), id: \.element.id) { index, post in
+                        // Linha "Sugestões pra seguir" injetada após o 2º post (web).
+                        if index == 2, !suggestions.isEmpty {
+                            suggestionsRow
+                        }
                         FeedPostCard(
                             post: post,
                             currentUserId: model.currentUserId,
@@ -194,6 +303,9 @@ public struct FeedView: View {
             await model.refreshUnreadNotifications()
             await model.refreshUnreadMessages()
             await model.requestViewerLocation()
+            if suggestions.isEmpty {
+                suggestions = await model.fetchSuggestions()
+            }
         }
         .sheet(item: $commentsPost) { post in
             CommentsSheet(
