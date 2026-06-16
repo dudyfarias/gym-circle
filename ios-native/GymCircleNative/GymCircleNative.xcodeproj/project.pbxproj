@@ -31,6 +31,7 @@
 		4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381506FB324FA418FAD1FEBF /* MyCircleService.swift */; };
 		509C986FA5F2D6C42D51A689 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 42B8BFA2187D25EB54BECC01 /* ComposerView.swift */; };
 		52AA646E4FB0BC506A4A61E0 /* BaseComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 069AF1E053D24164413598B0 /* BaseComponents.swift */; };
+		5703D48F3C8E86B638CABA0F /* FollowListSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DB15B46EEBE06A2B2474BB /* FollowListSheet.swift */; };
 		5AA2AA7FB9BD8C9094651FAC /* PostParticipantsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1A059F5AC41A83ACC3C36F /* PostParticipantsService.swift */; };
 		5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52D40B4007DAC206C665780 /* FeedPost.swift */; };
 		5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */; };
@@ -159,6 +160,7 @@
 		7E02612239E7BC217D0CE54E /* AchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsView.swift; sourceTree = "<group>"; };
 		89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressableButtonStyle.swift; sourceTree = "<group>"; };
 		904A51CF546A088EF47E87BD /* AppLocalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocalization.swift; sourceTree = "<group>"; };
+		91DB15B46EEBE06A2B2474BB /* FollowListSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowListSheet.swift; sourceTree = "<group>"; };
 		92A6946799511E3778D09B6B /* GymCircleNativeAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleNativeAppDelegate.swift; sourceTree = "<group>"; };
 		938F0854F909B3772AE14447 /* AchievementModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementModels.swift; sourceTree = "<group>"; };
 		96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAppModel.swift; sourceTree = "<group>"; };
@@ -277,6 +279,7 @@
 				42B8BFA2187D25EB54BECC01 /* ComposerView.swift */,
 				C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */,
 				489ABF91A6CB491B111116DC /* FeedView.swift */,
+				91DB15B46EEBE06A2B2474BB /* FollowListSheet.swift */,
 				72238BD5ABE755DFFAE5E8C5 /* LikesSheet.swift */,
 				0F5A004267A6D5354857ABFD /* LoginView.swift */,
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
@@ -552,6 +555,7 @@
 				B8BADDC3F2F1DB2E20D317F6 /* FeaturedAchievementsRowView.swift in Sources */,
 				5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */,
 				CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */,
+				5703D48F3C8E86B638CABA0F /* FollowListSheet.swift in Sources */,
 				C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */,
 				33ABBA1FF742B75BDDEFEDBA /* GymCircleAPI.swift in Sources */,
 				3FCE9C9BA90B675F9938CB7E /* GymCircleAppModel.swift in Sources */,
@@ -721,7 +725,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -747,7 +751,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 28;
+				CURRENT_PROJECT_VERSION = 29;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
