@@ -832,9 +832,10 @@ public struct PostCarouselView: View {
     private func mediaView(for item: PostMediaItem?) -> some View {
         let isVideo = item?.mediaType == .video
         MediaView(
-            // feedURL = original full-res na foto (≈1600px); displayURL (720px)
-            // ficou só pra grids. Antes o feed mostrava o thumbnail borrado.
-            url: item?.feedURL ?? "",
+            // Progressivo: thumbnail (displayURL ≈720px) aparece rápido e o
+            // original (feedURL ≈1600px) entra por cima com fade-in suave.
+            thumbURL: item?.displayURL ?? "",
+            fullURL: item?.feedURL ?? "",
             aspectRatio: aspectRatio,
             isVideo: isVideo
         )
@@ -848,15 +849,30 @@ public struct PostCarouselView: View {
     }
 }
 
+/// Carregamento PROGRESSIVO (paridade web blur→thumb→full): o thumbnail
+/// (~720px) aparece quase na hora e segura a imagem; o original (~1600px)
+/// entra por cima com fade-in suave quando termina de carregar. Se não há
+/// thumb distinta, cai num único load (sem requisição duplicada).
 public struct MediaView: View {
-    private let url: String
+    private let thumbURL: String
+    private let fullURL: String
     private let aspectRatio: CGFloat
     private let isVideo: Bool
 
-    public init(url: String, aspectRatio: CGFloat, isVideo: Bool = false) {
-        self.url = url
+    public init(thumbURL: String, fullURL: String, aspectRatio: CGFloat, isVideo: Bool = false) {
+        self.thumbURL = thumbURL
+        self.fullURL = fullURL
         self.aspectRatio = aspectRatio
         self.isVideo = isVideo
+    }
+
+    /// Conveniência (grids/composer/stories): uma URL só, sem progressivo.
+    public init(url: String, aspectRatio: CGFloat, isVideo: Bool = false) {
+        self.init(thumbURL: url, fullURL: url, aspectRatio: aspectRatio, isVideo: isVideo)
+    }
+
+    private var hasDistinctFull: Bool {
+        !fullURL.isEmpty && fullURL != thumbURL
     }
 
     public var body: some View {
@@ -864,17 +880,33 @@ public struct MediaView: View {
             RoundedRectangle(cornerRadius: 0, style: .continuous)
                 .fill(GymCircleTheme.ColorToken.elevatedCard)
 
-            if let imageURL = URL(string: url) {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .success(let image):
+            // Base: thumbnail (carrega rápido). Quando não há thumb distinta,
+            // esta é a própria imagem original.
+            if let thumb = URL(string: thumbURL), !thumbURL.isEmpty {
+                AsyncImage(url: thumb) { image in
+                    image
+                        .resizable()
+                        .scaledToFill()
+                } placeholder: {
+                    Image(systemName: "photo")
+                        .font(.system(size: 28, weight: .bold))
+                        .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                }
+            }
+
+            // Original por cima — fade-in suave (~0.45s) ao terminar de carregar.
+            if hasDistinctFull, let full = URL(string: fullURL) {
+                AsyncImage(
+                    url: full,
+                    transaction: Transaction(animation: .easeOut(duration: 0.45))
+                ) { phase in
+                    if case .success(let image) = phase {
                         image
                             .resizable()
                             .scaledToFill()
-                    default:
-                        Image(systemName: "photo")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                            .transition(.opacity)
+                    } else {
+                        Color.clear
                     }
                 }
             }
