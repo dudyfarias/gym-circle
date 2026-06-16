@@ -171,6 +171,15 @@ public actor ProfilesService {
         return response.count ?? 0
     }
 
+    /// Sprint 22.x — counts leves (followers + following) pro header do
+    /// próprio perfil. 2 queries HEAD em paralelo — bem mais barato que o
+    /// getOtherProfileSummary (6 queries).
+    public func followCounts(userId: String) async throws -> (followers: Int, following: Int) {
+        async let followers = countFollowers(userId: userId)
+        async let following = countFollowing(userId: userId)
+        return (try await followers, try await following)
+    }
+
     private func countFollowers(userId: String) async throws -> Int {
         let response = try await withRetry {
             try await self.client

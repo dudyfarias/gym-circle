@@ -1293,6 +1293,14 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Sprint 22.x — counts de seguidores/seguindo do próprio user (header
+    /// do Perfil, paridade web). Fail-soft (0,0).
+    public func fetchFollowCounts() async -> (followers: Int, following: Int) {
+        guard let profilesService,
+              let userId = sessionStore?.currentUserId else { return (0, 0) }
+        return (try? await profilesService.followCounts(userId: userId)) ?? (0, 0)
+    }
+
     /// Sprint 9.2 — upload de avatar. Wrapper ProfilesService.uploadAvatar
     /// + reload profile pra atualizar @Published.
     public func uploadAvatar(imageData: Data) async -> String? {

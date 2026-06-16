@@ -9,6 +9,7 @@ public struct ProfileView: View {
     @ObservedObject private var model: GymCircleAppModel
     private let profile: UserProfile?
     private let posts: [ProfilePost]
+    private let myCircle: MyCircleViewData
     private let featuredAchievements: [Achievement]
     private let allAchievements: [Achievement]
 
@@ -16,17 +17,22 @@ public struct ProfileView: View {
     @State private var hallPresented = false
     @State private var hallDetailAchievement: Achievement?
     @State private var openedPost: FeedPost?
+    @State private var editPresented = false
+    @State private var followersCount = 0
+    @State private var followingCount = 0
 
     public init(
         model: GymCircleAppModel,
         profile: UserProfile?,
         posts: [ProfilePost] = [],
+        myCircle: MyCircleViewData,
         featuredAchievements: [Achievement] = [],
         allAchievements: [Achievement] = []
     ) {
         self.model = model
         self.profile = profile
         self.posts = posts
+        self.myCircle = myCircle
         self.featuredAchievements = featuredAchievements
         self.allAchievements = allAchievements
     }
@@ -66,8 +72,35 @@ public struct ProfileView: View {
                 .accessibilityLabel(Loc.settings)
             }
         }
+        .task {
+            // Counts de seguidores/seguindo do próprio user (paridade web).
+            let counts = await model.fetchFollowCounts()
+            followersCount = counts.followers
+            followingCount = counts.following
+        }
         .sheet(isPresented: $settingsPresented) {
             SettingsSheet(model: model)
+        }
+        .sheet(isPresented: $editPresented) {
+            if let profile {
+                EditProfileSheet(
+                    profile: profile,
+                    onSave: { updated in
+                        await model.saveProfile(
+                            displayName: updated.displayName,
+                            bio: updated.bio,
+                            fitnessGoal: updated.fitnessGoal,
+                            isPrivate: updated.isPrivate,
+                            instagramUsername: updated.instagramUsername,
+                            birthDate: updated.birthDate,
+                            sports: updated.sports,
+                            preferredTrainingTimes: updated.preferredTrainingTimes
+                        )
+                    },
+                    onUploadAvatar: { data in await model.uploadAvatar(imageData: data) },
+                    onClose: { editPresented = false }
+                )
+            }
         }
         .sheet(isPresented: $hallPresented) {
             AchievementsView(
@@ -110,35 +143,123 @@ public struct ProfileView: View {
         }
     }
 
+    // Header paridade web (ProfileIdentity): anéis de consistência com a foto
+    // no centro · nome/@ · chips (streak/nível) · bio · stats
+    // (posts/seguidores/seguindo) · botão Editar perfil.
     private func header(_ profile: UserProfile) -> some View {
-        GCGlassPanel {
-            VStack(spacing: 16) {
-                GCAvatar(url: profile.avatarURL, fallback: profile.username, size: 96)
+        VStack(spacing: 0) {
+            AvatarConsistencyRings(
+                rings: ConsistencyRings(
+                    workoutsThisWeek: myCircle.stats.workoutsThisWeek,
+                    workoutsThisMonth: myCircle.stats.workoutsThisMonth,
+                    workoutsThisYear: myCircle.stats.workoutsThisYear
+                ),
+                avatarURL: profile.avatarURL,
+                fallback: profile.username,
+                size: 150,
+                hasStory: myCircle.hasStory,
+                storyViewed: myCircle.storyViewed
+            )
 
-                VStack(spacing: 4) {
-                    GCText(profile.displayName ?? profile.username, style: .title)
-                    GCText("@\(profile.username)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+            VStack(spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(profile.displayName ?? profile.username)
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        .lineLimit(1)
+                    if profile.isPrivate {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.52))
+                    }
                 }
-
-                if let bio = profile.bio, !bio.isEmpty {
-                    GCText(bio, style: .body)
-                        .multilineTextAlignment(.center)
-                }
-
-                HStack(spacing: 12) {
-                    stat(L10n.profileStreak.string, value: "\(profile.currentStreak)d")
-                    stat(L10n.profileMaior.string, value: "\(profile.bestStreak)d")
-                    stat(L10n.profilePosts.string, value: "\(posts.count)")
-                }
+                Text("@\(profile.username)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.52))
             }
-            .frame(maxWidth: .infinity)
+            .padding(.top, 16)
+
+            chipsRow(profile)
+                .padding(.top, 12)
+
+            if let bio = profile.bio, !bio.isEmpty {
+                Text(bio)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.white.opacity(0.86))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 12)
+            }
+
+            statsRow
+                .padding(.top, 16)
+
+            Button {
+                editPresented = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(L10n.editProfileTitle.string)
+                        .font(.system(size: 13, weight: .black))
+                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(0.06)))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 16)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // Chips streak + nível (paridade web). Academia fica de fora (sem fonte
+    // de dados no perfil nativo ainda).
+    @ViewBuilder
+    private func chipsRow(_ profile: UserProfile) -> some View {
+        let lit = profile.badgeIsActiveToday
+        let hasStreak = profile.currentStreak > 0 || lit
+        if hasStreak {
+            let level = StreakLevel.current(for: profile.currentStreak)
+            HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: lit ? "flame.fill" : "flame")
+                        .font(.system(size: 11, weight: .bold))
+                    Text("\(profile.currentStreak)d")
+                        .font(.system(size: 11, weight: .black))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(Capsule().fill(lit ? GymCircleTheme.ColorToken.cyan.opacity(0.14) : Color.white.opacity(0.06)))
+                .foregroundStyle(lit ? GymCircleTheme.ColorToken.cyan : Color.white.opacity(0.72))
+
+                Text(level.shortLabel)
+                    .font(.system(size: 11, weight: .black))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(Color.white.opacity(0.06)))
+                    .foregroundStyle(Color.white.opacity(0.72))
+            }
         }
     }
 
-    private func stat(_ title: String, value: String) -> some View {
-        VStack(spacing: 4) {
-            GCText(value, style: .headline, color: GymCircleTheme.ColorToken.cyan)
-            GCText(title, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+    private var statsRow: some View {
+        HStack(spacing: 4) {
+            statCol(value: posts.count, label: L10n.profilePosts.string)
+            statCol(value: followersCount, label: L10n.profileFollowers.string)
+            statCol(value: followingCount, label: L10n.profileFollowing.string)
+        }
+        .frame(maxWidth: 320)
+    }
+
+    private func statCol(value: Int, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text("\(value)")
+                .font(.system(size: 18, weight: .black))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+            Text(label)
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.52))
         }
         .frame(maxWidth: .infinity)
     }

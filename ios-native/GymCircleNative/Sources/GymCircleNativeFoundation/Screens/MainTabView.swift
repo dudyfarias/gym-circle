@@ -84,6 +84,7 @@ public struct MainTabView: View {
                     model: model,
                     profile: profile,
                     posts: profilePosts,
+                    myCircle: myCircle,
                     featuredAchievements: myCircle.featuredAchievements,
                     allAchievements: myCircle.allAchievements
                 )
