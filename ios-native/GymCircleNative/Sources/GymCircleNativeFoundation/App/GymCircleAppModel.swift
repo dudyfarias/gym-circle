@@ -1283,7 +1283,10 @@ public final class GymCircleAppModel: ObservableObject {
         instagramUsername: String? = nil,
         birthDate: Date? = nil,
         sports: [String]? = nil,
-        preferredTrainingTimes: [String]? = nil
+        preferredTrainingTimes: [String]? = nil,
+        // Double-optional: outer .none = não mexe na academia; outer .some(v) =
+        // define (v pode ser nil = limpar). Espelha o web que sempre envia.
+        mainGymId: String?? = nil
     ) async {
         guard let profilesService,
               let userId = sessionStore?.currentUserId else { return }
@@ -1299,10 +1302,19 @@ public final class GymCircleAppModel: ObservableObject {
                 sports: sports,
                 preferredTrainingTimes: preferredTrainingTimes
             )
+            if case let .some(gymId) = mainGymId {
+                try await profilesService.setMainGym(userId: userId, gymId: gymId)
+            }
             await loadProfile()
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// Sprint 22.x — busca 1 academia por id (nome pro editor). Fail-soft nil.
+    public func fetchGym(id: String) async -> GymOption? {
+        guard let profilesService else { return nil }
+        return try? await profilesService.gym(id: id)
     }
 
     /// Sprint 22.x — counts de seguidores/seguindo do próprio user (header

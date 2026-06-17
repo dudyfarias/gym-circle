@@ -108,11 +108,14 @@ public struct ProfileView: View {
                             instagramUsername: updated.instagramUsername,
                             birthDate: updated.birthDate,
                             sports: updated.sports,
-                            preferredTrainingTimes: updated.preferredTrainingTimes
+                            preferredTrainingTimes: updated.preferredTrainingTimes,
+                            mainGymId: updated.mainGymId
                         )
                     },
                     onUploadAvatar: { data in await model.uploadAvatar(imageData: data) },
-                    onClose: { editPresented = false }
+                    onClose: { editPresented = false },
+                    searchGyms: { await model.searchGyms(query: $0) },
+                    loadGymName: { await model.fetchGym(id: $0) }
                 )
             }
         }
@@ -379,17 +382,18 @@ public struct ProfileView: View {
         let complete: Bool
     }
 
-    private static let completionIDs = ["identity", "avatar", "goal", "bio", "preferredTimes"]
+    private static let completionIDs = ["identity", "avatar", "gym", "goal", "bio", "preferredTimes"]
 
     private func calculateCompletion(_ p: UserProfile) -> (percentage: Int, missing: [CompletionItem]) {
         func hasText(_ s: String?) -> Bool {
             !(s ?? "").trimmingCharacters(in: .whitespaces).isEmpty
         }
-        // Itens do web menos "academia" (sem fonte no UserProfile nativo).
+        // Itens idênticos ao web (pesos 40/15/15/10/10/10 = 100).
         let items: [CompletionItem] = [
             CompletionItem(id: "identity", label: Loc.t("Name and username", "Nome e username"), icon: "person.crop.circle", weight: 40,
                            complete: hasText(p.displayName) && p.displayName != "—" && hasText(p.username) && p.username != "—"),
             CompletionItem(id: "avatar", label: Loc.t("Profile photo", "Foto de perfil"), icon: "camera", weight: 15, complete: hasText(p.avatarURL)),
+            CompletionItem(id: "gym", label: Loc.t("Gym", "Academia"), icon: "mappin.and.ellipse", weight: 15, complete: hasText(p.mainGymId)),
             CompletionItem(id: "goal", label: Loc.t("Fitness goal", "Objetivo fitness"), icon: "target", weight: 10, complete: hasText(p.fitnessGoal)),
             CompletionItem(id: "bio", label: Loc.t("Bio", "Bio"), icon: "person", weight: 10, complete: hasText(p.bio)),
             CompletionItem(id: "preferredTimes", label: Loc.t("Workout times", "Horários de treino"), icon: "clock", weight: 10, complete: !p.preferredTrainingTimes.isEmpty),

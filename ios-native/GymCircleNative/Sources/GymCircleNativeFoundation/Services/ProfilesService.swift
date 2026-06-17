@@ -225,7 +225,7 @@ public actor ProfilesService {
         try await withRetry {
             let rows: [UserProfile] = try await self.client
                 .from("profiles")
-                .select("id,user_id,username,display_name,avatar_url,bio,fitness_goal,is_private,featured_achievements,created_at,instagram_username,birth_date,sports,preferred_training_times")
+                .select("id,user_id,username,display_name,avatar_url,bio,fitness_goal,is_private,featured_achievements,created_at,instagram_username,birth_date,sports,preferred_training_times,main_gym_id")
                 .eq("user_id", value: userId)
                 .limit(1)
                 .execute()
@@ -378,6 +378,38 @@ public actor ProfilesService {
             .update(payload)
             .eq("user_id", value: userId)
             .execute()
+    }
+
+    /// Sprint 22.x — academia principal. Sempre envia main_gym_id (valor OU
+    /// null) — espelha o web (`mainGymId: mainGymId || null`). O encode usa
+    /// `encode` (não `encodeIfPresent`) pra null explícito ao limpar.
+    public func setMainGym(userId: String, gymId: String?) async throws {
+        struct GymPayload: Encodable {
+            let gymId: String?
+            enum CodingKeys: String, CodingKey { case gymId = "main_gym_id" }
+            func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(gymId, forKey: .gymId)
+            }
+        }
+        try await client
+            .from("profiles")
+            .update(GymPayload(gymId: gymId))
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    /// Sprint 22.x — busca 1 academia por id (pra exibir o nome atual no
+    /// editor). Fail-soft nil.
+    public func gym(id: String) async throws -> GymOption? {
+        let rows: [GymOption] = try await client
+            .from("gyms")
+            .select("id,name,address,city,state,latitude,longitude")
+            .eq("id", value: id)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first
     }
 
     private func fetchCoversMap(userId: String) async throws -> [String: String] {

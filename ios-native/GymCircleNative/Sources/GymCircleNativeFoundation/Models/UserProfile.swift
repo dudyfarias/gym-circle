@@ -28,6 +28,9 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
     public let birthDate: Date?
     public let sports: [String]
     public let preferredTrainingTimes: [String]
+    /// Sprint 22.x — academia principal (profiles.main_gym_id). Usada no
+    /// completar-perfil (item "Academia", paridade web) + editor.
+    public let mainGymId: String?
 
     public init(
         id: String,
@@ -46,7 +49,8 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         instagramUsername: String? = nil,
         birthDate: Date? = nil,
         sports: [String] = [],
-        preferredTrainingTimes: [String] = []
+        preferredTrainingTimes: [String] = [],
+        mainGymId: String? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -65,6 +69,7 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         self.birthDate = birthDate
         self.sports = sports
         self.preferredTrainingTimes = preferredTrainingTimes
+        self.mainGymId = mainGymId
     }
 
     enum CodingKeys: String, CodingKey {
@@ -85,6 +90,7 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         case birthDate = "birth_date"
         case sports
         case preferredTrainingTimes = "preferred_training_times"
+        case mainGymId = "main_gym_id"
     }
 
     public init(from decoder: Decoder) throws {
@@ -122,5 +128,6 @@ public struct UserProfile: Identifiable, Codable, Hashable, Sendable {
         }
         self.sports = (try container.decodeIfPresent([String].self, forKey: .sports)) ?? []
         self.preferredTrainingTimes = (try container.decodeIfPresent([String].self, forKey: .preferredTrainingTimes)) ?? []
+        self.mainGymId = try container.decodeIfPresent(String.self, forKey: .mainGymId)
     }
 }

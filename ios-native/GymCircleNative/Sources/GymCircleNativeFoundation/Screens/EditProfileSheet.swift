@@ -18,6 +18,10 @@ public struct EditProfileSheet: View {
     public let onSave: (UserProfile) async -> Void
     public let onUploadAvatar: ((Data) async -> String?)?
     public let onClose: () -> Void
+    /// Sprint 22.x — busca/leitura de academia (paridade web). nil → a seção
+    /// de academia não aparece.
+    public let searchGyms: ((String) async -> [GymOption])?
+    public let loadGymName: ((String) async -> GymOption?)?
 
     @State private var displayName: String
     @State private var username: String
@@ -31,6 +35,9 @@ public struct EditProfileSheet: View {
     @State private var isPrivate: Bool
     @State private var isSaving = false
     @State private var saveError: String?
+    @State private var selectedGymId: String?
+    @State private var selectedGymName: String?
+    @State private var gymSearchPresented = false
 
     @State private var photoItem: PhotosPickerItem?
     @State private var pickedAvatarData: Data?
@@ -58,12 +65,17 @@ public struct EditProfileSheet: View {
         profile: UserProfile,
         onSave: @escaping (UserProfile) async -> Void,
         onUploadAvatar: ((Data) async -> String?)? = nil,
-        onClose: @escaping () -> Void
+        onClose: @escaping () -> Void,
+        searchGyms: ((String) async -> [GymOption])? = nil,
+        loadGymName: ((String) async -> GymOption?)? = nil
     ) {
         self.profile = profile
         self.onSave = onSave
         self.onUploadAvatar = onUploadAvatar
         self.onClose = onClose
+        self.searchGyms = searchGyms
+        self.loadGymName = loadGymName
+        _selectedGymId = State(initialValue: profile.mainGymId)
         _displayName = State(initialValue: profile.displayName ?? "")
         _username = State(initialValue: profile.username)
         _bio = State(initialValue: profile.bio ?? "")
@@ -84,6 +96,20 @@ public struct EditProfileSheet: View {
                 // (paridade web useEffect(open) reset).
                 saveError = nil
                 isUploadingAvatar = false
+            }
+            .task {
+                // Resolve o nome da academia atual pra exibir no campo.
+                if let gymId = selectedGymId, selectedGymName == nil, let loadGymName {
+                    selectedGymName = await loadGymName(gymId)?.name
+                }
+            }
+            .sheet(isPresented: $gymSearchPresented) {
+                if let searchGyms {
+                    GymSearchSheet(searchGyms: searchGyms) { gym in
+                        selectedGymId = gym.id
+                        selectedGymName = gym.name
+                    }
+                }
             }
     }
 
@@ -273,6 +299,40 @@ public struct EditProfileSheet: View {
 
             fieldRow(label: L10n.editProfileFitnessGoal.string) {
                 styledTextField(text: $fitnessGoal, limit: goalLimit)
+            }
+
+            // Sprint 22.x — Academia (paridade web). Tap abre busca.
+            if searchGyms != nil {
+                fieldRow(label: Loc.t("Gym", "Academia")) {
+                    Button { gymSearchPresented = true } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(selectedGymId != nil ? GymCircleTheme.ColorToken.cyan : .white.opacity(0.42))
+                            Text(selectedGymName
+                                 ?? (selectedGymId != nil ? Loc.t("Gym set", "Academia definida") : Loc.t("Add a gym", "Adicionar academia")))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(selectedGymId != nil ? .white : .white.opacity(0.42))
+                                .lineLimit(1)
+                            Spacer()
+                            if selectedGymId != nil {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundColor(.white.opacity(0.4))
+                                    .onTapGesture {
+                                        selectedGymId = nil
+                                        selectedGymName = nil
+                                    }
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white.opacity(0.3))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(RoundedRectangle(cornerRadius: 14).fill(Color.white.opacity(0.04)))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             // Sprint 9.7.1 — Instagram com @ prefix
@@ -622,7 +682,8 @@ public struct EditProfileSheet: View {
             instagramUsername: instagram.isEmpty ? nil : instagram,
             birthDate: hasBirthDate ? birthDate : nil,
             sports: sportsArr,
-            preferredTrainingTimes: Array(preferredTimes)
+            preferredTrainingTimes: Array(preferredTimes),
+            mainGymId: selectedGymId
         )
         await onSave(updated)
         // Sprint 9.9.2 — haptic confirma pipeline rodou (callback é fire-and-forget,
@@ -674,6 +735,84 @@ private struct FlowChipsLayout: Layout {
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
             _ = maxWidth
+        }
+    }
+}
+
+/// GymSearchSheet — Sprint 22.x. Busca de academia pro editor de perfil
+/// (reusa model.searchGyms). Tap seleciona e fecha.
+private struct GymSearchSheet: View {
+    let searchGyms: (String) async -> [GymOption]
+    let onSelect: (GymOption) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var query = ""
+    @State private var results: [GymOption] = []
+    @State private var isSearching = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.white.opacity(0.4))
+                    TextField(Loc.t("Search gym…", "Buscar academia…"), text: $query)
+                        .textFieldStyle(.plain)
+                        .foregroundColor(.white)
+                        .autocorrectionDisabled()
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.white.opacity(0.06)))
+                .padding(16)
+
+                if isSearching {
+                    GCLoadingView(Loc.t("Searching…", "Buscando…"))
+                    Spacer()
+                } else if results.isEmpty {
+                    GCEmptyState(
+                        title: query.trimmingCharacters(in: .whitespaces).count >= 2
+                            ? Loc.t("No gym found", "Nenhuma academia")
+                            : Loc.t("Search a gym", "Busque uma academia"),
+                        subtitle: Loc.t("Type the name of your gym.", "Digite o nome da sua academia.")
+                    )
+                    Spacer()
+                } else {
+                    List(results) { gym in
+                        Button { onSelect(gym); dismiss() } label: {
+                            VStack(alignment: .leading, spacing: 2) {
+                                GCText(gym.name, style: .body)
+                                if !gym.subtitle.isEmpty {
+                                    GCText(gym.subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(GymCircleTheme.ColorToken.appBackground)
+                        .listRowSeparator(.hidden)
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+            .navigationTitle(Loc.t("Gym", "Academia"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button(Loc.close) { dismiss() }
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+        .task(id: query) {
+            let q = query.trimmingCharacters(in: .whitespaces)
+            guard q.count >= 2 else { results = []; return }
+            try? await Task.sleep(nanoseconds: 300_000_000) // debounce
+            if Task.isCancelled { return }
+            isSearching = true
+            results = await searchGyms(q)
+            isSearching = false
         }
     }
 }
