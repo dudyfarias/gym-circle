@@ -278,26 +278,33 @@ public struct MyCircleView: View {
     // MARK: - C. Consistência
 
     private var consistencySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        // Paridade web: "X/Y dias" nas 3 linhas, com o total real de dias do
+        // mês/ano (antes mês/ano mostravam só "X", sem denominador).
+        let cal = Calendar.current
+        let daysInMonth = cal.range(of: .day, in: .month, for: Date())?.count ?? 30
+        let yearNow = cal.component(.year, from: Date())
+        let daysInYear = ((yearNow % 4 == 0 && yearNow % 100 != 0) || yearNow % 400 == 0) ? 366 : 365
+        let unit = Loc.t("days", "dias")
+        return VStack(alignment: .leading, spacing: 12) {
             sectionTitle(L10n.myCircleSuaConsistencia.string)
 
             VStack(spacing: 14) {
                 RingProgressRowView(
                     label: L10n.myCircleSemana.string,
-                    value: "\(data.stats.workoutsThisWeek)/7",
+                    value: "\(data.stats.workoutsThisWeek)/7 \(unit)",
                     progressPercent: Double(data.stats.workoutsThisWeek) / 7.0,
                     color: GymCircleTheme.ColorToken.cyan
                 )
                 RingProgressRowView(
                     label: L10n.myCircleMes.string,
-                    value: "\(data.stats.workoutsThisMonth)",
-                    progressPercent: Double(data.stats.workoutsThisMonth) / 30.0,
+                    value: "\(data.stats.workoutsThisMonth)/\(daysInMonth) \(unit)",
+                    progressPercent: Double(data.stats.workoutsThisMonth) / Double(daysInMonth),
                     color: GymCircleTheme.ColorToken.electricBlue
                 )
                 RingProgressRowView(
                     label: L10n.myCircleAno.string,
-                    value: "\(data.stats.workoutsThisYear)",
-                    progressPercent: Double(data.stats.workoutsThisYear) / 365.0,
+                    value: "\(data.stats.workoutsThisYear)/\(daysInYear) \(unit)",
+                    progressPercent: Double(data.stats.workoutsThisYear) / Double(daysInYear),
                     color: GymCircleTheme.ColorToken.deepBlue
                 )
             }

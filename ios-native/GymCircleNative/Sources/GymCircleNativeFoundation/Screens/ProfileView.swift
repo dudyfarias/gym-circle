@@ -23,6 +23,8 @@ public struct ProfileView: View {
     @State private var followersPresented = false
     @State private var followingPresented = false
     @State private var streakRestore: MyCircleService.StreakRestoreInfo?
+    // Nome da academia principal (pro chip do header, paridade web).
+    @State private var gymName: String?
     // Chips de completar perfil já dispensados (tracking local em UserDefaults,
     // como o first-visit hint — single-device).
     @State private var dismissedHints: Set<String> = []
@@ -88,6 +90,9 @@ public struct ProfileView: View {
             followersCount = counts.followers
             followingCount = counts.following
             streakRestore = await model.fetchStreakRestoreInfo()
+            if let gymId = profile?.mainGymId {
+                gymName = await model.fetchGym(id: gymId)?.name
+            }
             dismissedHints = Set(Self.completionIDs.filter {
                 UserDefaults.standard.bool(forKey: "profile-complete-seen-\($0)")
             })
@@ -246,26 +251,42 @@ public struct ProfileView: View {
     private func chipsRow(_ profile: UserProfile) -> some View {
         let lit = profile.badgeIsActiveToday
         let hasStreak = profile.currentStreak > 0 || lit
-        if hasStreak {
+        // Paridade web: a row aparece quando há streak OU academia.
+        if hasStreak || gymName != nil {
             let level = StreakLevel.current(for: profile.currentStreak)
             HStack(spacing: 6) {
-                HStack(spacing: 4) {
-                    Image(systemName: lit ? "flame.fill" : "flame")
-                        .font(.system(size: 11, weight: .bold))
-                    Text("\(profile.currentStreak)d")
-                        .font(.system(size: 11, weight: .black))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Capsule().fill(lit ? GymCircleTheme.ColorToken.cyan.opacity(0.14) : Color.white.opacity(0.06)))
-                .foregroundStyle(lit ? GymCircleTheme.ColorToken.cyan : Color.white.opacity(0.72))
+                if hasStreak {
+                    HStack(spacing: 4) {
+                        Image(systemName: lit ? "flame.fill" : "flame")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("\(profile.currentStreak)d")
+                            .font(.system(size: 11, weight: .black))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(lit ? GymCircleTheme.ColorToken.cyan.opacity(0.14) : Color.white.opacity(0.06)))
+                    .foregroundStyle(lit ? GymCircleTheme.ColorToken.cyan : Color.white.opacity(0.72))
 
-                Text(level.shortLabel)
-                    .font(.system(size: 11, weight: .black))
+                    Text(level.shortLabel)
+                        .font(.system(size: 11, weight: .black))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(Color.white.opacity(0.06)))
+                        .foregroundStyle(Color.white.opacity(0.72))
+                }
+                if let gymName {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(gymName)
+                            .font(.system(size: 11, weight: .black))
+                            .lineLimit(1)
+                    }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(Capsule().fill(Color.white.opacity(0.06)))
                     .foregroundStyle(Color.white.opacity(0.72))
+                }
             }
         }
     }
