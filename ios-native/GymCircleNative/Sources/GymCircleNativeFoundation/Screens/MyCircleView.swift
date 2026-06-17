@@ -202,9 +202,15 @@ public struct MyCircleView: View {
                 storyViewed: data.storyViewed
             )
 
-            VStack(spacing: 4) {
-                GCText(data.displayName, style: .title, color: GymCircleTheme.ColorToken.primaryText)
-                GCText("@\(data.username)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+            VStack(spacing: 2) {
+                // Paridade web: nome 20px black (era GCText.title = 28px).
+                Text(data.displayName)
+                    .font(.system(size: 20, weight: .black))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                Text("@\(data.username)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.52))
             }
 
             HStack(spacing: 8) {
