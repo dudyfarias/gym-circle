@@ -549,7 +549,10 @@ public final class GymCircleAppModel: ObservableObject {
                     achievements: allAchievements,
                     equippedCompositeIds: profile?.featuredAchievements ?? []
                 ),
-                allAchievements: allAchievements
+                allAchievements: allAchievements,
+                // Sprint 22.x — cards Posts + Restauradores do grid 2x3 (paridade web).
+                postsCount: summary.postsCount,
+                streakRestoresAvailable: summary.streakRestoresAvailable
             )
         } catch {
             self.error = error.localizedDescription

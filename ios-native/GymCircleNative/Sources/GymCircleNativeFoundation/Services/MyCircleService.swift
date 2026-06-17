@@ -18,6 +18,7 @@ public actor MyCircleService {
         async let postsCount = fetchPostsCount(userId: userId)
         async let followersCount = fetchFollowersCount(userId: userId)
         async let streakRestoreInfo = fetchStreakRestoreInfo(userId: userId)
+        async let restoresAvailable = fetchRestoresAvailable(userId: userId)
 
         let stats = try await statsRow
         let dates = try await activityDates
@@ -34,6 +35,7 @@ public actor MyCircleService {
         let postsCountValue = (try? await postsCount) ?? 0
         let followersCountValue = (try? await followersCount) ?? 0
         let streakRestore = (try? await streakRestoreInfo) ?? false
+        let restoresAvailableValue = (try? await restoresAvailable) ?? 0
 
         return MyCircleSummary(
             stats: GymCircleStats(
@@ -46,8 +48,23 @@ public actor MyCircleService {
             postsCount: postsCountValue,
             followersCount: followersCountValue,
             hasUsedStreakRestore: streakRestore,
-            workoutDays: Array(monthDays).sorted()
+            workoutDays: Array(monthDays).sorted(),
+            streakRestoresAvailable: restoresAvailableValue
         )
+    }
+
+    /// Sprint 22.x — restauradores de streak disponíveis. Lê só a coluna da
+    /// tabela base `user_stats` (não o view live) — sem sync RPC.
+    private func fetchRestoresAvailable(userId: String) async throws -> Int {
+        struct Row: Decodable { let streak_restores_available: Int? }
+        let rows: [Row] = try await client
+            .from("user_stats")
+            .select("streak_restores_available")
+            .eq("user_id", value: userId)
+            .limit(1)
+            .execute()
+            .value
+        return rows.first?.streak_restores_available ?? 0
     }
 
     public func getConsistencyRings(userId: String, date: Date = Date()) async throws -> ConsistencyRings {

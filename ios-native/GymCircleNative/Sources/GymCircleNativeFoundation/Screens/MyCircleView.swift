@@ -197,7 +197,7 @@ public struct MyCircleView: View {
                 ),
                 avatarURL: data.avatarURL?.absoluteString,
                 fallback: data.username,
-                size: 140,
+                size: 130, // paridade web (AvatarConsistencyRings size=130)
                 hasStory: data.hasStory,
                 storyViewed: data.storyViewed
             )
@@ -269,8 +269,9 @@ public struct MyCircleView: View {
             SummaryStatCardView(label: L10n.myCircleMaiorStreak.string, value: "\(data.stats.bestStreak)d")
             SummaryStatCardView(label: L10n.myCircleTreinosMes.string, value: "\(data.stats.workoutsThisMonth)")
             SummaryStatCardView(label: L10n.myCircleDiasAno.string, value: "\(data.stats.workoutsThisYear)")
-            SummaryStatCardView(label: L10n.myCircleConquistas.string, value: "\(data.earnedCount)")
-            SummaryStatCardView(label: L10n.myCircleTotal.string, value: "\(data.totalAchievements)")
+            // Paridade web: cards Posts + Restauradores (era Conquistas/Total).
+            SummaryStatCardView(label: Loc.t("Posts", "Posts"), value: "\(data.postsCount)")
+            SummaryStatCardView(label: Loc.t("Restores", "Restauradores"), value: "\(data.streakRestoresAvailable)")
         }
     }
 

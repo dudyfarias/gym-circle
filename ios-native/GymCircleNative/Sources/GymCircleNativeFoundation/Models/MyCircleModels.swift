@@ -83,13 +83,19 @@ public struct MyCircleSummary: Codable, Hashable, Sendable {
     /// sem treinos destacados.
     public let workoutDays: [String]
 
+    /// Sprint 22.x — restauradores de streak disponíveis (card "Restauradores"
+    /// do grid 2x3 do MyCircle, paridade web). Lido de
+    /// `user_stats.streak_restores_available`.
+    public let streakRestoresAvailable: Int
+
     public init(
         stats: GymCircleStats,
         badges: [Badge] = [],
         postsCount: Int = 0,
         followersCount: Int = 0,
         hasUsedStreakRestore: Bool = false,
-        workoutDays: [String] = []
+        workoutDays: [String] = [],
+        streakRestoresAvailable: Int = 0
     ) {
         self.stats = stats
         rings = ConsistencyRings(
@@ -102,6 +108,7 @@ public struct MyCircleSummary: Codable, Hashable, Sendable {
         self.followersCount = followersCount
         self.hasUsedStreakRestore = hasUsedStreakRestore
         self.workoutDays = workoutDays
+        self.streakRestoresAvailable = streakRestoresAvailable
     }
 }
 
@@ -265,6 +272,11 @@ public struct MyCircleViewData: Sendable {
     /// aberto pelo botão da row. Vazio em hall de terceiros sem dados.
     public let allAchievements: [Achievement]
 
+    /// Sprint 22.x — cards 5/6 do grid 2x3 (paridade web: Posts +
+    /// Restauradores, no lugar de Conquistas/Total).
+    public let postsCount: Int
+    public let streakRestoresAvailable: Int
+
     public init(
         userId: String,
         isOwn: Bool,
@@ -285,7 +297,9 @@ public struct MyCircleViewData: Sendable {
         hasStory: Bool = false,
         storyViewed: Bool = false,
         featuredAchievements: [Achievement] = [],
-        allAchievements: [Achievement] = []
+        allAchievements: [Achievement] = [],
+        postsCount: Int = 0,
+        streakRestoresAvailable: Int = 0
     ) {
         self.userId = userId
         self.isOwn = isOwn
@@ -307,6 +321,8 @@ public struct MyCircleViewData: Sendable {
         self.storyViewed = storyViewed
         self.featuredAchievements = featuredAchievements
         self.allAchievements = allAchievements
+        self.postsCount = postsCount
+        self.streakRestoresAvailable = streakRestoresAvailable
     }
 
     /// Dados de demonstração pra preview + bridge placeholder antes da
