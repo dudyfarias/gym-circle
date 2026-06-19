@@ -83,17 +83,18 @@ public struct AvatarConsistencyRings: View {
         }
     }
 
-    /// Story ring gradiente (rosa → laranja → cyan), consistente com o que o
-    /// app já mostra no `ActivityRingsView` (Sprint 9.8.3).
-    private var storyGradient: AngularGradient {
-        AngularGradient(
-            gradient: Gradient(colors: [
-                Color(red: 1.0, green: 0.28, blue: 0.49),
-                Color(red: 1.0, green: 0.6, blue: 0.28),
+    /// Story ring com o gradiente da MARCA (brand → mês → ano), igual ao web
+    /// (`gc-story-gradient`: var(--gc-brand) → consistency-month → year).
+    /// Linear diagonal como o web — NÃO rosa/laranja.
+    private var storyGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                GymCircleTheme.ColorToken.cyan,
                 GymCircleTheme.ColorToken.electricBlue,
-                Color(red: 1.0, green: 0.28, blue: 0.49)
-            ]),
-            center: .center
+                GymCircleTheme.ColorToken.deepBlue
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
         )
     }
 }
