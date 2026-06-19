@@ -249,17 +249,20 @@ public struct ProfileView: View {
     // de dados no perfil nativo ainda).
     @ViewBuilder
     private func chipsRow(_ profile: UserProfile) -> some View {
-        let lit = profile.badgeIsActiveToday
-        let hasStreak = profile.currentStreak > 0 || lit
+        // Streak/nível vêm de myCircle.stats (user_stats_live), não do
+        // UserProfile (profiles não tem current_streak → vinha 0, sumia o chip).
+        let lit = myCircle.streakLitToday
+        let streak = myCircle.stats.currentStreak
+        let hasStreak = streak > 0 || lit
         // Paridade web: a row aparece quando há streak OU academia.
         if hasStreak || gymName != nil {
-            let level = StreakLevel.current(for: profile.currentStreak)
+            let level = StreakLevel.current(for: streak)
             HStack(spacing: 6) {
                 if hasStreak {
                     HStack(spacing: 4) {
                         Image(systemName: lit ? "flame.fill" : "flame")
                             .font(.system(size: 11, weight: .bold))
-                        Text("\(profile.currentStreak)d")
+                        Text("\(streak)d")
                             .font(.system(size: 11, weight: .black))
                     }
                     .padding(.horizontal, 10)
