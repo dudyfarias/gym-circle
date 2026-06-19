@@ -226,6 +226,12 @@ public final class GymCircleAppModel: ObservableObject {
         } catch {
             self.error = error.localizedDescription
         }
+        // Posts do próprio user pro grid do Perfil + contador "Posts". Sem isso
+        // o perfil mostrava sempre 0 posts e grid vazio (profilePosts nunca era
+        // populado). Fail-soft: mantém o que tinha em caso de erro.
+        if let api {
+            profilePosts = (try? await api.profilePosts(userId: userId)) ?? profilePosts
+        }
     }
 
     public func signOut() async {
@@ -477,17 +483,24 @@ public final class GymCircleAppModel: ObservableObject {
             async let distinctGymsTask: Int =
                 (try? await myCircleService.getDistinctGyms(userId: userId, sinceDaysAgo: 30)) ?? 0
             // Sprint 10.1 — story ring no avatar (P0 #1 fechado).
-            // own profile: storyViewed sempre false (você sempre "vê" suas
-            // próprias stories — UX ring brand fica até expirar).
+            // hasStory = tem story ativa (<24h). storyViewed = você já abriu a
+            // sua própria story ativa (paridade web `currentUserStoryGroup
+            // .viewed`): ring aceso só com story NÃO-vista, apaga ao ver.
             async let hasStoryTask: Bool = {
                 guard let storiesService else { return false }
                 return (try? await storiesService.hasActiveStory(userId: userId)) ?? false
+            }()
+            async let storyViewedTask: Bool = {
+                guard let storiesService else { return false }
+                return (try? await storiesService.hasViewedActiveStories(
+                    targetUserId: userId, viewerUserId: userId)) ?? false
             }()
             let challenges = await challengesTask
             let monthPosts = await monthPostsTask
             let distinctTypes = await distinctTypesTask
             let distinctGyms = await distinctGymsTask
             let hasStory = await hasStoryTask
+            let storyViewed = await storyViewedTask
 
             // 3. Computa achievements client-side via builder
             // Sprint 8.11.1 — todos inputs hidratados via MyCircleSummary +
@@ -540,9 +553,10 @@ public final class GymCircleAppModel: ObservableObject {
                 totalAchievements: totalCount,
                 monthlyChallenges: challenges,
                 streakLitToday: profile?.badgeIsActiveToday ?? false,
-                // Sprint 10.1 — own profile sempre storyViewed=false (UX ring brand persiste).
+                // Story ring: aceso só com story ativa NÃO-vista; apaga ao ver
+                // (paridade web — antes era hardcoded false).
                 hasStory: hasStory,
-                storyViewed: false,
+                storyViewed: storyViewed,
                 // Sprint 20.1 — paridade 15.5 web: equipados → sugeridos,
                 // e a lista completa alimenta o Hall aberto pela row.
                 featuredAchievements: AchievementSuggester.resolveFeatured(
