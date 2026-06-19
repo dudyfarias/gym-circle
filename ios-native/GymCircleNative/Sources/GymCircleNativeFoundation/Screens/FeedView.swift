@@ -890,16 +890,20 @@ public struct PostCarouselView: View {
 }
 
 /// Pinch-to-"peek" zoom (paridade PinchZoomImage web): a pinça amplia a foto
-/// de 1→3, arrasto com 1 dedo faz pan quando ampliada, e ao soltar a imagem
-/// volta suave pra escala 1 — não é zoom persistente (igual ao feed do
-/// Instagram e ao web). Só em imagem; vídeo mantém o tap-to-play.
-/// MagnificationGesture roda no iOS 16+ (deploy target do app); o
-/// MagnifyGesture com anchor no midpoint exigiria iOS 17.
+/// de 1→3 e ao soltar volta suave pra escala 1 — não é zoom persistente.
+/// Só em imagem; vídeo mantém o tap-to-play. MagnificationGesture roda no
+/// iOS 16+ (deploy target do app).
+///
+/// IMPORTANTE (bug de device, Sprint 22.x): NÃO usar DragGesture pra pan. Um
+/// DragGesture (mesmo via simultaneousGesture e no-op em repouso) captura o
+/// toque de 1 dedo e TRAVA o scroll vertical do feed e o swipe horizontal do
+/// carrossel (TabView). A pinça é 2 dedos e não conflita com gestos de 1 dedo,
+/// então só ela fica. Sem pan: o zoom é centralizado e volta ao soltar (peek),
+/// como o feed do Instagram — o pan ampliado é sacrificado pra não quebrar o
+/// scroll/swipe.
 private struct PinchToPeekModifier: ViewModifier {
     let enabled: Bool
     @State private var scale: CGFloat = 1
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
 
     private let maxScale: CGFloat = 3
 
@@ -908,7 +912,6 @@ private struct PinchToPeekModifier: ViewModifier {
         return AnyView(
             content
                 .scaleEffect(scale, anchor: .center)
-                .offset(offset)
                 .gesture(
                     MagnificationGesture()
                         .onChanged { value in
@@ -920,24 +923,7 @@ private struct PinchToPeekModifier: ViewModifier {
                         .onEnded { _ in
                             withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                                 scale = 1
-                                offset = .zero
-                                lastOffset = .zero
                             }
-                        }
-                )
-                .simultaneousGesture(
-                    DragGesture()
-                        .onChanged { value in
-                            // Pan só quando ampliada; em repouso é no-op pra o
-                            // swipe do carrossel / scroll do feed seguirem.
-                            guard scale > 1 else { return }
-                            offset = CGSize(
-                                width: lastOffset.width + value.translation.width,
-                                height: lastOffset.height + value.translation.height
-                            )
-                        }
-                        .onEnded { _ in
-                            if scale > 1 { lastOffset = offset }
                         }
                 )
         )
