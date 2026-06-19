@@ -202,6 +202,7 @@ struct OtherProfileHostView: View {
             onBlock: {},
             onClose: { dismiss() },
             loadRings: { await model.fetchConsistencyRings(userId: $0) },
+            loadStoryRing: { await model.fetchStoryRingState(userId: $0) },
             onOpenFollowers: { followersPresented = true },
             onOpenFollowing: { followingPresented = true }
         )

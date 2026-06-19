@@ -1372,6 +1372,24 @@ public final class GymCircleAppModel: ObservableObject {
         return try? await myCircleService.getConsistencyRings(userId: userId)
     }
 
+    /// Story ring de OUTRO user (paridade web `profileSheetStoryGroup`): tem
+    /// story ativa (<24h)? e o viewer atual já abriu? O ring acende só com
+    /// story NÃO-vista e apaga ao ver. Fail-soft → (false, false).
+    public func fetchStoryRingState(userId: String) async -> (hasStory: Bool, viewed: Bool) {
+        guard let storiesService else { return (false, false) }
+        // Lê o viewer no corpo main-actor (currentUserId é isolado); o closure
+        // async-let só captura o valor, sem cruzar fronteira de ator.
+        let viewerId = sessionStore?.currentUserId
+        async let hasStoryTask: Bool =
+            (try? await storiesService.hasActiveStory(userId: userId)) ?? false
+        async let viewedTask: Bool = {
+            guard let viewerId else { return false }
+            return (try? await storiesService.hasViewedActiveStories(
+                targetUserId: userId, viewerUserId: viewerId)) ?? false
+        }()
+        return (await hasStoryTask, await viewedTask)
+    }
+
     /// Sprint 9.2 — upload de avatar. Wrapper ProfilesService.uploadAvatar
     /// + reload profile pra atualizar @Published.
     public func uploadAvatar(imageData: Data) async -> String? {

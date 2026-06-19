@@ -39,11 +39,16 @@ public struct OtherProfileView: View {
     /// Sprint 22.x — carrega os anéis de consistência do user (paridade web).
     /// Opcional/fail-soft: nil → header cai no avatar simples.
     public let loadRings: ((String) async -> ConsistencyRings?)?
+    /// Sprint 22.x — story ring (paridade web `profileSheetStoryGroup`): tem
+    /// story ativa? e o viewer já viu? Opcional/fail-soft: nil → sem ring.
+    public let loadStoryRing: ((String) async -> (hasStory: Bool, viewed: Bool))?
     /// Sprint 22.x — stats clicáveis (host apresenta a lista). nil → não-tap.
     public let onOpenFollowers: (() -> Void)?
     public let onOpenFollowing: (() -> Void)?
 
     @State private var rings: ConsistencyRings?
+    @State private var storyHasStory = false
+    @State private var storyViewed = false
 
     public init(
         profile: UserProfile,
@@ -63,6 +68,7 @@ public struct OtherProfileView: View {
         onOpenPost: ((String) -> Void)? = nil,
         onClose: @escaping () -> Void,
         loadRings: ((String) async -> ConsistencyRings?)? = nil,
+        loadStoryRing: ((String) async -> (hasStory: Bool, viewed: Bool))? = nil,
         onOpenFollowers: (() -> Void)? = nil,
         onOpenFollowing: (() -> Void)? = nil
     ) {
@@ -83,6 +89,7 @@ public struct OtherProfileView: View {
         self.onOpenPost = onOpenPost
         self.onClose = onClose
         self.loadRings = loadRings
+        self.loadStoryRing = loadStoryRing
         self.onOpenFollowers = onOpenFollowers
         self.onOpenFollowing = onOpenFollowing
     }
@@ -96,6 +103,13 @@ public struct OtherProfileView: View {
                 // avatar simples.
                 if canSeePosts, rings == nil, let loadRings {
                     rings = await loadRings(profile.userId)
+                }
+                // Story ring (só faz sentido junto dos anéis): acende com
+                // story ativa não-vista, apaga ao ver (paridade web).
+                if canSeePosts, let loadStoryRing {
+                    let state = await loadStoryRing(profile.userId)
+                    storyHasStory = state.hasStory
+                    storyViewed = state.viewed
                 }
             }
     }
@@ -165,7 +179,9 @@ public struct OtherProfileView: View {
                         rings: rings,
                         avatarURL: profile.avatarURL,
                         fallback: profile.username,
-                        size: 132
+                        size: 132,
+                        hasStory: storyHasStory,
+                        storyViewed: storyViewed
                     )
                 } else {
                     GCAvatar(url: profile.avatarURL, fallback: profile.username, size: 96)
