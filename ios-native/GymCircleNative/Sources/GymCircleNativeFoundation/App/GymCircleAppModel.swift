@@ -659,11 +659,15 @@ public final class GymCircleAppModel: ObservableObject {
         workoutTypes: [String],
         gym: GymOption? = nil,
         taggedUserIds: [String] = [],
-        alsoPublishStory: Bool = false
+        // Paridade web (PostScreen destinations): feed e/ou story, ambos default
+        // ligados. Story-only não cria post (só story); feed-only não cria story.
+        postToFeed: Bool = true,
+        postToStory: Bool = true
     ) async -> Bool {
         guard let composerService,
               let userId = sessionStore?.currentUserId,
-              !media.isEmpty else { return false }
+              !media.isEmpty,
+              postToFeed || postToStory else { return false }
         do {
             var uploads: [PostComposerService.UploadedMedia] = []
             for item in media {
@@ -674,24 +678,27 @@ public final class GymCircleAppModel: ObservableObject {
                     uploads.append(try await composerService.uploadVideo(userId: userId, videoData: data))
                 }
             }
-            let postId = try await composerService.publish(
-                userId: userId,
-                medias: uploads,
-                caption: caption,
-                workoutTypes: workoutTypes,
-                workoutDate: Self.todayKey(),
-                gymId: gym?.id,
-                locationName: gym?.name
-            )
-            // Marcações são best-effort: post já está no ar.
-            if !taggedUserIds.isEmpty {
-                try? await participantsService?.tag(
-                    postId: postId,
-                    taggedByUserId: userId,
-                    taggedUserIds: taggedUserIds
+            if postToFeed {
+                let postId = try await composerService.publish(
+                    userId: userId,
+                    medias: uploads,
+                    caption: caption,
+                    workoutTypes: workoutTypes,
+                    workoutDate: Self.todayKey(),
+                    gymId: gym?.id,
+                    locationName: gym?.name
                 )
+                // Marcações são best-effort: post já está no ar. Só no feed
+                // (story não tem participantes).
+                if !taggedUserIds.isEmpty {
+                    try? await participantsService?.tag(
+                        postId: postId,
+                        taggedByUserId: userId,
+                        taggedUserIds: taggedUserIds
+                    )
+                }
             }
-            if alsoPublishStory, let cover = uploads.first {
+            if postToStory, let cover = uploads.first {
                 try? await storiesService?.createStory(
                     userId: userId,
                     media: cover,

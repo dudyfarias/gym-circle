@@ -14,7 +14,9 @@ public struct ComposerView: View {
     @State private var caption = ""
     @State private var selectedTags: [String] = []
     @State private var customTag = ""
-    @State private var alsoPublishStory = false
+    // Paridade web: feed + story como destinos, ambos default ligados.
+    @State private var postToFeed = true
+    @State private var postToStory = true
     @State private var isPublishing = false
     @State private var publishedOK = false
     @State private var errorMessage: String?
@@ -379,23 +381,55 @@ public struct ComposerView: View {
     private var destinationsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             GCText(Loc.destination, style: .headline)
-            Toggle(isOn: $alsoPublishStory) {
-                VStack(alignment: .leading, spacing: 2) {
-                    GCText(Loc.alsoPublishStory, style: .body)
-                    GCText(
-                        Loc.storyHint,
-                        style: .caption,
-                        color: GymCircleTheme.ColorToken.secondaryText
-                    )
-                }
-            }
-            .tint(GymCircleTheme.ColorToken.cyan)
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(GymCircleTheme.ColorToken.elevatedCard)
+            // Paridade web: 2 destinos (Feed + Story 24h), ambos ligados.
+            destinationToggle(
+                isOn: $postToFeed,
+                icon: "house.fill",
+                label: Loc.t("Feed", "Feed"),
+                hint: nil
+            )
+            destinationToggle(
+                isOn: $postToStory,
+                icon: "circle.dashed",
+                label: Loc.t("Story (24h)", "Story (24h)"),
+                hint: Loc.storyHint
             )
         }
+    }
+
+    private func destinationToggle(isOn: Binding<Bool>, icon: String, label: String, hint: String?) -> some View {
+        Toggle(isOn: isOn) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(isOn.wrappedValue ? GymCircleTheme.ColorToken.cyan : GymCircleTheme.ColorToken.secondaryText)
+                    .frame(width: 24)
+                VStack(alignment: .leading, spacing: 2) {
+                    GCText(label, style: .body)
+                    if let hint {
+                        GCText(hint, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    }
+                }
+            }
+        }
+        .tint(GymCircleTheme.ColorToken.cyan)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.elevatedCard)
+        )
+    }
+
+    // Precisa de mídia E pelo menos um destino (paridade web hasDestination).
+    private var canPublish: Bool {
+        !pickedMedia.isEmpty && (postToFeed || postToStory)
+    }
+
+    // CTA muda conforme o destino (paridade web ctaBoth/ctaFeed/ctaStory).
+    private var publishCTA: String {
+        if postToFeed && postToStory { return Loc.t("Publish", "Publicar") }
+        if postToStory && !postToFeed { return Loc.t("Publish story", "Publicar story") }
+        return Loc.t("Publish to feed", "Publicar no feed")
     }
 
     private var publishButton: some View {
@@ -410,7 +444,7 @@ public struct ComposerView: View {
                     if isPublishing {
                         ProgressView().tint(.black)
                     } else {
-                        Text(Loc.publishWorkout)
+                        Text(publishCTA)
                             .font(.system(size: 16, weight: .black, design: .default))
                     }
                 }
@@ -419,15 +453,15 @@ public struct ComposerView: View {
                 .background(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(
-                            pickedMedia.isEmpty
-                                ? AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
-                                : AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
+                            canPublish
+                                ? AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
+                                : AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
                         )
                 )
-                .foregroundStyle(pickedMedia.isEmpty ? GymCircleTheme.ColorToken.secondaryText : .black)
+                .foregroundStyle(canPublish ? .black : GymCircleTheme.ColorToken.secondaryText)
             }
             .buttonStyle(.plain)
-            .disabled(pickedMedia.isEmpty || isPublishing)
+            .disabled(!canPublish || isPublishing)
         }
     }
 
@@ -475,7 +509,8 @@ public struct ComposerView: View {
             workoutTypes: selectedTags,
             gym: selectedGym,
             taggedUserIds: Array(taggedUserIds),
-            alsoPublishStory: alsoPublishStory
+            postToFeed: postToFeed,
+            postToStory: postToStory
         )
         if ok {
             Haptics.success()
@@ -484,7 +519,8 @@ public struct ComposerView: View {
             caption = ""
             selectedTags = []
             selectedGym = nil
-            alsoPublishStory = false
+            postToFeed = true
+            postToStory = true
             taggedUserIds = []
             publishedOK = true
         } else {
