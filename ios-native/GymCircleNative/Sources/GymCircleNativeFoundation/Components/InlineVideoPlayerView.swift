@@ -3,6 +3,17 @@ import AVKit
 import AVFoundation
 import Combine
 
+/// Som GLOBAL do feed (estilo Instagram): uma única fonte da verdade pra TODOS
+/// os vídeos — ligar o som num vídeo liga pra os próximos que entrarem na tela.
+/// Sessão apenas: não persiste, reseta ao reabrir o app (sem UserDefaults).
+@MainActor
+final class VideoSoundStore: ObservableObject {
+    static let shared = VideoSoundStore()
+    /// true = mudo. Começa mudo; o 1º toque no botão libera pra todos.
+    @Published var isMuted = true
+    private init() {}
+}
+
 /// Player de vídeo INLINE no feed (paridade web/Instagram). Antes o nativo
 /// abria um player fullscreen no tap; agora o vídeo toca dentro do card:
 ///   - autoplay quando o card fica visível; PAUSA ao sair da tela (scroll);
@@ -17,7 +28,7 @@ public struct InlineVideoPlayerView: View {
 
     @State private var player: AVQueuePlayer
     @State private var looper: AVPlayerLooper
-    @State private var isMuted = true
+    @ObservedObject private var sound = VideoSoundStore.shared
     @State private var isManuallyPaused = false
     @State private var isVisible = false
     @State private var isPlaying = false
@@ -60,7 +71,7 @@ public struct InlineVideoPlayerView: View {
                 HStack {
                     Spacer()
                     Button(action: toggleMute) {
-                        Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                        Image(systemName: sound.isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
                             .font(.system(size: 12, weight: .black))
                             .foregroundStyle(.white)
                             .frame(width: 30, height: 30)
@@ -68,7 +79,7 @@ public struct InlineVideoPlayerView: View {
                     }
                     .buttonStyle(.plain)
                     .padding(10)
-                    .accessibilityLabel(isMuted
+                    .accessibilityLabel(sound.isMuted
                         ? Loc.t("Unmute", "Ativar som")
                         : Loc.t("Mute", "Silenciar"))
                 }
@@ -85,6 +96,8 @@ public struct InlineVideoPlayerView: View {
         .onReceive(player.publisher(for: \.timeControlStatus)) { status in
             isPlaying = (status == .playing)
         }
+        // Som global mudou (outro vídeo ligou/desligou) → este reage junto.
+        .onChange(of: sound.isMuted) { _ in applyMute() }
         .onDisappear { player.pause() }
     }
 
@@ -110,21 +123,27 @@ public struct InlineVideoPlayerView: View {
 
     private func updatePlayback() {
         if isVisible && !isManuallyPaused {
+            applyMute()      // entra com o som global atual (mudo ou não)
             player.play()
         } else {
             player.pause()
         }
     }
 
-    private func toggleMute() {
-        isMuted.toggle()
-        player.isMuted = isMuted
-        if !isMuted {
-            // Igual Instagram: ao ligar o som, toca mesmo com o switch de
-            // silêncio do iPhone ligado.
+    /// Sincroniza o player com o som GLOBAL. Ao desmutar, ativa a
+    /// AVAudioSession .playback (toca mesmo com o switch de silêncio, igual
+    /// Instagram).
+    private func applyMute() {
+        player.isMuted = sound.isMuted
+        if !sound.isMuted {
             try? AVAudioSession.sharedInstance().setCategory(.playback, options: [])
             try? AVAudioSession.sharedInstance().setActive(true)
         }
+    }
+
+    private func toggleMute() {
+        // Muda a fonte ÚNICA → todos os vídeos reagem via onChange.
+        sound.isMuted.toggle()
     }
 }
 
