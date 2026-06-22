@@ -42,6 +42,9 @@ public struct OtherProfileView: View {
     /// Sprint 22.x — story ring (paridade web `profileSheetStoryGroup`): tem
     /// story ativa? e o viewer já viu? Opcional/fail-soft: nil → sem ring.
     public let loadStoryRing: ((String) async -> (hasStory: Bool, viewed: Bool))?
+    /// Sprint 22.x — tap no avatar abre o MyCircle DESSE user (paridade web).
+    /// nil → avatar não é tappável.
+    public let onOpenMyCircle: (() -> Void)?
     /// Sprint 22.x — stats clicáveis (host apresenta a lista). nil → não-tap.
     public let onOpenFollowers: (() -> Void)?
     public let onOpenFollowing: (() -> Void)?
@@ -69,6 +72,7 @@ public struct OtherProfileView: View {
         onClose: @escaping () -> Void,
         loadRings: ((String) async -> ConsistencyRings?)? = nil,
         loadStoryRing: ((String) async -> (hasStory: Bool, viewed: Bool))? = nil,
+        onOpenMyCircle: (() -> Void)? = nil,
         onOpenFollowers: (() -> Void)? = nil,
         onOpenFollowing: (() -> Void)? = nil
     ) {
@@ -90,6 +94,7 @@ public struct OtherProfileView: View {
         self.onClose = onClose
         self.loadRings = loadRings
         self.loadStoryRing = loadStoryRing
+        self.onOpenMyCircle = onOpenMyCircle
         self.onOpenFollowers = onOpenFollowers
         self.onOpenFollowing = onOpenFollowing
     }
@@ -187,6 +192,11 @@ public struct OtherProfileView: View {
                     GCAvatar(url: profile.avatarURL, fallback: profile.username, size: 96)
                 }
             }
+            // Tap no avatar → MyCircle desse user (paridade web).
+            .contentShape(Circle())
+            .onTapGesture { onOpenMyCircle?() }
+            .accessibilityAddTraits(onOpenMyCircle != nil ? .isButton : [])
+            .accessibilityLabel(Loc.t("Open My Circle", "Abrir My Circle"))
 
             VStack(spacing: 4) {
                 HStack(spacing: 6) {

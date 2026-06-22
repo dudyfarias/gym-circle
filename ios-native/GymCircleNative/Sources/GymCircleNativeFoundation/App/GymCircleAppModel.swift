@@ -584,6 +584,114 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// MyCircle de OUTRO user (paridade web `targetUserId`): monta um
+    /// MyCircleViewData com isOwn:false pra ver ao tocar no avatar do perfil.
+    /// Privado sem follow aprovado → canSeeDetails:false (a view mostra só
+    /// header + lock). Seções "só dono" (desafios, restauradores, recap,
+    /// competição) ficam vazias. Fail-soft: cada fetch degrada pra default.
+    public func fetchOtherMyCircle(userId: String) async -> MyCircleViewData? {
+        guard let myCircleService else { return nil }
+        // Perfil + status de follow num fetch só (define canSeeDetails).
+        guard let other = await fetchOtherProfileSummary(userId: userId) else { return nil }
+        let p = other.profile
+        let canSeeDetails = !p.isPrivate || other.isFollowingAuthor
+        let displayName = p.displayName ?? p.username ?? "—"
+        let username = p.username ?? "user"
+        let avatarURL = p.avatarURL.flatMap(URL.init(string:))
+
+        // Privado não-seguido: só header + lock (usa o streak público já vindo).
+        guard canSeeDetails else {
+            return MyCircleViewData(
+                userId: userId,
+                isOwn: false,
+                displayName: displayName,
+                username: username,
+                avatarURL: avatarURL,
+                stats: GymCircleStats(currentStreak: other.currentStreak, bestStreak: other.bestStreak),
+                currentLevel: StreakLevel.current(for: other.currentStreak),
+                canSeeDetails: false,
+                streakLitToday: p.badgeIsActiveToday,
+                postsCount: other.postsCount
+            )
+        }
+
+        // Detalhes liberados: mesmo fan-out do loadMyCircle, mas pro alvo.
+        let summary = (try? await myCircleService.getSummary(userId: userId))
+            ?? MyCircleSummary(stats: GymCircleStats())
+        let currentMonth = Self.monthKey(offsetFromToday: 0)
+        let viewerId = sessionStore?.currentUserId
+        async let monthPostsTask: [MonthCalendarPost] =
+            (try? await myCircleService.getMonthPosts(userId: userId, monthKey: currentMonth)) ?? []
+        async let distinctTypesTask: Int =
+            (try? await myCircleService.getDistinctWorkoutTypes(userId: userId, sinceDaysAgo: 7)) ?? 0
+        async let distinctGymsTask: Int =
+            (try? await myCircleService.getDistinctGyms(userId: userId, sinceDaysAgo: 30)) ?? 0
+        async let hasStoryTask: Bool = {
+            guard let storiesService else { return false }
+            return (try? await storiesService.hasActiveStory(userId: userId)) ?? false
+        }()
+        async let storyViewedTask: Bool = {
+            guard let storiesService, let viewerId else { return false }
+            return (try? await storiesService.hasViewedActiveStories(
+                targetUserId: userId, viewerUserId: viewerId)) ?? false
+        }()
+        let monthPosts = await monthPostsTask
+        let distinctTypes = await distinctTypesTask
+        let distinctGyms = await distinctGymsTask
+        let hasStory = await hasStoryTask
+        let storyViewed = await storyViewedTask
+
+        let builderInput = AchievementBuilder.Input(
+            postsCount: summary.postsCount,
+            longestStreak: summary.stats.bestStreak,
+            workoutsThisMonth: summary.stats.workoutsThisMonth,
+            workoutsThisWeek: summary.stats.workoutsThisWeek,
+            activeDaysCount: summary.stats.workoutsThisYear,
+            followersCount: summary.followersCount,
+            hasUsedStreakRestore: summary.hasUsedStreakRestore,
+            createdAt: p.createdAt,
+            monthlyChallenges: [],
+            distinctWorkoutTypesIn7Days: distinctTypes,
+            distinctGymsIn30Days: distinctGyms
+        )
+        let allAchievements = AchievementBuilder.buildAll(input: builderInput)
+        let highlight = AchievementSuggester.nextAchievement(achievements: allAchievements)
+            ?? AchievementSuggester.suggestFeatured(achievements: allAchievements, count: 1).first
+
+        return MyCircleViewData(
+            userId: userId,
+            isOwn: false,
+            displayName: displayName,
+            username: username,
+            avatarURL: avatarURL,
+            stats: summary.stats,
+            calendarDays: CalendarBuilder.buildMonth(
+                monthKey: currentMonth,
+                workoutDays: summary.workoutDays,
+                todayKey: Self.todayKey(),
+                posts: monthPosts
+            ),
+            currentLevel: StreakLevel.current(for: summary.stats.currentStreak),
+            allLevels: StreakLevel.all,
+            highlightBadge: highlight,
+            nextBadge: highlight,
+            earnedCount: allAchievements.filter(\.earned).count,
+            totalAchievements: allAchievements.count,
+            monthlyChallenges: [],
+            canSeeDetails: true,
+            streakLitToday: p.badgeIsActiveToday,
+            hasStory: hasStory,
+            storyViewed: storyViewed,
+            featuredAchievements: AchievementSuggester.resolveFeatured(
+                achievements: allAchievements,
+                equippedCompositeIds: p.featuredAchievements
+            ),
+            allAchievements: allAchievements,
+            postsCount: summary.postsCount,
+            streakRestoresAvailable: 0
+        )
+    }
+
     // MARK: - Sprint 20.3c — menu do post + participantes
 
     /// Silencia o autor: some do feed na hora e persiste em post_mutes.

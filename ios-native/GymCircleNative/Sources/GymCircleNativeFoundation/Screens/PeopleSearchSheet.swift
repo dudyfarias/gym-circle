@@ -173,6 +173,9 @@ struct OtherProfileHostView: View {
     @State private var isFollowing: Bool
     @State private var followersPresented = false
     @State private var followingPresented = false
+    // MyCircle do user-alvo (aberto pelo tap no avatar).
+    @State private var otherCircle: OtherMyCircleBox?
+    @State private var loadingCircle = false
 
     init(model: GymCircleAppModel, summary: OtherProfileSummary) {
         self.model = model
@@ -203,6 +206,7 @@ struct OtherProfileHostView: View {
             onClose: { dismiss() },
             loadRings: { await model.fetchConsistencyRings(userId: $0) },
             loadStoryRing: { await model.fetchStoryRingState(userId: $0) },
+            onOpenMyCircle: { openOtherCircle() },
             onOpenFollowers: { followersPresented = true },
             onOpenFollowing: { followingPresented = true }
         )
@@ -212,7 +216,38 @@ struct OtherProfileHostView: View {
         .sheet(isPresented: $followingPresented) {
             FollowListSheet(model: model, userId: summary.profile.userId, mode: .following)
         }
+        .sheet(item: $otherCircle) { box in
+            NavigationStack {
+                MyCircleView(data: box.data)
+                    .navigationTitle(Loc.myCircle)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button(Loc.close) { otherCircle = nil }
+                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        }
+                    }
+            }
+            .preferredColorScheme(.dark)
+        }
     }
+
+    private func openOtherCircle() {
+        guard !loadingCircle else { return }
+        loadingCircle = true
+        Task {
+            if let data = await model.fetchOtherMyCircle(userId: summary.profile.userId) {
+                otherCircle = OtherMyCircleBox(data: data)
+            }
+            loadingCircle = false
+        }
+    }
+}
+
+/// Wrapper Identifiable pra apresentar o MyCircle de outro user via sheet(item:).
+private struct OtherMyCircleBox: Identifiable {
+    let id = UUID()
+    let data: MyCircleViewData
 }
 
 extension OtherProfileSummary: Identifiable {
