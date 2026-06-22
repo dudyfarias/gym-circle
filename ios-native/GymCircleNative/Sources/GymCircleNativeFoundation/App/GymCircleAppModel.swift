@@ -1162,6 +1162,12 @@ public final class GymCircleAppModel: ObservableObject {
         return (try? await api.searchGyms(query: query)) ?? []
     }
 
+    /// Academias usadas recentemente (paridade web recentLocations). Fail-soft.
+    public func recentGyms() async -> [GymOption] {
+        guard let api, let userId = sessionStore?.currentUserId else { return [] }
+        return (try? await api.recentGyms(userId: userId)) ?? []
+    }
+
     public func nearbyGyms(coordinate: GymCircleCoordinate) async -> [GymOption] {
         guard let api else { return [] }
         return (try? await api.nearbyGyms(

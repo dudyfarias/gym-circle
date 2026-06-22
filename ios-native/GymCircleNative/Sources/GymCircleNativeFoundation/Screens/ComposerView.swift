@@ -24,12 +24,10 @@ public struct ComposerView: View {
     // Paridade web: opções avançadas começam colapsadas em "Mais opções".
     @State private var showMoreOptions = false
     // 20.4b — local (academia) + participantes
-    @State private var gymQuery = ""
-    @State private var gymResults: [GymOption] = []
     @State private var selectedGym: GymOption?
+    @State private var gymSearchPresented = false
     @State private var following: [DiscoveredProfile] = []
     @State private var taggedUserIds: Set<String> = []
-    @State private var gymSearchTask: Task<Void, Never>?
 
     struct PickedMedia: Identifiable {
         let id = UUID()
@@ -70,14 +68,6 @@ public struct ComposerView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: pickerItems) { newItems in
             Task { await loadPicked(newItems) }
-        }
-        .onChange(of: gymQuery) { newQuery in
-            gymSearchTask?.cancel()
-            gymSearchTask = Task {
-                try? await Task.sleep(nanoseconds: 350_000_000)
-                guard !Task.isCancelled else { return }
-                gymResults = await model.searchGyms(query: newQuery)
-            }
         }
         .task {
             following = await model.loadFollowingProfiles()
@@ -370,32 +360,30 @@ public struct ComposerView: View {
                         .fill(GymCircleTheme.ColorToken.quietBlue)
                 )
             } else {
-                TextField(Loc.searchGymPlaceholder, text: $gymQuery)
+                // Abre o buscador completo (paridade web GymSearchSheet):
+                // nome + localização (nearby + Apple Maps) + últimas usadas.
+                Button { gymSearchPresented = true } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                        GCText(Loc.searchGymPlaceholder, style: .body,
+                               color: GymCircleTheme.ColorToken.secondaryText)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                    }
                     .padding(12)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
                             .fill(GymCircleTheme.ColorToken.elevatedCard)
                     )
-                ForEach(gymResults.prefix(5)) { gym in
-                    Button {
-                        selectedGym = gym
-                        gymQuery = ""
-                        gymResults = []
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 1) {
-                                GCText(gym.name, style: .body)
-                                if !gym.subtitle.isEmpty {
-                                    GCText(gym.subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
-                                }
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.plain)
                 }
+                .buttonStyle(.plain)
             }
+        }
+        .sheet(isPresented: $gymSearchPresented) {
+            NativeGymSearchSheet(model: model) { gym in selectedGym = gym }
         }
     }
 

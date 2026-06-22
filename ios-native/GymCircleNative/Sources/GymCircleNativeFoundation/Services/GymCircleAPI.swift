@@ -282,6 +282,38 @@ public actor GymCircleAPI {
             .value
     }
 
+    /// Academias usadas RECENTEMENTE pelo user (paridade web `recentLocations`):
+    /// gym_id distintos dos posts mais recentes, na ordem de uso.
+    public func recentGyms(userId: String, limit: Int = 8) async throws -> [GymOption] {
+        struct GymIdRow: Decodable { let gymId: String?; enum CodingKeys: String, CodingKey { case gymId = "gym_id" } }
+        let rows: [GymIdRow] = try await client
+            .from("posts")
+            .select("gym_id")
+            .eq("user_id", value: userId)
+            .order("created_at", ascending: false)
+            .limit(60)
+            .execute()
+            .value
+        var seen = Set<String>()
+        var ids: [String] = []
+        for row in rows {
+            guard let gid = row.gymId, !gid.isEmpty, !seen.contains(gid) else { continue }
+            seen.insert(gid)
+            ids.append(gid)
+            if ids.count >= limit { break }
+        }
+        guard !ids.isEmpty else { return [] }
+        let gyms: [GymOption] = try await client
+            .from("gyms")
+            .select("id,name,address,city,state,latitude,longitude")
+            .in("id", values: ids)
+            .execute()
+            .value
+        // Reordena na ordem de uso (o `in` não garante ordem).
+        let byId = Dictionary(gyms.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        return ids.compactMap { byId[$0] }
+    }
+
     /// Academias próximas a uma coordenada. Mantém o cálculo simples no
     /// cliente/Supabase sem PostGIS: bbox aproximado + ordenação local.
     public func nearbyGyms(
