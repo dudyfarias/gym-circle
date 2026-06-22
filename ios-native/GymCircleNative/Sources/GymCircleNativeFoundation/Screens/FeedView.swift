@@ -870,22 +870,30 @@ public struct PostCarouselView: View {
 
     @ViewBuilder
     private func mediaView(for item: PostMediaItem?) -> some View {
-        let isVideo = item?.mediaType == .video
+        // Vídeo toca INLINE (paridade web/Instagram): autoplay quando visível,
+        // pausa ao sair da tela, tap pausa, começa mudo + botão de som. Antes
+        // mostrava poster + tap abria player fullscreen.
+        if item?.mediaType == .video, let item, let videoURL = URL(string: item.imageURL) {
+            InlineVideoPlayerView(
+                videoURL: videoURL,
+                posterURL: item.posterURL ?? item.thumbnailURL,
+                aspectRatio: aspectRatio
+            )
+        } else {
+            mediaImage(for: item)
+        }
+    }
+
+    @ViewBuilder
+    private func mediaImage(for item: PostMediaItem?) -> some View {
+        // Progressivo: thumbnail (displayURL ≈720px) aparece rápido e o
+        // original (feedURL ≈1600px) entra por cima com fade-in suave.
         MediaView(
-            // Progressivo: thumbnail (displayURL ≈720px) aparece rápido e o
-            // original (feedURL ≈1600px) entra por cima com fade-in suave.
             thumbURL: item?.displayURL ?? "",
             fullURL: item?.feedURL ?? "",
             aspectRatio: aspectRatio,
-            isVideo: isVideo
+            isVideo: false
         )
-        .onTapGesture {
-            // Sprint 20.3c — vídeo abre player fullscreen (image_url é a
-            // URL do arquivo de vídeo; displayURL é o poster).
-            if isVideo, let item, let url = URL(string: item.imageURL) {
-                onPlayVideo?(url)
-            }
-        }
     }
 }
 
