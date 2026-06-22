@@ -342,7 +342,12 @@ export function buildMonthWorkoutDays(
   // com 2 posts exibia só 1 foto sem indicação).
   const postsByDate = new Map<
     string,
-    { thumbnailUrl: string | null; postId: string | null; postCount: number }
+    {
+      thumbnailUrl: string | null;
+      videoUrl: string | null;
+      postId: string | null;
+      postCount: number;
+    }
   >();
   if (posts) {
     for (const post of posts) {
@@ -354,15 +359,31 @@ export function buildMonthWorkoutDays(
         continue; // dia já tem foto boa — só conta
       }
       const thumbnail = displayThumbnail(post);
-      if (!existing || thumbnail) {
-        // postId acompanha o post exibido: quando a foto de um post
-        // posterior assume a célula, o tap abre ESSE post (não o 1º).
+      // Vídeo legado SEM thumbnail/poster (ex.: .mov antigo): guarda a URL do
+      // vídeo pra o calendário renderizar o 1º frame (<video>) em vez de cair
+      // pra célula sólida (relato: vídeo do dia 8/mai não aparecia).
+      const video =
+        !thumbnail && post.mediaType === "video" ? (post.imageUrl ?? null) : null;
+      if (!existing) {
+        // postId acompanha o post exibido.
         postsByDate.set(post.workoutDate, {
           thumbnailUrl: thumbnail,
+          videoUrl: video,
           postId: post.id ?? null,
           postCount: nextCount,
         });
+      } else if (thumbnail) {
+        // Foto de post posterior assume a célula (foto vence vídeo sem poster).
+        existing.thumbnailUrl = thumbnail;
+        existing.videoUrl = null;
+        existing.postId = post.id ?? null;
+        existing.postCount = nextCount;
       } else {
+        // Ainda sem foto: usa o vídeo como fallback visual se ainda não houver.
+        if (!existing.videoUrl && video) {
+          existing.videoUrl = video;
+          if (!existing.postId) existing.postId = post.id ?? null;
+        }
         existing.postCount = nextCount;
       }
     }
@@ -379,6 +400,7 @@ export function buildMonthWorkoutDays(
       dateKey,
       trained,
       thumbnailUrl: postMatch?.thumbnailUrl ?? null,
+      videoUrl: postMatch?.videoUrl ?? null,
       postId: postMatch?.postId ?? null,
       postCount: postMatch?.postCount ?? 0,
     };

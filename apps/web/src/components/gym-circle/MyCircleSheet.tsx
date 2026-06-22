@@ -482,6 +482,7 @@ export function MyCircleSheet({
                       const isToday = dayInfo?.dateKey === todayKey;
                       const trained = Boolean(dayInfo?.trained);
                       const thumbnailUrl = dayInfo?.thumbnailUrl ?? null;
+                      const videoUrl = dayInfo?.videoUrl ?? null;
                       const postId = dayInfo?.postId ?? null;
                       // Sprint 5.2 — Gym Rats style: cell quadrada com
                       // background-image quando há foto do treino daquele dia.
@@ -489,13 +490,16 @@ export function MyCircleSheet({
                       // legibilidade sobre qualquer foto. Cells sem foto OU
                       // dias não treinados caem no estilo sólido original.
                       const hasPhoto = trained && thumbnailUrl;
+                      // Vídeo legado sem poster: mostra o 1º frame via <video>
+                      // (#t=0.1) em vez de cair pra célula sólida.
+                      const hasVideo = trained && !hasPhoto && Boolean(videoUrl);
                       // Sprint 5.8 — cell tappable só quando há post + handler
                       // fornecido. Mantém back-compat: cells sem postId continuam
                       // sendo decoração (div).
                       const isTappable = Boolean(postId && onOpenPost);
                       const sharedClass = [
                         "relative grid aspect-square place-items-center overflow-hidden rounded-[10px] text-[11px] font-black transition-colors",
-                        hasPhoto
+                        hasPhoto || hasVideo
                           ? "text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
                           : trained
                             ? "bg-[var(--gc-consistency-month)]/22 text-[var(--gc-consistency-month)]"
@@ -521,9 +525,22 @@ export function MyCircleSheet({
                       const extraPosts = (dayInfo?.postCount ?? 0) - 1;
                       const dayLabel = (
                         <>
+                          {hasVideo ? (
+                            <>
+                              <video
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-0 size-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                                src={`${videoUrl}#t=0.1`}
+                              />
+                              <span className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/10 to-black/40" />
+                            </>
+                          ) : null}
                           <span
                             className={
-                              hasPhoto
+                              hasPhoto || hasVideo
                                 ? "relative text-shadow-[0_1px_3px_rgba(0,0,0,0.72)] [text-shadow:0_1px_3px_rgba(0,0,0,0.72)]"
                                 : "relative"
                             }
