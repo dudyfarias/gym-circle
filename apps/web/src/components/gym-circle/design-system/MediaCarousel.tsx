@@ -103,36 +103,8 @@ type MediaSlideProps = {
 };
 
 function MediaSlide({ item, isActive, inCarousel, altText, priority }: MediaSlideProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  useEffect(() => {
-    if (item.mediaType !== "video") return;
-    const node = videoRef.current;
-    if (!node) return;
-    // Só o slide ativo toca — evita N vídeos rodando juntos no WebView.
-    if (isActive) {
-      void node.play().catch(() => undefined);
-    } else {
-      node.pause();
-    }
-  }, [isActive, item.mediaType]);
-
   if (item.mediaType === "video") {
-    return (
-      <div className="relative aspect-[4/5] bg-black">
-        <video
-          autoPlay={isActive}
-          className="h-full w-full object-cover"
-          loop
-          muted
-          playsInline
-          poster={item.posterUrl ?? item.thumbnailUrl ?? undefined}
-          preload="metadata"
-          ref={videoRef}
-          src={item.imageUrl}
-        />
-      </div>
-    );
+    return <VideoSlide isActive={isActive} item={item} />;
   }
 
   const previewSrc = item.thumbnailUrl ?? item.imageUrl;
@@ -169,5 +141,97 @@ function MediaSlide({ item, isActive, inCarousel, altText, priority }: MediaSlid
       sizes="(max-width: 480px) 100vw, 480px"
       src={previewSrc}
     />
+  );
+}
+
+/**
+ * VideoSlide — vídeo inline estilo Instagram:
+ * - autoplay quando >50% visível na viewport (IntersectionObserver) e PAUSA ao
+ *   sair da tela — antes o `autoPlay` tocava mesmo fora de vista;
+ * - tap PAUSA/retoma (ícone de play quando pausado);
+ * - começa MUDO; botão de som no canto liga/desliga (gesto do usuário libera
+ *   o áudio no browser);
+ * - loop infinito; no carrossel, só o slide ativo toca.
+ */
+function VideoSlide({ item, isActive }: { item: PostMediaItem; isActive: boolean }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [paused, setPaused] = useState(false);
+
+  // Visibilidade: toca só com >=50% na viewport (pausa ao rolar pra longe).
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        setInView(Boolean(entry?.isIntersecting) && (entry?.intersectionRatio ?? 0) >= 0.5);
+      },
+      { threshold: [0, 0.5, 1] },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Mantém o DOM `muted` em sincronia (o atributo React nem sempre aplica).
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted]);
+
+  // Play/pause: ativo no carrossel + visível + não pausado manualmente.
+  useEffect(() => {
+    const node = videoRef.current;
+    if (!node) return;
+    if (isActive && inView && !paused) {
+      void node.play().catch(() => undefined);
+    } else {
+      node.pause();
+    }
+  }, [isActive, inView, paused]);
+
+  return (
+    <div className="relative aspect-[4/5] bg-black" ref={containerRef}>
+      <video
+        className="h-full w-full object-cover"
+        loop
+        muted
+        onClick={() => setPaused((p) => !p)}
+        playsInline
+        poster={item.posterUrl ?? item.thumbnailUrl ?? undefined}
+        preload="metadata"
+        ref={videoRef}
+        src={item.imageUrl}
+      />
+
+      {paused ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <svg className="size-14 text-white/90 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+      ) : null}
+
+      <button
+        aria-label={muted ? "Ativar som" : "Silenciar"}
+        className="absolute bottom-3 right-3 flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md transition-transform active:scale-90"
+        onClick={(e) => {
+          e.stopPropagation();
+          setMuted((m) => !m);
+        }}
+        type="button"
+      >
+        {muted ? (
+          <svg className="size-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3.63 3.63a1 1 0 0 0 0 1.41L7.29 8.7 7 9H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71v-4.17l4.18 4.18c-.49.37-1.02.68-1.6.91a1 1 0 1 0 .76 1.85c.86-.35 1.65-.83 2.36-1.42l1.31 1.31a1 1 0 0 0 1.41-1.41L5.05 3.63a1 1 0 0 0-1.42 0zM19 12c0 .82-.15 1.61-.41 2.34l1.53 1.53A8.93 8.93 0 0 0 21 12a8.99 8.99 0 0 0-6.71-8.71 1 1 0 1 0-.58 1.91A6.99 6.99 0 0 1 19 12zm-7-8-1.88 1.88L12 7.76V4zm4.5 8A4.5 4.5 0 0 0 14 7.97v1.79l2.48 2.48c.01-.08.02-.16.02-.24z" />
+          </svg>
+        ) : (
+          <svg className="size-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M3 10v4a1 1 0 0 0 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71V6.41c0-.89-1.08-1.34-1.71-.71L7 9H4a1 1 0 0 0-1 1zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v.06a1 1 0 0 0 .67 1.31A6.99 6.99 0 0 1 19 12a6.99 6.99 0 0 1-4.33 6.4 1 1 0 0 0-.67 1.31v.06a1 1 0 0 0 1.3.95A8.99 8.99 0 0 0 21 12a8.99 8.99 0 0 0-5.7-8.72 1 1 0 0 0-1.3.95z" />
+          </svg>
+        )}
+      </button>
+    </div>
   );
 }
