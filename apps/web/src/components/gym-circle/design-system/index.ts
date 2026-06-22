@@ -9,7 +9,6 @@ export * from "./ContextualHint";
 export * from "./DiscoveryUserCard";
 export * from "./EmptyState";
 export * from "./FeaturedAchievementsRow";
-export * from "./FloatingCreatePostButton";
 export * from "./GCImage";
 export * from "./GymCheckInCard";
 export * from "./LatestPostPreview";

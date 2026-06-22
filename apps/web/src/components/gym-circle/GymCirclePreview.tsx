@@ -9,7 +9,7 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
-import { FloatingCreatePostButton, ToastFeedback } from "./design-system";
+import { ToastFeedback } from "./design-system";
 import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CheckInScreen } from "./screens/CheckInScreen";
@@ -287,11 +287,7 @@ export function GymCirclePreview({
   //             usuário continuar navegando entre tabs durante leitura profunda.
   //   "up"    → rolando pra cima (delta<-8): mantém HEADER, esconde FOOTER
   //             (clean experience ao voltar pro topo).
-  // FloatingCreatePostButton tem comportamento próprio: ao sumir por scroll,
-  // só volta numa nova abertura/montagem do app.
   const [scrollState, setScrollState] = useState<"top" | "down" | "up">("top");
-  const [createPostButtonHiddenForSession, setCreatePostButtonHiddenForSession] =
-    useState(false);
   const viewerLocation = useViewerLocation();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const lastScrollTopRef = useRef(0);
@@ -923,7 +919,6 @@ export function GymCirclePreview({
       }
       if (delta > 6) {
         setScrollState("down");
-        setCreatePostButtonHiddenForSession(true);
         return;
       }
       if (delta < -8) setScrollState("up");
@@ -1788,12 +1783,6 @@ export function GymCirclePreview({
               </div>
             ) : null}
           </div>
-          {activeScreen === "feed" && !keyboardOpen ? (
-            <FloatingCreatePostButton
-              hidden={createPostButtonHiddenForSession}
-              onClick={() => setActiveScreen("post")}
-            />
-          ) : null}
           <StoryViewer
             currentUserId={social.currentUser.id}
             hasNext={hasNextStoryOrAuthor}
