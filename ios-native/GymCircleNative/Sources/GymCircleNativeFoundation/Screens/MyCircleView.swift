@@ -32,6 +32,9 @@ public struct MyCircleView: View {
     /// Sprint 19 — loader do ranking da Competição (escopo × período). Quando
     /// nil, a seção mostra o placeholder "Em breve" (back-compat / demo).
     public let onLoadRanking: ((RankingScope, RankingPeriod) async -> [CircleRankingRow])?
+    /// Sprint 22.x — tap num dia do calendário com post abre o post (paridade
+    /// web). nil → calendário não é tappável.
+    public let onOpenPost: ((String) -> Void)?
 
     /// Sprint 8.11.3 — offset atual do mês exibido no calendar. 0 = hoje.
     @State private var calendarMonthOffset: Int = 0
@@ -55,7 +58,8 @@ public struct MyCircleView: View {
         onTapRecap: (() -> Void)? = nil,
         onTapPickPeriod: (() -> Void)? = nil,
         onChangeMonth: ((Int) -> Void)? = nil,
-        onLoadRanking: ((RankingScope, RankingPeriod) async -> [CircleRankingRow])? = nil
+        onLoadRanking: ((RankingScope, RankingPeriod) async -> [CircleRankingRow])? = nil,
+        onOpenPost: ((String) -> Void)? = nil
     ) {
         self.data = data
         self.onClose = onClose
@@ -65,6 +69,7 @@ public struct MyCircleView: View {
         self.onTapPickPeriod = onTapPickPeriod
         self.onChangeMonth = onChangeMonth
         self.onLoadRanking = onLoadRanking
+        self.onOpenPost = onOpenPost
     }
 
     public var body: some View {
@@ -333,7 +338,7 @@ public struct MyCircleView: View {
                     calendarMonthNav
                 }
             }
-            MonthlyCalendarGridView(days: data.calendarDays, todayKey: todayKey)
+            MonthlyCalendarGridView(days: data.calendarDays, todayKey: todayKey, onOpenPost: onOpenPost)
         }
     }
 

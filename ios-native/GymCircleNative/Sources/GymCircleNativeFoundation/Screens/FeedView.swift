@@ -336,6 +336,9 @@ public struct FeedView: View {
             NavigationStack {
                 MyCircleView(
                     data: myCircle,
+                    onChangeMonth: { offset in
+                        Task { await model.loadCalendarForMonth(offset: offset) }
+                    },
                     onLoadRanking: { scope, period in
                         await model.loadRanking(scope, period)
                     }

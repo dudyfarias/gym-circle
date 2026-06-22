@@ -351,10 +351,17 @@ public struct MonthlyChallengeRowView: View {
 public struct MonthlyCalendarGridView: View {
     public let days: [CalendarDay]
     public let todayKey: String
+    /// Tap num dia com post abre o post (paridade web). nil → não-tappável.
+    public let onOpenPost: ((String) -> Void)?
 
-    public init(days: [CalendarDay], todayKey: String) {
+    public init(
+        days: [CalendarDay],
+        todayKey: String,
+        onOpenPost: ((String) -> Void)? = nil
+    ) {
         self.days = days
         self.todayKey = todayKey
+        self.onOpenPost = onOpenPost
     }
 
     /// Sprint 9.6.4 — weekday symbols locale-aware. Base segunda (paridade web
@@ -383,7 +390,8 @@ public struct MonthlyCalendarGridView: View {
             let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
             LazyVGrid(columns: columns, spacing: 4) {
                 ForEach(leadingBlanks(), id: \.self) { _ in
-                    Color.clear.frame(height: 32)
+                    // Célula quadrada (paridade web aspect-square).
+                    Color.clear.aspectRatio(1, contentMode: .fit)
                 }
                 ForEach(days) { day in
                     dayCell(day)
@@ -397,55 +405,66 @@ public struct MonthlyCalendarGridView: View {
         )
     }
 
+    // Sprint 22.x — célula tappável (abre o post) quando há post + handler,
+    // igual ao web; senão é decoração.
     @ViewBuilder
     private func dayCell(_ day: CalendarDay) -> some View {
-        let isToday = day.dateKey == todayKey
+        if let onOpenPost, let postId = day.postId {
+            Button { onOpenPost(postId) } label: { cellContent(day) }
+                .buttonStyle(PressableButtonStyle())
+        } else {
+            cellContent(day)
+        }
+    }
 
-        // Sprint 8.13.1 — mini-foto como bg quando há thumbnailURL.
-        // Paridade Gym Rats style (web Sprint 5.2).
-        ZStack {
-            if let thumb = day.thumbnailURL {
-                AsyncImage(url: thumb) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    default:
-                        Color.white.opacity(0.04)
+    @ViewBuilder
+    private func cellContent(_ day: CalendarDay) -> some View {
+        let isToday = day.dateKey == todayKey
+        // Célula QUADRADA (paridade web aspect-square). Color.clear define o
+        // quadrado pela largura da coluna; os overlays preenchem.
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                ZStack {
+                    if let thumb = day.thumbnailURL {
+                        // Mini-foto (Gym Rats style) com cache (GCRemoteImage)
+                        // + scrim pra legibilidade do número.
+                        GCRemoteImage(url: thumb, animateOnLoad: false) {
+                            Color.white.opacity(0.04)
+                        }
+                        .overlay(
+                            LinearGradient(
+                                colors: [Color.black.opacity(0.04), Color.black.opacity(0.42)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    } else {
+                        cellBackground(day)
                     }
                 }
-                .frame(height: 32)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    // Scrim gradient pra legibilidade do número
-                    LinearGradient(
-                        colors: [Color.black.opacity(0.04), Color.black.opacity(0.42)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                )
-            } else {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(cellBackground(day))
-                    .frame(height: 32)
             }
-
-            // Today highlight ring (sempre, mesmo com foto)
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isToday ? GymCircleTheme.ColorToken.electricBlue.opacity(0.72) : Color.clear, lineWidth: 2)
-                .frame(height: 32)
-
-            Text("\(day.day)")
-                .font(.system(size: 11, weight: .heavy))
-                .foregroundColor(cellForeground(day))
-                .shadow(color: day.thumbnailURL != nil ? .black.opacity(0.6) : .clear, radius: 1.5, y: 1)
-        }
-        // Sprint 9.6.1 — a11y label "Treinou dia X" / "Não treinou dia X"
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(day.trained
-            ? "Treinou dia \(day.day)"
-            : "Não treinou dia \(day.day)"))
-        .accessibilityAddTraits(isToday ? [.isHeader] : [])
+            // Today highlight ring — cyan/brand + leve glow (paridade web ring).
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(
+                        isToday ? GymCircleTheme.ColorToken.cyan.opacity(0.85) : Color.clear,
+                        lineWidth: 2
+                    )
+            )
+            .overlay {
+                Text("\(day.day)")
+                    .font(.system(size: 11, weight: .heavy))
+                    .foregroundColor(cellForeground(day))
+                    .shadow(color: day.thumbnailURL != nil ? .black.opacity(0.6) : .clear, radius: 1.5, y: 1)
+            }
+            // Sprint 9.6.1 — a11y label "Treinou dia X" / "Não treinou dia X"
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(day.trained
+                ? "Treinou dia \(day.day)"
+                : "Não treinou dia \(day.day)"))
+            .accessibilityAddTraits(isToday ? [.isHeader] : [])
     }
 
     private func cellBackground(_ day: CalendarDay) -> Color {

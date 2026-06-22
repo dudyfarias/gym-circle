@@ -14,6 +14,7 @@ public struct ProfileView: View {
     private let allAchievements: [Achievement]
 
     @State private var settingsPresented = false
+    @State private var myCirclePresented = false
     @State private var hallPresented = false
     @State private var hallDetailAchievement: Achievement?
     @State private var openedPost: FeedPost?
@@ -99,6 +100,38 @@ public struct ProfileView: View {
         }
         .sheet(isPresented: $settingsPresented) {
             SettingsSheet(model: model)
+        }
+        .sheet(isPresented: $myCirclePresented) {
+            NavigationStack {
+                MyCircleView(
+                    data: myCircle,
+                    onChangeMonth: { offset in
+                        Task { await model.loadCalendarForMonth(offset: offset) }
+                    },
+                    onLoadRanking: { scope, period in
+                        await model.loadRanking(scope, period)
+                    },
+                    onOpenPost: { postId in
+                        // Fecha o MyCircle e abre o post (evita sheet aninhado).
+                        myCirclePresented = false
+                        Task {
+                            if let post = await model.fetchPost(postId: postId) {
+                                try? await Task.sleep(nanoseconds: 350_000_000)
+                                openedPost = post
+                            }
+                        }
+                    }
+                )
+                .navigationTitle(Loc.myCircle)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(Loc.close) { myCirclePresented = false }
+                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
         }
         .sheet(isPresented: $editPresented) {
             if let profile {
@@ -192,6 +225,11 @@ public struct ProfileView: View {
                 hasStory: myCircle.hasStory,
                 storyViewed: myCircle.storyViewed
             )
+            // Tap na própria foto abre o My Circle (paridade web: rings → hub).
+            .contentShape(Circle())
+            .onTapGesture { myCirclePresented = true }
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(Loc.myCircle)
 
             VStack(spacing: 2) {
                 HStack(spacing: 6) {
