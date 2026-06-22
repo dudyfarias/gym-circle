@@ -1168,6 +1168,18 @@ public final class GymCircleAppModel: ObservableObject {
         return (try? await api.recentGyms(userId: userId)) ?? []
     }
 
+    /// Posts de uma academia (check-in "lugar vivo"): pessoas/amigos/grid.
+    public func gymPosts(gymId: String) async -> [GymCheckInPost] {
+        guard let api else { return [] }
+        return (try? await api.gymPosts(gymId: gymId)) ?? []
+    }
+
+    /// Conjunto de userIds que EU sigo (aceitos) — pra separar "amigos" dos
+    /// demais no check-in. Fail-soft: conjunto vazio.
+    public func followingUserIds() async -> Set<String> {
+        Set(await loadFollowingProfiles().map(\.userId))
+    }
+
     public func nearbyGyms(coordinate: GymCircleCoordinate) async -> [GymOption] {
         guard let api else { return [] }
         return (try? await api.nearbyGyms(

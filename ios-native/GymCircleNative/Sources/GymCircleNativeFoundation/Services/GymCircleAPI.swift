@@ -314,6 +314,77 @@ public actor GymCircleAPI {
         return ids.compactMap { byId[$0] }
     }
 
+    /// Posts de UMA academia (check-in "lugar vivo"): feed filtrado por gym_id
+    /// com autor hidratado. Alimenta pessoas/amigos no gym + grid de recentes.
+    public func gymPosts(gymId: String, limit: Int = 40) async throws -> [GymCheckInPost] {
+        struct Row: Decodable {
+            let id: String
+            let userId: String
+            let createdAt: String
+            let workoutType: String?
+            let imageURL: String?
+            let thumbnailURL: String?
+            let posterURL: String?
+            let mediaType: String?
+            enum CodingKeys: String, CodingKey {
+                case id
+                case userId = "user_id"
+                case createdAt = "created_at"
+                case workoutType = "workout_type"
+                case imageURL = "image_url"
+                case thumbnailURL = "thumbnail_url"
+                case posterURL = "poster_url"
+                case mediaType = "media_type"
+            }
+        }
+        let rows: [Row] = try await client
+            .from("posts")
+            .select("id,user_id,created_at,workout_type,image_url,thumbnail_url,poster_url,media_type")
+            .eq("gym_id", value: gymId)
+            .order("created_at", ascending: false)
+            .limit(limit)
+            .execute()
+            .value
+
+        let ids = Array(Set(rows.map(\.userId)))
+        struct AuthorRow: Decodable {
+            let userId: String
+            let username: String?
+            let displayName: String?
+            let avatarURL: String?
+            enum CodingKeys: String, CodingKey {
+                case userId = "user_id"
+                case username
+                case displayName = "display_name"
+                case avatarURL = "avatar_url"
+            }
+        }
+        let authors: [AuthorRow] = ids.isEmpty ? [] : ((try? await client
+            .from("profiles")
+            .select("user_id,username,display_name,avatar_url")
+            .in("user_id", values: ids)
+            .execute()
+            .value) ?? [])
+        let byUser = Dictionary(authors.map { ($0.userId, $0) }, uniquingKeysWith: { a, _ in a })
+
+        return rows.map { row in
+            let author = byUser[row.userId]
+            let isVideo = row.mediaType == "video"
+            let thumb = row.thumbnailURL ?? row.posterURL ?? (isVideo ? nil : row.imageURL)
+            return GymCheckInPost(
+                id: row.id,
+                userId: row.userId,
+                username: author?.username,
+                displayName: author?.displayName,
+                avatarURL: author?.avatarURL,
+                createdAtISO: row.createdAt,
+                workoutType: row.workoutType,
+                thumbnailURL: thumb,
+                isVideo: isVideo
+            )
+        }
+    }
+
     /// Academias próximas a uma coordenada. Mantém o cálculo simples no
     /// cliente/Supabase sem PostGIS: bbox aproximado + ordenação local.
     public func nearbyGyms(

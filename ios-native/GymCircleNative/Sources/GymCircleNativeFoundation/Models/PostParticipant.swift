@@ -88,3 +88,44 @@ public struct DiscoveredProfile: Identifiable, Decodable, Hashable, Sendable {
         case currentStreak = "current_streak"
     }
 }
+
+/// Sprint 22.x — post de uma academia (check-in "lugar vivo"): alimenta
+/// "pessoas no gym" (hoje/semana), "amigos que treinaram lá" e o grid de posts
+/// recentes do detalhe. É o feed filtrado por gym_id + autor hidratado.
+public struct GymCheckInPost: Identifiable, Hashable, Sendable {
+    public let id: String          // postId
+    public let userId: String
+    public let username: String?
+    public let displayName: String?
+    public let avatarURL: String?
+    public let createdAtISO: String
+    public let workoutType: String?
+    public let thumbnailURL: String?  // mini-foto renderável (poster/thumb)
+    public let isVideo: Bool
+
+    public var displayedName: String {
+        displayName?.isEmpty == false ? displayName! : (username ?? "user")
+    }
+
+    public init(
+        id: String,
+        userId: String,
+        username: String?,
+        displayName: String?,
+        avatarURL: String?,
+        createdAtISO: String,
+        workoutType: String?,
+        thumbnailURL: String?,
+        isVideo: Bool
+    ) {
+        self.id = id
+        self.userId = userId
+        self.username = username
+        self.displayName = displayName
+        self.avatarURL = avatarURL
+        self.createdAtISO = createdAtISO
+        self.workoutType = workoutType
+        self.thumbnailURL = thumbnailURL
+        self.isVideo = isVideo
+    }
+}
