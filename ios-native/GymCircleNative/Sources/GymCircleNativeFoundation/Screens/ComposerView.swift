@@ -21,6 +21,8 @@ public struct ComposerView: View {
     @State private var publishedOK = false
     @State private var errorMessage: String?
     @State private var cameraPresented = false
+    // Paridade web: opções avançadas começam colapsadas em "Mais opções".
+    @State private var showMoreOptions = false
     // 20.4b — local (academia) + participantes
     @State private var gymQuery = ""
     @State private var gymResults: [GymOption] = []
@@ -50,20 +52,22 @@ public struct ComposerView: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                checkInShortcut
+            VStack(alignment: .leading, spacing: 18) {
+                composerHeader
                 mediaSection
-                captionSection
-                tagsSection
-                gymSection
-                participantsSection
-                destinationsSection
-                publishButton
+                // Paridade web: legenda + opções + publicar só aparecem depois
+                // que há mídia (a mídia é a protagonista da tela).
+                if !pickedMedia.isEmpty {
+                    captionSection
+                    moreOptions
+                    publishButton
+                }
             }
             .padding(20)
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-        .navigationTitle(Loc.createWorkout)
+        .navigationTitle("")
+        .navigationBarTitleDisplayMode(.inline)
         .onChange(of: pickerItems) { newItems in
             Task { await loadPicked(newItems) }
         }
@@ -96,109 +100,187 @@ public struct ComposerView: View {
 
     // MARK: - Sections
 
-    private var checkInShortcut: some View {
-        NavigationLink {
-            CheckInView(model: model)
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                VStack(alignment: .leading, spacing: 2) {
-                    GCText(Loc.doCheckIn, style: .headline)
-                    GCText(
-                        Loc.checkInShortcut,
-                        style: .caption,
-                        color: GymCircleTheme.ColorToken.secondaryText
-                    )
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(GymCircleTheme.ColorToken.card)
-            )
+    // Header estilo web (TopBar): eyebrow em caps + título grande. O check-in
+    // saiu do composer (web não tem; já existe a tab própria do pin).
+    private var composerHeader: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            GCText(Loc.t("Share your workout", "Compartilhe seu treino"), style: .sectionLabel)
+            GCText(Loc.t("Post", "Postar"), style: .title)
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    @ViewBuilder
     private var mediaSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GCText(Loc.workoutMedias, style: .headline)
+        if pickedMedia.isEmpty {
+            emptyMediaCTA
+        } else {
+            filledMedia
+        }
+    }
 
-            if !pickedMedia.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(Array(pickedMedia.enumerated()), id: \.element.id) { index, item in
-                            ZStack(alignment: .topTrailing) {
-                                Group {
-                                    if let preview = item.preview {
-                                        Image(uiImage: preview)
-                                            .resizable()
-                                            .scaledToFill()
-                                    } else {
-                                        ZStack {
-                                            GymCircleTheme.ColorToken.elevatedCard
-                                            Image(systemName: "video.fill")
-                                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                                        }
-                                    }
-                                }
-                                .frame(width: 96, height: 120)
-                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    // Estado VAZIO (paridade web): caixa 4:5 com ícone de câmera, dica e os 2
+    // CTAs (Câmera = marca / Galeria = sutil). A mídia é a protagonista.
+    private var emptyMediaCTA: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .fill(Color.white.opacity(0.02))
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+            )
+            .aspectRatio(4.0 / 5.0, contentMode: .fit)
+            .overlay {
+                VStack(spacing: 18) {
+                    ZStack {
+                        Circle().fill(Color.white.opacity(0.06))
+                        Image(systemName: "camera")
+                            .font(.system(size: 26, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.72))
+                    }
+                    .frame(width: 64, height: 64)
 
-                                Button {
-                                    pickedMedia.remove(at: index)
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .font(.system(size: 20))
-                                        .foregroundStyle(.white, .black.opacity(0.55))
-                                }
-                                .padding(4)
+                    GCText(
+                        Loc.t("Add a photo or video of your workout",
+                              "Adicione uma foto ou vídeo do seu treino"),
+                        style: .body,
+                        color: GymCircleTheme.ColorToken.secondaryText
+                    )
+                    .multilineTextAlignment(.center)
 
-                                VStack {
-                                    Spacer()
-                                    HStack(spacing: 4) {
-                                        if index == 0 {
-                                            chipLabel(Loc.cover)
-                                        }
-                                        if item.isVideo {
-                                            chipLabel(Loc.video)
-                                        }
-                                    }
-                                    .padding(6)
-                                }
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
+                    VStack(spacing: 10) {
+                        Button { cameraPresented = true } label: {
+                            Label(Loc.camera, systemImage: "camera.fill")
+                                .font(.system(size: 14, weight: .black))
+                                .foregroundStyle(.black)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
+                        }
+                        .buttonStyle(.plain)
+
+                        PhotosPicker(
+                            selection: $pickerItems,
+                            maxSelectionCount: Self.maxMedias,
+                            matching: .any(of: [.images, .videos])
+                        ) {
+                            Label(Loc.gallery, systemImage: "square.and.arrow.up")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(Capsule().fill(Color.white.opacity(0.06)))
                         }
                     }
+                    .frame(maxWidth: 280)
                 }
+                .padding(24)
             }
+    }
 
-            HStack(spacing: 10) {
+    // Estado PREENCHIDO: capa grande (item 0) + strip de gerenciamento.
+    private var filledMedia: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack(alignment: .topTrailing) {
+                coverPreview
                 PhotosPicker(
                     selection: $pickerItems,
                     maxSelectionCount: Self.maxMedias,
                     matching: .any(of: [.images, .videos])
                 ) {
-                    pickButtonLabel(
-                        "\(Loc.gallery) (\(pickedMedia.count)/\(Self.maxMedias))",
-                        systemImage: "photo.on.rectangle.angled"
-                    )
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(.black.opacity(0.62)))
                 }
-                Button {
-                    cameraPresented = true
-                } label: {
-                    pickButtonLabel(Loc.camera, systemImage: "camera.fill")
-                }
-                .buttonStyle(.plain)
-                .disabled(pickedMedia.count >= Self.maxMedias)
+                .padding(10)
+            }
+            thumbStrip
+        }
+    }
+
+    private var coverPreview: some View {
+        ZStack {
+            Color.black
+            if let preview = pickedMedia.first?.preview {
+                Image(uiImage: preview).resizable().scaledToFill()
+            } else {
+                Image(systemName: "video.fill")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.7))
             }
         }
+        .aspectRatio(4.0 / 5.0, contentMode: .fit)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+    }
+
+    private var thumbStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(Array(pickedMedia.enumerated()), id: \.element.id) { index, item in
+                    ZStack(alignment: .topTrailing) {
+                        Group {
+                            if let preview = item.preview {
+                                Image(uiImage: preview).resizable().scaledToFill()
+                            } else {
+                                ZStack {
+                                    GymCircleTheme.ColorToken.elevatedCard
+                                    Image(systemName: "video.fill")
+                                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                }
+                            }
+                        }
+                        .frame(width: 64, height: 80)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                        Button { pickedMedia.remove(at: index) } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.white, .black.opacity(0.55))
+                        }
+                        .padding(2)
+
+                        if index == 0 {
+                            VStack {
+                                Spacer()
+                                chipLabel(Loc.cover).padding(4)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
+
+                if pickedMedia.count < Self.maxMedias {
+                    PhotosPicker(
+                        selection: $pickerItems,
+                        maxSelectionCount: Self.maxMedias,
+                        matching: .any(of: [.images, .videos])
+                    ) {
+                        addThumbLabel(icon: "plus")
+                    }
+                    Button { cameraPresented = true } label: {
+                        addThumbLabel(icon: "camera.fill")
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func addThumbLabel(icon: String) -> some View {
+        Image(systemName: icon)
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+            .frame(width: 64, height: 80)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+            )
     }
 
     private func chipLabel(_ text: String) -> some View {
@@ -208,35 +290,19 @@ public struct ComposerView: View {
             .background(Capsule().fill(.black.opacity(0.55)))
     }
 
-    private func pickButtonLabel(_ title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(.system(size: 14, weight: .bold, design: .default))
-            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(GymCircleTheme.ColorToken.elevatedCard)
-            )
-    }
-
+    // Paridade web: legenda inline sem moldura nem header (só placeholder).
     private var captionSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            GCText(Loc.caption, style: .headline)
-            TextField(Loc.captionPlaceholder, text: $caption, axis: .vertical)
-                .lineLimit(3...6)
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(GymCircleTheme.ColorToken.elevatedCard)
-                )
-        }
+        TextField(Loc.captionPlaceholder, text: $caption, axis: .vertical)
+            .font(.system(size: 16, weight: .medium))
+            .lineLimit(3...8)
+            .tint(GymCircleTheme.ColorToken.cyan)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var tagsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                GCText(Loc.workoutType, style: .headline)
+                GCText(Loc.workoutType, style: .sectionLabel)
                 Spacer()
                 GCText(
                     "\(selectedTags.count)/\(Self.maxTags)",
@@ -277,7 +343,7 @@ public struct ComposerView: View {
     // 20.4b — academia opcional (location_source gym).
     private var gymSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            GCText(Loc.gymOptional, style: .headline)
+            GCText(Loc.gymOptional, style: .sectionLabel)
 
             if let selectedGym {
                 HStack(spacing: 8) {
@@ -338,7 +404,7 @@ public struct ComposerView: View {
     private var participantsSection: some View {
         if !following.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                GCText(Loc.trainedWithSomeone, style: .headline)
+                GCText(Loc.trainedWithSomeone, style: .sectionLabel)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
                         ForEach(following) { person in
@@ -379,44 +445,79 @@ public struct ComposerView: View {
     }
 
     private var destinationsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            GCText(Loc.destination, style: .headline)
-            // Paridade web: 2 destinos (Feed + Story 24h), ambos ligados.
-            destinationToggle(
-                isOn: $postToFeed,
-                icon: "house.fill",
-                label: Loc.t("Feed", "Feed"),
-                hint: nil
-            )
-            destinationToggle(
-                isOn: $postToStory,
-                icon: "circle.dashed",
-                label: Loc.t("Story (24h)", "Story (24h)"),
-                hint: Loc.storyHint
-            )
+        VStack(alignment: .leading, spacing: 8) {
+            GCText(Loc.destination, style: .sectionLabel)
+            // Paridade web: 2 pílulas (Feed + Story 24h), ambas ligadas. A dica
+            // do estado fica embaixo do botão Publicar (destinationHint).
+            HStack(spacing: 8) {
+                destinationPill(isOn: $postToFeed, label: Loc.t("Feed", "Feed"))
+                destinationPill(isOn: $postToStory, label: Loc.t("Story (24h)", "Story (24h)"))
+            }
         }
     }
 
-    private func destinationToggle(isOn: Binding<Bool>, icon: String, label: String, hint: String?) -> some View {
-        Toggle(isOn: isOn) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(isOn.wrappedValue ? GymCircleTheme.ColorToken.cyan : GymCircleTheme.ColorToken.secondaryText)
-                    .frame(width: 24)
-                VStack(alignment: .leading, spacing: 2) {
-                    GCText(label, style: .body)
-                    if let hint {
-                        GCText(hint, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+    private func destinationPill(isOn: Binding<Bool>, label: String) -> some View {
+        Button { isOn.wrappedValue.toggle() } label: {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(isOn.wrappedValue ? GymCircleTheme.ColorToken.cyan : Color.clear)
+                        .overlay(
+                            Circle().strokeBorder(
+                                isOn.wrappedValue ? Color.clear : Color.white.opacity(0.22),
+                                lineWidth: 1.5
+                            )
+                        )
+                    if isOn.wrappedValue {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 9, weight: .black))
+                            .foregroundStyle(.black)
                     }
                 }
+                .frame(width: 16, height: 16)
+                Text(label).font(.system(size: 13, weight: .black))
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(
+                Capsule().fill(
+                    isOn.wrappedValue
+                        ? GymCircleTheme.ColorToken.cyan.opacity(0.14)
+                        : Color.white.opacity(0.05)
+                )
+            )
+            .foregroundStyle(
+                isOn.wrappedValue
+                    ? GymCircleTheme.ColorToken.cyan
+                    : GymCircleTheme.ColorToken.secondaryText
+            )
         }
-        .tint(GymCircleTheme.ColorToken.cyan)
-        .padding(12)
+        .buttonStyle(.plain)
+    }
+
+    // Paridade web `<details>`: opções avançadas colapsadas. Ordem do web:
+    // tipo de treino · marcar amigos · local · destinos.
+    private var moreOptions: some View {
+        DisclosureGroup(isExpanded: $showMoreOptions) {
+            VStack(alignment: .leading, spacing: 20) {
+                tagsSection
+                participantsSection
+                gymSection
+                destinationsSection
+            }
+            .padding(.top, 14)
+        } label: {
+            GCText(Loc.t("More options", "Mais opções"), style: .body)
+        }
+        .tint(GymCircleTheme.ColorToken.secondaryText)
+        .padding(14)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(GymCircleTheme.ColorToken.elevatedCard)
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.02))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+                )
         )
     }
 
@@ -432,18 +533,25 @@ public struct ComposerView: View {
         return Loc.t("Publish to feed", "Publicar no feed")
     }
 
+    // Dica do destino abaixo do botão (paridade web destinationHint).
+    private var destinationHint: String {
+        if postToFeed && postToStory { return Loc.t("Goes to the feed and stories.", "Vai pro feed e pros stories.") }
+        if postToFeed { return Loc.t("Goes to the feed only.", "Vai só pro feed.") }
+        if postToStory { return Loc.t("Goes to stories only (24h).", "Vai só pros stories (24h).") }
+        return Loc.t("Pick at least one destination.", "Escolha ao menos um destino.")
+    }
+
     private var publishButton: some View {
-        VStack(spacing: 10) {
-            if let errorMessage {
-                GCText(errorMessage, style: .caption, color: GymCircleTheme.ColorToken.pink)
-            }
+        VStack(spacing: 8) {
             Button {
                 Task { await publish() }
             } label: {
-                Group {
+                HStack(spacing: 8) {
                     if isPublishing {
                         ProgressView().tint(.black)
                     } else {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 16, weight: .black))
                         Text(publishCTA)
                             .font(.system(size: 16, weight: .black, design: .default))
                     }
@@ -451,17 +559,26 @@ public struct ComposerView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            canPublish
-                                ? AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
-                                : AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
-                        )
+                    Capsule().fill(
+                        canPublish
+                            ? AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
+                            : AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
+                    )
                 )
                 .foregroundStyle(canPublish ? .black : GymCircleTheme.ColorToken.secondaryText)
             }
             .buttonStyle(.plain)
             .disabled(!canPublish || isPublishing)
+
+            GCText(destinationHint, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                .frame(maxWidth: .infinity)
+                .multilineTextAlignment(.center)
+
+            if let errorMessage {
+                GCText(errorMessage, style: .caption, color: GymCircleTheme.ColorToken.pink)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+            }
         }
     }
 
@@ -477,8 +594,11 @@ public struct ComposerView: View {
     }
 
     private func loadPicked(_ items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+        let room = max(0, Self.maxMedias - pickedMedia.count)
+        guard room > 0 else { pickerItems = []; return }
         var medias: [PickedMedia] = []
-        for item in items.prefix(Self.maxMedias) {
+        for item in items.prefix(room) {
             let isVideo = item.supportedContentTypes.contains {
                 $0.conforms(to: .movie) || $0.conforms(to: .audiovisualContent)
             }
@@ -491,7 +611,10 @@ public struct ComposerView: View {
                 )
             )
         }
-        pickedMedia = medias
+        // Paridade web: galeria faz APPEND (não substitui); limpa o picker pra
+        // a próxima seleção começar do zero (evita re-contar os já escolhidos).
+        pickedMedia.append(contentsOf: medias)
+        pickerItems = []
     }
 
     private func publish() async {
