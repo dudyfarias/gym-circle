@@ -91,6 +91,7 @@
 		E2B270DF079D98436391DB85 /* ChatViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96EDD818F6C82D7CC140A36F /* ChatViews.swift */; };
 		EB06E4A7853BD711AC9B806B /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A44D5666AF9C52ED99FE84E /* CameraPicker.swift */; };
 		EB3259E2DF3200D364544F2E /* StreakBadgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAE0677C174BF83D3C158CD7 /* StreakBadgeView.swift */; };
+		ED53C1C0BB4D9CB00F6543F5 /* InlineVideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B13E661B25B9388E99B6EEB3 /* InlineVideoPlayerView.swift */; };
 		EFC7664C6A411684A6F19AEB /* OtherProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0BB038D99927918121215E6 /* OtherProfileView.swift */; };
 		F8C55A06AC9AC3691FDD15D5 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A7DABB37BEF70C1DCA08F2 /* Haptics.swift */; };
 		FB1C810F996E874492D37712 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29F08F3783EAD0DC084E6E2F /* MainTabView.swift */; };
@@ -172,6 +173,7 @@
 		A33CA1E1FFA369DA36938B63 /* CheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInView.swift; sourceTree = "<group>"; };
 		A52D40B4007DAC206C665780 /* FeedPost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedPost.swift; sourceTree = "<group>"; };
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		B13E661B25B9388E99B6EEB3 /* InlineVideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineVideoPlayerView.swift; sourceTree = "<group>"; };
 		B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapCoverPickerSheet.swift; sourceTree = "<group>"; };
 		B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePostsGridView.swift; sourceTree = "<group>"; };
 		BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleSearchSheet.swift; sourceTree = "<group>"; };
@@ -239,6 +241,7 @@
 				35C282A33EA581B6F7F27212 /* CompetitionSectionView.swift */,
 				682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */,
 				49FF41A8C7E2CBD840FFDD1B /* GCRemoteImage.swift */,
+				B13E661B25B9388E99B6EEB3 /* InlineVideoPlayerView.swift */,
 				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
 				89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */,
 				B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */,
@@ -569,6 +572,7 @@
 				12816EF8CCF3450B4AD7E4E3 /* GymCircleTheme.swift in Sources */,
 				F8C55A06AC9AC3691FDD15D5 /* Haptics.swift in Sources */,
 				C416FF9CA4CAA548444AD3AA /* HealthKitService.swift in Sources */,
+				ED53C1C0BB4D9CB00F6543F5 /* InlineVideoPlayerView.swift in Sources */,
 				DD5A6F25B4EBF290268D4CD4 /* L10n.swift in Sources */,
 				393BD8E161911AB7E888D27E /* LikesSheet.swift in Sources */,
 				35A25A287E4965812D1AA957 /* Loc.swift in Sources */,
@@ -729,7 +733,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 40;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -755,7 +759,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 39;
+				CURRENT_PROJECT_VERSION = 40;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
