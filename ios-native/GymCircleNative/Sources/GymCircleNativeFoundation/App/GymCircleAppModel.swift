@@ -23,6 +23,10 @@ public final class GymCircleAppModel: ObservableObject {
     // MARK: - Estado published (UI observa)
 
     @Published public private(set) var isLoading = false
+    /// Boot terminou (restoreSession resolveu)? Enquanto false, o RootView
+    /// mostra o splash — evita o flash da tela de login antes da sessão
+    /// restaurar do Keychain.
+    @Published public private(set) var hasBooted = false
     @Published public private(set) var error: String?
     @Published public private(set) var posts: [FeedPost] = []
     // Sprint 20.3a — paginação infinita do feed.
@@ -186,9 +190,15 @@ public final class GymCircleAppModel: ObservableObject {
     public func boot() async {
         guard let sessionStore else {
             loadDemoData()
+            hasBooted = true
             return
         }
         await sessionStore.restoreSession()
+        // Sessão resolvida (signedIn ou signedOut): libera o RootView pra
+        // escolher MainTabView vs LoginView, encerrando o splash. Pra usuário
+        // logado, as telas entram com skeleton enquanto os loads abaixo correm
+        // — sem passar pela tela de login.
+        hasBooted = true
         if sessionStore.isAuthenticated {
             // Sprint 8.11.1 — profile primeiro pq loadMyCircle usa
             // displayName/username/avatar/createdAt do profile.

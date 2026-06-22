@@ -12,6 +12,9 @@ public struct GymCircleNativeRootView: View {
     @ObservedObject private var localization = LocalizationStore.shared
 
     public init() {
+        // Configura o cache de imagens (URLCache disco+memória) ANTES de
+        // qualquer requisição — fotos voltam do disco entre sessões.
+        ImageCacheBootstrap.configure()
         // Sprint 20.0 — o standalone agora resolve a config real
         // (env de dev → Info.plist via xcconfig) e cria o AppModel com
         // services Supabase de verdade. Antes este init criava o model
@@ -85,7 +88,11 @@ public struct GymCircleNativeRootView: View {
     /// re-renderizar as strings quando o usuário troca o idioma em Ajustes.
     @ViewBuilder
     private var authContent: some View {
-        if model.isAuthenticated {
+        if !model.hasBooted {
+            // Splash enquanto restaura a sessão — sem isto, a tela de login
+            // piscava ~1s antes de cair no feed.
+            SplashView()
+        } else if model.isAuthenticated {
             MainTabView(
                 // Sprint 20.3a — feed interativo observa o model direto.
                 model: model,
@@ -125,6 +132,43 @@ public struct GymCircleNativeRootView: View {
             }
         default:
             break
+        }
+    }
+}
+
+/// Splash exibido enquanto a sessão restaura do Keychain (boot). Marca
+/// centralizada + spinner discreto — substitui o flash da tela de login.
+private struct SplashView: View {
+    var body: some View {
+        ZStack {
+            GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
+            VStack(spacing: 18) {
+                ZStack {
+                    Circle()
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    GymCircleTheme.ColorToken.cyan,
+                                    GymCircleTheme.ColorToken.deepBlue
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 5
+                        )
+                        .frame(width: 64, height: 64)
+                    Text("C")
+                        .font(.system(size: 32, weight: .black, design: .rounded))
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                }
+                Text("GYM CIRCLE")
+                    .font(.system(size: 13, weight: .heavy))
+                    .tracking(2)
+                    .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                ProgressView()
+                    .tint(GymCircleTheme.ColorToken.cyan)
+                    .padding(.top, 4)
+            }
         }
     }
 }
