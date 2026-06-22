@@ -1,8 +1,34 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { PostMediaItem } from "../social/types";
 import { PinchZoomImage } from "./PinchZoomImage";
+
+// Som GLOBAL do feed (estilo Instagram): uma única fonte da verdade do "mudo?"
+// pra TODOS os vídeos — ligar o som num vídeo liga pra os próximos. Vive no
+// módulo (sessão): reseta ao recarregar a página, sem persistência.
+let feedMuted = true;
+const feedMutedListeners = new Set<() => void>();
+
+function setFeedMuted(value: boolean) {
+  if (value === feedMuted) return;
+  feedMuted = value;
+  feedMutedListeners.forEach((listener) => listener());
+}
+
+function useFeedMuted(): [boolean, (value: boolean) => void] {
+  const muted = useSyncExternalStore(
+    (cb) => {
+      feedMutedListeners.add(cb);
+      return () => {
+        feedMutedListeners.delete(cb);
+      };
+    },
+    () => feedMuted,
+    () => true, // snapshot do SSR: começa mudo
+  );
+  return [muted, setFeedMuted];
+}
 
 /**
  * MediaCarousel — Sprint 13.
@@ -157,7 +183,7 @@ function VideoSlide({ item, isActive }: { item: PostMediaItem; isActive: boolean
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useFeedMuted(); // som GLOBAL (sessão)
   const [paused, setPaused] = useState(false);
 
   // Visibilidade: toca só com >=50% na viewport (pausa ao rolar pra longe).
@@ -196,7 +222,6 @@ function VideoSlide({ item, isActive }: { item: PostMediaItem; isActive: boolean
       <video
         className="h-full w-full object-cover"
         loop
-        muted
         onClick={() => setPaused((p) => !p)}
         playsInline
         poster={item.posterUrl ?? item.thumbnailUrl ?? undefined}
@@ -218,7 +243,7 @@ function VideoSlide({ item, isActive }: { item: PostMediaItem; isActive: boolean
         className="absolute bottom-3 right-3 flex size-8 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md transition-transform active:scale-90"
         onClick={(e) => {
           e.stopPropagation();
-          setMuted((m) => !m);
+          setMuted(!muted);
         }}
         type="button"
       >
