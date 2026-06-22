@@ -75,6 +75,7 @@
 		C2EDF86FCE4D0E48A33B6068 /* AppConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */; };
 		C416FF9CA4CAA548444AD3AA /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02BBAAE9105A431DC140AFE9 /* HealthKitService.swift */; };
 		C4DBAB84D615F04027F999B4 /* FollowsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D2F3C03BC2098846FF44D01 /* FollowsService.swift */; };
+		C76F8805F58EF75CB95619F3 /* NativeGymSearchSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25DEA818BBFA56B279EE0BBF /* NativeGymSearchSheet.swift */; };
 		C9953603A107274BD16810C5 /* RecapPeriodPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */; };
 		CABAF9C24A6B73D53E850AE5 /* CalendarBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FB7A0E8635F10DB44C9E017 /* CalendarBuilderTests.swift */; };
 		CBD1FA663BF54E491C32919B /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DEB41CAC0D16AE1FBF7E56F /* SessionStore.swift */; };
@@ -121,6 +122,7 @@
 		12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
 		15CF77117635F0D69B78BE8C /* StoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryModels.swift; sourceTree = "<group>"; };
 		1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
+		25DEA818BBFA56B279EE0BBF /* NativeGymSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeGymSearchSheet.swift; sourceTree = "<group>"; };
 		2609487EA632835844895920 /* AvatarConsistencyRings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarConsistencyRings.swift; sourceTree = "<group>"; };
 		29F08F3783EAD0DC084E6E2F /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		2D24861F3677C444D1D316BD /* NativeLocationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeLocationProvider.swift; sourceTree = "<group>"; };
@@ -291,6 +293,7 @@
 				29F08F3783EAD0DC084E6E2F /* MainTabView.swift */,
 				D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */,
 				71697375FF0895F613E1090F /* MyCircleView.swift */,
+				25DEA818BBFA56B279EE0BBF /* NativeGymSearchSheet.swift */,
 				671BB7E573CC14848641536D /* NotificationsSheet.swift */,
 				C0BB038D99927918121215E6 /* OtherProfileView.swift */,
 				BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */,
@@ -584,6 +587,7 @@
 				DD8C439B12D3509DE2038783 /* MyCircleModels.swift in Sources */,
 				4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */,
 				775A8119334EC3B55DAAE141 /* MyCircleView.swift in Sources */,
+				C76F8805F58EF75CB95619F3 /* NativeGymSearchSheet.swift in Sources */,
 				86723219D0B43C3D30165F50 /* NativeLocationProvider.swift in Sources */,
 				85C950689383165ED6F6E9FE /* NativePushNotificationsService.swift in Sources */,
 				D807A08401BF9BEBFCEF2E8D /* NotificationsService.swift in Sources */,
@@ -733,7 +737,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -759,7 +763,7 @@
 				CODE_SIGN_ENTITLEMENTS = Support/GymCircleNative.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 46;
+				CURRENT_PROJECT_VERSION = 47;
 				INFOPLIST_FILE = Support/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = (
