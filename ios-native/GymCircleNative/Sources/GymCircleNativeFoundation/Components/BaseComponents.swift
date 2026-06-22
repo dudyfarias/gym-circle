@@ -236,16 +236,9 @@ public struct GCAvatar: View {
                 )
 
             if let url, let imageURL = URL(string: url) {
-                AsyncImage(url: imageURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
-                    default:
-                        fallbackText
-                    }
-                }
+                // GCRemoteImage: cache memória+disco; cache-hit aparece na hora
+                // (sem o "sem foto → pisca → carrega" do AsyncImage cru).
+                GCRemoteImage(url: imageURL) { fallbackText }
             } else {
                 fallbackText
             }

@@ -969,34 +969,19 @@ public struct MediaView: View {
                 .fill(GymCircleTheme.ColorToken.elevatedCard)
 
             // Base: thumbnail (carrega rápido). Quando não há thumb distinta,
-            // esta é a própria imagem original.
+            // esta é a própria imagem original. Cache memória+disco via
+            // GCRemoteImage (não pisca ao rolar de volta).
             if let thumb = URL(string: thumbURL), !thumbURL.isEmpty {
-                AsyncImage(url: thumb) { image in
-                    image
-                        .resizable()
-                        .scaledToFill()
-                } placeholder: {
+                GCRemoteImage(url: thumb, animateOnLoad: false) {
                     Image(systemName: "photo")
                         .font(.system(size: 28, weight: .bold))
                         .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
                 }
             }
 
-            // Original por cima — fade-in suave (~0.45s) ao terminar de carregar.
+            // Original por cima — fade-in suave ao terminar de carregar.
             if hasDistinctFull, let full = URL(string: fullURL) {
-                AsyncImage(
-                    url: full,
-                    transaction: Transaction(animation: .easeOut(duration: 0.45))
-                ) { phase in
-                    if case .success(let image) = phase {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .transition(.opacity)
-                    } else {
-                        Color.clear
-                    }
-                }
+                GCRemoteImage(url: full) { Color.clear }
             }
 
             if isVideo {
