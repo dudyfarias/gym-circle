@@ -1029,11 +1029,18 @@ export function GymCirclePreview({
   }, [myCircleUserId, social.currentUser, usersById]);
   const myCircleUserPosts = useMemo<EnrichedPost[]>(() => {
     if (!myCircleUserId) return [];
-    return profilePosts.filter(
+    const relevant = profilePosts.filter(
       (p) =>
         p.userId === myCircleUserId ||
         p.acceptedParticipants?.some((participant) => participant.id === myCircleUserId),
     );
+    // Prioridade no calendário: post PRÓPRIO vence; o post em que o user foi
+    // marcado só preenche o dia que NÃO tem post próprio. buildMonthWorkoutDays
+    // pega o 1º post (com foto) por dia, então pomos os próprios na frente
+    // (partição estável, preserva a ordem original dentro de cada grupo).
+    const own = relevant.filter((p) => p.userId === myCircleUserId);
+    const taggedOnly = relevant.filter((p) => p.userId !== myCircleUserId);
+    return [...own, ...taggedOnly];
   }, [profilePosts, myCircleUserId]);
 
   const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
