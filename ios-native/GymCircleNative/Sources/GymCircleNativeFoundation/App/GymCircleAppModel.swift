@@ -485,7 +485,7 @@ public final class GymCircleAppModel: ObservableObject {
             }()
             let currentMonth = Self.monthKey(offsetFromToday: 0)
             async let monthPostsTask: [MonthCalendarPost] =
-                (try? await myCircleService.getMonthPosts(userId: userId, monthKey: currentMonth)) ?? []
+                (try? await myCircleService.getMonthPosts(userId: userId, monthKey: currentMonth, includeTagged: true)) ?? []
             // Sprint 8.13.2 — paralelo: distinct types em 7d + gyms em 30d
             // alimentam achievements secret cross-trainer e explorer
             async let distinctTypesTask: Int =
@@ -595,8 +595,8 @@ public final class GymCircleAppModel: ObservableObject {
         guard let other = await fetchOtherProfileSummary(userId: userId) else { return nil }
         let p = other.profile
         let canSeeDetails = !p.isPrivate || other.isFollowingAuthor
-        let displayName = p.displayName ?? p.username ?? "—"
-        let username = p.username ?? "user"
+        let displayName = p.displayName ?? p.username
+        let username = p.username
         let avatarURL = p.avatarURL.flatMap(URL.init(string:))
 
         // Privado não-seguido: só header + lock (usa o streak público já vindo).
@@ -1264,7 +1264,8 @@ public final class GymCircleAppModel: ObservableObject {
             )
             async let postsTask = myCircleService.getMonthPosts(
                 userId: userId,
-                monthKey: targetMonthKey
+                monthKey: targetMonthKey,
+                includeTagged: true
             )
             let days = try await daysTask
             let posts = (try? await postsTask) ?? []

@@ -233,7 +233,14 @@ public actor MyCircleService {
     /// Retorna lista (workout_date, post_id, image_url) ordenada por
     /// workout_date asc. UI agrupa por dia (1 thumbnail por dia, prefere
     /// o primeiro post quando há mais que 1 no mesmo dia).
-    public func getMonthPosts(userId: String, monthKey: String) async throws -> [MonthCalendarPost] {
+    /// `includeTagged`: além dos posts próprios, traz posts em que o user foi
+    /// MARCADO (aceito) como FALLBACK por dia (calendário). Off por padrão — o
+    /// RecapCoverPicker usa só posts próprios (capa do recap é asset do dono).
+    public func getMonthPosts(
+        userId: String,
+        monthKey: String,
+        includeTagged: Bool = false
+    ) async throws -> [MonthCalendarPost] {
         let parts = monthKey.split(separator: "-")
         guard parts.count == 2,
               let year = Int(parts[0]),
@@ -246,7 +253,8 @@ public actor MyCircleService {
 
         // Sprint 9.9.6 — withRetry: getMonthPosts alimenta calendar mini-fotos
         // + RecapCoverPicker. Falha cru deixaria o calendar vazio sem warning.
-        let rows: [PostThumbnailRow] = try await withRetry {
+        // Posts PRÓPRIOS do mês.
+        let ownRows: [PostThumbnailRow] = try await withRetry {
             try await self.client
                 .from("posts")
                 .select("id,workout_date,image_url,thumbnail_url,poster_url,media_type")
@@ -258,22 +266,45 @@ public actor MyCircleService {
                 .value
         }
 
-        return rows.compactMap { row in
-            // Mini-foto renderizável: thumbnail → poster → image_url (este
-            // só quando NÃO é vídeo — em vídeo antigo sem thumbnail/poster,
-            // image_url é o ARQUIVO de vídeo e a AsyncImage quebra a célula;
-            // melhor cair fora e deixar a cell sólida, paridade com o
-            // buildMonthWorkoutDays web).
+        // Posts em que o user foi MARCADO (aceito) — fallback por dia quando não
+        // há post próprio. post_participants → posts!inner (join + filtro de mês
+        // no embed). Fail-soft: erro aqui não esvazia o calendário. Só quando
+        // includeTagged (calendário) — recap usa só posts próprios.
+        let taggedRows: [TaggedThumbnailRow]
+        if includeTagged {
+            taggedRows = (try? await withRetry {
+                try await self.client
+                    .from("post_participants")
+                    .select("posts!inner(id,workout_date,image_url,thumbnail_url,poster_url,media_type)")
+                    .eq("tagged_user_id", value: userId)
+                    .eq("status", value: "accepted")
+                    .gte("posts.workout_date", value: monthStart)
+                    .lt("posts.workout_date", value: monthEnd)
+                    .execute()
+                    .value
+            }) ?? []
+        } else {
+            taggedRows = []
+        }
+
+        // Mini-foto renderizável: thumbnail → poster → image_url (este só quando
+        // NÃO é vídeo — em vídeo antigo sem thumbnail/poster, image_url é o
+        // ARQUIVO de vídeo e a AsyncImage quebra a célula; melhor cair fora e
+        // deixar a cell sólida, paridade com o buildMonthWorkoutDays web).
+        func mapRow(_ row: PostThumbnailRow) -> MonthCalendarPost? {
             let best = row.thumbnailURL
                 ?? row.posterURL
                 ?? (row.mediaType == "video" ? nil : row.imageURL)
             guard let raw = best, let url = URL(string: raw) else { return nil }
-            return MonthCalendarPost(
-                dateKey: row.workoutDate,
-                postId: row.id,
-                imageURL: url
-            )
+            return MonthCalendarPost(dateKey: row.workoutDate, postId: row.id, imageURL: url)
         }
+
+        // PRIORIDADE: próprios primeiro, marcados depois. O buildMonth pega o
+        // PRIMEIRO post por dia → o próprio vence; o marcado só preenche o dia
+        // sem post próprio.
+        let ownPosts = ownRows.compactMap(mapRow)
+        let taggedPosts = taggedRows.compactMap(\.posts).compactMap(mapRow)
+        return ownPosts + taggedPosts
     }
 
     /// Sprint 8.11.3 — workout days de um mês específico (YYYY-MM).
@@ -495,6 +526,12 @@ private struct PostThumbnailRow: Codable, Sendable {
         case posterURL = "poster_url"
         case mediaType = "media_type"
     }
+}
+
+/// Linha de post_participants com o post embutido (posts!inner) — usada pro
+/// fallback de posts MARCADOS no calendário.
+private struct TaggedThumbnailRow: Decodable, Sendable {
+    let posts: PostThumbnailRow?
 }
 
 /// Sprint 8.13.1 — payload usado por UI calendar (1 thumbnail por dia).
