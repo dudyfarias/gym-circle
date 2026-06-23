@@ -48,6 +48,48 @@ public struct PostMediaItem: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// Preview de comentário no card do feed (paridade web: últimos comentários
+/// sob a legenda). Vem do RPC get_home_feed (jsonb `comment_previews`).
+public struct FeedCommentPreview: Codable, Hashable, Sendable, Identifiable {
+    public let id: String
+    public let userId: String
+    public let username: String
+    public let displayName: String?
+    public let body: String
+    public let createdAt: String
+
+    public var displayAuthorName: String {
+        displayName?.isEmpty == false ? displayName! : username
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case username
+        case displayName = "display_name"
+        case body
+        case createdAt = "created_at"
+    }
+}
+
+/// Preview de quem curtiu (até 3 avatares ao lado de "X curtidas"). Vem do RPC
+/// get_home_feed (jsonb `liked_by_preview`).
+public struct FeedLikerPreview: Codable, Hashable, Sendable, Identifiable {
+    public let userId: String
+    public let username: String
+    public let displayName: String?
+    public let avatarURL: String?
+
+    public var id: String { userId }
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case username
+        case displayName = "display_name"
+        case avatarURL = "avatar_url"
+    }
+}
+
 public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let id: String
     public let userId: String
@@ -69,6 +111,12 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     // Sprint 20.7 — coords do local (RPC get_home_feed) pra distância do viewer.
     public let locationLatitude: Double?
     public let locationLongitude: Double?
+    // Link do Google Maps do local (RPC) — torna a localização tocável.
+    public var locationGoogleMapsUrl: String? = nil
+    // Previews do card (RPC get_home_feed): últimos comentários + quem curtiu.
+    // var c/ default nil → decodam do RPC mas não exigem o init explícito.
+    public var commentPreviews: [FeedCommentPreview]? = nil
+    public var likedByPreview: [FeedLikerPreview]? = nil
     // Sprint 20.3a/b — vars pra update otimista de like e contador de
     // comentários (sheet reporta delta).
     public var likesCount: Int
@@ -225,6 +273,9 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         case locationName = "location_name"
         case locationLatitude = "location_latitude"
         case locationLongitude = "location_longitude"
+        case locationGoogleMapsUrl = "location_google_maps_url"
+        case commentPreviews = "comment_previews"
+        case likedByPreview = "liked_by_preview"
         case likesCount = "likes_count"
         case commentsCount = "comments_count"
         case username

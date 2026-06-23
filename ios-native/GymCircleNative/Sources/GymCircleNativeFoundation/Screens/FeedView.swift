@@ -93,7 +93,7 @@ public struct FeedView: View {
                 .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 12) {
-                    ForEach(suggestions.prefix(8)) { person in
+                    ForEach(suggestions.prefix(5)) { person in
                         suggestionCard(person)
                     }
                 }
@@ -585,15 +585,17 @@ public struct FeedPostCard: View {
                 participantsRow
                 pendingInviteBanner
                 actionsRow
-                // Curtidas/comentários/legenda agrupados tight (estilo Instagram).
+                // Curtidas → legenda → último comentário → "ver todos" (ordem do
+                // card web, estilo Instagram).
                 VStack(alignment: .leading, spacing: 4) {
                     likesLine
-                    commentsLine
                     if let caption = post.caption, !caption.isEmpty {
                         // @menções realçadas + clicáveis (paridade web MentionText).
                         MentionText(text: caption) { onOpenMention?($0) }
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    commentPreviewLine
+                    commentsLine
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -615,44 +617,37 @@ public struct FeedPostCard: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            // Avatar + nome abrem o perfil do autor (paridade web onSelectUser).
-            Button {
-                onOpenProfile?(post.userId)
-            } label: {
-                HStack(spacing: 12) {
-                    GCAvatar(url: post.avatarURL, fallback: post.username)
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: 6) {
-                            // Paridade web: nome 15px font-black.
-                            Text(post.displayAuthorName)
-                                .font(.system(size: 15, weight: .black, design: .default))
-                                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                                .lineLimit(1)
-                            // StreakBadge (ícone por nível + "{N}d") AO LADO do nome,
-                            // componente compartilhado com os stories (paridade web).
-                            if let streak = post.authorCurrentStreak, streak > 0 {
-                                StreakBadgeView(streak: streak, size: .sm)
-                            }
-                        }
-                        // Paridade web: meta "📍 local · distância · hora" (a hora sempre
-                        // aparece; o pin só quando há local).
-                        HStack(spacing: 4) {
-                            if let location = post.locationName, !location.isEmpty {
-                                Image(systemName: "mappin.and.ellipse")
-                                    .font(.system(size: 10, weight: .bold))
-                                Text(distanceSuffixed(location))
-                                    .lineLimit(1)
-                                Text("·").foregroundStyle(Color.white.opacity(0.28))
-                            }
-                            Text(postTimeLabel)
-                        }
-                        .font(.system(size: 12, weight: .bold, design: .default))
-                        .foregroundStyle(Color.white.opacity(0.46))
-                    }
-                }
+            // Avatar abre o perfil do autor (paridade web onSelectUser).
+            Button { onOpenProfile?(post.userId) } label: {
+                GCAvatar(url: post.avatarURL, fallback: post.username)
             }
             .buttonStyle(.plain)
             .disabled(onOpenProfile == nil)
+
+            VStack(alignment: .leading, spacing: 2) {
+                // Nome + streak abrem o perfil.
+                Button { onOpenProfile?(post.userId) } label: {
+                    HStack(spacing: 6) {
+                        // Paridade web: nome 15px font-black.
+                        Text(post.displayAuthorName)
+                            .font(.system(size: 15, weight: .black, design: .default))
+                            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                            .lineLimit(1)
+                        // StreakBadge (ícone por nível + "{N}d") AO LADO do nome,
+                        // componente compartilhado com os stories (paridade web).
+                        if let streak = post.authorCurrentStreak, streak > 0 {
+                            StreakBadgeView(streak: streak, size: .sm)
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(onOpenProfile == nil)
+
+                // Meta: "📍 local · distância · hora". O local vira link do Google
+                // Maps quando há URL (paridade web — link separado, fora do botão
+                // de perfil); a hora sempre aparece, o pin só quando há local.
+                metaRow
+            }
 
             Spacer()
 
@@ -689,6 +684,36 @@ public struct FeedPostCard: View {
                     .background(Circle().fill(Color.white.opacity(0.055)))
                     .overlay(Circle().strokeBorder(Color.white.opacity(0.08), lineWidth: 1))
             }
+        }
+    }
+
+    /// Linha de meta do header: local (link do Maps quando há URL) · distância · hora.
+    private var metaRow: some View {
+        HStack(spacing: 4) {
+            if let location = post.locationName, !location.isEmpty {
+                locationLabel(location)
+                Text("·").foregroundStyle(Color.white.opacity(0.28))
+            }
+            Text(postTimeLabel)
+        }
+        .font(.system(size: 12, weight: .bold, design: .default))
+        .foregroundStyle(Color.white.opacity(0.46))
+    }
+
+    /// O label do local: vira `Link` do Google Maps quando o post tem URL,
+    /// senão texto simples (paridade web — a localização abre o mapa).
+    @ViewBuilder
+    private func locationLabel(_ location: String) -> some View {
+        let content = HStack(spacing: 4) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 10, weight: .bold))
+            Text(distanceSuffixed(location))
+                .lineLimit(1)
+        }
+        if let urlString = post.locationGoogleMapsUrl, let url = URL(string: urlString) {
+            Link(destination: url) { content }
+        } else {
+            content
         }
     }
 
@@ -799,23 +824,63 @@ public struct FeedPostCard: View {
         .font(.system(size: 19, weight: .medium, design: .default))
     }
 
-    /// Linha "N curtidas" (estilo Instagram, paridade web) — abre quem curtiu.
+    /// Linha "N curtidas" (estilo Instagram, paridade web) — até 3 avatares
+    /// sobrepostos de quem curtiu (RPC liked_by_preview) + o contador; abre
+    /// quem curtiu.
     @ViewBuilder
     private var likesLine: some View {
         if post.likesCount > 0 {
             Button {
                 onOpenLikes?()
             } label: {
-                Text(
-                    post.likesCount == 1
-                        ? Loc.t("1 like", "1 curtida")
-                        : Loc.t("\(post.likesCount) likes", "\(post.likesCount) curtidas")
-                )
-                .font(.system(size: 13, weight: .black, design: .default))
-                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                HStack(spacing: 6) {
+                    if let likers = post.likedByPreview, !likers.isEmpty {
+                        HStack(spacing: -8) {
+                            ForEach(likers.prefix(3)) { liker in
+                                GCAvatar(url: liker.avatarURL, fallback: liker.username, size: 20)
+                                    .overlay(
+                                        Circle().strokeBorder(GymCircleTheme.ColorToken.postCard, lineWidth: 2)
+                                    )
+                            }
+                        }
+                    }
+                    Text(
+                        post.likesCount == 1
+                            ? Loc.t("1 like", "1 curtida")
+                            : Loc.t("\(post.likesCount) likes", "\(post.likesCount) curtidas")
+                    )
+                    .font(.system(size: 13, weight: .black, design: .default))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel(Loc.seeWhoLiked)
+        }
+    }
+
+    /// Preview do último comentário (paridade web: "username corpo", abre o
+    /// sheet de comentários). Vem do RPC (comment_previews).
+    @ViewBuilder
+    private var commentPreviewLine: some View {
+        if let preview = post.commentPreviews?.last {
+            Button {
+                onComments?()
+            } label: {
+                (
+                    Text(preview.username)
+                        .font(.system(size: 14, weight: .black, design: .default))
+                        .foregroundColor(GymCircleTheme.ColorToken.primaryText)
+                    + Text(" ")
+                    + Text(preview.body)
+                        .font(.system(size: 14, weight: .semibold, design: .default))
+                        .foregroundColor(Color.white.opacity(0.92))
+                )
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(preview.username): \(preview.body)")
         }
     }
 
