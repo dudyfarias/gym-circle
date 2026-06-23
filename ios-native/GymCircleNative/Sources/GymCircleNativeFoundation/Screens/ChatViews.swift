@@ -14,6 +14,7 @@ public struct ChatListView: View {
 
     @State private var threads: [ChatThread] = []
     @State private var isLoading = true
+    @State private var searchText = ""
     @State private var openedThread: ChatThread?
     @State private var newMessagePresented = false
     @State private var following: [DiscoveredProfile] = []
@@ -37,7 +38,7 @@ public struct ChatListView: View {
                 )
             } else {
                 List {
-                    ForEach(threads) { thread in
+                    ForEach(filteredThreads) { thread in
                         Button {
                             openedThread = thread
                         } label: {
@@ -62,9 +63,18 @@ public struct ChatListView: View {
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .overlay {
+                    if filteredThreads.isEmpty {
+                        GCEmptyState(
+                            title: Loc.t("No results", "Nenhum resultado"),
+                            subtitle: Loc.t("Try another name.", "Tente outro nome.")
+                        )
+                    }
+                }
             }
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+        .searchable(text: $searchText, prompt: Loc.t("Search conversations", "Buscar conversas"))
         .navigationTitle(Loc.chat)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -88,13 +98,23 @@ public struct ChatListView: View {
                 conversationId: thread.summary.conversationId,
                 title: thread.displayName,
                 isGroup: thread.summary.isGroup,
-                peerUserId: thread.peerUserId
+                peerUserId: thread.peerUserId,
+                avatarURL: thread.avatarURL
             )
             .onDisappear { Task { await reload() } }
         }
         .sheet(isPresented: $newMessagePresented) {
             newMessageSheet
         }
+    }
+
+    /// Filtro local da lista por nome da conversa (paridade web — busca de
+    /// conversas). A busca remota de users pra iniciar conversa nova fica no
+    /// botão de "nova mensagem".
+    private var filteredThreads: [ChatThread] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !query.isEmpty else { return threads }
+        return threads.filter { $0.displayName.lowercased().contains(query) }
     }
 
     private func reload() async {
@@ -293,6 +313,7 @@ public struct ConversationView: View {
     private let title: String
     private let isGroup: Bool
     private let peerUserId: String?
+    private let avatarURL: String?
 
     @Environment(\.dismiss) private var dismiss
     @State private var conversationId: String?
@@ -313,13 +334,15 @@ public struct ConversationView: View {
         conversationId: String,
         title: String,
         isGroup: Bool,
-        peerUserId: String?
+        peerUserId: String?,
+        avatarURL: String? = nil
     ) {
         self.model = model
         self.initialConversationId = conversationId
         self.title = title
         self.isGroup = isGroup
         self.peerUserId = peerUserId
+        self.avatarURL = avatarURL
         _conversationId = State(
             initialValue: conversationId.hasPrefix("new:") ? nil : conversationId
         )
@@ -363,21 +386,33 @@ public struct ConversationView: View {
                 inputBar
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle(isGroup ? title : "")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // 1:1 — título vira tap pro perfil do peer (paridade web).
-                if !isGroup, let peerUserId {
-                    ToolbarItem(placement: .principal) {
-                        Button {
-                            openProfile(userId: peerUserId)
-                        } label: {
+                // Header: avatar + nome (paridade web). No 1:1 o conjunto abre o
+                // perfil do peer; no grupo é só rótulo.
+                ToolbarItem(placement: .principal) {
+                    Button {
+                        if !isGroup, let peerUserId { openProfile(userId: peerUserId) }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isGroup {
+                                Image(systemName: "person.3.fill")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                    .frame(width: 30, height: 30)
+                                    .background(Circle().fill(Color.white.opacity(0.08)))
+                            } else {
+                                GCAvatar(url: avatarURL, fallback: title, size: 30)
+                            }
                             Text(title)
                                 .font(.system(size: 16, weight: .heavy))
                                 .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                                .lineLimit(1)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .buttonStyle(.plain)
+                    .disabled(isGroup || peerUserId == nil)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(Loc.close) { dismiss() }
@@ -420,12 +455,10 @@ public struct ConversationView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                if message.replyToStory == true {
-                    GCText(
-                        Loc.repliedToStory,
-                        style: .caption,
-                        color: isMine ? .black.opacity(0.6) : GymCircleTheme.ColorToken.secondaryText
-                    )
+                // Resposta a story: mostra a MINIATURA do story + label (paridade
+                // web — antes só aparecia o texto "Respondeu ao story").
+                if message.storyId != nil || message.replyToStory == true {
+                    storyReplyPreview(message, isMine: isMine)
                 }
                 if let body = message.body, !body.isEmpty {
                     Text(body)
@@ -484,6 +517,33 @@ public struct ConversationView: View {
             .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 5)
             if !isMine { Spacer(minLength: 48) }
         }
+    }
+
+    /// Preview de resposta a story dentro da bolha: miniatura (story_preview_url)
+    /// + label "Respondeu ao story" (paridade web).
+    @ViewBuilder
+    private func storyReplyPreview(_ message: ChatMessage, isMine: Bool) -> some View {
+        HStack(spacing: 8) {
+            if let preview = message.storyPreviewURL, let url = URL(string: preview) {
+                AsyncImage(url: url) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Rectangle().fill(Color.white.opacity(0.12))
+                }
+                .frame(width: 34, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            }
+            GCText(
+                Loc.repliedToStory,
+                style: .caption,
+                color: isMine ? .black.opacity(0.62) : GymCircleTheme.ColorToken.secondaryText
+            )
+        }
+        .padding(6)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(isMine ? Color.black.opacity(0.10) : Color.white.opacity(0.06))
+        )
     }
 
     private var inputBar: some View {
