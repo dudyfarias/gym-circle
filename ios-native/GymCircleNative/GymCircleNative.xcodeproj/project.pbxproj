@@ -53,6 +53,7 @@
 		86723219D0B43C3D30165F50 /* NativeLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D24861F3677C444D1D316BD /* NativeLocationProvider.swift */; };
 		88263A3ED7D173C5FC3EC4B0 /* AchievementBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */; };
 		897C6E5A16A97D0E13730869 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD5A151A6BF89D3869A206C /* ChatModels.swift */; };
+		8E8058AA25C59C6654D0553B /* MentionText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEC5BD33087F2A77D4B3780 /* MentionText.swift */; };
 		9A0112CB67B848AF6B3E67D1 /* GymCircleNativeAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A6946799511E3778D09B6B /* GymCircleNativeAppDelegate.swift */; };
 		9AA615722E6B567FCEE47224 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46FCDA3F30345C295BB0257C /* SafetyService.swift */; };
 		9CA8C13BAC321E232D5BCD2E /* GymCircleNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AD1AB193A5FDA3AB7B141AE /* GymCircleNativeApp.swift */; };
@@ -82,6 +83,7 @@
 		CCCA719F1A1B196B53ABCD8A /* MonthlyRecapSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */; };
 		CDB0940AC39FBA2818014853 /* PeopleSearchSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */; };
 		CDE941BFB1F36FEB531A562B /* GymCircleNativeRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303BAED416877DD688F8FFDC /* GymCircleNativeRootView.swift */; };
+		CF2EA11CA7E473BBA7F37E60 /* PostDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4E16EB45801732D41433B39 /* PostDetailSheet.swift */; };
 		CFD486D0F4178F5BD511D834 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 489ABF91A6CB491B111116DC /* FeedView.swift */; };
 		CFF768DD8B8797B61BC57740 /* AchievementCelebrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */; };
 		D534BDAA7DBEED4E15DA27B2 /* AuthIdentifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1206CCEEDE7CBE7C81736011 /* AuthIdentifierTests.swift */; };
@@ -141,6 +143,7 @@
 		49F315E719C5717C0921BD96 /* StoriesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoriesService.swift; sourceTree = "<group>"; };
 		49FF41A8C7E2CBD840FFDD1B /* GCRemoteImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GCRemoteImage.swift; sourceTree = "<group>"; };
 		4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfile.swift; sourceTree = "<group>"; };
+		4DEC5BD33087F2A77D4B3780 /* MentionText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MentionText.swift; sourceTree = "<group>"; };
 		51796CCB19CDEB956ACF59AB /* GymCircleNativeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = GymCircleNativeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementCelebrationView.swift; sourceTree = "<group>"; };
 		5989A86000B1F2D61679FD2A /* Retry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Retry.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 		ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B13E661B25B9388E99B6EEB3 /* InlineVideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineVideoPlayerView.swift; sourceTree = "<group>"; };
 		B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapCoverPickerSheet.swift; sourceTree = "<group>"; };
+		B4E16EB45801732D41433B39 /* PostDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailSheet.swift; sourceTree = "<group>"; };
 		B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePostsGridView.swift; sourceTree = "<group>"; };
 		BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleSearchSheet.swift; sourceTree = "<group>"; };
 		BB837287D72E60A143DA73B0 /* NativePlatformServicesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePlatformServicesTests.swift; sourceTree = "<group>"; };
@@ -244,6 +248,7 @@
 				682759DB3E385D63923ED17F /* FeaturedAchievementsRowView.swift */,
 				49FF41A8C7E2CBD840FFDD1B /* GCRemoteImage.swift */,
 				B13E661B25B9388E99B6EEB3 /* InlineVideoPlayerView.swift */,
+				4DEC5BD33087F2A77D4B3780 /* MentionText.swift */,
 				783D161B1E627FB137F94874 /* MyCircleComponents.swift */,
 				89E9DC0FA43D72A845B1B891 /* PressableButtonStyle.swift */,
 				B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */,
@@ -297,6 +302,7 @@
 				671BB7E573CC14848641536D /* NotificationsSheet.swift */,
 				C0BB038D99927918121215E6 /* OtherProfileView.swift */,
 				BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */,
+				B4E16EB45801732D41433B39 /* PostDetailSheet.swift */,
 				ABF5E523C8CFCF7DD84DCF0D /* ProfileView.swift */,
 				B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */,
 				BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */,
@@ -581,6 +587,7 @@
 				35A25A287E4965812D1AA957 /* Loc.swift in Sources */,
 				7D520BADA3B077BFB0F7B45D /* LoginView.swift in Sources */,
 				FB1C810F996E874492D37712 /* MainTabView.swift in Sources */,
+				8E8058AA25C59C6654D0553B /* MentionText.swift in Sources */,
 				81E9DE2C223D9A8EC5FD77F7 /* MonthlyChallengeModels.swift in Sources */,
 				CCCA719F1A1B196B53ABCD8A /* MonthlyRecapSheet.swift in Sources */,
 				9CABDB82A84408A020396A0C /* MyCircleComponents.swift in Sources */,
@@ -597,6 +604,7 @@
 				CDB0940AC39FBA2818014853 /* PeopleSearchSheet.swift in Sources */,
 				3F976208CAA4A36320E44036 /* PostComment.swift in Sources */,
 				629E7B2103435F4952232CEA /* PostComposerService.swift in Sources */,
+				CF2EA11CA7E473BBA7F37E60 /* PostDetailSheet.swift in Sources */,
 				AE315F4F956A28DA13D582C6 /* PostParticipant.swift in Sources */,
 				5AA2AA7FB9BD8C9094651FAC /* PostParticipantsService.swift in Sources */,
 				660226AA88621F665F2A4A5F /* PressableButtonStyle.swift in Sources */,
