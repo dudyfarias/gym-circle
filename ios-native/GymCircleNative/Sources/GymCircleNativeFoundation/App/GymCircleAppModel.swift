@@ -378,7 +378,20 @@ public final class GymCircleAppModel: ObservableObject {
         guard !visible.isEmpty else { return [] }
 
         let postIds = visible.map(\.id)
-        let mediaByPost = (try? await api.postMedia(postIds: postIds)) ?? [:]
+        // Resiliência (bug "carrossel some no refresh"): se o batch de post_media
+        // FALHAR (rede instável no pull-to-refresh), NÃO colapsa pra mídia única
+        // — reusa o carrossel que já tínhamos pros mesmos posts. Sucesso com
+        // dicionário vazio = posts realmente sem carrossel (mídia única), aí ok.
+        let mediaByPost: [String: [PostMediaItem]]
+        if let fetched = try? await api.postMedia(postIds: postIds) {
+            mediaByPost = fetched
+        } else {
+            mediaByPost = Dictionary(
+                uniqueKeysWithValues: posts.compactMap { existing in
+                    existing.media.map { (existing.id, $0) }
+                }
+            )
+        }
         let participantsByPost =
             (try? await participantsService?.listForPosts(postIds: postIds)) ?? [:]
 
