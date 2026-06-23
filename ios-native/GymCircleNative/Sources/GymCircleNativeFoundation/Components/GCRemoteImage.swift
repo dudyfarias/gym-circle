@@ -72,9 +72,18 @@ public struct GCRemoteImage<Placeholder: View>: View {
     public var body: some View {
         ZStack {
             if let uiImage {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
+                // Color.clear assume EXATAMENTE o tamanho proposto pelo container
+                // (frame/aspectRatio/overlay) e o scaledToFill preenche + é
+                // clipado DENTRO desse retângulo. Sem isso, uma imagem retrato
+                // reporta um tamanho mais alto que o quadro e "vaza" pra fora da
+                // célula (calendário do MyCircle / grid do perfil estouravam).
+                Color.clear
+                    .overlay {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                    }
+                    .clipped()
                     .transition(.opacity)
             } else {
                 placeholder()

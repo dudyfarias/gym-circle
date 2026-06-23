@@ -457,8 +457,12 @@ public struct MonthlyCalendarGridView: View {
                         cellBackground(day)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+            // Clip NO container quadrado (não no ZStack): scaledToFill reporta um
+            // tamanho mais alto que o quadrado, então clipar o ZStack recortava
+            // num retângulo alto e a foto vazava pra cima/baixo das células
+            // vizinhas. Clipar aqui (Color.clear é W×W) prende a foto na célula.
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             // Today highlight ring — cyan/brand + leve glow (paridade web ring).
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
