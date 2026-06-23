@@ -46,6 +46,9 @@ export function postService(client: GymCircleClient) {
               ? input.workoutTypes
               : null,
           workout_date: input.workoutDate,
+          // "Registrar treino": backdata o created_at só quando fornecido; post
+          // normal omite a chave e o DB usa o default now().
+          ...(input.createdAt ? { created_at: input.createdAt } : {}),
           location_source: locationSource,
           location_name: locationSource === "none" ? null : input.locationName?.trim() || null,
           location_latitude: locationSource === "none" ? null : input.locationLatitude ?? null,

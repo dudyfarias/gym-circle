@@ -237,6 +237,7 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
       dateKey: "2026-05-01",
       trained: true,
       thumbnailUrl: null,
+      videoUrl: null,
       postId: null,
       postCount: 0,
     });
@@ -245,6 +246,7 @@ describe("buildMonthWorkoutDays — Sprint 5.2 calendar mini-fotos", () => {
       dateKey: "2026-05-15",
       trained: true,
       thumbnailUrl: null,
+      videoUrl: null,
       postId: null,
       postCount: 0,
     });

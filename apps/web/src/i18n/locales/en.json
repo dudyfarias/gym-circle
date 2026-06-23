@@ -146,7 +146,8 @@
       "previousMonth": "Previous month",
       "nextMonth": "Next month",
       "trained": "Day {{day}} trained",
-      "notTrained": "Day {{day}} not trained"
+      "notTrained": "Day {{day}} not trained",
+      "registerWorkout": "Day {{day}} trained — log workout (add a photo)"
     },
     "levels": {
       "title": "Levels",
@@ -426,6 +427,13 @@
     "topBar": {
       "eyebrow": "Workout post",
       "title": "Publish"
+    },
+    "registerWorkout": {
+      "eyebrow": "Log workout",
+      "title": "Workout on {{date}}",
+      "notice": "You trained on {{date}}. Add a photo/video to fill that day on your calendar.",
+      "cta": "Log workout",
+      "hint": "Goes only to your calendar/profile on {{date}} (won't show at the top of the feed)."
     },
     "media": {
       "swapAria": "Swap media",

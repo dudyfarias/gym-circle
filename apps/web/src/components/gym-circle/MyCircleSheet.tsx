@@ -92,6 +92,13 @@ type MyCircleSheetProps = {
    */
   onOpenPost?: (postId: string) => void;
   /**
+   * "Registrar treino" — tap num dia treinado SEM post (gap no calendário)
+   * abre o composer já travado naquela data pra adicionar a mídia depois.
+   * Só no calendário do próprio user (isOwn). Quando ausente, esses dias
+   * ficam só decorativos.
+   */
+  onRegisterWorkout?: (dateKey: string) => void;
+  /**
    * Sprint 5.10 — abre o RecapPeriodPickerSheet pra escolher qual mês ou
    * ano compartilhar. Aparece como CTA secundário abaixo do "Compartilhar
    * resumo de {mês}". Quando ausente, só o caminho rápido (mês corrente)
@@ -145,6 +152,7 @@ export function MyCircleSheet({
   onOpenMonthlyRecap,
   onOpenBadges,
   onOpenPost,
+  onRegisterWorkout,
   onOpenRecapPeriodPicker,
   onMarkContextualHintSeen,
   monthlyChallenges,
@@ -497,6 +505,18 @@ export function MyCircleSheet({
                       // fornecido. Mantém back-compat: cells sem postId continuam
                       // sendo decoração (div).
                       const isTappable = Boolean(postId && onOpenPost);
+                      // "Registrar treino" — dia treinado SEM post (gap no
+                      // calendário) no calendário do próprio user vira tappable
+                      // pra adicionar a mídia depois. Futuro nunca é treinado,
+                      // mas guarda dateKey <= hoje por garantia.
+                      const canRegister = Boolean(
+                        trained &&
+                          !postId &&
+                          isOwn &&
+                          onRegisterWorkout &&
+                          dayInfo &&
+                          dayInfo.dateKey <= todayKey,
+                      );
                       const sharedClass = [
                         "relative grid aspect-square place-items-center overflow-hidden rounded-[10px] text-[11px] font-black transition-colors",
                         hasPhoto || hasVideo
@@ -507,7 +527,7 @@ export function MyCircleSheet({
                         isToday
                           ? "ring-2 ring-[var(--gc-brand)]/72 ring-offset-2 ring-offset-[#101214]"
                           : "",
-                        isTappable ? "gc-pressable cursor-pointer" : "",
+                        isTappable || canRegister ? "gc-pressable cursor-pointer" : "",
                       ].join(" ");
                       const sharedAria = trained
                         ? t("myCircle.calendar.trained", { day })
@@ -552,6 +572,13 @@ export function MyCircleSheet({
                               +{extraPosts}
                             </span>
                           ) : null}
+                          {/* "Registrar treino": dia treinado sem foto ganha um
+                              "+" discreto convidando a adicionar a mídia. */}
+                          {canRegister ? (
+                            <span className="absolute bottom-0.5 right-0.5 grid size-3 place-items-center rounded-full bg-[var(--gc-consistency-month)]/30 text-[9px] leading-none text-[var(--gc-consistency-month)]">
+                              +
+                            </span>
+                          ) : null}
                         </>
                       );
 
@@ -564,6 +591,24 @@ export function MyCircleSheet({
                             onClick={() => {
                               simulateHaptic("brand");
                               onOpenPost(postId);
+                            }}
+                            style={sharedStyle}
+                            type="button"
+                          >
+                            {dayLabel}
+                          </button>
+                        );
+                      }
+
+                      if (canRegister && onRegisterWorkout && dayInfo) {
+                        return (
+                          <button
+                            aria-label={t("myCircle.calendar.registerWorkout", { day })}
+                            className={sharedClass}
+                            key={`day-${day}`}
+                            onClick={() => {
+                              simulateHaptic("brand");
+                              onRegisterWorkout(dayInfo.dateKey);
                             }}
                             style={sharedStyle}
                             type="button"

@@ -147,6 +147,13 @@ export type CreatePostInput = {
   media?: PostMediaInput[];
   gymId: string | null;
   workoutDate?: string;
+  /**
+   * "Registrar treino" — post retroativo de um dia já treinado mas sem mídia.
+   * Quando presente, backdata o created_at (ISO) pro post NÃO subir no topo do
+   * feed dos amigos; ele só preenche o calendário/perfil (workoutDate cai na
+   * célula certa). Ausente = post normal (DB usa now()).
+   */
+  createdAt?: string;
   locationSource?: PostLocationSource;
   locationName?: string | null;
   locationLatitude?: number | null;

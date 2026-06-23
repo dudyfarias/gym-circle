@@ -8,6 +8,7 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import {
+  Calendar,
   Camera,
   Check,
   ChevronDown,
@@ -54,6 +55,12 @@ type PostScreenProps = {
    */
   onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
   recentLocations?: PlaceCandidate[];
+  /**
+   * "Registrar treino" — quando presente (YYYY-MM-DD), o composer entra em modo
+   * retroativo: data travada no topo, vai só pro feed (sem story) e o post é
+   * gravado naquele dia (preenche o calendário). Ausente = post normal de hoje.
+   */
+  workoutDate?: string;
 };
 
 type WorkoutMediaUploadResult = {
@@ -110,8 +117,14 @@ export function PostScreen({
   onCatalogPlace,
   recentLocations = [],
   taggableUsers = [],
+  workoutDate,
 }: PostScreenProps) {
   const { t } = useTranslation();
+  // "Registrar treino": modo retroativo (dia treinado sem mídia).
+  const isBackdated = Boolean(workoutDate);
+  const backdatedLabel = workoutDate
+    ? `${workoutDate.slice(8, 10)}/${workoutDate.slice(5, 7)}/${workoutDate.slice(0, 4)}`
+    : "";
   const getErrorMessage = (err: unknown) =>
     err instanceof Error ? err.message : t("postScreen.publish.errors.generic");
   const [caption, setCaption] = useState("");
@@ -515,7 +528,7 @@ export function PostScreen({
       return;
     }
 
-    if (!postToFeed && !postToStory) {
+    if (!isBackdated && !postToFeed && !postToStory) {
       setPublishError(t("postScreen.publish.errors.needsDestination"));
       return;
     }
@@ -555,7 +568,11 @@ export function PostScreen({
         locationLongitude: resolvedLocation.longitude,
         locationGoogleMapsUrl: resolvedLocation.googleMapsUrl,
         taggedUserIds,
-        destinations: { feed: postToFeed, story: postToStory },
+        // Backdated (registrar treino) vai só pro feed (preenche o calendário).
+        destinations: isBackdated
+          ? { feed: true, story: false }
+          : { feed: postToFeed, story: postToStory },
+        workoutDate,
       });
       void HapticsService.success();
     } catch (err) {
@@ -576,11 +593,12 @@ export function PostScreen({
 
   const publishLabel = useMemo(() => {
     if (publishing) return t("postScreen.publish.publishing");
+    if (isBackdated) return t("postScreen.registerWorkout.cta");
     if (postToFeed && postToStory) return t("postScreen.publish.ctaBoth");
     if (postToFeed) return t("postScreen.publish.ctaFeed");
     if (postToStory) return t("postScreen.publish.ctaStory");
     return t("postScreen.publish.ctaNoDestination");
-  }, [postToFeed, postToStory, publishing, t]);
+  }, [isBackdated, postToFeed, postToStory, publishing, t]);
 
   const destinationHint = useMemo(() => {
     if (postToFeed && postToStory) return t("postScreen.destinations.hintBoth");
@@ -592,9 +610,27 @@ export function PostScreen({
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
       <TopBar
-        eyebrow={t("postScreen.topBar.eyebrow")}
-        title={t("postScreen.topBar.title")}
+        eyebrow={
+          isBackdated
+            ? t("postScreen.registerWorkout.eyebrow")
+            : t("postScreen.topBar.eyebrow")
+        }
+        title={
+          isBackdated
+            ? t("postScreen.registerWorkout.title", { date: backdatedLabel })
+            : t("postScreen.topBar.title")
+        }
       />
+
+      {/* Registrar treino: aviso de data travada (post retroativo). */}
+      {isBackdated ? (
+        <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-[var(--gc-brand)]/24 bg-[var(--gc-brand)]/10 px-4 py-3">
+          <Calendar className="shrink-0 text-[var(--gc-brand)]" size={16} strokeWidth={2.4} />
+          <p className="text-[12px] font-bold text-white/72">
+            {t("postScreen.registerWorkout.notice", { date: backdatedLabel })}
+          </p>
+        </div>
+      ) : null}
 
       {/* Inputs invisíveis pra câmera e galeria */}
       <input
@@ -914,23 +950,26 @@ export function PostScreen({
 
               </div>
 
-              <div>
-                <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
-                  {t("postScreen.destinations.label")}
-                </p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <DestinationToggle
-                    active={postToFeed}
-                    label={t("postScreen.destinations.feed")}
-                    onToggle={() => setPostToFeed((value) => !value)}
-                  />
-                  <DestinationToggle
-                    active={postToStory}
-                    label={t("postScreen.destinations.story")}
-                    onToggle={() => setPostToStory((value) => !value)}
-                  />
+              {/* Registrar treino vai só pro feed (sem story) — esconde o toggle. */}
+              {isBackdated ? null : (
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+                    {t("postScreen.destinations.label")}
+                  </p>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <DestinationToggle
+                      active={postToFeed}
+                      label={t("postScreen.destinations.feed")}
+                      onToggle={() => setPostToFeed((value) => !value)}
+                    />
+                    <DestinationToggle
+                      active={postToStory}
+                      label={t("postScreen.destinations.story")}
+                      onToggle={() => setPostToStory((value) => !value)}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </details>
 
@@ -945,7 +984,9 @@ export function PostScreen({
               {publishLabel}
             </button>
             <p className="text-center text-[11px] font-bold text-white/40">
-              {destinationHint}
+              {isBackdated
+                ? t("postScreen.registerWorkout.hint", { date: backdatedLabel })
+                : destinationHint}
             </p>
             {publishError ? (
               <p className="text-center text-[12px] font-bold text-[var(--gc-pink)]">

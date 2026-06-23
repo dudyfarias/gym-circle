@@ -631,7 +631,15 @@ export function createSocialActions(
         showFeedback("comment", "Story enviado", receiver.name);
       },
       async publishWorkout(input: CreateWorkoutPostInput) {
-        const destinations = input.destinations ?? { feed: true, story: true };
+        // "Registrar treino": post retroativo de um dia treinado sem mídia.
+        // Vai SÓ pro feed (sem story) e com created_at backdatado ao meio-dia
+        // daquele dia (SP) — não sobe no topo do feed; só preenche o
+        // calendário/perfil via workout_date.
+        const backdate = input.workoutDate?.trim() || null;
+        const backdatedCreatedAt = backdate ? `${backdate}T12:00:00-03:00` : undefined;
+        const destinations = backdate
+          ? { feed: true, story: false }
+          : input.destinations ?? { feed: true, story: true };
         const wantsFeed = destinations.feed;
         const wantsStory = destinations.story;
         if (!wantsFeed && !wantsStory) {
@@ -643,6 +651,8 @@ export function createSocialActions(
 
         if (wantsFeed) {
           const post = await services.posts.create(currentUserId, {
+            workoutDate: backdate ?? undefined,
+            createdAt: backdatedCreatedAt,
             imageUrl: input.imageUrl,
             mediaType: input.mediaType,
             thumbnailUrl: input.thumbnailUrl ?? null,
@@ -685,6 +695,11 @@ export function createSocialActions(
 
         await services.stats.refreshMine();
         await refresh();
+
+        if (backdate) {
+          showFeedback("success", "Treino registrado", "Foto adicionada ao calendário");
+          return;
+        }
 
         const detail = wantsFeed && wantsStory
           ? "Feed + story atualizados"

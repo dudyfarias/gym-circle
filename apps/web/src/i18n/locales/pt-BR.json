@@ -146,7 +146,8 @@
       "previousMonth": "Mês anterior",
       "nextMonth": "Próximo mês",
       "trained": "Dia {{day}} treinou",
-      "notTrained": "Dia {{day}} sem treino"
+      "notTrained": "Dia {{day}} sem treino",
+      "registerWorkout": "Dia {{day}} treinou — registrar treino (adicionar foto)"
     },
     "levels": {
       "title": "Níveis",
@@ -426,6 +427,13 @@
     "topBar": {
       "eyebrow": "Post de treino",
       "title": "Publicar"
+    },
+    "registerWorkout": {
+      "eyebrow": "Registrar treino",
+      "title": "Treino de {{date}}",
+      "notice": "Você treinou em {{date}}. Adicione a foto/vídeo pra preencher esse dia no calendário.",
+      "cta": "Registrar treino",
+      "hint": "Vai só pro calendário/perfil em {{date}} (não aparece no topo do feed)."
     },
     "media": {
       "swapAria": "Trocar mídia",

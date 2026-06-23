@@ -194,6 +194,9 @@ export function GymCirclePreview({
   // toggle de push notifications no AccountSettingsSheet.
   const services = useGymCircleServices();
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
+  // "Registrar treino": quando setado (YYYY-MM-DD), o composer abre travado
+  // nessa data (post retroativo). null = post normal de hoje.
+  const [composerWorkoutDate, setComposerWorkoutDate] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -445,6 +448,16 @@ export function GymCirclePreview({
     [social.actions, social.currentUser.id],
   );
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
+  // "Registrar treino": tap num dia treinado sem post no calendário do próprio
+  // user → fecha o MyCircle e abre o composer travado naquela data.
+  const registerWorkoutForDay = useCallback(
+    (dateKey: string) => {
+      setComposerWorkoutDate(dateKey);
+      setMyCircleUserId(null);
+      setActiveScreen("post");
+    },
+    [],
+  );
   const handleMyCircleVisibleMonthChange = useCallback(
     (monthKey: string) => {
       if (!myCircleUserId) return;
@@ -933,6 +946,8 @@ export function GymCirclePreview({
         return;
       }
       if (screen === "feed") setScrollState("top");
+      // Entrar no composer pela nav = post normal (sem data travada).
+      if (screen === "post") setComposerWorkoutDate(null);
       setActiveScreen(screen);
     },
     [activeScreen, scrollFeedToTop],
@@ -1643,12 +1658,21 @@ export function GymCirclePreview({
             onCatalogPlace={social.actions.catalogPlace}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
+              setComposerWorkoutDate(null);
               setScrollState("top");
-              setActiveScreen("feed");
+              // Registrar treino volta pro MyCircle (calendário) em vez do feed,
+              // já que o post não sobe no feed; post normal vai pro feed.
+              if (input.workoutDate) {
+                setMyCircleUserId(social.currentUser.id);
+                setActiveScreen("feed");
+              } else {
+                setActiveScreen("feed");
+              }
             }}
             onUploadImage={onUploadImage}
             recentLocations={recentPostLocations}
             taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
+            workoutDate={composerWorkoutDate ?? undefined}
           />
         );
       case "checkin":
@@ -1674,7 +1698,10 @@ export function GymCirclePreview({
             headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
             feedLoadingMore={social.feedLoadingMore}
-            onCreatePost={() => setActiveScreen("post")}
+            onCreatePost={() => {
+              setComposerWorkoutDate(null);
+              setActiveScreen("post");
+            }}
             onLikePost={social.actions.likePost}
             onLoadMoreFeed={social.actions.loadMoreFeed}
             onOpenLikes={openLikes}
@@ -1708,6 +1735,7 @@ export function GymCirclePreview({
     }
   }, [
     activeScreen,
+    composerWorkoutDate,
     chatTargetUserId,
     allUsers,
     followedUsers,
@@ -1876,6 +1904,13 @@ export function GymCirclePreview({
             // Sprint 5.11 — usa overlay full-screen (estilo Instagram) em
             // vez do CommentsBottomSheet, igual aos profile grids.
             onOpenPost={openPostDetailFull}
+            // "Registrar treino" — só no calendário do próprio user: tap num
+            // dia treinado sem post abre o composer travado naquela data.
+            onRegisterWorkout={
+              myCircleUser?.id === social.currentUser.id
+                ? registerWorkoutForDay
+                : undefined
+            }
             // Sprint 5.10 — CTA secundário "Outro período" abre o picker
             // de período pro user escolher mês passado OU ano inteiro.
             // Mesma checagem isOwn do recap principal — recap é asset do

@@ -331,6 +331,13 @@ export type CreateWorkoutPostInput = {
    * Pelo menos um precisa ser true. Default no UI: ambos.
    */
   destinations?: PostDestinations;
+  /**
+   * "Registrar treino" (post retroativo): YYYY-MM-DD de um dia já treinado mas
+   * sem mídia. Quando presente, o post é gravado SÓ no feed com workout_date =
+   * esse dia e created_at backdatado — não sobe no topo do feed; só preenche
+   * calendário/perfil. Ausente = post normal de hoje.
+   */
+  workoutDate?: string;
 };
 
 export type FeedbackTone = "brand" | "success" | "like" | "comment" | "follow";
