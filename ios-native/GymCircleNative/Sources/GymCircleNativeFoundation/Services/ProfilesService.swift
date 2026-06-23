@@ -151,7 +151,12 @@ public actor ProfilesService {
         try await withRetry {
             try await self.client
                 .from("posts")
-                .select("id,image_url,thumbnail_url,poster_url,media_type,caption,workout_type,workout_date,created_at,likes_count,comments_count")
+                // BUG: likes_count/comments_count NÃO são colunas de `posts` (o
+                // feed conta via post_likes/post_comments). Pedi-las dava erro de
+                // coluna no PostgREST → a query inteira falhava (silenciada por
+                // try?) → grid do perfil de OUTROS ficava vazio. O grid só usa as
+                // mídias; as contagens não aparecem na célula (mapeiam pra 0).
+                .select("id,image_url,thumbnail_url,poster_url,media_type,caption,workout_type,workout_date,created_at")
                 .eq("user_id", value: userId)
                 .order("created_at", ascending: false)
                 .limit(limit)
