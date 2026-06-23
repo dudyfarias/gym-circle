@@ -739,6 +739,35 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Denuncia um USER (perfil de outra pessoa) — paridade web reportUser.
+    @discardableResult
+    public func reportUser(userId target: String) async -> Bool {
+        guard let safetyService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await safetyService.reportUser(reporterId: userId, reportedUserId: target)
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Bloqueia um user — persiste em user_blocks, esconde os posts dele do feed
+    /// na hora (paridade web blockUser + filtro de bloqueados).
+    @discardableResult
+    public func blockUser(userId target: String) async -> Bool {
+        guard let safetyService, let userId = sessionStore?.currentUserId else { return false }
+        mutedUserIds.insert(target)
+        posts.removeAll { $0.userId == target }
+        do {
+            try await safetyService.blockUser(blockerId: userId, blockedId: target)
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
     /// Apaga o próprio post (remoção otimista; erro recarrega o feed).
     public func deletePost(postId: String) async {
         guard let api, let userId = sessionStore?.currentUserId else { return }

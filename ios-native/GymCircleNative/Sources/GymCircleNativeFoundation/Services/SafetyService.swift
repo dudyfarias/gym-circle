@@ -49,6 +49,41 @@ public actor SafetyService {
             .execute()
     }
 
+    /// Denúncia de USER (sem post) — paridade web safety.report(userId,"other").
+    public func reportUser(
+        reporterId: String,
+        reportedUserId: String,
+        reason: String = "other",
+        details: String? = nil
+    ) async throws {
+        try await client
+            .from("reports")
+            .insert(ReportInsert(
+                reporter_id: reporterId,
+                reported_user_id: reportedUserId,
+                post_id: nil,
+                reason: reason,
+                details: details
+            ))
+            .execute()
+    }
+
+    /// Bloqueia um user (paridade web blockUser) — insere em user_blocks.
+    public func blockUser(blockerId: String, blockedId: String, reason: String? = nil) async throws {
+        struct BlockInsert: Encodable {
+            let blocker_id: String
+            let blocked_id: String
+            let reason: String?
+        }
+        try await client
+            .from("user_blocks")
+            .upsert(
+                BlockInsert(blocker_id: blockerId, blocked_id: blockedId, reason: reason),
+                onConflict: "blocker_id,blocked_id"
+            )
+            .execute()
+    }
+
     public func muteAuthor(userId: String, mutedUserId: String) async throws {
         try await client
             .from("post_mutes")

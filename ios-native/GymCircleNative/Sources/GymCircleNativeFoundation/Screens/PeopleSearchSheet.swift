@@ -178,6 +178,11 @@ struct OtherProfileHostView: View {
     @State private var loadingCircle = false
     // Post aberto pelo grid do perfil (paridade web — antes o tap não fazia nada).
     @State private var openedPost: FeedPost?
+    // Ações do perfil de outro (antes os botões eram no-op).
+    @State private var chatPresented = false
+    @State private var reportConfirm = false
+    @State private var blockConfirm = false
+    @State private var reportSent = false
 
     init(model: GymCircleAppModel, summary: OtherProfileSummary) {
         self.model = model
@@ -202,9 +207,9 @@ struct OtherProfileHostView: View {
                     isFollowing = await model.toggleFollow(targetUserId: summary.profile.userId)
                 }
             },
-            onMessage: {},
-            onReport: {},
-            onBlock: {},
+            onMessage: { chatPresented = true },
+            onReport: { reportConfirm = true },
+            onBlock: { blockConfirm = true },
             onOpenPost: { postId in
                 Task {
                     if let post = await model.fetchPost(postId: postId) {
@@ -221,6 +226,53 @@ struct OtherProfileHostView: View {
         )
         .sheet(item: $openedPost) { post in
             PostDetailSheet(model: model, post: post)
+        }
+        // Mensagem — abre a conversa (cria sob demanda no 1º envio).
+        .sheet(isPresented: $chatPresented) {
+            ConversationView(
+                model: model,
+                conversationId: "new:\(summary.profile.userId)",
+                title: summary.profile.displayName ?? summary.profile.username,
+                isGroup: false,
+                peerUserId: summary.profile.userId
+            )
+        }
+        // Denunciar (paridade web reportUser).
+        .confirmationDialog(
+            Loc.t("Report @\(summary.profile.username)?", "Denunciar @\(summary.profile.username)?"),
+            isPresented: $reportConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(Loc.t("Report", "Denunciar"), role: .destructive) {
+                Task {
+                    if await model.reportUser(userId: summary.profile.userId) {
+                        Haptics.success()
+                        reportSent = true
+                    }
+                }
+            }
+            Button(Loc.t("Cancel", "Cancelar"), role: .cancel) {}
+        }
+        // Bloquear (paridade web blockUser) — fecha o perfil ao concluir.
+        .confirmationDialog(
+            Loc.t("Block @\(summary.profile.username)?", "Bloquear @\(summary.profile.username)?"),
+            isPresented: $blockConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(Loc.t("Block", "Bloquear"), role: .destructive) {
+                Task {
+                    if await model.blockUser(userId: summary.profile.userId) {
+                        Haptics.success()
+                        dismiss()
+                    }
+                }
+            }
+            Button(Loc.t("Cancel", "Cancelar"), role: .cancel) {}
+        }
+        .alert(Loc.t("Report sent", "Denúncia enviada"), isPresented: $reportSent) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(Loc.t("Thanks for keeping the community safe.", "Obrigado por ajudar a manter a comunidade segura."))
         }
         .sheet(isPresented: $followersPresented) {
             FollowListSheet(model: model, userId: summary.profile.userId, mode: .followers)
