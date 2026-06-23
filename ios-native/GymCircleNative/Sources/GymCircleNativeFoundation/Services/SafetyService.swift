@@ -120,4 +120,16 @@ public actor SafetyService {
             .value
         return Set(rows.map(\.muted_user_id))
     }
+
+    /// Users que EU bloqueei (paridade web blockedUserIds) — pra filtrar o feed.
+    public func blockedUserIds(userId: String) async throws -> Set<String> {
+        struct BlockRow: Decodable { let blocked_id: String }
+        let rows: [BlockRow] = try await client
+            .from("user_blocks")
+            .select("blocked_id")
+            .eq("blocker_id", value: userId)
+            .execute()
+            .value
+        return Set(rows.map(\.blocked_id))
+    }
 }

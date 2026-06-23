@@ -70,6 +70,8 @@ public final class GymCircleAppModel: ObservableObject {
     private let safetyService: SafetyService?
     public let participantsService: PostParticipantsService?
     private var mutedUserIds: Set<String> = []
+    // Users bloqueados (user_blocks) — filtra o feed igual ao mute.
+    private var blockedUserIds: Set<String> = []
     // Sprint 20.7 — sino de notificações.
     private let notificationsService: NotificationsService?
     @Published public private(set) var unreadNotifications = 0
@@ -374,13 +376,20 @@ public final class GymCircleAppModel: ObservableObject {
     private func hydrateCarouselMedia(_ feedPosts: [FeedPost]) async -> [FeedPost] {
         guard let api, !feedPosts.isEmpty else { return feedPosts }
 
-        // Mute filter (20.3c): atualiza a lista no load e esconde os
-        // posts de autores silenciados — paridade post_mutes web.
-        if let safetyService, let userId = sessionStore?.currentUserId,
-           let muted = try? await safetyService.mutedUserIds(userId: userId) {
-            mutedUserIds = muted
+        // Mute + block filter: atualiza as listas no load e esconde os posts de
+        // autores silenciados (post_mutes) E bloqueados (user_blocks) — paridade
+        // web. Sem isso, um user bloqueado reaparecia no feed após reabrir o app
+        // (o block só ficava no banco; o feed não recarregava o conjunto).
+        if let safetyService, let userId = sessionStore?.currentUserId {
+            if let muted = try? await safetyService.mutedUserIds(userId: userId) {
+                mutedUserIds = muted
+            }
+            if let blocked = try? await safetyService.blockedUserIds(userId: userId) {
+                blockedUserIds = blocked
+            }
         }
-        let visible = feedPosts.filter { !mutedUserIds.contains($0.userId) }
+        let hidden = mutedUserIds.union(blockedUserIds)
+        let visible = feedPosts.filter { !hidden.contains($0.userId) }
         guard !visible.isEmpty else { return [] }
 
         let postIds = visible.map(\.id)
@@ -757,7 +766,7 @@ public final class GymCircleAppModel: ObservableObject {
     @discardableResult
     public func blockUser(userId target: String) async -> Bool {
         guard let safetyService, let userId = sessionStore?.currentUserId else { return false }
-        mutedUserIds.insert(target)
+        blockedUserIds.insert(target)
         posts.removeAll { $0.userId == target }
         do {
             try await safetyService.blockUser(blockerId: userId, blockedId: target)
