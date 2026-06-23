@@ -42,7 +42,18 @@ public struct ProfilePostsGridView: View {
     }
 
     private func thumb(_ post: ProfilePost) -> some View {
-        MediaView(url: post.displayMediaURL, aspectRatio: 1)
+        // Célula QUADRADA com cover-crop (paridade web aspect-square object-cover):
+        // antes usava o MediaView do feed (.fit sobre base escura) → barras pretas
+        // nos posts retrato/paisagem. Aqui o GCRemoteImage (scaledToFill) preenche
+        // e o .clipped() recorta no quadrado, sem bordas.
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                GCRemoteImage(url: URL(string: post.displayMediaURL), animateOnLoad: false) {
+                    Rectangle().fill(GymCircleTheme.ColorToken.elevatedCard)
+                }
+            }
+            .clipped()
             .overlay(alignment: .topTrailing) {
                 if post.mediaType == .video {
                     Image(systemName: "play.fill")
