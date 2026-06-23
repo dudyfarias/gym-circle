@@ -353,15 +353,20 @@ public struct MonthlyCalendarGridView: View {
     public let todayKey: String
     /// Tap num dia com post abre o post (paridade web). nil → não-tappável.
     public let onOpenPost: ((String) -> Void)?
+    /// "Registrar treino" — tap num dia treinado SEM post abre o composer
+    /// travado naquela data (só no calendário do próprio user). nil → off.
+    public let onRegisterWorkout: ((String) -> Void)?
 
     public init(
         days: [CalendarDay],
         todayKey: String,
-        onOpenPost: ((String) -> Void)? = nil
+        onOpenPost: ((String) -> Void)? = nil,
+        onRegisterWorkout: ((String) -> Void)? = nil
     ) {
         self.days = days
         self.todayKey = todayKey
         self.onOpenPost = onOpenPost
+        self.onRegisterWorkout = onRegisterWorkout
     }
 
     /// Sprint 9.6.4 — weekday symbols locale-aware. Base segunda (paridade web
@@ -412,9 +417,18 @@ public struct MonthlyCalendarGridView: View {
         if let onOpenPost, let postId = day.postId {
             Button { onOpenPost(postId) } label: { cellContent(day) }
                 .buttonStyle(PressableButtonStyle())
+        } else if let onRegisterWorkout, canRegister(day) {
+            // Dia treinado sem post → "registrar treino" (adicionar mídia).
+            Button { onRegisterWorkout(day.dateKey) } label: { cellContent(day) }
+                .buttonStyle(PressableButtonStyle())
         } else {
             cellContent(day)
         }
+    }
+
+    /// Dia treinado, sem post, no passado/hoje (futuro nunca é treinado).
+    private func canRegister(_ day: CalendarDay) -> Bool {
+        onRegisterWorkout != nil && day.trained && day.postId == nil && day.dateKey <= todayKey
     }
 
     @ViewBuilder
@@ -458,6 +472,17 @@ public struct MonthlyCalendarGridView: View {
                     .font(.system(size: 11, weight: .heavy))
                     .foregroundColor(cellForeground(day))
                     .shadow(color: day.thumbnailURL != nil ? .black.opacity(0.6) : .clear, radius: 1.5, y: 1)
+            }
+            // "Registrar treino": dia treinado sem foto ganha um "+" discreto.
+            .overlay(alignment: .bottomTrailing) {
+                if canRegister(day) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 7, weight: .black))
+                        .foregroundColor(GymCircleTheme.ColorToken.electricBlue)
+                        .frame(width: 11, height: 11)
+                        .background(Circle().fill(GymCircleTheme.ColorToken.electricBlue.opacity(0.22)))
+                        .padding(2)
+                }
             }
             // Sprint 9.6.1 — a11y label "Treinou dia X" / "Não treinou dia X"
             .accessibilityElement(children: .ignore)

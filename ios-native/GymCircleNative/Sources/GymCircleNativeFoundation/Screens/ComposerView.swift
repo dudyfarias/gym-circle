@@ -29,6 +29,14 @@ public struct ComposerView: View {
     @State private var following: [DiscoveredProfile] = []
     @State private var taggedUserIds: Set<String> = []
 
+    /// "Registrar treino" — quando setado (YYYY-MM-DD), o composer entra em modo
+    /// retroativo: data travada, vai só pro feed (sem story) e o post cai naquele
+    /// dia no calendário. nil = post normal de hoje.
+    private let workoutDate: String?
+    /// Disparado após publicar com sucesso. Usado quando o composer é apresentado
+    /// como sheet (registrar treino) pra fechar e voltar pro calendário.
+    private let onPublished: (() -> Void)?
+
     struct PickedMedia: Identifiable {
         let id = UUID()
         let isVideo: Bool
@@ -44,14 +52,32 @@ public struct ComposerView: View {
     private static let maxMedias = 10
     private static let maxTags = 5
 
-    public init(model: GymCircleAppModel) {
+    public init(
+        model: GymCircleAppModel,
+        workoutDate: String? = nil,
+        onPublished: (() -> Void)? = nil
+    ) {
         self.model = model
+        self.workoutDate = workoutDate
+        self.onPublished = onPublished
+    }
+
+    private var isBackdated: Bool { workoutDate != nil }
+
+    /// DD/MM/AAAA do dia travado (registrar treino).
+    private var backdatedLabel: String {
+        guard let workoutDate, workoutDate.count == 10 else { return "" }
+        let y = workoutDate.prefix(4)
+        let m = workoutDate.dropFirst(5).prefix(2)
+        let d = workoutDate.dropFirst(8).prefix(2)
+        return "\(d)/\(m)/\(y)"
     }
 
     public var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 composerHeader
+                if isBackdated { backdatedNotice }
                 mediaSection
                 // Paridade web: legenda + opções + publicar só aparecem depois
                 // que há mídia (a mídia é a protagonista da tela).
@@ -94,10 +120,46 @@ public struct ComposerView: View {
     // saiu do composer (web não tem; já existe a tab própria do pin).
     private var composerHeader: some View {
         VStack(alignment: .leading, spacing: 2) {
-            GCText(Loc.t("Share your workout", "Compartilhe seu treino"), style: .sectionLabel)
-            GCText(Loc.t("Post", "Postar"), style: .title)
+            GCText(
+                isBackdated
+                    ? Loc.t("Log workout", "Registrar treino")
+                    : Loc.t("Share your workout", "Compartilhe seu treino"),
+                style: .sectionLabel
+            )
+            GCText(
+                isBackdated
+                    ? Loc.t("Workout on \(backdatedLabel)", "Treino de \(backdatedLabel)")
+                    : Loc.t("Post", "Postar"),
+                style: .title
+            )
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Aviso de data travada (registrar treino — post retroativo).
+    private var backdatedNotice: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "calendar")
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+            GCText(
+                Loc.t(
+                    "You trained on \(backdatedLabel). Add the photo/video to fill that day on your calendar.",
+                    "Você treinou em \(backdatedLabel). Adicione a foto/vídeo pra preencher esse dia no calendário."
+                ),
+                style: .caption,
+                color: GymCircleTheme.ColorToken.secondaryText
+            )
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.cyan.opacity(0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.24), lineWidth: 1)
+        )
     }
 
     @ViewBuilder
@@ -491,7 +553,9 @@ public struct ComposerView: View {
                 tagsSection
                 participantsSection
                 gymSection
-                destinationsSection
+                // Registrar treino vai só pro feed (preenche o calendário) —
+                // esconde o seletor de destinos.
+                if !isBackdated { destinationsSection }
             }
             .padding(.top, 14)
         } label: {
@@ -510,12 +574,14 @@ public struct ComposerView: View {
     }
 
     // Precisa de mídia E pelo menos um destino (paridade web hasDestination).
+    // Registrar treino é sempre feed (basta a mídia).
     private var canPublish: Bool {
-        !pickedMedia.isEmpty && (postToFeed || postToStory)
+        !pickedMedia.isEmpty && (isBackdated || postToFeed || postToStory)
     }
 
     // CTA muda conforme o destino (paridade web ctaBoth/ctaFeed/ctaStory).
     private var publishCTA: String {
+        if isBackdated { return Loc.t("Log workout", "Registrar treino") }
         if postToFeed && postToStory { return Loc.t("Publish", "Publicar") }
         if postToStory && !postToFeed { return Loc.t("Publish story", "Publicar story") }
         return Loc.t("Publish to feed", "Publicar no feed")
@@ -523,6 +589,12 @@ public struct ComposerView: View {
 
     // Dica do destino abaixo do botão (paridade web destinationHint).
     private var destinationHint: String {
+        if isBackdated {
+            return Loc.t(
+                "Goes only to your calendar/profile on \(backdatedLabel).",
+                "Vai só pro calendário/perfil em \(backdatedLabel)."
+            )
+        }
         if postToFeed && postToStory { return Loc.t("Goes to the feed and stories.", "Vai pro feed e pros stories.") }
         if postToFeed { return Loc.t("Goes to the feed only.", "Vai só pro feed.") }
         if postToStory { return Loc.t("Goes to stories only (24h).", "Vai só pros stories (24h).") }
@@ -621,7 +693,8 @@ public struct ComposerView: View {
             gym: selectedGym,
             taggedUserIds: Array(taggedUserIds),
             postToFeed: postToFeed,
-            postToStory: postToStory
+            postToStory: postToStory,
+            workoutDate: workoutDate
         )
         if ok {
             Haptics.success()
@@ -634,6 +707,7 @@ public struct ComposerView: View {
             postToStory = true
             taggedUserIds = []
             publishedOK = true
+            onPublished?()
         } else {
             Haptics.error()
             errorMessage = model.error ?? Loc.publishFailed

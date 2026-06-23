@@ -794,12 +794,19 @@ public final class GymCircleAppModel: ObservableObject {
         // Paridade web (PostScreen destinations): feed e/ou story, ambos default
         // ligados. Story-only não cria post (só story); feed-only não cria story.
         postToFeed: Bool = true,
-        postToStory: Bool = true
+        postToStory: Bool = true,
+        // "Registrar treino" (post retroativo): YYYY-MM-DD de um dia já treinado
+        // sem mídia. Quando setado, vai SÓ pro feed com created_at backdatado
+        // (não sobe no topo do feed; preenche calendário/perfil).
+        workoutDate: String? = nil
     ) async -> Bool {
+        let isBackdated = workoutDate != nil
+        let wantsFeed = isBackdated ? true : postToFeed
+        let wantsStory = isBackdated ? false : postToStory
         guard let composerService,
               let userId = sessionStore?.currentUserId,
               !media.isEmpty,
-              postToFeed || postToStory else { return false }
+              wantsFeed || wantsStory else { return false }
         do {
             var uploads: [PostComposerService.UploadedMedia] = []
             for item in media {
@@ -810,13 +817,15 @@ public final class GymCircleAppModel: ObservableObject {
                     uploads.append(try await composerService.uploadVideo(userId: userId, videoData: data))
                 }
             }
-            if postToFeed {
+            if wantsFeed {
                 let postId = try await composerService.publish(
                     userId: userId,
                     medias: uploads,
                     caption: caption,
                     workoutTypes: workoutTypes,
-                    workoutDate: Self.todayKey(),
+                    workoutDate: workoutDate ?? Self.todayKey(),
+                    // Backdata o created_at ao meio-dia (SP) do dia treinado.
+                    createdAt: workoutDate.map { "\($0)T12:00:00-03:00" },
                     gymId: gym?.id,
                     locationName: gym?.name
                 )
@@ -830,7 +839,7 @@ public final class GymCircleAppModel: ObservableObject {
                     )
                 }
             }
-            if postToStory, let cover = uploads.first {
+            if wantsStory, let cover = uploads.first {
                 try? await storiesService?.createStory(
                     userId: userId,
                     media: cover,

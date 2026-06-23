@@ -131,6 +131,9 @@ public actor PostComposerService {
         let workout_type: String?
         let workout_types: [String]?
         let workout_date: String
+        // "Registrar treino" (post retroativo): backdata o created_at. Optional
+        // → omitido quando nil (Swift sintetiza encodeIfPresent), DB usa now().
+        let created_at: String?
         let location_source: String
         let gym_id: String?
         let location_name: String?
@@ -157,6 +160,7 @@ public actor PostComposerService {
         caption: String,
         workoutTypes: [String],
         workoutDate: String,
+        createdAt: String? = nil,
         gymId: String? = nil,
         locationName: String? = nil
     ) async throws -> String {
@@ -179,6 +183,7 @@ public actor PostComposerService {
                 workout_type: workoutTypes.first,
                 workout_types: workoutTypes.isEmpty ? nil : workoutTypes,
                 workout_date: workoutDate,
+                created_at: createdAt,
                 location_source: gymId == nil ? "none" : "gym",
                 gym_id: gymId,
                 location_name: gymId == nil ? nil : locationName

@@ -36,6 +36,10 @@ public struct MyCircleView: View {
     /// web). nil → calendário não é tappável.
     public let onOpenPost: ((String) -> Void)?
 
+    /// "Registrar treino" — tap num dia treinado SEM post abre o composer
+    /// travado naquela data. Só no calendário do próprio user. nil → off.
+    public let onRegisterWorkout: ((String) -> Void)?
+
     /// Sprint 8.11.3 — offset atual do mês exibido no calendar. 0 = hoje.
     @State private var calendarMonthOffset: Int = 0
 
@@ -59,7 +63,8 @@ public struct MyCircleView: View {
         onTapPickPeriod: (() -> Void)? = nil,
         onChangeMonth: ((Int) -> Void)? = nil,
         onLoadRanking: ((RankingScope, RankingPeriod) async -> [CircleRankingRow])? = nil,
-        onOpenPost: ((String) -> Void)? = nil
+        onOpenPost: ((String) -> Void)? = nil,
+        onRegisterWorkout: ((String) -> Void)? = nil
     ) {
         self.data = data
         self.onClose = onClose
@@ -70,6 +75,7 @@ public struct MyCircleView: View {
         self.onChangeMonth = onChangeMonth
         self.onLoadRanking = onLoadRanking
         self.onOpenPost = onOpenPost
+        self.onRegisterWorkout = onRegisterWorkout
     }
 
     public var body: some View {
@@ -338,7 +344,12 @@ public struct MyCircleView: View {
                     calendarMonthNav
                 }
             }
-            MonthlyCalendarGridView(days: data.calendarDays, todayKey: todayKey, onOpenPost: onOpenPost)
+            MonthlyCalendarGridView(
+                days: data.calendarDays,
+                todayKey: todayKey,
+                onOpenPost: onOpenPost,
+                onRegisterWorkout: onRegisterWorkout
+            )
         }
     }
 

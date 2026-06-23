@@ -1,5 +1,11 @@
 import SwiftUI
 
+/// Wrapper Identifiable pra `.sheet(item:)` do composer "registrar treino".
+struct RegisterWorkoutTarget: Identifiable {
+    let id = UUID()
+    let dateKey: String   // "YYYY-MM-DD"
+}
+
 /// ProfileView — Sprint 8.8 + 20.1/20.2.
 ///
 /// 20.1: migra a row 2D antiga pra FeaturedAchievementsRowView (a mesma
@@ -15,6 +21,8 @@ public struct ProfileView: View {
 
     @State private var settingsPresented = false
     @State private var myCirclePresented = false
+    // "Registrar treino": dia treinado sem mídia → composer travado nessa data.
+    @State private var registerTarget: RegisterWorkoutTarget?
     @State private var hallPresented = false
     @State private var hallDetailAchievement: Achievement?
     @State private var openedPost: FeedPost?
@@ -120,6 +128,14 @@ public struct ProfileView: View {
                                 openedPost = post
                             }
                         }
+                    },
+                    onRegisterWorkout: { dateKey in
+                        // Fecha o MyCircle e abre o composer travado nessa data.
+                        myCirclePresented = false
+                        Task {
+                            try? await Task.sleep(nanoseconds: 350_000_000)
+                            registerTarget = RegisterWorkoutTarget(dateKey: dateKey)
+                        }
                     }
                 )
                 .navigationTitle(Loc.myCircle)
@@ -127,6 +143,24 @@ public struct ProfileView: View {
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(Loc.close) { myCirclePresented = false }
+                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    }
+                }
+            }
+            .preferredColorScheme(.dark)
+        }
+        .sheet(item: $registerTarget) { target in
+            NavigationStack {
+                ComposerView(
+                    model: model,
+                    workoutDate: target.dateKey,
+                    onPublished: { registerTarget = nil }
+                )
+                .navigationTitle(Loc.t("Log workout", "Registrar treino"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(Loc.close) { registerTarget = nil }
                             .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                     }
                 }

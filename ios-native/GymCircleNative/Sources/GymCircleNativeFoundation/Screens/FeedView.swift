@@ -30,6 +30,8 @@ public struct FeedView: View {
     // Perfil aberto ao tocar num nome/avatar (autor do post, participante,
     // story, sugestão). Tap em qualquer user → perfil dele.
     @State private var openedProfile: OtherProfileSummary?
+    // "Registrar treino": dia treinado sem mídia no calendário → composer.
+    @State private var registerTarget: RegisterWorkoutTarget?
 
     public init(model: GymCircleAppModel, myCircle: MyCircleViewData) {
         self.model = model
@@ -341,6 +343,13 @@ public struct FeedView: View {
                     },
                     onLoadRanking: { scope, period in
                         await model.loadRanking(scope, period)
+                    },
+                    onRegisterWorkout: { dateKey in
+                        myCirclePresented = false
+                        Task {
+                            try? await Task.sleep(nanoseconds: 350_000_000)
+                            registerTarget = RegisterWorkoutTarget(dateKey: dateKey)
+                        }
                     }
                 )
                     .navigationTitle(Loc.myCircle)
@@ -351,6 +360,24 @@ public struct FeedView: View {
                                 .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                         }
                     }
+            }
+            .preferredColorScheme(.dark)
+        }
+        .sheet(item: $registerTarget) { target in
+            NavigationStack {
+                ComposerView(
+                    model: model,
+                    workoutDate: target.dateKey,
+                    onPublished: { registerTarget = nil }
+                )
+                .navigationTitle(Loc.t("Log workout", "Registrar treino"))
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(Loc.close) { registerTarget = nil }
+                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    }
+                }
             }
             .preferredColorScheme(.dark)
         }
