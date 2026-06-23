@@ -35,6 +35,7 @@
 		5AA2AA7FB9BD8C9094651FAC /* PostParticipantsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E1A059F5AC41A83ACC3C36F /* PostParticipantsService.swift */; };
 		5BF6EE53CD40FF5743BBE711 /* FeedPost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A52D40B4007DAC206C665780 /* FeedPost.swift */; };
 		5D17C0ED8AB94ECA8C0D31EE /* BadgeIconNativeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 641E4CD0FC4408E2F05E4ABA /* BadgeIconNativeView.swift */; };
+		5D6858C0C49ED7B4AC5374ED /* AdminService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C42DB77F98DF9D058EF6E973 /* AdminService.swift */; };
 		5EEA9540FAB0EB5D0AE0918F /* GCRemoteImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FF41A8C7E2CBD840FFDD1B /* GCRemoteImage.swift */; };
 		5EEBF3147E247A6E731BA17D /* AchievementDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */; };
 		5F5FEEF6B191981104672376 /* ProfilePostsGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */; };
@@ -62,6 +63,7 @@
 		A237D22A211DEBC05FFAFE2F /* RecapCoverPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */; };
 		A5A6D40CD56C0495A971AE73 /* CheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A33CA1E1FFA369DA36938B63 /* CheckInView.swift */; };
 		A64CCBB3086148E777260BA8 /* AchievementBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A25EE1B0649D40C491D4501 /* AchievementBuilder.swift */; };
+		ABFB47FC2A31955F92E5E02B /* AdminPanelSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15122478F3BC91D2531457F /* AdminPanelSheet.swift */; };
 		AC5F9E50AAA419528ED29086 /* EditProfileSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */; };
 		AE1B1B22F6780C00D764B281 /* ChallengesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */; };
 		AE315F4F956A28DA13D582C6 /* PostParticipant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 465041DF7DF6A1000F0BC96E /* PostParticipant.swift */; };
@@ -188,7 +190,9 @@
 		C0BB038D99927918121215E6 /* OtherProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OtherProfileView.swift; sourceTree = "<group>"; };
 		C240BBB660BE1713B04F28B2 /* GymCircleAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleAPI.swift; sourceTree = "<group>"; };
 		C35C5FE89726C0C9F0DB40D9 /* EditProfileSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditProfileSheet.swift; sourceTree = "<group>"; };
+		C42DB77F98DF9D058EF6E973 /* AdminService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminService.swift; sourceTree = "<group>"; };
 		CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementDetailView.swift; sourceTree = "<group>"; };
+		D15122478F3BC91D2531457F /* AdminPanelSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminPanelSheet.swift; sourceTree = "<group>"; };
 		D272642D5EA4B50216927502 /* ProfilesService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilesService.swift; sourceTree = "<group>"; };
 		D316D351F4D7012184DE2E66 /* MonthlyRecapSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonthlyRecapSheet.swift; sourceTree = "<group>"; };
 		D55AE3C88470738904E400FD /* AppConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfiguration.swift; sourceTree = "<group>"; };
@@ -286,6 +290,7 @@
 				5260B01DA0DD0A6A5D803FE8 /* AchievementCelebrationView.swift */,
 				CF0814DE9BF78861CEC8B644 /* AchievementDetailView.swift */,
 				7E02612239E7BC217D0CE54E /* AchievementsView.swift */,
+				D15122478F3BC91D2531457F /* AdminPanelSheet.swift */,
 				96EDD818F6C82D7CC140A36F /* ChatViews.swift */,
 				A33CA1E1FFA369DA36938B63 /* CheckInView.swift */,
 				1242B1DB1FF1D257EF8CFF0B /* CommentsSheet.swift */,
@@ -364,6 +369,7 @@
 			isa = PBXGroup;
 			children = (
 				9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */,
+				C42DB77F98DF9D058EF6E973 /* AdminService.swift */,
 				E7456124A93C3498F4AA6BB2 /* AuthService.swift */,
 				61EE6BFEDE8DA2508CA86199 /* ChallengesService.swift */,
 				F42AD544D7B2F14C1D0FE219 /* ChatService.swift */,
@@ -550,6 +556,8 @@
 				425F19777DF07AA72E43F4F2 /* AchievementsService.swift in Sources */,
 				BF88657AA028074A62DCB027 /* AchievementsView.swift in Sources */,
 				A0224FE2BC0713E9345EAD9E /* ActivityRingsView.swift in Sources */,
+				ABFB47FC2A31955F92E5E02B /* AdminPanelSheet.swift in Sources */,
+				5D6858C0C49ED7B4AC5374ED /* AdminService.swift in Sources */,
 				49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */,
 				0354468C7B0BC903D046010B /* AppLocalization.swift in Sources */,
 				1EEF102EFB0EA7E7396B94BB /* AuthService.swift in Sources */,
