@@ -49,6 +49,8 @@ public struct StoryItem: Identifiable, Codable, Hashable, Sendable {
     public let locationName: String?
     public let createdAt: String
     public let expiresAt: String
+    // Contagem de curtidas (RPC) — o dono vê "N curtidas" no rodapé.
+    public let likesCount: Int?
     public let viewerHasLiked: Bool?
     public let viewerHasSeen: Bool?
 
@@ -73,6 +75,7 @@ public struct StoryItem: Identifiable, Codable, Hashable, Sendable {
         case locationName = "location_name"
         case createdAt = "created_at"
         case expiresAt = "expires_at"
+        case likesCount = "likes_count"
         case viewerHasLiked = "viewer_has_liked"
         case viewerHasSeen = "viewer_has_seen"
     }

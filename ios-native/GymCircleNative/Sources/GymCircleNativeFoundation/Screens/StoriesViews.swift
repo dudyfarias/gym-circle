@@ -120,6 +120,8 @@ public struct StoryViewerScreen: View {
     @State private var progress: Double = 0
     @State private var isPaused = false
     @State private var isLoading = true
+    // Vídeo começa MUDO (tap no alto-falante ativa o som) — paridade IG/web.
+    @State private var storyMuted = true
     @State private var likedOverrides: [String: Bool] = [:]
     // Sprint 20.6 — reply por DM.
     @State private var replyDraft = ""
@@ -155,6 +157,16 @@ public struct StoryViewerScreen: View {
     private var isLiked: Bool {
         guard let item = currentItem else { return false }
         return likedOverrides[item.storyId] ?? (item.viewerHasLiked ?? false)
+    }
+
+    /// Story do próprio user (dono vê contagem de curtidas em vez do campo de
+    /// resposta — não dá pra responder a própria story, igual web/IG).
+    private var isOwnStory: Bool {
+        currentItem?.userId == model.currentUserId
+    }
+
+    private var currentIsVideo: Bool {
+        currentItem?.mediaType == .video
     }
 
     public var body: some View {
@@ -224,7 +236,8 @@ public struct StoryViewerScreen: View {
             StoryVideoView(
                 url: url,
                 posterURL: item.posterURL ?? item.thumbnailURL,
-                isPaused: isPaused
+                isPaused: isPaused,
+                muted: storyMuted
             )
             .id(item.storyId)
         } else {
@@ -280,13 +293,18 @@ public struct StoryViewerScreen: View {
                     .buttonStyle(.plain)
                 }
                 Spacer()
-                if let item = currentItem, let url = URL(string: item.mediaURL) {
-                    ShareLink(item: url) {
-                        Image(systemName: "paperplane")
-                            .font(.system(size: 17, weight: .bold))
+                // Som do vídeo (começa mudo; tap ativa) — só pra vídeo.
+                if currentIsVideo {
+                    Button { storyMuted.toggle() } label: {
+                        Image(systemName: storyMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                            .font(.system(size: 16, weight: .bold))
                             .foregroundStyle(.white)
                             .padding(8)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(storyMuted
+                        ? Loc.t("Unmute", "Ativar som")
+                        : Loc.t("Mute", "Silenciar"))
                 }
                 Menu {
                     Button(role: .destructive) {
@@ -352,39 +370,61 @@ public struct StoryViewerScreen: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // Sprint 20.6 — reply por DM (send_direct_message com
-            // story_id + reply_to_story) + like.
-            HStack(spacing: 10) {
-                TextField(Loc.replyPlaceholder, text: $replyDraft)
-                    .focused($replyFocused)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .background(Capsule().fill(.white.opacity(0.14)))
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
-                    .foregroundStyle(.white)
-                if !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            if isOwnStory {
+                // Dono: contagem de curtidas (não dá pra responder à própria
+                // story — paridade web/IG).
+                HStack(spacing: 8) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(GymCircleTheme.ColorToken.pink)
+                    GCText(ownLikesLabel(item: item), style: .body, color: .white)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                // Visitante: responder por DM (send_direct_message com story_id +
+                // reply_to_story) + curtir + compartilhar (paperplane no rodapé,
+                // ao lado do coração, igual IG).
+                HStack(spacing: 10) {
+                    TextField(Loc.replyPlaceholder, text: $replyDraft)
+                        .focused($replyFocused)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .background(Capsule().fill(.white.opacity(0.14)))
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
+                        .foregroundStyle(.white)
+                    if !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button {
+                            Task { await sendReply() }
+                        } label: {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        }
+                        .buttonStyle(.plain)
+                    }
                     Button {
-                        Task { await sendReply() }
+                        Haptics.impactLight()
+                        Task { await toggleLike() }
                     } label: {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .font(.system(size: 28))
-                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .font(.system(size: 26, weight: .bold))
+                            .foregroundStyle(isLiked ? GymCircleTheme.ColorToken.pink : .white)
+                            .padding(4)
                     }
                     .buttonStyle(.plain)
+                    if let url = URL(string: item.mediaURL) {
+                        ShareLink(item: url) {
+                            Image(systemName: "paperplane")
+                                .font(.system(size: 23, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(4)
+                        }
+                    }
                 }
-                Button {
-                    Haptics.impactLight()
-                    Task { await toggleLike() }
-                } label: {
-                    Image(systemName: isLiked ? "heart.fill" : "heart")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundStyle(isLiked ? GymCircleTheme.ColorToken.pink : .white)
-                        .padding(6)
+                .onChange(of: replyFocused) { focused in
+                    isPaused = focused
                 }
-                .buttonStyle(.plain)
-            }
-            .onChange(of: replyFocused) { focused in
-                isPaused = focused
             }
         }
         .padding(.horizontal, 16)
@@ -410,6 +450,15 @@ public struct StoryViewerScreen: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .background(Capsule().fill(.black.opacity(0.45)))
+    }
+
+    /// "N curtidas" pro dono (paridade web formatStoryLikesCount).
+    private func ownLikesLabel(item: StoryItem) -> String {
+        let n = item.likesCount ?? 0
+        if n == 0 { return Loc.t("No likes yet", "Nenhuma curtida ainda") }
+        return n == 1
+            ? Loc.t("1 like", "1 curtida")
+            : Loc.t("\(n) likes", "\(n) curtidas")
     }
 
     /// Idade da story (paridade web formatStoryAge): agora / Nmin / Nh / Nd.
@@ -543,15 +592,18 @@ public struct StoryViewerScreen: View {
 private struct StoryVideoView: View {
     private let posterURL: String?
     let isPaused: Bool
+    let muted: Bool
 
     @State private var player: AVQueuePlayer
     @State private var looper: AVPlayerLooper
     @State private var isPlaying = false
 
-    init(url: URL, posterURL: String?, isPaused: Bool) {
+    init(url: URL, posterURL: String?, isPaused: Bool, muted: Bool) {
         self.posterURL = posterURL
         self.isPaused = isPaused
+        self.muted = muted
         let queue = AVQueuePlayer()
+        queue.isMuted = muted
         queue.actionAtItemEnd = .none
         _player = State(initialValue: queue)
         _looper = State(initialValue: AVPlayerLooper(player: queue, templateItem: AVPlayerItem(url: url)))
@@ -568,19 +620,28 @@ private struct StoryVideoView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
         .onAppear {
-            // Story toca com som (igual IG). Ativa a sessão .playback pra tocar
-            // mesmo com o switch de silêncio.
-            try? AVAudioSession.sharedInstance().setCategory(.playback, options: [])
-            try? AVAudioSession.sharedInstance().setActive(true)
+            applyMute()
             if !isPaused { player.play() }
         }
         .onChange(of: isPaused) { paused in
             if paused { player.pause() } else { player.play() }
         }
+        // Tap no alto-falante (no chrome) liga/desliga o som deste vídeo.
+        .onChange(of: muted) { _ in applyMute() }
         .onReceive(player.publisher(for: \.timeControlStatus)) { status in
             isPlaying = (status == .playing)
         }
         .onDisappear { player.pause() }
+    }
+
+    /// Aplica o mute; ao ATIVAR som, ativa a sessão .playback pra tocar mesmo
+    /// com o switch de silêncio (igual IG).
+    private func applyMute() {
+        player.isMuted = muted
+        if !muted {
+            try? AVAudioSession.sharedInstance().setCategory(.playback, options: [])
+            try? AVAudioSession.sharedInstance().setActive(true)
+        }
     }
 }
 
