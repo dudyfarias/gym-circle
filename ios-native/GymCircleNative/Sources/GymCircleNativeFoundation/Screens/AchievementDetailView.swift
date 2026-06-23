@@ -147,7 +147,7 @@ public struct AchievementDetailView: View {
 
             // Icon — Sprint 22: artefato único (mistério / locked / earned são
             // tratados DENTRO do AchievementArtifactView, paridade web).
-            AchievementArtifactView(achievement: achievement, size: 140, glow: true)
+            AchievementArtifactView(achievement: achievement, size: 140, glow: true, float: true)
         }
         .scaleEffect(animateIn ? 1.0 : 0.5)
         .animation(.spring(response: 0.6, dampingFraction: 0.65, blendDuration: 0.4), value: animateIn)

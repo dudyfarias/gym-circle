@@ -15,11 +15,17 @@ public struct AchievementArtifactView: View {
     public let achievement: Achievement
     public let size: CGFloat
     public let glow: Bool
+    /// Flutuação suave (paridade `gc-achievement-artifact-float` do web) — usar
+    /// só no destaque/detail, NÃO em strips/grids.
+    public let float: Bool
 
-    public init(achievement: Achievement, size: CGFloat = 56, glow: Bool = false) {
+    @State private var floatUp = false
+
+    public init(achievement: Achievement, size: CGFloat = 56, glow: Bool = false, float: Bool = false) {
         self.achievement = achievement
         self.size = size
         self.glow = glow
+        self.float = float
     }
 
     private var isMystery: Bool { achievement.secret && !achievement.earned }
@@ -38,29 +44,18 @@ public struct AchievementArtifactView: View {
                     .blur(radius: size * 0.20)
             }
 
-            shape
-                .fill(fillGradient)
-                .overlay(
-                    // brilho diagonal (paridade highlight do web)
-                    shape.fill(
-                        LinearGradient(
-                            colors: [Color.white.opacity(0.45), .clear, Color.black.opacity(0.22)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                )
-                .frame(width: size, height: size)
+            // Casco "3D": gradiente + brilhos + monograma, inclinado em rotateX/
+            // rotateY (paridade transform do web) pra dar volume de medalha.
+            shell
                 .grayscale(locked ? 1 : 0)
                 .opacity(locked ? 0.45 : 1)
                 .shadow(
                     color: Self.glowColor(rarity).opacity(locked ? 0 : 0.32),
                     radius: size * 0.12, x: 0, y: size * 0.09
                 )
-
-            Text(monogram)
-                .font(.system(size: size * 0.34, weight: .black, design: .default))
-                .foregroundStyle(isMystery ? Color.white.opacity(0.5) : Color.black.opacity(0.74))
+                // Tilt 3D (web: rotateX(18deg) rotateY(-16deg), perspective 620).
+                .rotation3DEffect(.degrees(16), axis: (x: 1, y: 0, z: 0), perspective: 0.55)
+                .rotation3DEffect(.degrees(-14), axis: (x: 0, y: 1, z: 0), perspective: 0.55)
 
             if locked && !isMystery {
                 Image(systemName: "lock.fill")
@@ -70,7 +65,54 @@ public struct AchievementArtifactView: View {
             }
         }
         .frame(width: size, height: size)
+        // Float suave (só quando float==true).
+        .offset(y: float && floatUp ? -size * 0.06 : 0)
+        .onAppear {
+            guard float else { return }
+            withAnimation(.easeInOut(duration: 2.75).repeatForever(autoreverses: true)) {
+                floatUp = true
+            }
+        }
         .accessibilityLabel(isMystery ? "???" : achievement.label)
+    }
+
+    /// Casco da medalha (sem tilt aqui — o tilt é aplicado por fora).
+    private var shell: some View {
+        ZStack {
+            shape.fill(fillGradient)
+            // Brilho diagonal (web linear highlight).
+            shape.fill(
+                LinearGradient(
+                    colors: [Color.white.opacity(0.45), .clear, Color.black.opacity(0.22)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            // Brilho radial glossy no topo-esquerda (web radial-gradient 30%/18%).
+            shape.fill(
+                RadialGradient(
+                    colors: [Color.white.opacity(0.85), Color.white.opacity(0.18), .clear],
+                    center: UnitPoint(x: 0.30, y: 0.20),
+                    startRadius: 0,
+                    endRadius: size * 0.5
+                )
+            )
+            // Sombra interna na base (web inner bottom shadow) — recortada na
+            // própria forma (shape.fill) pra não vazar das silhuetas.
+            shape.fill(
+                LinearGradient(
+                    colors: [.clear, .clear, Color.black.opacity(0.20)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            )
+
+            Text(monogram)
+                .font(.system(size: size * 0.34, weight: .black, design: .default))
+                .foregroundStyle(isMystery ? Color.white.opacity(0.5) : Color.black.opacity(0.74))
+                .shadow(color: Color.white.opacity(0.28), radius: 0, x: 0, y: 1)
+        }
+        .frame(width: size, height: size)
     }
 
     private var monogram: String {

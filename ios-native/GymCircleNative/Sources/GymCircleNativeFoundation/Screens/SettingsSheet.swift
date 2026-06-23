@@ -15,6 +15,12 @@ public struct SettingsSheet: View {
     @State private var confirmDelete = false
     @State private var isWorking = false
     @State private var nativeFeedback: String?
+    @State private var adminPresented = false
+
+    /// Alpha admin só pra "dudy" (paridade web username === "dudy").
+    private var isAdmin: Bool {
+        (model.profile?.username ?? "").lowercased() == "dudy"
+    }
 
     private static let privacyURL = URL(string: "https://gym-circle-rust.vercel.app/privacy")!
     private static let termsURL = URL(string: "https://gym-circle-rust.vercel.app/terms")!
@@ -102,6 +108,16 @@ public struct SettingsSheet: View {
                 }
                 .listRowBackground(GymCircleTheme.ColorToken.card)
 
+                // Alpha admin — só pra "dudy" (paridade web onOpenAdmin).
+                if isAdmin {
+                    Section("Alpha admin") {
+                        Button { adminPresented = true } label: {
+                            settingsRow("Painel admin")
+                        }
+                    }
+                    .listRowBackground(GymCircleTheme.ColorToken.card)
+                }
+
                 Section(Loc.account) {
                     Button {
                         confirmSuspend = true
@@ -137,6 +153,9 @@ public struct SettingsSheet: View {
             .disabled(isWorking)
         }
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $adminPresented) {
+            AdminPanelSheet(model: model)
+        }
         .confirmationDialog(
             Loc.suspendConfirm,
             isPresented: $confirmSuspend,

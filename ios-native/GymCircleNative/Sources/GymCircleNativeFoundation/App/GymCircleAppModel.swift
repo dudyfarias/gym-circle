@@ -79,6 +79,8 @@ public final class GymCircleAppModel: ObservableObject {
     @Published public private(set) var unreadMessages = 0
     // Sprint 20.7b/Native P1 — APNs token lifecycle.
     private let pushService: NativePushNotificationsService?
+    // Alpha admin (só leitura, gateado pra "dudy"). Exposto pro AdminPanelSheet.
+    public let adminService: AdminService?
     // Native P2 — HealthKit foundation. No-op em devices sem Apple Saúde.
     private let healthKitProvider: HealthKitProviding
 
@@ -124,6 +126,7 @@ public final class GymCircleAppModel: ObservableObject {
         let notificationsService = NotificationsService(client: client)
         let chatService = ChatService(client: client)
         let pushService = NativePushNotificationsService(client: client)
+        let adminService = AdminService(client: client)
         self.init(
             sessionStore: sessionStore,
             api: api,
@@ -140,6 +143,7 @@ public final class GymCircleAppModel: ObservableObject {
             notificationsService: notificationsService,
             chatService: chatService,
             pushService: pushService,
+            adminService: adminService,
             healthKitProvider: AppleHealthKitProvider()
         )
     }
@@ -162,6 +166,7 @@ public final class GymCircleAppModel: ObservableObject {
         notificationsService: NotificationsService? = nil,
         chatService: ChatService? = nil,
         pushService: NativePushNotificationsService? = nil,
+        adminService: AdminService? = nil,
         healthKitProvider: HealthKitProviding = AppleHealthKitProvider()
     ) {
         self.sessionStore = sessionStore
@@ -179,6 +184,7 @@ public final class GymCircleAppModel: ObservableObject {
         self.notificationsService = notificationsService
         self.chatService = chatService
         self.pushService = pushService
+        self.adminService = adminService
         self.healthKitProvider = healthKitProvider
     }
 

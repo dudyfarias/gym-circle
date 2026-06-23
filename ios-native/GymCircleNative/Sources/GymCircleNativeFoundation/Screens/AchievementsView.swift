@@ -166,7 +166,7 @@ public struct AchievementsView: View {
     private func featuredCard(_ star: Achievement) -> some View {
         GCCard {
             VStack(spacing: 14) {
-                AchievementArtifactView(achievement: star, size: 96, glow: true)
+                AchievementArtifactView(achievement: star, size: 96, glow: true, float: true)
                     .onTapGesture { onTap(star) }
                 GCText(star.label, style: .headline)
                 GCText(Loc.featuredOne, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
