@@ -15,6 +15,8 @@ public struct ChatListView: View {
     @State private var threads: [ChatThread] = []
     @State private var isLoading = true
     @State private var searchText = ""
+    // Busca remota de pessoas pra iniciar conversa nova (paridade web).
+    @State private var searchedUsers: [DiscoveredProfile] = []
     @State private var openedThread: ChatThread?
     @State private var newMessagePresented = false
     @State private var following: [DiscoveredProfile] = []
@@ -60,11 +62,37 @@ public struct ChatListView: View {
                             }
                         }
                     }
+
+                    // Pessoas (busca remota) — iniciar conversa nova com quem não
+                    // está nas conversas ainda (paridade web).
+                    if !peopleResults.isEmpty {
+                        Section(Loc.t("People", "Pessoas")) {
+                            ForEach(peopleResults) { person in
+                                Button { openNewChat(with: person) } label: {
+                                    HStack(spacing: 12) {
+                                        GCAvatar(url: person.avatarURL, fallback: person.username ?? "u")
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            GCText(person.displayedName, style: .body)
+                                            if let username = person.username, !username.isEmpty {
+                                                GCText("@\(username)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                                            }
+                                        }
+                                        Spacer()
+                                        Image(systemName: "square.and.pencil")
+                                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(GymCircleTheme.ColorToken.appBackground)
+                                .listRowSeparator(.hidden)
+                            }
+                        }
+                    }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
                 .overlay {
-                    if filteredThreads.isEmpty {
+                    if filteredThreads.isEmpty && peopleResults.isEmpty {
                         GCEmptyState(
                             title: Loc.t("No results", "Nenhum resultado"),
                             subtitle: Loc.t("Try another name.", "Tente outro nome.")
@@ -75,6 +103,7 @@ public struct ChatListView: View {
         }
         .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
         .searchable(text: $searchText, prompt: Loc.t("Search conversations", "Buscar conversas"))
+        .task(id: searchText) { await runUserSearch() }
         .navigationTitle(Loc.chat)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -99,7 +128,11 @@ public struct ChatListView: View {
                 title: thread.displayName,
                 isGroup: thread.summary.isGroup,
                 peerUserId: thread.peerUserId,
-                avatarURL: thread.avatarURL
+                avatarURL: thread.avatarURL,
+                peerUsername: thread.peerUsername,
+                peerBadgeActive: thread.peerBadgeActive,
+                memberCount: thread.memberCount,
+                memberAvatarURLs: thread.memberAvatarURLs
             )
             .onDisappear { Task { await reload() } }
         }
@@ -117,6 +150,37 @@ public struct ChatListView: View {
         return threads.filter { $0.displayName.lowercased().contains(query) }
     }
 
+    /// Pessoas da busca remota, sem o próprio user e sem quem já tem conversa
+    /// (essas já aparecem em filteredThreads).
+    private var peopleResults: [DiscoveredProfile] {
+        guard !searchedUsers.isEmpty else { return [] }
+        let existingPeers = Set(threads.compactMap { $0.peerUserId })
+        let myId = model.currentUserId
+        return searchedUsers.filter { $0.userId != myId && !existingPeers.contains($0.userId) }
+    }
+
+    /// Busca de pessoas (debounce 300ms via cancelamento do .task(id:)).
+    private func runUserSearch() async {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2 else { searchedUsers = []; return }
+        try? await Task.sleep(nanoseconds: 300_000_000)
+        if Task.isCancelled { return }
+        searchedUsers = await model.searchProfiles(query: query)
+    }
+
+    /// Abre conversa nova com alguém da busca (id sintético "new:<peer>").
+    private func openNewChat(with person: DiscoveredProfile) {
+        searchText = ""
+        searchedUsers = []
+        openedThread = ChatThread(
+            summary: placeholderSummary(peer: person),
+            displayName: person.displayedName,
+            avatarURL: person.avatarURL,
+            peerUserId: person.userId,
+            peerUsername: person.username
+        )
+    }
+
     private func reload() async {
         threads = await model.fetchChatThreads()
         isLoading = false
@@ -125,7 +189,11 @@ public struct ChatListView: View {
     private func threadRow(_ thread: ChatThread) -> some View {
         let unread = thread.summary.unreadCount ?? 0
         return HStack(spacing: 12) {
-            GCAvatar(url: thread.avatarURL, fallback: thread.displayName)
+            if thread.summary.isGroup {
+                GroupAvatarView(avatarURLs: thread.memberAvatarURLs, size: 48)
+            } else {
+                GCAvatar(url: thread.avatarURL, fallback: thread.displayName)
+            }
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(thread.displayName)
@@ -190,7 +258,8 @@ public struct ChatListView: View {
                                         summary: placeholderSummary(peer: person),
                                         displayName: person.displayedName,
                                         avatarURL: person.avatarURL,
-                                        peerUserId: person.userId
+                                        peerUserId: person.userId,
+                                        peerUsername: person.username
                                     )
                                 }
                             } label: {
@@ -314,6 +383,10 @@ public struct ConversationView: View {
     private let isGroup: Bool
     private let peerUserId: String?
     private let avatarURL: String?
+    private let peerUsername: String?
+    private let peerBadgeActive: Bool?
+    private let memberCount: Int
+    private let memberAvatarURLs: [String]
 
     @Environment(\.dismiss) private var dismiss
     @State private var conversationId: String?
@@ -335,7 +408,11 @@ public struct ConversationView: View {
         title: String,
         isGroup: Bool,
         peerUserId: String?,
-        avatarURL: String? = nil
+        avatarURL: String? = nil,
+        peerUsername: String? = nil,
+        peerBadgeActive: Bool? = nil,
+        memberCount: Int = 0,
+        memberAvatarURLs: [String] = []
     ) {
         self.model = model
         self.initialConversationId = conversationId
@@ -343,9 +420,29 @@ public struct ConversationView: View {
         self.isGroup = isGroup
         self.peerUserId = peerUserId
         self.avatarURL = avatarURL
+        self.peerUsername = peerUsername
+        self.peerBadgeActive = peerBadgeActive
+        self.memberCount = memberCount
+        self.memberAvatarURLs = memberAvatarURLs
         _conversationId = State(
             initialValue: conversationId.hasPrefix("new:") ? nil : conversationId
         )
+    }
+
+    /// Subtítulo do header (paridade web): 1:1 = "@username · treinou hoje/não";
+    /// grupo = "N membros".
+    private var headerSubtitle: String? {
+        if isGroup {
+            guard memberCount > 0 else { return nil }
+            return memberCount == 1
+                ? Loc.t("1 member", "1 membro")
+                : Loc.t("\(memberCount) members", "\(memberCount) membros")
+        }
+        guard let username = peerUsername, !username.isEmpty else { return nil }
+        let status = peerBadgeActive == true
+            ? Loc.t("trained today", "treinou hoje")
+            : Loc.t("not trained yet", "ainda não treinou")
+        return "@\(username) · \(status)"
     }
 
     public var body: some View {
@@ -397,18 +494,22 @@ public struct ConversationView: View {
                     } label: {
                         HStack(spacing: 8) {
                             if isGroup {
-                                Image(systemName: "person.3.fill")
-                                    .font(.system(size: 13, weight: .bold))
-                                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                                    .frame(width: 30, height: 30)
-                                    .background(Circle().fill(Color.white.opacity(0.08)))
+                                GroupAvatarView(avatarURLs: memberAvatarURLs, size: 32)
                             } else {
-                                GCAvatar(url: avatarURL, fallback: title, size: 30)
+                                GCAvatar(url: avatarURL, fallback: title, size: 32)
                             }
-                            Text(title)
-                                .font(.system(size: 16, weight: .heavy))
-                                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                                .lineLimit(1)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(title)
+                                    .font(.system(size: 15, weight: .heavy))
+                                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                                    .lineLimit(1)
+                                if let subtitle = headerSubtitle {
+                                    Text(subtitle)
+                                        .font(.system(size: 11, weight: .bold))
+                                        .foregroundStyle(Color.white.opacity(0.5))
+                                        .lineLimit(1)
+                                }
+                            }
                         }
                     }
                     .buttonStyle(.plain)
@@ -690,6 +791,64 @@ public struct ConversationView: View {
                 messages = latest
                 await refreshSenderChips()
             }
+        }
+    }
+}
+
+/// GroupAvatarView — avatar de grupo em mosaico 2x2 dos membros (paridade web
+/// GroupAvatar). 1 membro = avatar único; 0 = ícone de grupo.
+public struct GroupAvatarView: View {
+    private let avatarURLs: [String]
+    private let size: CGFloat
+
+    public init(avatarURLs: [String], size: CGFloat = 48) {
+        self.avatarURLs = avatarURLs
+        self.size = size
+    }
+
+    public var body: some View {
+        let urls = Array(avatarURLs.prefix(4))
+        Group {
+            if urls.isEmpty {
+                ZStack {
+                    Circle().fill(Color.white.opacity(0.08))
+                    Image(systemName: "person.3.fill")
+                        .font(.system(size: size * 0.38, weight: .bold))
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                }
+            } else if urls.count == 1 {
+                cell(urls[0], side: size)
+            } else {
+                let half = size / 2
+                VStack(spacing: 1) {
+                    HStack(spacing: 1) {
+                        cell(urls[0], side: half)
+                        cell(urls.count > 1 ? urls[1] : nil, side: half)
+                    }
+                    HStack(spacing: 1) {
+                        cell(urls.count > 2 ? urls[2] : nil, side: half)
+                        cell(urls.count > 3 ? urls[3] : nil, side: half)
+                    }
+                }
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private func cell(_ url: String?, side: CGFloat) -> some View {
+        if let url, let resolved = URL(string: url) {
+            AsyncImage(url: resolved) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Rectangle().fill(Color.white.opacity(0.10))
+            }
+            .frame(width: side, height: side)
+            .clipped()
+        } else {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(width: side, height: side)
         }
     }
 }

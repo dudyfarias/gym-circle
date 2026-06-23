@@ -40,13 +40,31 @@ public actor ChatService {
             .value) ?? []
         let peersById = Dictionary(uniqueKeysWithValues: peers.map { ($0.user_id, $0) })
 
+        // Badge "treinou hoje" do peer (subtítulo do header 1:1) — 1 query
+        // batched em user_stats_live; fail-soft (sem badge = subtítulo só @user).
+        struct BadgeRow: Decodable { let user_id: String; let badge_is_active_today: Bool? }
+        let badges: [BadgeRow] = peerIds.isEmpty ? [] : (try? await client
+            .from("user_stats_live")
+            .select("user_id,badge_is_active_today")
+            .in("user_id", values: peerIds)
+            .execute()
+            .value) ?? []
+        let badgeById = Dictionary(uniqueKeysWithValues: badges.map { ($0.user_id, $0.badge_is_active_today ?? false) })
+
         return summaries.map { summary in
             if summary.isGroup {
+                // Mosaico: avatares dos membros (≠ eu) — paridade GroupAvatar web.
+                let memberAvatars = summary.participants
+                    .compactMap(\.userId)
+                    .filter { $0 != currentUserId }
+                    .compactMap { peersById[$0]?.avatar_url }
                 return ChatThread(
                     summary: summary,
                     displayName: summary.name ?? "Grupo",
                     avatarURL: summary.imageURL,
-                    peerUserId: nil
+                    peerUserId: nil,
+                    memberAvatarURLs: memberAvatars,
+                    memberCount: summary.participants.count
                 )
             }
             let peerId = summary.participants.compactMap(\.userId).first { $0 != currentUserId }
@@ -58,7 +76,9 @@ public actor ChatService {
                 summary: summary,
                 displayName: peerName,
                 avatarURL: peer?.avatar_url,
-                peerUserId: peerId
+                peerUserId: peerId,
+                peerUsername: peer?.username,
+                peerBadgeActive: peerId.flatMap { badgeById[$0] }
             )
         }
         .sorted { ($0.summary.lastMessageAt ?? "") > ($1.summary.lastMessageAt ?? "") }

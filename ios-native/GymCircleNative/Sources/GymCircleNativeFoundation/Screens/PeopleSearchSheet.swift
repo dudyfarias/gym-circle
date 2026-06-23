@@ -235,7 +235,8 @@ struct OtherProfileHostView: View {
                 title: summary.profile.displayName ?? summary.profile.username,
                 isGroup: false,
                 peerUserId: summary.profile.userId,
-                avatarURL: summary.profile.avatarURL
+                avatarURL: summary.profile.avatarURL,
+                peerUsername: summary.profile.username
             )
         }
         // Denunciar (paridade web reportUser).

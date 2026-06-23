@@ -147,6 +147,14 @@ public struct ChatThread: Identifiable, Hashable, Sendable {
     public let avatarURL: String?
     /// Peer da conversa 1:1 (nil em grupo) — destino do send_direct_message.
     public let peerUserId: String?
+    /// @username do peer (1:1) — subtítulo do header (paridade web).
+    public let peerUsername: String?
+    /// Badge do peer aceso hoje (treinou) — "treinou hoje" no subtítulo.
+    public let peerBadgeActive: Bool?
+    /// Avatares dos membros (grupo) — mosaico de avatar (paridade GroupAvatar web).
+    public let memberAvatarURLs: [String]
+    /// Total de membros (grupo) — "N membros" no subtítulo.
+    public let memberCount: Int
 
     public var id: String { summary.conversationId }
 
@@ -154,11 +162,19 @@ public struct ChatThread: Identifiable, Hashable, Sendable {
         summary: ConversationSummary,
         displayName: String,
         avatarURL: String?,
-        peerUserId: String?
+        peerUserId: String?,
+        peerUsername: String? = nil,
+        peerBadgeActive: Bool? = nil,
+        memberAvatarURLs: [String] = [],
+        memberCount: Int = 0
     ) {
         self.summary = summary
         self.displayName = displayName
         self.avatarURL = avatarURL
         self.peerUserId = peerUserId
+        self.peerUsername = peerUsername
+        self.peerBadgeActive = peerBadgeActive
+        self.memberAvatarURLs = memberAvatarURLs
+        self.memberCount = memberCount
     }
 }
