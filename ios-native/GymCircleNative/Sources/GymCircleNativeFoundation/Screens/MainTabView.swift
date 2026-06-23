@@ -27,6 +27,9 @@ public struct MainTabView: View {
     // vidro, ícones-only, ativo = cápsula cyan. A barra do sistema é escondida
     // e a custom entra via safeAreaInset (mantém estado/nav + insets do conteúdo).
     @State private var selection: Tab = .feed
+    // Incrementa ao tocar na aba do feed JÁ estando no feed → FeedView sobe ao
+    // topo + dá refresh (paridade web: tap no ícone ativo).
+    @State private var feedReselectTick = 0
 
     enum Tab: Int, CaseIterable, Identifiable {
         case feed, chats, post, map, profile
@@ -56,7 +59,7 @@ public struct MainTabView: View {
     public var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                FeedView(model: model, myCircle: myCircle)
+                FeedView(model: model, myCircle: myCircle, scrollToTopSignal: feedReselectTick)
             }
             .tag(Tab.feed)
             .toolbar(.hidden, for: .tabBar)
@@ -103,6 +106,10 @@ public struct MainTabView: View {
             ForEach(Tab.allCases) { tab in
                 Button {
                     Haptics.impactLight()
+                    // Tocar na aba do feed já estando no feed → subir + refresh.
+                    if tab == .feed && selection == .feed {
+                        feedReselectTick += 1
+                    }
                     selection = tab
                 } label: {
                     Image(systemName: tab.icon)

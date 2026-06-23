@@ -33,9 +33,18 @@ public struct FeedView: View {
     // "Registrar treino": dia treinado sem mídia no calendário → composer.
     @State private var registerTarget: RegisterWorkoutTarget?
 
-    public init(model: GymCircleAppModel, myCircle: MyCircleViewData) {
+    /// Incrementa quando o usuário toca na aba do feed JÁ estando no feed
+    /// (MainTabView): reação = subir ao topo + dar refresh (paridade web
+    /// scrollFeedToTop). 0 = inicial (não dispara).
+    private let scrollToTopSignal: Int
+
+    /// Âncora invisível no topo da lista pro ScrollViewReader.
+    private let topAnchorID = "feed_top"
+
+    public init(model: GymCircleAppModel, myCircle: MyCircleViewData, scrollToTopSignal: Int = 0) {
         self.model = model
         self.myCircle = myCircle
+        self.scrollToTopSignal = scrollToTopSignal
     }
 
     // Card de permissão de distância (paridade DistancePermissionCard web).
@@ -139,8 +148,11 @@ public struct FeedView: View {
     }
 
     public var body: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 20) {
+                // Âncora invisível de topo: re-tap na aba do feed sobe até aqui.
+                Color.clear.frame(height: 0).id(topAnchorID)
                 StoriesTrayView(groups: model.stories, isLoading: false) { group in
                     openedStoryGroup = group
                 }
@@ -223,6 +235,15 @@ public struct FeedView: View {
         .refreshable {
             await model.refreshFeed()
         }
+        // Re-tap na aba do feed (MainTabView) já estando no feed: sobe ao topo
+        // + dá refresh (paridade web scrollFeedToTop + refresh).
+        .onChange(of: scrollToTopSignal) { _ in
+            withAnimation(.easeOut(duration: 0.3)) {
+                proxy.scrollTo(topAnchorID, anchor: .top)
+            }
+            Task { await model.refreshFeed() }
+        }
+        } // ScrollViewReader
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 // Anel de streak abre o MyCircle (gesto idêntico ao web).
