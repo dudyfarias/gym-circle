@@ -1,4 +1,6 @@
 import SwiftUI
+import AVKit
+import AVFoundation
 
 /// StoriesViews — Sprint 3 (tray) + Sprint 20.5 (viewer completo).
 ///
@@ -162,25 +164,9 @@ public struct StoryViewerScreen: View {
             if isLoading {
                 ProgressView().tint(GymCircleTheme.ColorToken.cyan)
             } else if let item = currentItem {
-                // Imagem full-bleed (cover): preenche a tela com frame CLAMPADO
-                // + clipped, então o scaledToFill não transborda nem empurra o
-                // overlay pra fora (era a causa do "tudo torto/cortado").
-                ZStack {
-                    AsyncImage(url: URL(string: item.displayMediaURL)) { image in
-                        image.resizable().scaledToFill()
-                    } placeholder: {
-                        Color.clear
-                    }
-                    if item.mediaType == .video {
-                        Image(systemName: "play.circle.fill")
-                            .font(.system(size: 44, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .shadow(radius: 8)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
-                .ignoresSafeArea()
+                // Mídia full-bleed (cover) ATRÁS, ignorando safe area.
+                mediaLayer(item: item)
+                    .ignoresSafeArea()
 
                 // Tap zones: 1/3 esquerdo volta, 2/3 direito avança.
                 HStack(spacing: 0) {
@@ -199,14 +185,19 @@ public struct StoryViewerScreen: View {
                 .onLongPressGesture(minimumDuration: 0.15, pressing: { pressing in
                     isPaused = pressing
                 }, perform: {})
-
-                // Overlay CLAMPADO na tela (top-aligned; o Spacer interno empurra
-                // o campo de resposta pro rodapé).
-                overlayChrome(item: item)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
                 GCEmptyState(title: Loc.noStoriesTitle, subtitle: Loc.noStoriesSubtitle)
             }
+        }
+        // Chrome DENTRO da safe area: barras/header no topo seguro (abaixo da
+        // Dynamic Island) e resposta no rodapé seguro (acima do home indicator).
+        // safeAreaInset também sobe o rodapé junto com o teclado — corrige de uma
+        // vez o "fora da tela" e o campo escondido pelo teclado.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if !isLoading, currentItem != nil { topChrome }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if !isLoading, let item = currentItem { bottomChrome(item: item) }
         }
         .task(id: authorIndex) {
             await loadAuthor()
@@ -225,8 +216,31 @@ public struct StoryViewerScreen: View {
         .preferredColorScheme(.dark)
     }
 
+    /// Mídia da story: vídeo toca de verdade (loop, com som) — antes mostrava só
+    /// um poster congelado com ícone de play (paridade web <video autoPlay>).
     @ViewBuilder
-    private func overlayChrome(item: StoryItem) -> some View {
+    private func mediaLayer(item: StoryItem) -> some View {
+        if item.mediaType == .video, let url = URL(string: item.mediaURL) {
+            StoryVideoView(
+                url: url,
+                posterURL: item.posterURL ?? item.thumbnailURL,
+                isPaused: isPaused
+            )
+            .id(item.storyId)
+        } else {
+            AsyncImage(url: URL(string: item.mediaURL)) { image in
+                image.resizable().scaledToFill()
+            } placeholder: {
+                Color.clear
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+        }
+    }
+
+    // MARK: - Chrome (topo / rodapé) — cada um na sua safe area
+
+    private var topChrome: some View {
         VStack(spacing: 10) {
             // Barras segmentadas com a fração do story corrente.
             HStack(spacing: 4) {
@@ -252,15 +266,21 @@ public struct StoryViewerScreen: View {
             HStack(spacing: 10) {
                 if let group = currentGroup {
                     Button { openProfile(userId: group.authorId) } label: {
-                        HStack(spacing: 10) {
+                        HStack(spacing: 6) {
                             GCAvatar(url: group.avatarURL, fallback: group.username, size: 34)
                             GCText(group.username, style: .caption, color: .white)
+                            // Idade da story (paridade web formatStoryAge).
+                            if let item = currentItem {
+                                Text("· \(storyAge(item.createdAt))")
+                                    .font(.system(size: 12, weight: .semibold, design: .default))
+                                    .foregroundStyle(.white.opacity(0.6))
+                            }
                         }
                     }
                     .buttonStyle(.plain)
                 }
                 Spacer()
-                if let url = URL(string: item.mediaURL) {
+                if let item = currentItem, let url = URL(string: item.mediaURL) {
                     ShareLink(item: url) {
                         Image(systemName: "paperplane")
                             .font(.system(size: 17, weight: .bold))
@@ -300,14 +320,36 @@ public struct StoryViewerScreen: View {
                 }
                 Button(Loc.cancel, role: .cancel) {}
             }
+        }
+        .padding(.bottom, 6)
+        // Gradiente sutil pra legibilidade do chrome sobre mídia clara.
+        .background(
+            LinearGradient(
+                colors: [.black.opacity(0.42), .clear],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .top)
+        )
+    }
 
-            Spacer()
+    private func bottomChrome(item: StoryItem) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // Stickers: local (igual ao pin do IG) + tipo de treino (paridade web).
+            if item.locationName?.isEmpty == false || item.workoutType?.isEmpty == false {
+                HStack(spacing: 8) {
+                    if let location = item.locationName, !location.isEmpty {
+                        stickerPill(icon: "mappin.circle.fill", text: location)
+                    }
+                    if let workout = item.workoutType, !workout.isEmpty {
+                        stickerPill(icon: "figure.run", text: workout)
+                    }
+                }
+            }
 
             if let caption = item.caption, !caption.isEmpty {
                 GCText(caption, style: .body, color: .white)
-                    .lineLimit(2)
+                    .lineLimit(3)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
             }
 
             // Sprint 20.6 — reply por DM (send_direct_message com
@@ -318,6 +360,7 @@ public struct StoryViewerScreen: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(Capsule().fill(.white.opacity(0.14)))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.22), lineWidth: 1))
                     .foregroundStyle(.white)
                 if !replyDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Button {
@@ -340,12 +383,46 @@ public struct StoryViewerScreen: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 24)
             .onChange(of: replyFocused) { focused in
                 isPaused = focused
             }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.5)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    private func stickerPill(icon: String, text: String) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon).font(.system(size: 12, weight: .bold))
+            Text(text)
+                .font(.system(size: 13, weight: .bold, design: .default))
+                .lineLimit(1)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Capsule().fill(.black.opacity(0.45)))
+    }
+
+    /// Idade da story (paridade web formatStoryAge): agora / Nmin / Nh / Nd.
+    private func storyAge(_ iso: String) -> String {
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let date = withFraction.date(from: iso) ?? ISO8601DateFormatter().date(from: iso)
+        guard let date else { return "" }
+        let secs = max(0, Date().timeIntervalSince(date))
+        if secs < 60 { return Loc.t("now", "agora") }
+        if secs < 3600 { return "\(Int(secs / 60))min" }
+        if secs < 86_400 { return "\(Int(secs / 3600))h" }
+        return "\(Int(secs / 86_400))d"
     }
 
     private func sendReply() async {
@@ -454,5 +531,77 @@ public struct StoryViewerScreen: View {
                 dismiss()
             }
         }
+    }
+}
+
+// MARK: - Vídeo da story (full-bleed cover, loop, com som)
+
+/// Player de vídeo da story (paridade web `<video autoPlay muted playsInline
+/// object-cover>`, mas COM som, estilo IG). Loop infinito via AVPlayerLooper;
+/// pausa/retoma seguindo `isPaused` (hold pra pausar, perfil aberto, teclado);
+/// poster até o 1º frame renderizar. `resizeAspectFill` = cover.
+private struct StoryVideoView: View {
+    private let posterURL: String?
+    let isPaused: Bool
+
+    @State private var player: AVQueuePlayer
+    @State private var looper: AVPlayerLooper
+    @State private var isPlaying = false
+
+    init(url: URL, posterURL: String?, isPaused: Bool) {
+        self.posterURL = posterURL
+        self.isPaused = isPaused
+        let queue = AVQueuePlayer()
+        queue.actionAtItemEnd = .none
+        _player = State(initialValue: queue)
+        _looper = State(initialValue: AVPlayerLooper(player: queue, templateItem: AVPlayerItem(url: url)))
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+            StoryPlayerLayerView(player: player)
+            if !isPlaying, let posterURL, let url = URL(string: posterURL) {
+                GCRemoteImage(url: url, animateOnLoad: false) { Color.black }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .clipped()
+        .onAppear {
+            // Story toca com som (igual IG). Ativa a sessão .playback pra tocar
+            // mesmo com o switch de silêncio.
+            try? AVAudioSession.sharedInstance().setCategory(.playback, options: [])
+            try? AVAudioSession.sharedInstance().setActive(true)
+            if !isPaused { player.play() }
+        }
+        .onChange(of: isPaused) { paused in
+            if paused { player.pause() } else { player.play() }
+        }
+        .onReceive(player.publisher(for: \.timeControlStatus)) { status in
+            isPlaying = (status == .playing)
+        }
+        .onDisappear { player.pause() }
+    }
+}
+
+/// AVPlayerLayer puro (sem controles), resizeAspectFill = cover (object-cover).
+private struct StoryPlayerLayerView: UIViewRepresentable {
+    let player: AVPlayer
+
+    func makeUIView(context: Context) -> Container {
+        let view = Container()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspectFill
+        view.backgroundColor = .black
+        return view
+    }
+
+    func updateUIView(_ uiView: Container, context: Context) {
+        uiView.playerLayer.player = player
+    }
+
+    final class Container: UIView {
+        override class var layerClass: AnyClass { AVPlayerLayer.self }
+        var playerLayer: AVPlayerLayer { layer as! AVPlayerLayer }
     }
 }
