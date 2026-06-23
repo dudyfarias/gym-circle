@@ -215,30 +215,9 @@ public struct ProfileView: View {
             }
         }
         .sheet(item: $openedPost) { post in
-            // Sprint 20.2 — post completo do grid (card com curtir/
-            // comentários do próprio feed pipeline).
-            NavigationStack {
-                ScrollView {
-                    FeedPostCard(
-                        post: post,
-                        currentUserId: model.currentUserId,
-                        onLike: {
-                            Task { await model.toggleLike(postId: post.id) }
-                        }
-                    )
-                    .padding(20)
-                }
-                .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-                .navigationTitle(Loc.post)
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(Loc.close) { openedPost = nil }
-                            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                    }
-                }
-            }
-            .preferredColorScheme(.dark)
+            // Post completo do grid/calendário com TODAS as ações (paridade web
+            // PostDetailOverlay): curtir, comentar, curtidas, menu, share, vídeo.
+            PostDetailSheet(model: model, post: post)
         }
     }
 

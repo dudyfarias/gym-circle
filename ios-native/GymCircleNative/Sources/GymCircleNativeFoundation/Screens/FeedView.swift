@@ -207,7 +207,8 @@ public struct FeedView: View {
                                 playingVideo = PlayableVideo(url: url)
                             },
                             onShare: { sharingPost = post },
-                            onOpenProfile: { openProfile(userId: $0) }
+                            onOpenProfile: { openProfile(userId: $0) },
+                            onOpenMention: { openMention(username: $0) }
                         )
                         .onAppear {
                             // Dispara o load more no penúltimo post (espelho
@@ -432,6 +433,15 @@ public struct FeedView: View {
             }
         }
     }
+
+    /// Tap numa @menção: resolve o username → perfil e apresenta.
+    private func openMention(username: String) {
+        Task {
+            if let summary = await model.fetchOtherProfileSummary(username: username) {
+                openedProfile = summary
+            }
+        }
+    }
 }
 
 struct PlayableVideo: Identifiable {
@@ -488,6 +498,7 @@ public struct FeedPostCard: View {
     private let onPlayVideo: ((URL) -> Void)?
     private let onShare: (() -> Void)?
     private let onOpenProfile: ((String) -> Void)?
+    private let onOpenMention: ((String) -> Void)?
 
     @State private var confirmDelete = false
 
@@ -505,7 +516,8 @@ public struct FeedPostCard: View {
         onRespondInvite: ((Bool) -> Void)? = nil,
         onPlayVideo: ((URL) -> Void)? = nil,
         onShare: (() -> Void)? = nil,
-        onOpenProfile: ((String) -> Void)? = nil
+        onOpenProfile: ((String) -> Void)? = nil,
+        onOpenMention: ((String) -> Void)? = nil
     ) {
         self.post = post
         self.currentUserId = currentUserId
@@ -521,6 +533,7 @@ public struct FeedPostCard: View {
         self.onPlayVideo = onPlayVideo
         self.onShare = onShare
         self.onOpenProfile = onOpenProfile
+        self.onOpenMention = onOpenMention
     }
 
     private var isOwnPost: Bool {
@@ -577,7 +590,9 @@ public struct FeedPostCard: View {
                     likesLine
                     commentsLine
                     if let caption = post.caption, !caption.isEmpty {
-                        GCText(caption, style: .body)
+                        // @menções realçadas + clicáveis (paridade web MentionText).
+                        MentionText(text: caption) { onOpenMention?($0) }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
             }

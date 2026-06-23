@@ -48,6 +48,16 @@ public struct CommentsSheet: View {
         }
     }
 
+    /// Tap numa @menção no comentário: resolve o username → perfil e apresenta.
+    private func openMention(username: String) {
+        guard let model else { return }
+        Task {
+            if let summary = await model.fetchOtherProfileSummary(username: username) {
+                openedProfile = summary
+            }
+        }
+    }
+
     private var topLevel: [PostComment] {
         comments.filter { $0.parentCommentId == nil }
     }
@@ -130,7 +140,9 @@ public struct CommentsSheet: View {
                         color: GymCircleTheme.ColorToken.secondaryText
                     )
                 }
-                GCText(comment.body, style: .body)
+                // @menções realçadas + clicáveis (paridade web MentionText).
+                MentionText(text: comment.body) { openMention(username: $0) }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 Button {
                     replyingTo = comment.parentCommentId == nil ? comment : topLevel.first {
                         $0.id == comment.parentCommentId

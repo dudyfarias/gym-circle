@@ -1454,6 +1454,17 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Resolve um @username → perfil (pra abrir ao tocar numa menção). Usa o
+    /// search_profiles e pega o match EXATO de username. Fail-soft: nil.
+    public func fetchOtherProfileSummary(username: String) async -> OtherProfileSummary? {
+        let handle = username.lowercased()
+        let matches = await searchProfiles(query: handle)
+        guard let target = matches.first(where: { ($0.username ?? "").lowercased() == handle }) else {
+            return nil
+        }
+        return await fetchOtherProfileSummary(userId: target.userId)
+    }
+
     /// Wrapper de ProfilesService.updateProfile + reload local @Published.
     /// Chamado pelo NativeEditProfileHost no save.
     /// Sprint 9.7.1 — agora também aceita instagramUsername, birthDate,

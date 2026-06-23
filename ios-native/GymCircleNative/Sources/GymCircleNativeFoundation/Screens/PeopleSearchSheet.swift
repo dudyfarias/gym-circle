@@ -176,6 +176,8 @@ struct OtherProfileHostView: View {
     // MyCircle do user-alvo (aberto pelo tap no avatar).
     @State private var otherCircle: OtherMyCircleBox?
     @State private var loadingCircle = false
+    // Post aberto pelo grid do perfil (paridade web — antes o tap não fazia nada).
+    @State private var openedPost: FeedPost?
 
     init(model: GymCircleAppModel, summary: OtherProfileSummary) {
         self.model = model
@@ -203,6 +205,13 @@ struct OtherProfileHostView: View {
             onMessage: {},
             onReport: {},
             onBlock: {},
+            onOpenPost: { postId in
+                Task {
+                    if let post = await model.fetchPost(postId: postId) {
+                        openedPost = post
+                    }
+                }
+            },
             onClose: { dismiss() },
             loadRings: { await model.fetchConsistencyRings(userId: $0) },
             loadStoryRing: { await model.fetchStoryRingState(userId: $0) },
@@ -210,6 +219,9 @@ struct OtherProfileHostView: View {
             onOpenFollowers: { followersPresented = true },
             onOpenFollowing: { followingPresented = true }
         )
+        .sheet(item: $openedPost) { post in
+            PostDetailSheet(model: model, post: post)
+        }
         .sheet(isPresented: $followersPresented) {
             FollowListSheet(model: model, userId: summary.profile.userId, mode: .followers)
         }
