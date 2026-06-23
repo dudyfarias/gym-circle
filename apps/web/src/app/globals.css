@@ -599,9 +599,12 @@ button {
 
 /* Sprint 21.3 — virtualização leve do feed: o browser pula render/layout/
    paint dos posts fora da viewport. `auto` no intrinsic-size preserva a
-   altura real depois da 1ª render (scroll não pula); 640px é a estimativa
-   inicial de um card 4:5 + header + ações num iPhone. */
+   altura real depois da 1ª render (scroll não pula).
+   Sprint 22.x — a estimativa inicial era 640px, MENOR que um card real
+   (media 4:5 ≈ 525px + header/ações/legenda/preview de comentários ≈ 775px):
+   o under-reserve fazia o layout "pular"/quebrar ao rolar e ao dar refresh.
+   Subimos pra 780px (≈ card real) pra minimizar o salto. */
 .gc-feed-cell {
   content-visibility: auto;
-  contain-intrinsic-size: auto 640px;
+  contain-intrinsic-size: auto 780px;
 }
