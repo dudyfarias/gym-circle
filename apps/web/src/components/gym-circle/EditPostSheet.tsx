@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Plus, UserPlus, X } from "lucide-react";
+import { Check, Loader2, Plus, UserPlus, X } from "lucide-react";
 import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
 import type {
@@ -58,6 +58,13 @@ function normalizeSearch(value: string) {
     .trim();
 }
 
+type PendingUpload = {
+  id: string;
+  previewUrl: string;
+  mediaType: PostMediaType;
+  status: "uploading" | "error";
+};
+
 function getMediaType(file: File): PostMediaType {
   return file.type.startsWith("video/") ? "video" : "image";
 }
@@ -98,6 +105,7 @@ export function EditPostSheet({
   // carrossel quando o user só edita legenda/tipo.
   const [mediaItems, setMediaItems] = useState<PostMediaItem[]>([]);
   const [mediaChanged, setMediaChanged] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -124,22 +132,45 @@ export function EditPostSheet({
 
   async function addFiles(files: File[]) {
     if (files.length === 0) return;
-    setUploading(true);
     setError(null);
+    const room = Math.max(0, MAX_MEDIA - mediaItems.length - pendingUploads.length);
+    const chosen = files
+      .slice(0, room)
+      .filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    if (chosen.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    // Placeholders na hora (preview local) com animação de carregando.
+    const placeholders: PendingUpload[] = chosen.map((file) => ({
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      previewUrl: URL.createObjectURL(file),
+      mediaType: getMediaType(file),
+      status: "uploading",
+    }));
+    setPendingUploads((prev) => [...prev, ...placeholders]);
+    setUploading(true);
     try {
-      const room = Math.max(0, MAX_MEDIA - mediaItems.length);
+      // Sobe em paralelo; preserva a ordem.
+      const settled = await Promise.allSettled(chosen.map((f) => uploadOne(f)));
       const picked: PostMediaItem[] = [];
-      for (const f of files.slice(0, room)) {
-        const item = await uploadOne(f);
-        if (item) picked.push(item);
+      let firstError: unknown = null;
+      for (const result of settled) {
+        if (result.status === "fulfilled" && result.value) picked.push(result.value);
+        else if (result.status === "rejected" && !firstError) firstError = result.reason;
       }
       if (picked.length > 0) {
         setMediaItems((prev) => [...prev, ...picked].slice(0, MAX_MEDIA));
         setMediaChanged(true);
       }
+      if (firstError) setError((firstError as Error).message ?? t("editPost.errors.save"));
     } catch (err) {
       setError((err as Error).message ?? t("editPost.errors.save"));
     } finally {
+      placeholders.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      setPendingUploads((prev) =>
+        prev.filter((x) => !placeholders.some((ph) => ph.id === x.id)),
+      );
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -307,7 +338,34 @@ export function EditPostSheet({
                 ) : null}
               </div>
             ))}
-            {mediaItems.length < MAX_MEDIA ? (
+            {/* Thumbs em upload: preview local + animação de carregando. */}
+            {pendingUploads.map((pending) => (
+              <div
+                className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
+                key={pending.id}
+              >
+                {pending.mediaType === "video" ? (
+                  <video
+                    className="h-full w-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                    src={pending.previewUrl}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" className="h-full w-full object-cover" src={pending.previewUrl} />
+                )}
+                <div className="absolute inset-0 grid animate-pulse place-items-center bg-black/45">
+                  {pending.status === "error" ? (
+                    <span className="text-[10px] font-black text-amber-300">!</span>
+                  ) : (
+                    <Loader2 className="size-5 animate-spin text-white" />
+                  )}
+                </div>
+              </div>
+            ))}
+            {mediaItems.length + pendingUploads.length < MAX_MEDIA ? (
               <button
                 aria-label={t("postScreen.media.addMore")}
                 className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"

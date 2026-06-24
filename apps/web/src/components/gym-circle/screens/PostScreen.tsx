@@ -160,6 +160,8 @@ export function PostScreen({
   // Mídias em upload: aparecem NA HORA no strip com animação de carregando
   // (preview via objectURL) — antes a tela ficava "travada" até o vídeo subir.
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  // Progresso real do lote: nº de mídias que já terminaram de subir / total.
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -419,9 +421,19 @@ export function PostScreen({
     }));
     setPendingUploads((prev) => [...prev, ...placeholders]);
     setUploading(true);
+    // Progresso REAL do lote: conta cada mídia que termina de subir.
+    let done = 0;
+    setUploadProgress({ done: 0, total: chosen.length });
     try {
       // 2) sobe TODOS em paralelo; preserva a ordem de seleção no resultado.
-      const settled = await Promise.allSettled(chosen.map((f) => uploadOne(f)));
+      const settled = await Promise.allSettled(
+        chosen.map((f) =>
+          uploadOne(f).finally(() => {
+            done += 1;
+            setUploadProgress({ done, total: chosen.length });
+          }),
+        ),
+      );
       const picked: PostMediaItem[] = [];
       let firstError: unknown = null;
       for (const result of settled) {
@@ -441,6 +453,7 @@ export function PostScreen({
       setPendingUploads((prev) =>
         prev.filter((x) => !placeholders.some((ph) => ph.id === x.id)),
       );
+      setUploadProgress(null);
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -839,6 +852,26 @@ export function PostScreen({
                   <Plus size={18} />
                 </button>
               ) : null}
+            </div>
+          ) : null}
+
+          {/* Barra de progresso REAL do lote (nº de mídias já enviadas / total). */}
+          {uploadProgress && uploadProgress.total > 1 ? (
+            <div className="space-y-1.5 pt-1">
+              <div className="flex items-center justify-between text-[12px] font-bold text-white/60">
+                <span>{t("postScreen.media.uploading")}</span>
+                <span>
+                  {uploadProgress.done}/{uploadProgress.total}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-[var(--gc-brand)] transition-[width] duration-300 ease-out"
+                  style={{
+                    width: `${Math.round((uploadProgress.done / uploadProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
             </div>
           ) : null}
         </div>
