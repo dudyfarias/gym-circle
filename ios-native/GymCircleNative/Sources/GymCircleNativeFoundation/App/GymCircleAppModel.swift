@@ -855,7 +855,9 @@ public final class GymCircleAppModel: ObservableObject {
         // "Registrar treino" (post retroativo): YYYY-MM-DD de um dia já treinado
         // sem mídia. Quando setado, vai SÓ pro feed com created_at backdatado
         // (não sobe no topo do feed; preenche calendário/perfil).
-        workoutDate: String? = nil
+        workoutDate: String? = nil,
+        // Progresso REAL do upload: chamado após cada mídia subir (concluídas, total).
+        onProgress: ((Int, Int) -> Void)? = nil
     ) async -> Bool {
         let isBackdated = workoutDate != nil
         let wantsFeed = isBackdated ? true : postToFeed
@@ -866,6 +868,7 @@ public final class GymCircleAppModel: ObservableObject {
               wantsFeed || wantsStory else { return false }
         do {
             var uploads: [PostComposerService.UploadedMedia] = []
+            onProgress?(0, media.count)
             for item in media {
                 switch item {
                 case .photo(let data):
@@ -873,6 +876,7 @@ public final class GymCircleAppModel: ObservableObject {
                 case .video(let data):
                     uploads.append(try await composerService.uploadVideo(userId: userId, videoData: data))
                 }
+                onProgress?(uploads.count, media.count)
             }
             if wantsFeed {
                 let postId = try await composerService.publish(

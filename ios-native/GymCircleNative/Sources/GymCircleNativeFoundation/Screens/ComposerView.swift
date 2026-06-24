@@ -19,6 +19,8 @@ public struct ComposerView: View {
     @State private var postToFeed = true
     @State private var postToStory = true
     @State private var isPublishing = false
+    // Progresso REAL do upload no publish (concluídas, total).
+    @State private var publishProgress: (done: Int, total: Int)?
     @State private var publishedOK = false
     @State private var errorMessage: String?
     @State private var cameraPresented = false
@@ -665,6 +667,28 @@ public struct ComposerView: View {
 
     private var publishButton: some View {
         VStack(spacing: 8) {
+            // Barra de progresso REAL do upload (mídias enviadas / total).
+            if isPublishing, let progress = publishProgress, progress.total > 1 {
+                VStack(spacing: 5) {
+                    HStack {
+                        GCText(Loc.t("Uploading media…", "Enviando mídias…"), style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                        Spacer()
+                        GCText("\(progress.done)/\(progress.total)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.1))
+                            Capsule()
+                                .fill(GymCircleTheme.ColorToken.cyan)
+                                .frame(width: geo.size.width * CGFloat(progress.done) / CGFloat(max(1, progress.total)))
+                                .animation(.easeOut(duration: 0.3), value: progress.done)
+                        }
+                    }
+                    .frame(height: 6)
+                }
+                .padding(.bottom, 2)
+            }
+
             Button {
                 Task { await publish() }
             } label: {
@@ -791,7 +815,7 @@ public struct ComposerView: View {
         guard !pickedMedia.isEmpty, pickedMedia.allSatisfy({ $0.isReady }) else { return }
         isPublishing = true
         errorMessage = nil
-        defer { isPublishing = false }
+        defer { isPublishing = false; publishProgress = nil }
 
         let inputs: [GymCircleAppModel.ComposerMediaInput] = pickedMedia.compactMap { media in
             guard let data = media.data else { return nil }
@@ -805,7 +829,8 @@ public struct ComposerView: View {
             taggedUserIds: Array(taggedUserIds),
             postToFeed: postToFeed,
             postToStory: postToStory,
-            workoutDate: workoutDate
+            workoutDate: workoutDate,
+            onProgress: { done, total in publishProgress = (done, total) }
         )
         if ok {
             Haptics.success()
@@ -876,6 +901,8 @@ public struct EditPostSheet: View {
     @State private var selectedTags: [String]
     @State private var customTag = ""
     @State private var isSaving = false
+    // Progresso REAL do upload das fotos novas no salvar (concluídas, total).
+    @State private var saveProgress: (done: Int, total: Int)?
     @State private var errorMessage: String?
     // Mídias: existentes (URLs) + novas (Data local) — ordem final é
     // existentes mantidas seguidas das novas.
@@ -1038,6 +1065,28 @@ public struct EditPostSheet: View {
                     )
             }
             .disabled(totalCount >= 10)
+
+            // Barra de progresso REAL do upload das fotos novas ao salvar.
+            if let progress = saveProgress, progress.total > 1 {
+                VStack(spacing: 5) {
+                    HStack {
+                        GCText(Loc.t("Uploading photos…", "Enviando fotos…"), style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                        Spacer()
+                        GCText("\(progress.done)/\(progress.total)", style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                    }
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            Capsule().fill(Color.white.opacity(0.1))
+                            Capsule()
+                                .fill(GymCircleTheme.ColorToken.cyan)
+                                .frame(width: geo.size.width * CGFloat(progress.done) / CGFloat(max(1, progress.total)))
+                                .animation(.easeOut(duration: 0.3), value: progress.done)
+                        }
+                    }
+                    .frame(height: 6)
+                }
+                .padding(.top, 2)
+            }
         }
     }
 
@@ -1051,6 +1100,16 @@ public struct EditPostSheet: View {
             content()
                 .frame(width: 84, height: 104)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay {
+                    // Fotos novas mostram animação de carregando durante o upload.
+                    if isSaving && !isExisting {
+                        ZStack {
+                            Color.black.opacity(0.45)
+                            ProgressView().controlSize(.small).tint(.white)
+                        }
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+                }
             Button {
                 if isExisting {
                     existingItems.remove(at: index)
@@ -1093,16 +1152,18 @@ public struct EditPostSheet: View {
         guard totalCount > 0 else { return }
         isSaving = true
         errorMessage = nil
-        defer { isSaving = false }
+        defer { isSaving = false; saveProgress = nil }
 
         var media: [PostComposerService.EditMediaItem]?
         if mediaChanged {
             var combined = existingItems
+            if !newImageDatas.isEmpty { saveProgress = (0, newImageDatas.count) }
             for data in newImageDatas {
                 guard let uploaded = await model.uploadEditImage(data: data) else {
                     errorMessage = model.error ?? Loc.photoUploadFailed
                     return
                 }
+                saveProgress = ((saveProgress?.done ?? 0) + 1, newImageDatas.count)
                 combined.append(
                     PostComposerService.EditMediaItem(
                         mediaType: uploaded.mediaType,
