@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import AVFoundation
 
 /// ComposerView — Sprint 20.4a/b. Substitui o placeholder da tab Criar.
 ///
@@ -40,8 +41,15 @@ public struct ComposerView: View {
     struct PickedMedia: Identifiable {
         let id = UUID()
         let isVideo: Bool
-        let data: Data
-        let preview: UIImage?
+        // Ficam nil enquanto a mídia carrega (vídeo grande demora) — daí o
+        // thumb aparece NA HORA com a animação de carregando.
+        var data: Data?
+        var preview: UIImage?
+        var status: LoadStatus = .loading
+
+        enum LoadStatus { case loading, ready, error }
+
+        var isReady: Bool { status == .ready && data != nil }
     }
 
     /// Presets idênticos ao web (PostScreen) — valor PT-BR é o que
@@ -257,9 +265,18 @@ public struct ComposerView: View {
             if let preview = pickedMedia.first?.preview {
                 Image(uiImage: preview).resizable().scaledToFill()
             } else {
-                Image(systemName: "video.fill")
+                Image(systemName: pickedMedia.first?.isVideo == true ? "video.fill" : "photo")
                     .font(.system(size: 40, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
+            }
+            // Spinner grande na capa enquanto a 1ª mídia carrega.
+            if pickedMedia.first?.status == .loading {
+                ZStack {
+                    Color.black.opacity(0.35)
+                    ProgressView()
+                        .controlSize(.large)
+                        .tint(.white)
+                }
             }
         }
         .aspectRatio(4.0 / 5.0, contentMode: .fit)
@@ -278,13 +295,25 @@ public struct ComposerView: View {
                             } else {
                                 ZStack {
                                     GymCircleTheme.ColorToken.elevatedCard
-                                    Image(systemName: "video.fill")
-                                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                    Image(systemName: item.isVideo ? "video.fill" : "photo")
+                                        .foregroundStyle(GymCircleTheme.ColorToken.cyan.opacity(0.55))
                                 }
                             }
                         }
                         .frame(width: 64, height: 80)
                         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay { thumbStatusOverlay(item) }
+                        .overlay(alignment: .bottomLeading) {
+                            // Badge de vídeo só quando o thumb já está pronto.
+                            if item.isVideo, item.status == .ready {
+                                Image(systemName: "play.fill")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(4)
+                                    .background(Circle().fill(.black.opacity(0.55)))
+                                    .padding(4)
+                            }
+                        }
 
                         Button { pickedMedia.remove(at: index) } label: {
                             Image(systemName: "xmark.circle.fill")
@@ -317,6 +346,32 @@ public struct ComposerView: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    /// Animação de carregando (ou erro) por cima do thumb enquanto a mídia
+    /// não terminou de carregar.
+    @ViewBuilder
+    private func thumbStatusOverlay(_ item: PickedMedia) -> some View {
+        switch item.status {
+        case .loading:
+            ZStack {
+                Color.black.opacity(0.45)
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        case .error:
+            ZStack {
+                Color.black.opacity(0.55)
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.yellow)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        case .ready:
+            EmptyView()
         }
     }
 
@@ -576,11 +631,18 @@ public struct ComposerView: View {
     // Precisa de mídia E pelo menos um destino (paridade web hasDestination).
     // Registrar treino é sempre feed (basta a mídia).
     private var canPublish: Bool {
-        !pickedMedia.isEmpty && (isBackdated || postToFeed || postToStory)
+        !pickedMedia.isEmpty
+            && pickedMedia.allSatisfy { $0.isReady }
+            && (isBackdated || postToFeed || postToStory)
+    }
+
+    private var isLoadingMedia: Bool {
+        pickedMedia.contains { $0.status == .loading }
     }
 
     // CTA muda conforme o destino (paridade web ctaBoth/ctaFeed/ctaStory).
     private var publishCTA: String {
+        if isLoadingMedia { return Loc.t("Loading media…", "Carregando mídias…") }
         if isBackdated { return Loc.t("Log workout", "Registrar treino") }
         if postToFeed && postToStory { return Loc.t("Publish", "Publicar") }
         if postToStory && !postToFeed { return Loc.t("Publish story", "Publicar story") }
@@ -609,6 +671,10 @@ public struct ComposerView: View {
                 HStack(spacing: 8) {
                     if isPublishing {
                         ProgressView().tint(.black)
+                    } else if isLoadingMedia {
+                        ProgressView().tint(GymCircleTheme.ColorToken.secondaryText)
+                        Text(publishCTA)
+                            .font(.system(size: 16, weight: .black, design: .default))
                     } else {
                         Image(systemName: "checkmark")
                             .font(.system(size: 16, weight: .black))
@@ -657,34 +723,79 @@ public struct ComposerView: View {
         guard !items.isEmpty else { return }
         let room = max(0, Self.maxMedias - pickedMedia.count)
         guard room > 0 else { pickerItems = []; return }
-        var medias: [PickedMedia] = []
-        for item in items.prefix(room) {
+        let toLoad = Array(items.prefix(room))
+
+        // 1) Placeholders NA HORA: o strip já mostra N thumbs com a animação de
+        // carregando, então o usuário vê que algo aconteceu (antes a tela ficava
+        // "travada" enquanto o vídeo carregava todo na memória).
+        let placeholders: [PickedMedia] = toLoad.map { item in
             let isVideo = item.supportedContentTypes.contains {
                 $0.conforms(to: .movie) || $0.conforms(to: .audiovisualContent)
             }
-            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
-            medias.append(
-                PickedMedia(
-                    isVideo: isVideo,
-                    data: data,
-                    preview: isVideo ? nil : UIImage(data: data)
-                )
-            )
+            return PickedMedia(isVideo: isVideo, data: nil, preview: nil, status: .loading)
         }
-        // Paridade web: galeria faz APPEND (não substitui); limpa o picker pra
-        // a próxima seleção começar do zero (evita re-contar os já escolhidos).
-        pickedMedia.append(contentsOf: medias)
+        pickedMedia.append(contentsOf: placeholders)
         pickerItems = []
+
+        // 2) Carrega cada mídia EM PARALELO (off-main) e casa o resultado pelo id
+        // do placeholder — cada thumb resolve sozinho assim que fica pronto.
+        await withTaskGroup(of: (UUID, Data?, UIImage?).self) { group in
+            for (item, placeholder) in zip(toLoad, placeholders) {
+                let id = placeholder.id
+                let isVideo = placeholder.isVideo
+                group.addTask {
+                    guard let data = try? await item.loadTransferable(type: Data.self) else {
+                        return (id, nil, nil)
+                    }
+                    let preview = isVideo
+                        ? await Self.videoThumbnail(from: data)
+                        : UIImage(data: data)
+                    return (id, data, preview)
+                }
+            }
+            for await (id, data, preview) in group {
+                guard let index = pickedMedia.firstIndex(where: { $0.id == id }) else { continue }
+                withAnimation(.easeOut(duration: 0.22)) {
+                    if let data {
+                        pickedMedia[index].data = data
+                        pickedMedia[index].preview = preview
+                        pickedMedia[index].status = .ready
+                    } else {
+                        pickedMedia[index].status = .error
+                    }
+                }
+            }
+        }
+    }
+
+    /// Thumbnail do 1º frame de um vídeo (pro preview no strip). Roda off-main;
+    /// AVAsset precisa de URL, então grava num arquivo temporário.
+    private static func videoThumbnail(from data: Data) async -> UIImage? {
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".mov")
+        do {
+            try data.write(to: tempURL)
+            defer { try? FileManager.default.removeItem(at: tempURL) }
+            let asset = AVURLAsset(url: tempURL)
+            let generator = AVAssetImageGenerator(asset: asset)
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: 400, height: 400)
+            let cgImage = try await generator.image(at: CMTime(seconds: 0, preferredTimescale: 600)).image
+            return UIImage(cgImage: cgImage)
+        } catch {
+            return nil
+        }
     }
 
     private func publish() async {
-        guard !pickedMedia.isEmpty else { return }
+        guard !pickedMedia.isEmpty, pickedMedia.allSatisfy({ $0.isReady }) else { return }
         isPublishing = true
         errorMessage = nil
         defer { isPublishing = false }
 
-        let inputs: [GymCircleAppModel.ComposerMediaInput] = pickedMedia.map {
-            $0.isVideo ? .video($0.data) : .photo($0.data)
+        let inputs: [GymCircleAppModel.ComposerMediaInput] = pickedMedia.compactMap { media in
+            guard let data = media.data else { return nil }
+            return media.isVideo ? .video(data) : .photo(data)
         }
         let ok = await model.publishPost(
             media: inputs,

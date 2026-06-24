@@ -12,6 +12,7 @@ import {
   Camera,
   Check,
   ChevronDown,
+  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -92,6 +93,14 @@ function getMediaType(file: File): PostMediaType {
   return file.type.startsWith("video/") ? "video" : "image";
 }
 
+/// Mídia em upload no strip (preview local instantâneo + estado de carregando).
+type PendingUpload = {
+  id: string;
+  previewUrl: string;
+  mediaType: PostMediaType;
+  status: "uploading" | "error";
+};
+
 function getGymMeta(gym: GymLocationOption): string {
   return [gym.address, gym.city, gym.state].filter(Boolean).join(" · ");
 }
@@ -148,6 +157,9 @@ export function PostScreen({
   // continuam sendo a CAPA (= item 0), pra toda a lógica existente
   // (canPublish, preview single, publish) seguir funcionando sem reescrita.
   const [mediaItems, setMediaItems] = useState<PostMediaItem[]>([]);
+  // Mídias em upload: aparecem NA HORA no strip com animação de carregando
+  // (preview via objectURL) — antes a tela ficava "travada" até o vídeo subir.
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -347,11 +359,25 @@ export function PostScreen({
     });
   }
 
-  // Câmera / 1 arquivo → MÍDIA ÚNICA (substitui a seleção atual).
+  // Câmera / 1 arquivo → MÍDIA ÚNICA (substitui a seleção atual). Mostra a capa
+  // de carregando na hora (preview local) — antes a tela ficava parada no vídeo.
   async function uploadSelectedFile(file: File) {
-    setUploading(true);
     setUploadError(null);
     setPublishError(null);
+    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      setUploadError(t("postScreen.publish.errors.uploadInvalidType"));
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      return;
+    }
+    const placeholder: PendingUpload = {
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      previewUrl: URL.createObjectURL(file),
+      mediaType: getMediaType(file),
+      status: "uploading",
+    };
+    setPendingUploads((prev) => [...prev, placeholder]);
+    setUploading(true);
     try {
       const item = await uploadOne(file);
       if (item) {
@@ -361,33 +387,60 @@ export function PostScreen({
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
+      URL.revokeObjectURL(placeholder.previewUrl);
+      setPendingUploads((prev) => prev.filter((x) => x.id !== placeholder.id));
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
     }
   }
 
-  // Galeria → multi: sobe vários, APPEND (cap MAX_MEDIA). Capa = item 0.
+  // Galeria → multi: sobe vários EM PARALELO, APPEND (cap MAX_MEDIA). Os thumbs
+  // aparecem na hora com animação de carregando (placeholders), e cada um é
+  // trocado pela mídia real quando o upload termina. Capa = item 0.
   async function uploadGalleryFiles(files: File[]) {
     if (files.length === 0) return;
-    setUploading(true);
     setUploadError(null);
     setPublishError(null);
+    const room = Math.max(0, MAX_MEDIA - mediaItems.length - pendingUploads.length);
+    const chosen = files
+      .slice(0, room)
+      .filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+    if (chosen.length === 0) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    // 1) placeholders NA HORA (preview instantâneo via objectURL).
+    const placeholders: PendingUpload[] = chosen.map((file) => ({
+      id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      previewUrl: URL.createObjectURL(file),
+      mediaType: getMediaType(file),
+      status: "uploading",
+    }));
+    setPendingUploads((prev) => [...prev, ...placeholders]);
+    setUploading(true);
     try {
-      const room = Math.max(0, MAX_MEDIA - mediaItems.length);
+      // 2) sobe TODOS em paralelo; preserva a ordem de seleção no resultado.
+      const settled = await Promise.allSettled(chosen.map((f) => uploadOne(f)));
       const picked: PostMediaItem[] = [];
-      for (const f of files.slice(0, room)) {
-        const item = await uploadOne(f);
-        if (item) picked.push(item);
+      let firstError: unknown = null;
+      for (const result of settled) {
+        if (result.status === "fulfilled" && result.value) picked.push(result.value);
+        else if (result.status === "rejected" && !firstError) firstError = result.reason;
       }
       if (picked.length > 0) {
         const next = [...mediaItems, ...picked].slice(0, MAX_MEDIA);
         setMediaItems(next);
         applyCover(next[0]);
       }
+      if (firstError) setUploadError(getErrorMessage(firstError));
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
+      placeholders.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      setPendingUploads((prev) =>
+        prev.filter((x) => !placeholders.some((ph) => ph.id === x.id)),
+      );
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -651,11 +704,34 @@ export function PostScreen({
       />
 
       {/* Área de mídia: protagonista quando preenchida, CTA simples quando vazia */}
-      {imageUrl ? (
+      {imageUrl || pendingUploads.length > 0 ? (
         <div className="mt-4 space-y-2">
           <div className="overflow-hidden rounded-[24px] bg-black">
-            {/* Sprint 13 — >1 mídia: preview em carrossel (swipe pra revisar). */}
-            {mediaItems.length > 1 ? (
+            {mediaItems.length === 0 && pendingUploads.length > 0 ? (
+              // Só upload em curso (ainda sem mídia pronta): capa de carregando.
+              <div className="relative aspect-[4/5]">
+                {pendingUploads[0].mediaType === "video" ? (
+                  <video
+                    className="h-full w-full object-cover"
+                    muted
+                    playsInline
+                    preload="metadata"
+                    src={pendingUploads[0].previewUrl}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt=""
+                    className="h-full w-full object-cover"
+                    src={pendingUploads[0].previewUrl}
+                  />
+                )}
+                <div className="absolute inset-0 grid place-items-center bg-black/45">
+                  <Loader2 className="size-9 animate-spin text-white" />
+                </div>
+              </div>
+            ) : /* Sprint 13 — >1 mídia: preview em carrossel (swipe pra revisar). */
+            mediaItems.length > 1 ? (
               <MediaCarousel altText={t("postScreen.media.alt")} media={mediaItems} />
             ) : (
               <div className={mediaType === "video" ? "relative aspect-[4/5]" : "relative"}>
@@ -696,8 +772,9 @@ export function PostScreen({
             )}
           </div>
 
-          {/* Strip de gerenciamento do carrossel: remover item + adicionar mais. */}
-          {mediaItems.length > 1 ? (
+          {/* Strip de gerenciamento do carrossel: remover item + adicionar mais.
+              Inclui os thumbs em UPLOAD (animação de carregando) na hora. */}
+          {mediaItems.length + pendingUploads.length > 1 ? (
             <div className="gc-scrollbar flex gap-2 overflow-x-auto pb-1">
               {mediaItems.map((item, index) => (
                 <div
@@ -720,7 +797,38 @@ export function PostScreen({
                   </button>
                 </div>
               ))}
-              {mediaItems.length < MAX_MEDIA ? (
+              {/* Thumbs em upload: preview local + animação de carregando. */}
+              {pendingUploads.map((pending) => (
+                <div
+                  className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
+                  key={pending.id}
+                >
+                  {pending.mediaType === "video" ? (
+                    <video
+                      className="h-full w-full object-cover"
+                      muted
+                      playsInline
+                      preload="metadata"
+                      src={pending.previewUrl}
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt=""
+                      className="h-full w-full object-cover"
+                      src={pending.previewUrl}
+                    />
+                  )}
+                  <div className="absolute inset-0 grid animate-pulse place-items-center bg-black/45">
+                    {pending.status === "error" ? (
+                      <span className="text-[10px] font-black text-amber-300">!</span>
+                    ) : (
+                      <Loader2 className="size-5 animate-spin text-white" />
+                    )}
+                  </div>
+                </div>
+              ))}
+              {mediaItems.length + pendingUploads.length < MAX_MEDIA ? (
                 <button
                   aria-label={t("postScreen.media.addMore")}
                   className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
