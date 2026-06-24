@@ -38,7 +38,7 @@ targets:
         CFBundleShortVersionString: "2.0.0"
         # build 19 (16/jun):  do remetente em bolhas de grupo.
         # Cada archive novo precisa de build number único (ASC rejeita repetido).
-        CFBundleVersion: "65"
+        CFBundleVersion: "66"
         # Conformidade de exportação: o app só usa HTTPS/TLS padrão + Keychain
         # (criptografia ISENTA, sem nada proprietário). NO limpa o "Faltam dados
         # de conformidade" automaticamente nos próximos builds.
@@ -48,8 +48,10 @@ targets:
         # AppConfiguration.fromBundle() lê daqui (vazio ⇒ modo demo).
         SupabaseURL: $(SUPABASE_URL)
         SupabaseAnonKey: $(SUPABASE_ANON_KEY)
+        # Launch screen preta (fundo da splash da marca) — evita o flash branco
+        # antes do SplashView SwiftUI montar e mostrar a arte completa.
         UILaunchScreen:
-          UIColorName: ""
+          UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:

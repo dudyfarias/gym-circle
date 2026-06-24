@@ -136,38 +136,23 @@ public struct GymCircleNativeRootView: View {
     }
 }
 
-/// Splash exibido enquanto a sessão restaura do Keychain (boot). Marca
-/// centralizada + spinner discreto — substitui o flash da tela de login.
+/// Splash exibido enquanto a sessão restaura do Keychain (boot). Usa a MESMA
+/// arte da splash do web (asset `Splash`: logo + "GYM CIRCLE" + "Train together."
+/// sobre fundo preto), com um spinner discreto no rodapé pra dar feedback de
+/// carregamento durante a restauração da sessão.
 private struct SplashView: View {
     var body: some View {
         ZStack {
-            GymCircleTheme.ColorToken.appBackground.ignoresSafeArea()
-            VStack(spacing: 18) {
-                ZStack {
-                    Circle()
-                        .stroke(
-                            LinearGradient(
-                                colors: [
-                                    GymCircleTheme.ColorToken.cyan,
-                                    GymCircleTheme.ColorToken.deepBlue
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ),
-                            lineWidth: 5
-                        )
-                        .frame(width: 64, height: 64)
-                    Text("C")
-                        .font(.system(size: 32, weight: .black, design: .rounded))
-                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
-                }
-                Text("GYM CIRCLE")
-                    .font(.system(size: 13, weight: .heavy))
-                    .tracking(2)
-                    .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+            Color.black.ignoresSafeArea()
+            Image("Splash")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+            VStack {
+                Spacer()
                 ProgressView()
                     .tint(GymCircleTheme.ColorToken.cyan)
-                    .padding(.top, 4)
+                    .padding(.bottom, 64)
             }
         }
     }
