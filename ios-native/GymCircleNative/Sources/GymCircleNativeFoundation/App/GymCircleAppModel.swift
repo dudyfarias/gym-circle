@@ -820,6 +820,25 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Aceita/recusa marcação de post a partir do SINO — não depende do post
+    /// estar no feed (diferente de respondToInvite). Atualiza o feed local se
+    /// o post estiver carregado, mas funciona mesmo se não estiver.
+    @discardableResult
+    public func respondToPostTag(postId: String, accepted: Bool) async -> Bool {
+        guard let participantsService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await participantsService.respond(
+                postId: postId,
+                taggedUserId: userId,
+                accepted: accepted
+            )
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
     /// Quem curtiu (LikesSheet) — passthrough da API.
     public func fetchPostLikers(postId: String) async -> [PostParticipant] {
         guard let api else { return [] }
