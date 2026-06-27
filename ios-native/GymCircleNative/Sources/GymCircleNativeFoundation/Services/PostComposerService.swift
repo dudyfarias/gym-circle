@@ -92,10 +92,15 @@ public actor PostComposerService {
         let posterVariant = Self.jpegVariant(of: poster, maxEdge: 1600, quality: 0.8)
         guard let posterData = posterVariant.data else { throw ComposerError.invalidVideo }
 
+        // Cap suave em 1080p: ≤1080p sobe INTACTO (passthrough, zero perda);
+        // 4K é reduzido pra 1080p alta qualidade (evita arquivos de 200MB+ e
+        // mantém o piso de 1080p). Falha do transcode cai pro original.
+        let dataToUpload = (try? await Self.cappedTo1080p(asset: asset)) ?? videoData
+
         let base = Self.storageBase(userId: userId)
         _ = try await client.storage.from("posts").upload(
             "\(base).mp4",
-            data: videoData,
+            data: dataToUpload,
             options: FileOptions(cacheControl: "3600", contentType: "video/mp4")
         )
         _ = try await client.storage.from("posts").upload(
@@ -114,6 +119,38 @@ public actor PostComposerService {
             height: Int(posterVariant.size.height),
             durationSeconds: duration
         )
+    }
+
+    /// Re-encoda o vídeo em 1080p QUANDO a fonte é maior (ex.: 4K). Retorna nil
+    /// quando já é ≤1080p — aí o caller sobe o ORIGINAL sem perda. Reduz arquivos
+    /// gigantes de 4K mantendo o piso de 1080p.
+    private static func cappedTo1080p(asset: AVURLAsset) async throws -> Data? {
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else { return nil }
+        let naturalSize = try await track.load(.naturalSize)
+        let transform = try await track.load(.preferredTransform)
+        let displayed = naturalSize.applying(transform)
+        let longSide = max(abs(displayed.width), abs(displayed.height))
+        let shortSide = min(abs(displayed.width), abs(displayed.height))
+        // Já cabe em 1080p → passthrough (qualidade original, sem re-encode).
+        guard longSide > 1920 || shortSide > 1080 else { return nil }
+        guard let export = AVAssetExportSession(
+            asset: asset,
+            presetName: AVAssetExportPreset1920x1080
+        ) else { return nil }
+        let outURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("gc-1080-\(UUID().uuidString).mp4")
+        export.outputURL = outURL
+        export.outputFileType = .mp4
+        export.shouldOptimizeForNetworkUse = true
+        defer { try? FileManager.default.removeItem(at: outURL) }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            export.exportAsynchronously { continuation.resume() }
+        }
+        guard export.status == .completed else {
+            if let error = export.error { throw error }
+            return nil
+        }
+        return try Data(contentsOf: outURL)
     }
 
     // MARK: - Publish
