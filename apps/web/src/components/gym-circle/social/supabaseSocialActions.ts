@@ -715,7 +715,11 @@ export function createSocialActions(
           return;
         }
         await services.checkins.checkIn(currentUserId, gym.id);
-        showFeedback("brand", "Check-in ativo", gymName);
+        // Check-in cria um activity_day (trigger no DB) → dia marcado + streak
+        // mantido, sem foto. Recarrega stats/calendário igual ao aceite de tag.
+        await services.stats.refreshMine();
+        await refresh();
+        showFeedback("success", "Check-in feito", `${gymName} · dia marcado no calendário`);
       },
       async acceptPostTag(postId: string) {
         await services.participants.respondToPostTag(postId, currentUserId, "accepted");
