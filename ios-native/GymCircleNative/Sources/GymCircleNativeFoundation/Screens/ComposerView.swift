@@ -907,13 +907,22 @@ public struct EditPostSheet: View {
     // Mídias: existentes (URLs) + novas (Data local) — ordem final é
     // existentes mantidas seguidas das novas.
     @State private var existingItems: [PostComposerService.EditMediaItem]
-    @State private var newImageDatas: [Data] = []
+    @State private var newMedias: [NewEditMedia] = []
     @State private var pickerItems: [PhotosPickerItem] = []
     private let originalCount: Int
 
-    private var totalCount: Int { existingItems.count + newImageDatas.count }
+    /// Mídia nova (ainda não enviada) escolhida no editor — foto OU vídeo.
+    /// Antes só guardava `Data` de imagem; agora carrega o tipo pra o carrossel
+    /// aceitar vídeo ao adicionar (paridade com o composer e o web).
+    struct NewEditMedia: Identifiable {
+        let id = UUID()
+        let data: Data
+        let isVideo: Bool
+    }
+
+    private var totalCount: Int { existingItems.count + newMedias.count }
     private var mediaChanged: Bool {
-        existingItems.count != originalCount || !newImageDatas.isEmpty
+        existingItems.count != originalCount || !newMedias.isEmpty
     }
 
     public init(model: GymCircleAppModel, post: FeedPost) {
@@ -1038,9 +1047,16 @@ public struct EditPostSheet: View {
                             )
                         }
                     }
-                    ForEach(Array(newImageDatas.enumerated()), id: \.offset) { index, data in
+                    ForEach(Array(newMedias.enumerated()), id: \.element.id) { index, media in
                         editThumb(index: index, isExisting: false) {
-                            if let image = UIImage(data: data) {
+                            if media.isVideo {
+                                ZStack {
+                                    Color.black
+                                    Image(systemName: "video.fill")
+                                        .font(.system(size: 22, weight: .bold))
+                                        .foregroundStyle(.white.opacity(0.85))
+                                }
+                            } else if let image = UIImage(data: media.data) {
                                 Image(uiImage: image)
                                     .resizable()
                                     .scaledToFill()
@@ -1052,7 +1068,7 @@ public struct EditPostSheet: View {
             PhotosPicker(
                 selection: $pickerItems,
                 maxSelectionCount: max(0, 10 - totalCount),
-                matching: .images
+                matching: .any(of: [.images, .videos])
             ) {
                 Label(Loc.addPhotos, systemImage: "plus.square.on.square")
                     .font(.system(size: 14, weight: .bold, design: .default))
@@ -1114,7 +1130,7 @@ public struct EditPostSheet: View {
                 if isExisting {
                     existingItems.remove(at: index)
                 } else {
-                    newImageDatas.remove(at: index)
+                    newMedias.remove(at: index)
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -1137,14 +1153,17 @@ public struct EditPostSheet: View {
     }
 
     private func loadPicked(_ items: [PhotosPickerItem]) async {
-        var datas: [Data] = []
+        var loaded: [NewEditMedia] = []
         for item in items {
+            let isVideo = item.supportedContentTypes.contains {
+                $0.conforms(to: .movie) || $0.conforms(to: .audiovisualContent)
+            }
             if let data = try? await item.loadTransferable(type: Data.self) {
-                datas.append(data)
+                loaded.append(NewEditMedia(data: data, isVideo: isVideo))
             }
         }
-        guard !datas.isEmpty else { return }
-        newImageDatas.append(contentsOf: datas.prefix(max(0, 10 - totalCount)))
+        guard !loaded.isEmpty else { return }
+        newMedias.append(contentsOf: loaded.prefix(max(0, 10 - totalCount)))
         pickerItems = []
     }
 
@@ -1157,13 +1176,16 @@ public struct EditPostSheet: View {
         var media: [PostComposerService.EditMediaItem]?
         if mediaChanged {
             var combined = existingItems
-            if !newImageDatas.isEmpty { saveProgress = (0, newImageDatas.count) }
-            for data in newImageDatas {
-                guard let uploaded = await model.uploadEditImage(data: data) else {
+            if !newMedias.isEmpty { saveProgress = (0, newMedias.count) }
+            for item in newMedias {
+                let uploaded = item.isVideo
+                    ? await model.uploadEditVideo(data: item.data)
+                    : await model.uploadEditImage(data: item.data)
+                guard let uploaded else {
                     errorMessage = model.error ?? Loc.photoUploadFailed
                     return
                 }
-                saveProgress = ((saveProgress?.done ?? 0) + 1, newImageDatas.count)
+                saveProgress = ((saveProgress?.done ?? 0) + 1, newMedias.count)
                 combined.append(
                     PostComposerService.EditMediaItem(
                         mediaType: uploaded.mediaType,

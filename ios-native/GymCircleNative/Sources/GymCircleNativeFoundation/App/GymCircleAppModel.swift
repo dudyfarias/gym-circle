@@ -976,6 +976,19 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Vídeo novo adicionado ao editar um post (carrossel). Reusa o uploadVideo
+    /// do composer (cap suave 1080p + poster), pra o edit aceitar vídeo igual ao
+    /// composer e ao web.
+    public func uploadEditVideo(data: Data) async -> PostComposerService.UploadedMedia? {
+        guard let composerService, let userId = sessionStore?.currentUserId else { return nil }
+        do {
+            return try await composerService.uploadVideo(userId: userId, videoData: data)
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
     /// Sugestões de pessoas (estado inicial da busca — RPC get_user_suggestions).
     public func fetchSuggestions() async -> [DiscoveredProfile] {
         guard let api else { return [] }
