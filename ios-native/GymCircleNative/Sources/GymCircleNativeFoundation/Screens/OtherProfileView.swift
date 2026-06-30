@@ -452,25 +452,24 @@ public struct OtherProfileView: View {
 
     private func latestPostPreview(_ post: ProfilePost) -> some View {
         Button(action: { onOpenPost?(post.id) }) {
+            // Caixa 1.4 LIMITADA: o aspectRatio .fit + maxWidth define a altura
+            // (= largura/1.4); a imagem preenche (scaledToFill) e é clipada na
+            // caixa. Antes o .aspectRatio(.fill) crescia sem limite e o destaque
+            // cobria o grid de posts logo abaixo.
             ZStack(alignment: .bottomLeading) {
+                Color.white.opacity(0.04)
+
                 AsyncImage(url: URL(string: post.displayMediaURL)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    default:
-                        Color.white.opacity(0.04)
+                    if case .success(let image) = phase {
+                        image.resizable().scaledToFill()
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .aspectRatio(1.4, contentMode: .fill)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                 LinearGradient(
                     colors: [.clear, .black.opacity(0.6)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
 
                 Text(L10n.profileLastPost.string)
                     .font(.system(size: 11, weight: .heavy))
@@ -481,6 +480,10 @@ public struct OtherProfileView: View {
                     .background(Capsule().fill(.black.opacity(0.4)))
                     .padding(12)
             }
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1.4, contentMode: .fit)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         }
         .buttonStyle(PressableButtonStyle())
     }
