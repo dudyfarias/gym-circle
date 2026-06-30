@@ -279,6 +279,10 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const refreshTimerRef = useRef<number | null>(null);
   const chatRealtimeTimerRef = useRef<number | null>(null);
   const chatHydratedRef = useRef(false);
+  // Último post cujos detalhes foram carregados (proxy de "sheet de comentários
+  // aberto neste post"). Usado pelo realtime pra refazer a lista do post aberto
+  // mesmo quando ele ainda não tinha nenhum comentário (1º comentário ao vivo).
+  const lastDetailPostIdRef = useRef<string | null>(null);
   // Fix calendário — cache month-scoped de posts do MyCircle. A chave é
   // `${userId}:${YYYY-MM}`; evita reconsultar ao navegar ← → em meses já vistos.
   const profilePostMonthsLoadedRef = useRef(new Set<string>());
@@ -1294,6 +1298,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
   const refreshPostDetails = useCallback(
     async (postId: string) => {
+      lastDetailPostIdRef.current = postId;
       const [likesRes, commentsRes, postParticipants] = await Promise.all([
         services.client
           .from("post_likes")
@@ -1323,6 +1328,20 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         "post_comment_likes",
       );
 
+      // #5 — busca os perfis dos comentaristas ainda não carregados, pra o autor
+      // do comentário não cair no fallback (antes herdava o dono do post).
+      const commentUserIds = Array.from(new Set(postComments.map((c) => c.user_id)));
+      const knownProfileIds = new Set(aggRef.current.profiles.map((p) => p.user_id));
+      const missingProfileIds = commentUserIds.filter((id) => !knownProfileIds.has(id));
+      let fetchedCommentProfiles: ProfileRow[] = [];
+      if (missingProfileIds.length > 0) {
+        const commentProfilesRes = await services.client
+          .from("profiles")
+          .select(PROFILE_COLUMNS)
+          .in("user_id", missingProfileIds);
+        fetchedCommentProfiles = (commentProfilesRes.data ?? []) as unknown as ProfileRow[];
+      }
+
       if (!mountedRef.current) return;
       setAgg((current) => {
         const previousCommentIds = current.postComments
@@ -1335,6 +1354,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
         return {
           ...current,
+          profiles: mergeProfileRows(current.profiles, fetchedCommentProfiles),
           feedPosts: current.feedPosts.map((row) =>
             row.id === postId ? { ...row, comments_count: postComments.length } : row,
           ),
@@ -1538,10 +1558,30 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ),
         }));
       }
+      // Refaz a lista quando o post já tem comentários carregados OU é o post
+      // aberto agora (cobre o 1º comentário ao vivo num post que estava vazio —
+      // antes só `detailsLoaded` e a lista vazia nunca atualizava).
+      const isOpenPost = row.post_id === lastDetailPostIdRef.current;
       const detailsLoaded = aggRef.current.postComments.some(
         (comment) => comment.post_id === row.post_id,
       );
-      if (detailsLoaded) void refreshPostDetails(row.post_id);
+      if (isOpenPost || detailsLoaded) void refreshPostDetails(row.post_id);
+    },
+    [refreshPostDetails],
+  );
+
+  // #3b — curtidas em comentários: antes era callback vazio (não atualizava ao
+  // vivo). Agora refaz os detalhes do post dono do comentário curtido, se ele
+  // estiver carregado.
+  const handleCommentLikeRealtime = useCallback(
+    (payload: RealtimePayload) => {
+      const row = (payload.new ?? payload.old) as { comment_id?: string } | undefined;
+      const commentId = row?.comment_id;
+      if (!commentId) return;
+      const owningPostId = aggRef.current.postComments.find(
+        (comment) => comment.id === commentId,
+      )?.post_id;
+      if (owningPostId) void refreshPostDetails(owningPostId);
     },
     [refreshPostDetails],
   );
@@ -1607,7 +1647,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "story_participants" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_mutes" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_likes" }, handlePostLikeRealtime)
-      .on("postgres_changes", { event: "*", schema: "public", table: "post_comment_likes" }, () => undefined)
+      .on("postgres_changes", { event: "*", schema: "public", table: "post_comment_likes" }, handleCommentLikeRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, handlePostCommentRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, scheduleRefresh)
@@ -1650,6 +1690,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     handleStoryLikeRealtime,
     handlePostLikeRealtime,
     handlePostCommentRealtime,
+    handleCommentLikeRealtime,
     handleChatRealtime,
     refreshNotifications,
   ]);

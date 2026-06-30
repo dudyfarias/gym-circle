@@ -111,7 +111,9 @@
     "cancelReply": "Cancelar resposta",
     "viewReplies_one": "Ver {{count}} resposta",
     "viewReplies_other": "Ver {{count}} respostas",
-    "hideReplies": "Ocultar respostas"
+    "hideReplies": "Ocultar respostas",
+    "loadError": "Não foi possível carregar os comentários.",
+    "submitError": "Não foi possível enviar. Tente de novo."
   },
   "stories": {
     "yourStory": "Seu story",

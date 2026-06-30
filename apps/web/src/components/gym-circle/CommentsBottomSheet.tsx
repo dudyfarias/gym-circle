@@ -8,7 +8,7 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { Heart, Send, X } from "lucide-react";
+import { Heart, Loader2, RotateCw, Send, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "./design-system/EmptyState";
@@ -69,6 +69,12 @@ type CommentsBottomSheetProps = {
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   mentionUsers?: EnrichedUser[];
+  /** Detalhes (comentários) sendo carregados — mostra spinner em vez de vazio. */
+  loading?: boolean;
+  /** Falha ao carregar os comentários — mostra erro + retry em vez de vazio. */
+  loadError?: boolean;
+  /** Re-tenta carregar os detalhes do post. */
+  onRetry?: () => void;
 };
 
 type MentionMatch = {
@@ -109,11 +115,15 @@ export function CommentsBottomSheet({
   onSelectUser,
   resolveUser,
   mentionUsers = [],
+  loading = false,
+  loadError = false,
+  onRetry,
 }: CommentsBottomSheetProps) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState("");
   const [caretIndex, setCaretIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   // Sprint 12.1 — alvo da resposta (threading 1 nível, estilo Instagram).
   const [replyTarget, setReplyTarget] = useState<{
@@ -257,8 +267,13 @@ export function CommentsBottomSheet({
     if (!post) return;
     const body = draft.trim();
     if (!body || submitting) return;
+    if (body.length > 600) {
+      setSubmitError(t("comments.submitError"));
+      return;
+    }
 
     setSubmitting(true);
+    setSubmitError(null);
     // Haptic ANTES do await — feedback imediato mesmo se o callback for
     // assíncrono (otimista local + supabase ack depois).
     simulateHaptic("success");
@@ -267,6 +282,9 @@ export function CommentsBottomSheet({
       setDraft("");
       setCaretIndex(0);
       setReplyTarget(null);
+    } catch {
+      // Antes a falha era silenciosa: o botão voltava ao normal e nada aparecia.
+      setSubmitError(t("comments.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -447,7 +465,10 @@ export function CommentsBottomSheet({
     <div
       aria-hidden={!open}
       className={[
-        "absolute inset-0 z-[68] transition-opacity duration-200",
+        // z-[80]: acima do PostDetailOverlay (z-[72]). Quando os comentários são
+        // abertos de DENTRO do post em tela cheia, o sheet precisa ficar por
+        // cima — antes (z-[68]) abria invisível atrás do post.
+        "absolute inset-0 z-[80] transition-opacity duration-200",
         open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0",
       ].join(" ")}
     >
@@ -523,7 +544,29 @@ export function CommentsBottomSheet({
             ) : null}
           </div>
           <div className="px-4 py-4">
-          {topLevelComments.length === 0 ? (
+          {loading && topLevelComments.length === 0 ? (
+            // Carregando (antes mostrava "nenhum comentário" durante o fetch).
+            <div className="grid place-items-center py-10">
+              <Loader2 className="size-6 animate-spin text-white/40" strokeWidth={2.4} />
+            </div>
+          ) : loadError && topLevelComments.length === 0 ? (
+            // Falha ao carregar (antes virava lista vazia silenciosa).
+            <div className="grid place-items-center gap-3 py-10 text-center">
+              <p className="text-[13px] font-bold text-white/52">
+                {t("comments.loadError")}
+              </p>
+              {onRetry ? (
+                <button
+                  className="gc-pressable inline-flex items-center gap-1.5 rounded-full bg-white/[0.08] px-4 py-2 text-[12px] font-black text-white"
+                  onClick={onRetry}
+                  type="button"
+                >
+                  <RotateCw size={13} strokeWidth={2.6} />
+                  {t("common.retry")}
+                </button>
+              ) : null}
+            </div>
+          ) : topLevelComments.length === 0 ? (
             <div className="grid h-full place-items-center">
               <EmptyState
                 detail={t("comments.empty.detail")}
@@ -614,6 +657,16 @@ export function CommentsBottomSheet({
           </div>
         ) : null}
 
+        {/* Erro de envio (antes falhava em silêncio: passava de 600 chars, RLS,
+            rede) — agora mostra a mensagem e preserva o texto digitado. */}
+        {submitError ? (
+          <div className="border-t border-[var(--gc-pink)]/24 bg-[var(--gc-pink)]/[0.08] px-4 py-2">
+            <span className="text-[12px] font-bold text-[var(--gc-pink)]">
+              {submitError}
+            </span>
+          </div>
+        ) : null}
+
         {/* Input form */}
         <form
           className="relative flex items-center gap-2 border-t border-white/[0.06] px-4 pt-3"
@@ -665,9 +718,11 @@ export function CommentsBottomSheet({
             aria-label={t("comments.inputAria")}
             className="h-11 min-w-0 flex-1 rounded-full border border-white/[0.08] bg-black/40 px-4 text-[14px] font-bold text-white outline-none placeholder:text-white/28"
             enterKeyHint="send"
+            maxLength={600}
             onChange={(event) => {
               setDraft(event.target.value);
               setCaretIndex(event.target.selectionStart ?? event.target.value.length);
+              if (submitError) setSubmitError(null);
             }}
             onClick={updateCaret}
             onFocus={updateCaret}

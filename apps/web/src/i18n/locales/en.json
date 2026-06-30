@@ -111,7 +111,9 @@
     "cancelReply": "Cancel reply",
     "viewReplies_one": "View {{count}} reply",
     "viewReplies_other": "View {{count}} replies",
-    "hideReplies": "Hide replies"
+    "hideReplies": "Hide replies",
+    "loadError": "Couldn't load comments.",
+    "submitError": "Couldn't send. Try again."
   },
   "stories": {
     "yourStory": "Your story",

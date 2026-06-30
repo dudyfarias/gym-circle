@@ -299,7 +299,23 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
         (c as { parent_comment_id?: string | null }).parent_comment_id ?? null,
       likesCount: commentLikes.length,
       likedByCurrentUser: commentLikes.some((like) => like.user_id === currentUserId),
-      author: enrichedAll.get(c.user_id) ?? fallbackAuthor,
+      // Antes o fallback era o AUTOR DO POST → comentário de quem não estava
+      // carregado aparecia com avatar/nome errados. Agora `refreshPostDetails`
+      // busca os perfis dos comentaristas; e se ainda faltar (perfil apagado),
+      // cai num placeholder NEUTRO com o id certo (nunca impersona o dono do post).
+      author:
+        enrichedAll.get(c.user_id) ?? {
+          ...fallbackAuthor,
+          id: c.user_id,
+          name: "Usuário",
+          username: "usuario",
+          avatarUrl: null,
+          bio: "",
+          currentStreak: 0,
+          longestStreak: 0,
+          streakLitToday: false,
+          streakPresenceSource: "none",
+        },
     };
   };
   const likesByPost = new Map<string, PostLikeRow[]>();

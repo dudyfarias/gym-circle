@@ -225,7 +225,10 @@ function VideoSlide({ item, isActive }: { item: PostMediaItem; isActive: boolean
         onClick={() => setPaused((p) => !p)}
         playsInline
         poster={item.posterUrl ?? item.thumbnailUrl ?? undefined}
-        preload="metadata"
+        // Só o slide ativo busca metadata; inativos ficam em "none" (poster
+        // ainda aparece) — evita a rajada de 206 quando o carrossel tem vários
+        // vídeos. Ao virar ativo, o play() carrega sob demanda.
+        preload={isActive ? "metadata" : "none"}
         ref={videoRef}
         src={item.imageUrl}
       />

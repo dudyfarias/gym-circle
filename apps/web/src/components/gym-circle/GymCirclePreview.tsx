@@ -249,6 +249,11 @@ export function GymCirclePreview({
   // Instagram quando user tapa em foto do grid). `postDetailId` continua
   // sendo só pro CommentsBottomSheet (tap no ícone 💬 do feed).
   const [postDetailFullId, setPostDetailFullId] = useState<string | null>(null);
+  // Status do carregamento dos comentários do sheet (loading/erro/ok) — antes o
+  // fetch era fire-and-forget e a falha virava "nenhum comentário" silencioso.
+  const [commentsStatus, setCommentsStatus] = useState<"ready" | "loading" | "error">(
+    "ready",
+  );
   // Sprint 7.5.2 — overlay full-screen Apple Fitness style. Aberto via
   // tap em qualquer achievement (MyCircle highlight, BadgesSheet, Profile
   // featured). Stats (earnedAt, count, rarity) ficam null por enquanto —
@@ -604,7 +609,11 @@ export function GymCirclePreview({
   const openPostDetail = useCallback(
     (postId: string) => {
       setPostDetailId(postId);
-      void refreshPostDetailsAction?.(postId);
+      // Loading/erro reais: antes era `void ...` (falha silenciosa → lista vazia).
+      setCommentsStatus("loading");
+      void (refreshPostDetailsAction?.(postId) ?? Promise.resolve())
+        .then(() => setCommentsStatus("ready"))
+        .catch(() => setCommentsStatus("error"));
     },
     [refreshPostDetailsAction],
   );
@@ -2053,6 +2062,11 @@ export function GymCirclePreview({
             open={postDetailId !== null}
             post={postDetailTarget}
             resolveUser={resolveUser}
+            loading={commentsStatus === "loading"}
+            loadError={commentsStatus === "error"}
+            onRetry={() => {
+              if (postDetailId) openPostDetail(postDetailId);
+            }}
           />
           <LikesOverlay
             currentUserId={social.currentUser.id}
