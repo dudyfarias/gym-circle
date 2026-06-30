@@ -13,6 +13,8 @@ public struct PostComment: Identifiable, Hashable, Sendable {
     public let authorUsername: String
     public let authorDisplayName: String?
     public let authorAvatarURL: String?
+    /// Streak atual do autor (paridade com o StreakBadge do comentário no web).
+    public let authorStreak: Int
     public var likesCount: Int
     public var likedByMe: Bool
 
@@ -30,6 +32,7 @@ public struct PostComment: Identifiable, Hashable, Sendable {
         authorUsername: String,
         authorDisplayName: String?,
         authorAvatarURL: String?,
+        authorStreak: Int = 0,
         likesCount: Int,
         likedByMe: Bool
     ) {
@@ -42,6 +45,7 @@ public struct PostComment: Identifiable, Hashable, Sendable {
         self.authorUsername = authorUsername
         self.authorDisplayName = authorDisplayName
         self.authorAvatarURL = authorAvatarURL
+        self.authorStreak = authorStreak
         self.likesCount = likesCount
         self.likedByMe = likedByMe
     }

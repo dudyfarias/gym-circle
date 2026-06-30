@@ -69,6 +69,7 @@ public struct CommentsSheet: View {
     public var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                postHeader
                 if isLoading {
                     Spacer()
                     GCLoadingView(Loc.loadingComments)
@@ -95,6 +96,7 @@ public struct CommentsSheet: View {
                     .scrollContentBackground(.hidden)
                 }
 
+                reactionsBar
                 inputBar
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
@@ -122,18 +124,22 @@ public struct CommentsSheet: View {
     private func commentRow(_ comment: PostComment, isReply: Bool) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Button { openProfile(userId: comment.userId) } label: {
+                // Paridade web: avatar das replies tem o MESMO tamanho (a
+                // indentação já dá a hierarquia) — sem scaleEffect.
                 GCAvatar(url: comment.authorAvatarURL, fallback: comment.authorUsername)
-                    .scaleEffect(isReply ? 0.8 : 1)
             }
             .buttonStyle(.plain)
             .disabled(model == nil)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Button { openProfile(userId: comment.userId) } label: {
-                        GCText(comment.displayAuthorName, style: .caption)
+                        // Paridade web: @username (handle), não o nome de exibição.
+                        GCText(comment.authorUsername, style: .caption)
                     }
                     .buttonStyle(.plain)
                     .disabled(model == nil)
+                    // StreakBadge do autor (paridade web — identidade de gamificação).
+                    StreakBadgeView(streak: comment.authorStreak, size: .xs)
                     GCText(
                         Self.relativeTime(from: comment.createdAt),
                         style: .caption,
@@ -162,7 +168,7 @@ public struct CommentsSheet: View {
                     Image(systemName: comment.likedByMe ? "heart.fill" : "heart")
                         .foregroundStyle(
                             comment.likedByMe
-                                ? GymCircleTheme.ColorToken.pink
+                                ? GymCircleTheme.ColorToken.electricBlue
                                 : GymCircleTheme.ColorToken.secondaryText
                         )
                     if comment.likesCount > 0 {
@@ -183,6 +189,58 @@ public struct CommentsSheet: View {
                 }
             }
         }
+    }
+
+    // Header do post no topo dos comentários (paridade web): avatar + @username
+    // + tempo relativo + legenda. Sempre visível (inclusive em loading/vazio).
+    private var postHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                GCAvatar(url: post.avatarURL, fallback: post.username, size: 40)
+                VStack(alignment: .leading, spacing: 1) {
+                    GCText(post.username, style: .caption)
+                    GCText(
+                        Self.relativeTime(from: post.createdAt),
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.secondaryText
+                    )
+                }
+                Spacer()
+            }
+            if let caption = post.caption, !caption.isEmpty {
+                GCText(caption, style: .body)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color.white.opacity(0.06)).frame(height: 1)
+        }
+    }
+
+    private static let reactionEmojis = ["❤️", "🙌", "🔥", "👏", "🥲", "😍", "😮", "😂"]
+
+    // Linha de reações rápidas (paridade web): tap envia o emoji como comentário.
+    private var reactionsBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                ForEach(Self.reactionEmojis, id: \.self) { emoji in
+                    Button {
+                        Haptics.impactLight()
+                        Task { await sendReaction(emoji) }
+                    } label: {
+                        Text(emoji).font(.system(size: 26))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(isSending)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(GymCircleTheme.ColorToken.card)
     }
 
     private var inputBar: some View {
@@ -278,6 +336,26 @@ public struct CommentsSheet: View {
         }
     }
 
+    /// Envia uma reação rápida (emoji) como comentário de topo (paridade web).
+    private func sendReaction(_ emoji: String) async {
+        guard let service, let currentUserId, !isSending else { return }
+        isSending = true
+        defer { isSending = false }
+        do {
+            try await service.addComment(
+                postId: post.id,
+                userId: currentUserId,
+                body: emoji,
+                parentCommentId: nil
+            )
+            Haptics.success()
+            onCountDelta(1)
+            await load()
+        } catch {
+            Haptics.error()
+        }
+    }
+
     private func delete(_ comment: PostComment) async {
         guard let service, let currentUserId else { return }
         do {
@@ -324,6 +402,11 @@ public struct CommentsSheet: View {
         if seconds < 60 { return Loc.t("now", "agora") }
         if seconds < 3600 { return "\(Int(seconds / 60))min" }
         if seconds < 86400 { return "\(Int(seconds / 3600))h" }
-        return "\(Int(seconds / 86400))d"
+        if seconds < 7 * 86400 { return "\(Int(seconds / 86400))d" }
+        // Paridade web: acima de 7 dias mostra data curta (melhor que "412d").
+        let display = DateFormatter()
+        display.locale = .current
+        display.setLocalizedDateFormatFromTemplate("dMMM")
+        return display.string(from: date)
     }
 }

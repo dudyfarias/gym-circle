@@ -36,6 +36,11 @@ public actor CommentsService {
         let avatar_url: String?
     }
 
+    private struct StatRow: Decodable {
+        let user_id: String
+        let current_streak: Int?
+    }
+
     private struct NewCommentInsert: Encodable {
         let post_id: String
         let user_id: String
@@ -79,9 +84,19 @@ public actor CommentsService {
             .in("user_id", values: userIds)
             .execute()
             .value) ?? []
+        // Streak por autor (paridade com o StreakBadge do comentário no web).
+        let stats: [StatRow] = (try? await client
+            .from("user_stats_live")
+            .select("user_id,current_streak")
+            .in("user_id", values: userIds)
+            .execute()
+            .value) ?? []
 
         let likesByComment = Dictionary(grouping: likes, by: \.comment_id)
         let authorsById = Dictionary(uniqueKeysWithValues: authors.map { ($0.user_id, $0) })
+        let streakByUser = Dictionary(
+            uniqueKeysWithValues: stats.map { ($0.user_id, $0.current_streak ?? 0) }
+        )
 
         return rows.map { row in
             let commentLikes = likesByComment[row.id] ?? []
@@ -96,6 +111,7 @@ public actor CommentsService {
                 authorUsername: author?.username ?? "user",
                 authorDisplayName: author?.display_name,
                 authorAvatarURL: author?.avatar_url,
+                authorStreak: streakByUser[row.user_id] ?? 0,
                 likesCount: commentLikes.count,
                 likedByMe: commentLikes.contains { $0.user_id == currentUserId }
             )
