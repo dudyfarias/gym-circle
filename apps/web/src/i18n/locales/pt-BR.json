@@ -113,7 +113,8 @@
     "viewReplies_other": "Ver {{count}} respostas",
     "hideReplies": "Ocultar respostas",
     "loadError": "Não foi possível carregar os comentários.",
-    "submitError": "Não foi possível enviar. Tente de novo."
+    "submitError": "Não foi possível enviar. Tente de novo.",
+    "now": "agora"
   },
   "stories": {
     "yourStory": "Seu story",

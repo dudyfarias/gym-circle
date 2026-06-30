@@ -2049,7 +2049,6 @@ export function GymCirclePreview({
           <CommentsBottomSheet
             currentUser={social.currentUser}
             currentUserId={social.currentUser.id}
-            formatTime={social.formatPostClock}
             mentionUsers={followedUsers}
             onClose={closePostDetail}
             onCommentPost={social.actions.commentPost}

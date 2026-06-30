@@ -113,7 +113,8 @@
     "viewReplies_other": "View {{count}} replies",
     "hideReplies": "Hide replies",
     "loadError": "Couldn't load comments.",
-    "submitError": "Couldn't send. Try again."
+    "submitError": "Couldn't send. Try again.",
+    "now": "now"
   },
   "stories": {
     "yourStory": "Your story",

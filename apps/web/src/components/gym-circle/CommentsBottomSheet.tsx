@@ -57,7 +57,6 @@ type CommentsBottomSheetProps = {
   post: EnrichedPost | null;
   currentUserId: string;
   currentUser?: EnrichedUser;
-  formatTime: (createdAt: string) => string;
   onClose: () => void;
   onCommentPost: (
     postId: string,
@@ -102,12 +101,28 @@ function getDraftMentionMatch(value: string, caretIndex: number): MentionMatch |
   };
 }
 
+/**
+ * Tempo relativo no tom do nativo (CommentsSheet.relativeTime): "agora", "5min",
+ * "2h", "3d". Acima de 7 dias cai numa data curta (melhor que "412d"). Substitui
+ * o relógio HH:MM que o web mostrava — paridade + leitura mais natural.
+ */
+function relativeCommentTime(iso: string, locale: string, nowLabel: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) return nowLabel;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}min`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
+  if (seconds < 7 * 86400) return `${Math.floor(seconds / 86400)}d`;
+  return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "short" }).format(
+    new Date(iso),
+  );
+}
+
 export function CommentsBottomSheet({
   open,
   post,
   currentUserId,
   currentUser,
-  formatTime,
   onClose,
   onCommentPost,
   onDeleteComment,
@@ -381,7 +396,7 @@ export function CommentsBottomSheet({
               streak={comment.author.currentStreak}
             />
             <span className="text-[11px] font-bold text-white/36">
-              {formatTime(comment.createdAt)}
+              {relativeCommentTime(comment.createdAt, i18n.language, t("comments.now"))}
             </span>
           </div>
           <div className="text-[13px] font-semibold leading-5 text-white/80">
@@ -527,7 +542,7 @@ export function CommentsBottomSheet({
                   @{post.author.username}
                 </p>
                 <p className="truncate text-[12px] font-semibold text-white/46">
-                  {formatTime(post.createdAt)}
+                  {relativeCommentTime(post.createdAt, i18n.language, t("comments.now"))}
                 </p>
               </div>
               <span className="rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-black text-white/52">
