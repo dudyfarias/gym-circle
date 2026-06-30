@@ -501,6 +501,8 @@ public struct FeedPostCard: View {
     private let onOpenMention: ((String) -> Void)?
 
     @State private var confirmDelete = false
+    // Double-tap-to-like (Instagram): coração estoura no centro da mídia.
+    @State private var heartBurst = false
 
     public init(
         post: FeedPost,
@@ -575,10 +577,30 @@ public struct FeedPostCard: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
 
-            PostCarouselView(
-                items: post.carouselItems,
-                aspectRatio: mediaAspectRatio,
-                onPlayVideo: onPlayVideo
+            // Double-tap-to-like (Instagram, paridade web): duplo toque na mídia
+            // curte (só curte, nunca descurte) e estoura o coração electric blue.
+            ZStack {
+                PostCarouselView(
+                    items: post.carouselItems,
+                    aspectRatio: mediaAspectRatio,
+                    onPlayVideo: onPlayVideo
+                )
+                if heartBurst {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 96, weight: .bold))
+                        .foregroundStyle(GymCircleTheme.ColorToken.electricBlue)
+                        .shadow(
+                            color: GymCircleTheme.ColorToken.electricBlue.opacity(0.6),
+                            radius: 28
+                        )
+                        .transition(.scale(scale: 0.5).combined(with: .opacity))
+                        .allowsHitTesting(false)
+                }
+            }
+            // highPriority: o duplo-toque vence o tap-de-pausa do vídeo / paging
+            // do carrossel; o toque ÚNICO continua passando pro player.
+            .highPriorityGesture(
+                TapGesture(count: 2).onEnded { likeFromDoubleTap() }
             )
 
             VStack(alignment: .leading, spacing: 12) {
@@ -900,6 +922,17 @@ public struct FeedPostCard: View {
                 .foregroundStyle(Color.white.opacity(0.46))
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    /// Duplo-toque na mídia = curtir (estilo Instagram). SÓ curte (nunca
+    /// descurte no duplo-toque); o coração estoura sempre como feedback.
+    private func likeFromDoubleTap() {
+        Haptics.success()
+        if post.likedByMe != true { onLike?() }
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.6)) { heartBurst = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+            withAnimation(.easeOut(duration: 0.28)) { heartBurst = false }
         }
     }
 
