@@ -197,7 +197,7 @@ function buildBadges(input: {
   postsCount: number;
   posts?: ReadonlyArray<AchievementPostSnapshot>;
 }): BadgeAchievement[] {
-  const { user, postsCount, posts } = input;
+  const { postsCount, posts } = input;
 
   // Secret unlock calculations (mesma lógica da Sprint 5.3 mantida)
   let earlyBirdEarned = false;

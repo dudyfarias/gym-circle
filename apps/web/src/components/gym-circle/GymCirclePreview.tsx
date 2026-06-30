@@ -1103,7 +1103,9 @@ export function GymCirclePreview({
     const currentUserId = social.currentUser?.id;
     if (!currentUserId) return;
     void social.actions.refreshProfilePosts?.(currentUserId);
-  }, [social.currentUser?.id]);
+    // social.actions é memoizado (useMemo no hook) → ref estável; o efeito
+    // segue rodando só na troca de user.
+  }, [social.currentUser?.id, social.actions]);
 
   // bloqueia UI). Sem isso, a RPC get_achievement_global_stats sempre
   // retornaria 0% — UI mostraria "Apenas 0% dos usuários" pra tudo.
@@ -1748,6 +1750,9 @@ export function GymCirclePreview({
     chatTargetUserId,
     allUsers,
     followedUsers,
+    openAchievementDetailHybrid,
+    openBadges,
+    openMyCircle,
     feedPosts,
     scrollState,
     hasDistancePosts,
@@ -1766,7 +1771,6 @@ export function GymCirclePreview({
     resolveUser,
     openPostMenu,
     currentUserPosts,
-    monthlyRecap,
     recentPostLocations,
     currentUserStoryGroup,
     storyGroups,

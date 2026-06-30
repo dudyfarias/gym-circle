@@ -81,10 +81,6 @@ function getSaoPauloDateParts(date: Date): SaoPauloDateParts {
   };
 }
 
-function getMonthKey(parts: SaoPauloDateParts): string {
-  return `${parts.year}-${String(parts.month).padStart(2, "0")}`;
-}
-
 function getDaysInMonth(year: number, month: number): number {
   return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }

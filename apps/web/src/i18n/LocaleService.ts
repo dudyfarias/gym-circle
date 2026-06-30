@@ -1,6 +1,5 @@
 "use client";
 
-import i18next from "i18next";
 import {
   DEFAULT_LOCALE,
   SUPPORTED_LOCALES,

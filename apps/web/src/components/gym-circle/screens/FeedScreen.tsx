@@ -157,7 +157,6 @@ export function FeedScreen({
       // Métrica debug: tempo total até todos os top-N decodificarem.
       // Em produção essa linha vira no-op se o console for filtrado.
       const elapsed = Math.round(performance.now() - startedAt);
-      // eslint-disable-next-line no-console
       console.log(`[gc-metrics] feed_first_paint_ms=${elapsed} count=${srcs.length}`);
     });
 

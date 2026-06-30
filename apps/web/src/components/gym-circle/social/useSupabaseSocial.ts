@@ -1477,6 +1477,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     feedLoadingMore,
     refreshUsersExtras,
     services.client,
+    services.posts,
   ]);
 
   // Sprint 19 — carrega o ranking da Competição (escopo × período) sob demanda.

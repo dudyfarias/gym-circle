@@ -90,7 +90,7 @@ export function CheckInScreen({
   onSelectUser,
   onCatalogPlace,
 }: CheckInScreenProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);

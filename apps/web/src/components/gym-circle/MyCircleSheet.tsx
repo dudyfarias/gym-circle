@@ -147,7 +147,6 @@ export function MyCircleSheet({
   hasStory = false,
   storyViewed = false,
   onClose,
-  onOpenStory,
   monthlyRecap,
   onOpenMonthlyRecap,
   onOpenBadges,

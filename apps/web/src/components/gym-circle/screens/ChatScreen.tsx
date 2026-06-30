@@ -134,7 +134,7 @@ export function ChatScreen({
   onThreadViewChange,
   onUploadImage,
 }: ChatScreenProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const safeMessages = useMemo(() => messages ?? [], [messages]);
   const safeConversations = useMemo(() => conversations ?? [], [conversations]);
   const loading = loadingProp ?? messages === undefined;
@@ -213,7 +213,7 @@ export function ChatScreen({
       cancelled = true;
       window.clearTimeout(searchId);
     };
-  }, [normalizedChatQuery, onSearchUsers]);
+  }, [normalizedChatQuery, onSearchUsers, t]);
 
   const remoteSearchResults = useMemo(
     () => (remoteSearch.query === normalizedChatQuery ? remoteSearch.users : []),

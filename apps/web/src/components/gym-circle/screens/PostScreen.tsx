@@ -294,7 +294,7 @@ export function PostScreen({
       longitude: null,
       googleMapsUrl: null,
     };
-  }, [coordinates, locationMode, locationName, selectedGym]);
+  }, [coordinates, locationMode, locationName, selectedGym, t]);
 
   const locationReady =
     locationMode === "none" ||

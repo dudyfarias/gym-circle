@@ -609,24 +609,6 @@ function drawUsernameBadge(
   ctx.fillText(text, x + paddingX, y + height / 2 + 8);
 }
 
-function drawCanvasStat(
-  ctx: CanvasRenderingContext2D,
-  label: string,
-  value: string,
-  x: number,
-  y: number,
-) {
-  ctx.fillStyle = "rgba(255,255,255,0.09)";
-  roundRect(ctx, x, y, 448, 108, 28);
-  ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,0.42)";
-  ctx.font = "900 24px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(label.toUpperCase(), x + 28, y + 38);
-  ctx.fillStyle = "#FFFFFF";
-  ctx.font = "900 34px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  ctx.fillText(truncateCanvasText(ctx, value, 380), x + 28, y + 80);
-}
-
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,

@@ -107,7 +107,6 @@ export function ProfileScreen({
   onOpenMyCircle,
   onOpenPost,
   onUseStreakRestore,
-  onDismissProfileCompletionNotice,
   onMarkContextualHintSeen,
   onOpenAchievementDetail,
   onOpenAchievements,
