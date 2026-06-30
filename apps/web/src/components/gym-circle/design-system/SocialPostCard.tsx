@@ -85,6 +85,10 @@ function SocialPostCardComponent({
   const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoVisible, setVideoVisible] = useState(false);
+  // Double-tap-to-like (gesto do Instagram): coração estoura no centro da mídia.
+  const [heartBurst, setHeartBurst] = useState(false);
+  const lastTapRef = useRef(0);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const mediaType = post.mediaType ?? "image";
   // Sprint 3.6 bug fix (image quality):
   // - `imagePreviewUrl` = thumbnail 640px → paint imediato no scroll
@@ -137,6 +141,46 @@ function SocialPostCardComponent({
     // for assíncrono (mock vs Supabase otimista vs erro). Sprint 3 — Fase 3.2.
     simulateHaptic("like");
     onLike(post.id);
+  }
+
+  // Double-tap na mídia = curtir (estilo Instagram). SÓ curte, nunca descurte
+  // (o duplo-toque nunca remove o like); o coração estoura sempre como feedback.
+  function likeFromDoubleTap() {
+    setHeartBurst(true);
+    window.setTimeout(() => setHeartBurst(false), 700);
+    simulateHaptic("like");
+    if (!post.likedByCurrentUser) onLike(post.id);
+  }
+
+  function handleMediaTouchStart(event: React.TouchEvent) {
+    const touch = event.touches[0];
+    touchStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  // Detecta duplo-toque sem quebrar swipe do carrossel nem pinch-zoom: ignora se
+  // o dedo se moveu (swipe) ou se há multitouch (pinch). preventDefault no 2º
+  // toque evita o "click" sintético (que pausaria o vídeo).
+  function handleMediaTouchEnd(event: React.TouchEvent) {
+    const start = touchStartRef.current;
+    const touch = event.changedTouches[0];
+    touchStartRef.current = null;
+    if (!start || !touch || event.touches.length > 0) {
+      lastTapRef.current = 0;
+      return;
+    }
+    const moved = Math.hypot(touch.clientX - start.x, touch.clientY - start.y);
+    if (moved > 12) {
+      lastTapRef.current = 0;
+      return;
+    }
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) {
+      event.preventDefault();
+      lastTapRef.current = 0;
+      likeFromDoubleTap();
+    } else {
+      lastTapRef.current = now;
+    }
   }
 
   function handleOpenComments() {
@@ -290,6 +334,15 @@ function SocialPostCardComponent({
         </div>
       </div>
 
+      {/* Double-tap-to-like (Instagram): wrapper em volta da mídia (carrossel
+          OU single) detecta o duplo-toque e mostra o coração. Não bloqueia
+          swipe/pinch/tap-de-vídeo (ver handlers). */}
+      <div
+        className="relative"
+        onDoubleClick={likeFromDoubleTap}
+        onTouchStart={handleMediaTouchStart}
+        onTouchEnd={handleMediaTouchEnd}
+      >
       {/* Sprint 13 — carrossel só quando há >1 mídia. 1 mídia renderiza
           EXATAMENTE como antes (zero mudança de comportamento). */}
       {post.media && post.media.length > 1 ? (
@@ -343,6 +396,20 @@ function SocialPostCardComponent({
         ) : null}
       </div>
       )}
+
+        {/* Coração do duplo-toque — estoura no centro da mídia (~520ms). Mesmo
+            visual do StoryViewer (azul + glow), pointer-events-none. */}
+        {heartBurst ? (
+          <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center">
+            <Heart
+              className="gc-heart-burst text-[var(--gc-blue)] drop-shadow-[0_0_32px_rgba(48,213,255,0.65)]"
+              fill="currentColor"
+              size={96}
+              strokeWidth={2.4}
+            />
+          </div>
+        ) : null}
+      </div>
 
       <div className="space-y-3 px-4 py-3.5">
         {/* Sprint 5 — Action row. Quando embebido no CommentsBottomSheet
