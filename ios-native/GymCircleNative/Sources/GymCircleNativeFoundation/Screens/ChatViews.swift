@@ -24,6 +24,12 @@ public struct ChatListView: View {
     @State private var groupName = ""
     @State private var selectedGroupMemberIds: Set<String> = []
     @State private var isCreatingGroup = false
+    // Novo chat: estado próprio (recarrega "seguindo" ao abrir o sheet — evita o
+    // race do .task da tab que rodava antes da sessão e ficava vazio pra sempre)
+    // + busca de pessoas como fallback (nunca fica num beco sem saída).
+    @State private var loadingFollowing = false
+    @State private var newChatQuery = ""
+    @State private var newChatResults: [DiscoveredProfile] = []
 
     public init(model: GymCircleAppModel) {
         self.model = model
@@ -233,13 +239,33 @@ public struct ChatListView: View {
         .padding(.vertical, 6)
     }
 
+    // Pessoas a mostrar no novo chat: busca quando há query (≥2), senão "seguindo".
+    private var newChatPeople: [DiscoveredProfile] {
+        let myId = model.currentUserId
+        let query = newChatQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base = query.isEmpty ? following : newChatResults
+        return base.filter { $0.userId != myId }
+    }
+
+    private func runNewChatSearch() async {
+        let query = newChatQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.count >= 2 else { newChatResults = []; return }
+        newChatResults = await model.searchProfiles(query: query)
+    }
+
     private var newMessageSheet: some View {
         NavigationStack {
             Group {
-                if following.isEmpty {
+                if loadingFollowing && newChatPeople.isEmpty && newChatQuery.isEmpty {
+                    GCLoadingView(Loc.t("Loading…", "Carregando…"))
+                } else if newChatPeople.isEmpty {
                     GCEmptyState(
-                        title: Loc.noFollowsTitle,
-                        subtitle: Loc.noFollowsSubtitle
+                        title: newChatQuery.isEmpty
+                            ? Loc.noFollowsTitle
+                            : Loc.t("No one found", "Ninguém encontrado"),
+                        subtitle: newChatQuery.isEmpty
+                            ? Loc.noFollowsSubtitle
+                            : Loc.t("Try another name or @username", "Tente outro nome ou @usuário")
                     )
                 } else {
                     List {
@@ -248,7 +274,7 @@ public struct ChatListView: View {
                                 .padding(.vertical, 8)
                                 .listRowBackground(GymCircleTheme.ColorToken.card)
                         }
-                        ForEach(following) { person in
+                        ForEach(newChatPeople) { person in
                             Button {
                                 if groupMode {
                                     toggleGroupMember(person.userId)
@@ -289,6 +315,15 @@ public struct ChatListView: View {
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
             .navigationTitle(Loc.newMessage)
             .navigationBarTitleDisplayMode(.inline)
+            .searchable(text: $newChatQuery, prompt: Loc.t("Search people", "Buscar pessoas"))
+            .task(id: newChatQuery) { await runNewChatSearch() }
+            // Recarrega "seguindo" SEMPRE que o sheet abre (não depende do .task
+            // da tab, que podia ter rodado antes da sessão e ficado vazio).
+            .task {
+                loadingFollowing = true
+                following = await model.loadFollowingProfiles()
+                loadingFollowing = false
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(groupMode ? Loc.directChat : Loc.group) {
