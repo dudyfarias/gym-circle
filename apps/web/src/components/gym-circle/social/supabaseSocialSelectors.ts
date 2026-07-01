@@ -9,6 +9,7 @@ import type {
   UserGymRow,
   UserStatsRow,
 } from "@gym-circle/core";
+import { getGymCircleDateKey } from "@gym-circle/core";
 import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
@@ -750,14 +751,15 @@ export type SocialStatsContext = {
 /** Stats da home: quantos treinaram hoje, check-ins de hoje, dias do mês. */
 export function buildSocialStats(ctx: SocialStatsContext) {
   const { feedPosts, stories, checkinsToday, currentUser } = ctx;
+  const todayKey = getGymCircleDateKey();
   return {
     trainedToday: new Set(
       [
         ...feedPosts
-          .filter((p) => p.workout_date === new Date().toISOString().slice(0, 10))
+          .filter((p) => p.workout_date === todayKey)
           .map((p) => p.user_id),
         ...stories
-          .filter((story) => story.created_at.slice(0, 10) === new Date().toISOString().slice(0, 10))
+          .filter((story) => getGymCircleDateKey(new Date(story.created_at)) === todayKey)
           .map((story) => story.user_id),
       ],
     ).size,

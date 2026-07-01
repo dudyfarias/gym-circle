@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { type TouchEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import {
   calculateDistanceKm,
@@ -190,6 +191,7 @@ export function GymCirclePreview({
   onUploadChatImage,
   onUploadAvatar,
 }: GymCirclePreviewProps) {
+  const { i18n } = useTranslation();
   // Sprint 4.5: services.push é o PushService de core/hooks, usado pelo
   // toggle de push notifications no AccountSettingsSheet.
   const services = useGymCircleServices();
@@ -1087,6 +1089,13 @@ export function GymCirclePreview({
       ),
     [profilePosts, social.currentUser.id],
   );
+  const currentUserAuthoredPosts = useMemo(
+    () =>
+      currentUserPosts.filter(
+        (post) => post.userId === social.currentUser.id,
+      ),
+    [currentUserPosts, social.currentUser.id],
+  );
 
   // Sprint 7.5.8 — Lazy backfill de user_achievements no boot. Compara
   // achievements derivados (getAllAchievements) com o que está no DB e
@@ -1114,14 +1123,15 @@ export function GymCirclePreview({
     if (!currentUserId) return;
     const allAchievements = getAllAchievements({
       user: social.currentUser,
-      postsCount: currentUserPosts.length,
+      postsCount: currentUserAuthoredPosts.length,
       hasUsedStreakRestore: Boolean(social.currentUser.lastStreakRestoreUsedAt),
-      posts: currentUserPosts.map((post) => ({
+      posts: currentUserAuthoredPosts.map((post) => ({
         createdAt: post.createdAt,
         workoutType: post.workoutType ?? null,
         workoutTypes: post.workoutTypes ?? null,
         gymId: post.gymId,
       })),
+      monthlyChallenges,
     });
     void backfillUserAchievements(
       services.client,
@@ -1137,7 +1147,8 @@ export function GymCirclePreview({
     social.currentUser?.activeDaysCount,
     social.currentUser?.followersCount,
     social.currentUser?.lastStreakRestoreUsedAt,
-    currentUserPosts,
+    currentUserAuthoredPosts,
+    monthlyChallenges,
   ]);
 
   // Sprint 7.5.11 — Carrega queue de achievements uncelebrated.
@@ -1158,16 +1169,17 @@ export function GymCirclePreview({
         if (cancelled || compositeIds.length === 0) return;
         const allAchievements = getAllAchievements({
           user: social.currentUser,
-          postsCount: currentUserPosts.length,
+          postsCount: currentUserAuthoredPosts.length,
           hasUsedStreakRestore: Boolean(
             social.currentUser.lastStreakRestoreUsedAt,
           ),
-          posts: currentUserPosts.map((post) => ({
+          posts: currentUserAuthoredPosts.map((post) => ({
             createdAt: post.createdAt,
             workoutType: post.workoutType ?? null,
             workoutTypes: post.workoutTypes ?? null,
             gymId: post.gymId,
           })),
+          monthlyChallenges,
         });
         const resolved = resolveAchievementsByCompositeIds(
           compositeIds,
@@ -1189,7 +1201,8 @@ export function GymCirclePreview({
     services.client,
     social.currentUser?.id,
     social.currentUser,
-    currentUserPosts,
+    currentUserAuthoredPosts,
+    monthlyChallenges,
   ]);
 
   // Sprint 9.5.4 — listeners pro inverse bridge. SwiftUI OtherProfileView
@@ -1316,6 +1329,7 @@ export function GymCirclePreview({
         const challenges = await loadMonthlyChallenges(
           services.client,
           currentUserId,
+          { locale: i18n.language },
         );
         if (cancelled) return;
         const workoutDays = social.currentUser.workoutDays ?? [];
@@ -1379,6 +1393,7 @@ export function GymCirclePreview({
     social.currentUser?.id,
     social.currentUser?.workoutDays,
     currentUserPosts,
+    i18n.language,
   ]);
 
   const viewedMonthlyChallengeUserId =
@@ -1389,7 +1404,9 @@ export function GymCirclePreview({
     if (monthlyChallengesByUser[viewedMonthlyChallengeUserId]) return;
 
     let cancelled = false;
-    void loadMonthlyChallenges(services.client, viewedMonthlyChallengeUserId)
+    void loadMonthlyChallenges(services.client, viewedMonthlyChallengeUserId, {
+      locale: i18n.language,
+    })
       .then((challenges) => {
         if (cancelled) return;
         setMonthlyChallengesByUser((current) => ({
@@ -1399,17 +1416,17 @@ export function GymCirclePreview({
       })
       .catch((err) => {
         console.warn("[challenges] viewer load failed:", err);
-        if (cancelled) return;
-        setMonthlyChallengesByUser((current) => ({
-          ...current,
-          [viewedMonthlyChallengeUserId]: [],
-        }));
       });
 
     return () => {
       cancelled = true;
     };
-  }, [monthlyChallengesByUser, services.client, viewedMonthlyChallengeUserId]);
+  }, [
+    i18n.language,
+    monthlyChallengesByUser,
+    services.client,
+    viewedMonthlyChallengeUserId,
+  ]);
 
   const monthlyRecap = useMemo(
     () =>
@@ -1703,6 +1720,7 @@ export function GymCirclePreview({
         return (
           <FeedScreen
             currentUser={social.currentUser}
+            feedCheckins={social.feedCheckins}
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             hasDistancePosts={hasDistancePosts}

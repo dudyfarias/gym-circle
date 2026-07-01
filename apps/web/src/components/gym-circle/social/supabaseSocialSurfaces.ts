@@ -17,6 +17,7 @@ import type {
   RankingScope,
   StoryTrayRow,
   StoryViewerItemRow,
+  SurfaceCheckinRow,
   SurfacePostRow,
 } from "./supabaseSocialTypes";
 
@@ -121,6 +122,48 @@ export async function queryHomeFeedSurface(
   return {
     data: (fallbackRes.data ?? []) as unknown as SurfacePostRow[],
     error: fallbackRes.error,
+  };
+}
+
+export async function queryHomeCheckinsSurface(
+  client: GymCircleSupabaseClient,
+  limit: number,
+): Promise<{ data: SurfaceCheckinRow[]; error: unknown }> {
+  // A migration nova ainda não está no Database gerado do core; o cast
+  // desaparece quando os tipos forem regenerados contra o schema atualizado.
+  const rpcRes = await (client as unknown as SupabaseClient).rpc(
+    "get_home_checkins",
+    {
+      p_limit: limit,
+    },
+  );
+  if (!rpcRes.error) {
+    return {
+      data: (rpcRes.data ?? []) as unknown as SurfaceCheckinRow[],
+      error: null,
+    };
+  }
+
+  // A surface é aditiva e não deve derrubar o feed inteiro durante um deploy
+  // parcial (web antes da migration). Não usamos fallback direto em
+  // `checkins`, porque a tabela é ampla e o filtro social precisa continuar
+  // centralizado no banco.
+  logSurfaceFallback("home check-ins", rpcRes.error);
+  const postgrestError = rpcRes.error as {
+    code?: string;
+    message?: string;
+  };
+  const errorMessage = postgrestError.message?.toLowerCase() ?? "";
+  const isMissingRpc =
+    postgrestError.code === "PGRST202" ||
+    postgrestError.code === "42883" ||
+    (errorMessage.includes("get_home_checkins") &&
+      (errorMessage.includes("could not find") ||
+        errorMessage.includes("does not exist") ||
+        errorMessage.includes("schema cache")));
+  return {
+    data: [],
+    error: isMissingRpc ? null : rpcRes.error,
   };
 }
 

@@ -3,9 +3,11 @@
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { GYM_CIRCLE_TIME_ZONE } from "@gym-circle/core";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import { AchievementArtifact3D } from "./design-system";
 import {
+  applyPersistedAchievementHistory,
   countEarnedAchievements,
   getAchievementCompositeId,
   getAllAchievements,
@@ -19,6 +21,7 @@ import {
   type UserAchievementMeta,
 } from "./social/achievementsStats";
 import type { MonthlyChallengeData } from "./social/monthlyChallenges";
+import { loadEarnedMonthlyChallenges } from "./social/monthlyChallenges";
 import type { EnrichedPost, EnrichedUser } from "./social/types";
 
 /**
@@ -95,38 +98,85 @@ export function AchievementsSheet({
   const [earnedMeta, setEarnedMeta] = useState<Map<string, UserAchievementMeta> | null>(
     null,
   );
+  const [historicalChallenges, setHistoricalChallenges] = useState<
+    MonthlyChallengeData[]
+  >([]);
+  const [historyLoadError, setHistoryLoadError] = useState(false);
+  const [historyLoadVersion, setHistoryLoadVersion] = useState(0);
+  const userId = user?.id ?? null;
 
-  // Reset pra overview + fetch das datas/contagens ao abrir. setTimeout evita
-  // o lint set-state-in-effect (mesmo padrão do EditPostSheet); o fetch é
-  // fire-and-forget — UI degrada pra "X de Y" enquanto não chega.
+  // Navegação e hidratação são efeitos separados de propósito. O bug do Hall
+  // voltando sozinho ao overview acontecia porque qualquer nova hidratação
+  // (idioma, retry ou client) também executava setView("overview").
+  // Agora só abrir o sheet ou trocar o usuário reinicia a navegação.
   useEffect(() => {
-    if (!open || !user) return;
-    let cancelled = false;
+    if (!open || !userId) return;
     const id = window.setTimeout(() => setView("overview"), 0);
-    void loadUserAchievementMeta(services.client, user.id).then((meta) => {
-      if (!cancelled) setEarnedMeta(meta);
-    });
+    return () => window.clearTimeout(id);
+  }, [open, userId]);
+
+  // Fetch das datas/contagens. setTimeout evita o lint set-state-in-effect
+  // (mesmo padrão do EditPostSheet); enquanto carrega, a UI usa o snapshot
+  // derivado atual sem alterar a subpágina escolhida pelo usuário.
+  useEffect(() => {
+    if (!open || !userId) return;
+    let cancelled = false;
+    const id = window.setTimeout(() => {
+      setEarnedMeta(null);
+      setHistoricalChallenges([]);
+      setHistoryLoadError(false);
+      void loadUserAchievementMeta(services.client, userId)
+        .then((meta) => {
+          if (!cancelled) setEarnedMeta(meta);
+        })
+        .catch(() => {
+          if (!cancelled) setHistoryLoadError(true);
+        });
+      void loadEarnedMonthlyChallenges(services.client, userId, {
+        locale: i18n.language,
+      })
+        .then((challenges) => {
+          if (!cancelled) setHistoricalChallenges(challenges);
+        })
+        .catch((err) => {
+          console.warn("[AchievementsSheet] history load failed:", err);
+          if (!cancelled) setHistoryLoadError(true);
+        });
+    }, 0);
     return () => {
       cancelled = true;
       window.clearTimeout(id);
     };
-  }, [open, user, services.client]);
+  }, [historyLoadVersion, i18n.language, open, services.client, userId]);
+
+  const hallChallenges = useMemo<MonthlyChallengeData[]>(() => {
+    const byCompositeId = new Map<string, MonthlyChallengeData>();
+    for (const challenge of historicalChallenges) {
+      byCompositeId.set(`${challenge.periodKey}:${challenge.id}`, challenge);
+    }
+    for (const challenge of monthlyChallenges ?? []) {
+      byCompositeId.set(`${challenge.periodKey}:${challenge.id}`, challenge);
+    }
+    return [...byCompositeId.values()];
+  }, [historicalChallenges, monthlyChallenges]);
 
   const achievements = useMemo<Achievement[]>(() => {
     if (!user) return [];
-    return getAllAchievements({
+    const authoredPosts = posts.filter((post) => post.userId === user.id);
+    const derived = getAllAchievements({
       user,
-      postsCount: posts.length,
+      postsCount: authoredPosts.length,
       hasUsedStreakRestore: Boolean(user.lastStreakRestoreUsedAt),
-      posts: posts.map((post) => ({
+      posts: authoredPosts.map((post) => ({
         createdAt: post.createdAt,
         workoutType: post.workoutType ?? null,
         workoutTypes: post.workoutTypes ?? null,
         gymId: post.gymId,
       })),
-      monthlyChallenges,
+      monthlyChallenges: hallChallenges,
     });
-  }, [user, posts, monthlyChallenges]);
+    return applyPersistedAchievementHistory(derived, earnedMeta?.keys() ?? []);
+  }, [earnedMeta, hallChallenges, posts, user]);
 
   const earnedCount = countEarnedAchievements(achievements);
   const totalCount = achievements.length;
@@ -140,6 +190,7 @@ export function AchievementsSheet({
       return new Intl.DateTimeFormat(i18n.language, {
         day: "2-digit",
         month: "2-digit",
+        timeZone: GYM_CIRCLE_TIME_ZONE,
         year: "numeric",
       }).format(new Date(iso));
     } catch {
@@ -283,6 +334,21 @@ export function AchievementsSheet({
             />
           ) : (
             <div className="flex flex-col gap-5 pb-4">
+              {historyLoadError ? (
+                <button
+                  className="gc-pressable rounded-[18px] border border-[var(--gc-pink)]/20 bg-[var(--gc-pink)]/[0.06] px-4 py-3 text-left"
+                  onClick={() => setHistoryLoadVersion((version) => version + 1)}
+                  type="button"
+                >
+                  <p className="text-[12px] font-black text-white">
+                    {t("achievementsSheet.historyError.title")}
+                  </p>
+                  <p className="mt-0.5 text-[11px] font-bold text-white/48">
+                    {t("achievementsSheet.historyError.retry")}
+                  </p>
+                </button>
+              ) : null}
+
               {/* Sub-linha global */}
               <p className="text-[12px] font-bold text-white/46">
                 {t("achievementsSheet.hero", {

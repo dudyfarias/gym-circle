@@ -690,6 +690,11 @@
     },
     "loadingMore": "Loading more...",
     "skeletonAria": "Loading feed",
+    "checkin": {
+      "badge": "Check-in",
+      "action": "Checked in at",
+      "openProfile": "Open @{{username}}'s profile"
+    },
     "distance": {
       "title": "Show approximate distance",
       "hint": "We only show approximate km. Your coordinates don't appear in the feed.",
@@ -896,6 +901,10 @@
     }
   },
   "achievementsSheet": {
+    "historyError": {
+      "title": "We couldn't load the full history.",
+      "retry": "Tap to try again."
+    },
     "title": "Hall of Fame",
     "hero": "{{earned}} of {{total}} challenges",
     "progress": "{{current}}/{{target}}",

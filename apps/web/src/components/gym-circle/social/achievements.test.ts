@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyPersistedAchievementHistory,
   countEarnedAchievements,
   getAchievementCompositeId,
   getAllAchievements,
@@ -98,8 +99,8 @@ describe("Sprint 7.5 — Achievement system", () => {
         postsCount: 5,
         posts: [
           {
-            // 6h → entre 5-7
-            createdAt: new Date(new Date().setHours(6, 0, 0, 0)).toISOString(),
+            // 09h UTC = 06h em São Paulo
+            createdAt: "2026-06-10T09:00:00.000Z",
             workoutType: "Força",
           },
         ],
@@ -175,6 +176,30 @@ describe("Sprint 7.5 — Achievement system", () => {
 
     it("retorna null pra composite ID malformado", () => {
       expect(parseAchievementCompositeId("invalid")).toBe(null);
+      expect(parseAchievementCompositeId("unknown:anything")).toBe(null);
+      expect(parseAchievementCompositeId("challenge:2026:missing-month")).toBe(null);
+    });
+  });
+
+  describe("applyPersistedAchievementHistory", () => {
+    it("não volta a bloquear uma conquista mensal já persistida", () => {
+      const current = getAllAchievements({
+        user: { ...baseUser, workoutsThisMonth: 0 },
+        postsCount: 0,
+      });
+      const monthActiveBefore = current.find(
+        (achievement) => achievement.id === "month-active",
+      );
+      expect(monthActiveBefore?.earned).toBe(false);
+
+      const restored = applyPersistedAchievementHistory(current, [
+        "trophy:month-active",
+      ]);
+      const monthActiveAfter = restored.find(
+        (achievement) => achievement.id === "month-active",
+      );
+      expect(monthActiveAfter?.earned).toBe(true);
+      expect(monthActiveAfter?.progress).toBeUndefined();
     });
   });
 

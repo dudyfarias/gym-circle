@@ -199,11 +199,12 @@ export function MyCircleSheet({
   const allLevels = getAllStreakLevels();
   // Sprint 15.5 — seção F agora é a MESMA "Conquistas em destaque" do perfil
   // (achievements v2 + artefatos 3D), com a mesma regra equipped → suggest.
+  const authoredPosts = posts.filter((post) => post.userId === user.id);
   const allAchievements = getAllAchievements({
     user,
-    postsCount: posts.length,
+    postsCount: authoredPosts.length,
     hasUsedStreakRestore: Boolean(user.lastStreakRestoreUsedAt),
-    posts: posts.map((post) => ({
+    posts: authoredPosts.map((post) => ({
       createdAt: post.createdAt,
       workoutType: post.workoutType ?? null,
       workoutTypes: post.workoutTypes ?? null,

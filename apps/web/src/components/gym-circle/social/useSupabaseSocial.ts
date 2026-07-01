@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SOCIAL_BELL_NOTIFICATION_KINDS } from "@gym-circle/core";
+import {
+  getGymCircleDateKey,
+  SOCIAL_BELL_NOTIFICATION_KINDS,
+} from "@gym-circle/core";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   CheckinRow,
@@ -42,6 +45,7 @@ import type {
   ChatConversation,
   CreateWorkoutPostInput,
   EditPostInput,
+  EnrichedCheckin,
   EnrichedPost,
   EnrichedStory,
   EnrichedUser,
@@ -95,6 +99,7 @@ import {
   optionalStorySocialRows,
   queryCircleRankingClientFallback,
   queryCircleRankingSurface,
+  queryHomeCheckinsSurface,
   queryHomeFeedSurface,
   queryStoryTraySurface,
   queryStoryViewerItemsSurface,
@@ -124,6 +129,7 @@ import type {
   RankingScope,
   RealtimePayload,
   StoryTrayRow,
+  SurfaceCheckinRow,
   SurfacePostRow,
 } from "./supabaseSocialTypes";
 
@@ -207,6 +213,7 @@ export type SupabaseSocialResult = {
   users: Record<string, GymUser>;
   gyms: GymLocationOption[];
   feedPosts: EnrichedPost[];
+  feedCheckins: EnrichedCheckin[];
   profilePosts: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   storyGroups: StoryGroup[];
@@ -328,6 +335,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         currentStatsRes,
         followsRes,
         feedRes,
+        checkinsRes,
         storiesRes,
         blocksRes,
         postMutesRes,
@@ -347,6 +355,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .select(FOLLOW_COLUMNS)
           .or(`follower_id.eq.${currentUserId},following_id.eq.${currentUserId}`),
         queryHomeFeedSurface(services.client, INITIAL_FEED_LIMIT),
+        queryHomeCheckinsSurface(services.client, INITIAL_FEED_LIMIT),
         queryStoryTraySurface(services.client, INITIAL_STORY_LIMIT),
         // Apple Guideline 1.2: app de UGC precisa filtrar conteúdo de
         // blocked users de TODOS os surfaces (feed, stories, profiles,
@@ -369,6 +378,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         currentStatsRes,
         followsRes,
         feedRes,
+        checkinsRes,
         storiesRes,
         blocksRes,
         postMutesRes,
@@ -377,6 +387,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       }
 
       const feedSurfaceRows = (feedRes.data ?? []) as SurfacePostRow[];
+      const checkinSurfaceRows = (checkinsRes.data ?? []) as SurfaceCheckinRow[];
       const storySurfaceRows = (storiesRes.data ?? []) as StoryTrayRow[];
       const feedPosts = feedSurfaceRows.map(feedPostRowFromSurface);
       const stories = storySurfaceRows
@@ -400,11 +411,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             )
           : null,
         ...feedSurfaceRows.map(profileRowFromSurface),
+        ...checkinSurfaceRows.map(profileRowFromSurface),
         ...storySurfaceRows.map(profileRowFromSurface),
       ].filter((profile): profile is ProfileRow => Boolean(profile));
       const surfaceStats = [
         currentStatsRes.data as UserStatsRow | null,
         ...feedSurfaceRows.map(statsRowFromSurface),
+        ...checkinSurfaceRows.map(statsRowFromSurface),
         ...storySurfaceRows.map(statsRowFromSurface),
       ].filter((stats): stats is UserStatsRow => Boolean(stats));
       const currentProfile = surfaceProfiles.find(
@@ -430,6 +443,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         stats: mergeStatsArrays(current.stats, surfaceStats),
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
+        feedCheckins: checkinSurfaceRows,
         storyTrayRows: storySurfaceRows,
         stories,
         postLikes: [
@@ -660,7 +674,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           services.client
             .from("checkins")
             .select("id,user_id,gym_id,checkin_date,created_at")
-            .eq("checkin_date", new Date().toISOString().slice(0, 10)),
+            .eq("checkin_date", getGymCircleDateKey()),
           storyIds.length > 0
             ? services.client
                 .from("story_likes")
@@ -1793,6 +1807,28 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [currentUserId, mutedPostAuthorsSet, profilePosts],
   );
 
+  const feedCheckins = useMemo<EnrichedCheckin[]>(
+    () =>
+      agg.feedCheckins
+        .map((row) => {
+          const author = enrichedAll.get(row.user_id);
+          if (!author) return null;
+          return {
+            id: row.id,
+            userId: row.user_id,
+            gymId: row.gym_id,
+            gymName: row.gym_name,
+            gymCity: row.gym_city ?? null,
+            gymState: row.gym_state ?? null,
+            checkinDate: row.checkin_date,
+            createdAt: row.created_at,
+            author,
+          };
+        })
+        .filter((item): item is EnrichedCheckin => Boolean(item)),
+    [agg.feedCheckins, enrichedAll],
+  );
+
   const storyItems = useMemo<EnrichedStory[]>(
     () =>
       buildStoryItems({
@@ -2052,6 +2088,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     users: usersRecord,
     gyms: gymOptions,
     feedPosts,
+    feedCheckins,
     profilePosts,
     storyBubbles,
     storyGroups,

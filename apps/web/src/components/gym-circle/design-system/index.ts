@@ -9,6 +9,7 @@ export * from "./ContextualHint";
 export * from "./DiscoveryUserCard";
 export * from "./EmptyState";
 export * from "./FeaturedAchievementsRow";
+export * from "./FeedCheckinCard";
 export * from "./GCImage";
 export * from "./GymCheckInCard";
 export * from "./LatestPostPreview";

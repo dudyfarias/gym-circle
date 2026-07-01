@@ -236,6 +236,18 @@ export type EnrichedPost = GymPost & {
   distanceLabel?: string | null;
 };
 
+export type EnrichedCheckin = {
+  id: string;
+  userId: string;
+  gymId: string;
+  gymName: string;
+  gymCity: string | null;
+  gymState: string | null;
+  checkinDate: string;
+  createdAt: string;
+  author: EnrichedUser;
+};
+
 export type EnrichedStory = GymStory & {
   author: EnrichedUser;
   acceptedParticipants?: EnrichedUser[];
@@ -477,6 +489,7 @@ export type SocialBundle = {
   users?: Record<string, GymUser>;
   gyms?: GymLocationOption[];
   feedPosts: EnrichedPost[];
+  feedCheckins?: EnrichedCheckin[];
   profilePosts?: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   storyGroups?: StoryGroup[];

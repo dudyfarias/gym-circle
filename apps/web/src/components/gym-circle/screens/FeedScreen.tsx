@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   LocateFixed,
   MapPin,
@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import {
   DiscoveryUserCard,
   EmptyState,
+  FeedCheckinCard,
   SocialPostCard,
   StoryBubbles,
 } from "../design-system";
@@ -23,7 +24,12 @@ import {
   unpinSource,
 } from "../design-system/imageCache";
 import { MediaLoadingService } from "../media/MediaLoadingService";
-import type { EnrichedPost, EnrichedUser, StoryGroup } from "../social/types";
+import type {
+  EnrichedCheckin,
+  EnrichedPost,
+  EnrichedUser,
+  StoryGroup,
+} from "../social/types";
 import {
   shouldShowViewerLocationPrompt,
   type ViewerLocationStatus,
@@ -33,6 +39,7 @@ import { TopBar } from "../TopBar";
 type FeedScreenProps = {
   currentUser: EnrichedUser;
   feedPosts: EnrichedPost[];
+  feedCheckins?: EnrichedCheckin[];
   stories: StoryGroup[];
   suggestedUsers: EnrichedUser[];
   formatTime: (createdAt: string) => string;
@@ -64,6 +71,7 @@ type FeedScreenProps = {
 export function FeedScreen({
   currentUser,
   feedPosts,
+  feedCheckins = [],
   stories,
   suggestedUsers,
   formatTime,
@@ -91,6 +99,27 @@ export function FeedScreen({
 }: FeedScreenProps) {
   const { t } = useTranslation();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const feedItems = useMemo(
+    () =>
+      [
+        ...feedPosts.map((post) => ({
+          createdAt: post.createdAt,
+          id: post.id,
+          kind: "post" as const,
+          post,
+        })),
+        ...feedCheckins.map((checkin) => ({
+          checkin,
+          createdAt: checkin.createdAt,
+          id: checkin.id,
+          kind: "checkin" as const,
+        })),
+      ].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [feedCheckins, feedPosts],
+  );
 
   useEffect(() => {
     const node = loadMoreRef.current;
@@ -183,30 +212,40 @@ export function FeedScreen({
         status={viewerLocationStatus}
       />
 
-      {loading && feedPosts.length === 0 ? (
+      {loading && feedItems.length === 0 ? (
         <FeedSkeleton />
-      ) : feedPosts.length > 0 ? (
+      ) : feedItems.length > 0 ? (
         <div className="space-y-5">
-          {feedPosts.map((post) => (
+          {feedItems.map((item) => (
             // gc-feed-cell (Sprint 21.3): content-visibility pula
             // render/paint dos posts fora da viewport — a WebView não
             // paga pelos cards já scrollados.
-            <div className="gc-feed-cell" key={post.id}>
-              <SocialPostCard
-                currentUserId={currentUser.id}
-                formatTime={formatTime}
-                onLike={onLikePost}
-                onOpenLikes={onOpenLikes}
-                onOpenComments={onOpenPostDetails}
-                onOpenPostMenu={onOpenPostMenu}
-                onSelectUser={onSelectUser}
-                onShareToChat={onSharePostToChat}
-                onToggleFollow={onToggleFollow}
-                post={post}
-                resolveUser={resolveUser}
-                shareTargets={postShareTargets}
-              />
-              {post === feedPosts[1] && suggestedUsers.length > 0 ? (
+            <div className="gc-feed-cell" key={`${item.kind}:${item.id}`}>
+              {item.kind === "post" ? (
+                <SocialPostCard
+                  currentUserId={currentUser.id}
+                  formatTime={formatTime}
+                  onLike={onLikePost}
+                  onOpenLikes={onOpenLikes}
+                  onOpenComments={onOpenPostDetails}
+                  onOpenPostMenu={onOpenPostMenu}
+                  onSelectUser={onSelectUser}
+                  onShareToChat={onSharePostToChat}
+                  onToggleFollow={onToggleFollow}
+                  post={item.post}
+                  resolveUser={resolveUser}
+                  shareTargets={postShareTargets}
+                />
+              ) : (
+                <FeedCheckinCard
+                  checkin={item.checkin}
+                  formatTime={formatTime}
+                  onSelectUser={onSelectUser}
+                />
+              )}
+              {item.kind === "post" &&
+              item.post === feedPosts[1] &&
+              suggestedUsers.length > 0 ? (
                 <section className="mt-5">
                   <div className="mb-3 flex items-center">
                     <h3 className="text-[17px] font-black">{t("feed.suggestions.title")}</h3>

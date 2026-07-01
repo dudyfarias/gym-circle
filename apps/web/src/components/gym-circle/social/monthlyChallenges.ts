@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AchievementRarity } from "./achievements";
+import {
+  parseAchievementCompositeId,
+  type AchievementRarity,
+} from "./achievements";
 
 /**
  * Sprint 7.5.6 — Monthly Challenges client-side service.
@@ -158,6 +161,15 @@ export async function loadMonthlyChallenges(
     ]),
   );
 
+  return mapMonthlyChallengeRows(challenges, progressByChallenge, usePtBR);
+}
+
+function mapMonthlyChallengeRows(
+  challenges: MonthlyChallengeRow[],
+  progressByChallenge: Map<string, UserChallengeProgressRow>,
+  usePtBR: boolean,
+  earnedAtByChallenge: Map<string, string> = new Map(),
+): MonthlyChallengeData[] {
   return challenges.map((c) => {
     const progress = progressByChallenge.get(c.id);
     return {
@@ -170,11 +182,81 @@ export async function loadMonthlyChallenges(
       goalTarget: c.goal_target,
       trophyId: c.trophy_id,
       progress: progress?.progress ?? 0,
-      completedAt: progress?.completed_at ?? null,
+      completedAt:
+        progress?.completed_at ?? earnedAtByChallenge.get(c.id) ?? null,
       isSecret: c.is_secret ?? false,
       goalConfig: c.goal_config ?? {},
     };
   });
+}
+
+/**
+ * Carrega desafios já conquistados em qualquer período.
+ *
+ * O Hall da Fama é histórico; limitar a lista ao mês corrente fazia todas as
+ * conquistas de junho desaparecerem quando julho começou. A fonte definitiva
+ * é `user_achievements`, e os dados editoriais vêm de `monthly_challenges`.
+ */
+export async function loadEarnedMonthlyChallenges(
+  client: SupabaseClient,
+  userId: string,
+  options: { locale?: string } = {},
+): Promise<MonthlyChallengeData[]> {
+  const locale = options.locale ?? "pt-BR";
+  const usePtBR = locale.startsWith("pt");
+  const { data: rawAchievements, error: achievementsError } = await client
+    .from("user_achievements")
+    .select("achievement_id,earned_at")
+    .eq("user_id", userId)
+    .like("achievement_id", "challenge:%");
+  if (achievementsError) throw achievementsError;
+
+  const earnedAtByChallenge = new Map<string, string>();
+  for (const row of (rawAchievements ?? []) as Array<{
+    achievement_id: string;
+    earned_at: string;
+  }>) {
+    const parsed = parseAchievementCompositeId(row.achievement_id);
+    if (parsed?.kind === "challenge" && parsed.periodKey) {
+      earnedAtByChallenge.set(parsed.id, row.earned_at);
+    }
+  }
+  const challengeIds = [...earnedAtByChallenge.keys()];
+  if (challengeIds.length === 0) return [];
+
+  const [
+    { data: rawChallenges, error: challengesError },
+    { data: rawProgress, error: progressError },
+  ] = await Promise.all([
+    client
+      .from("monthly_challenges")
+      .select(
+        "id,period_key,title_pt,title_en,description_pt,description_en," +
+          "rarity,goal_kind,goal_target,start_date,end_date,trophy_id," +
+          "is_secret,goal_config,created_at",
+      )
+      .in("id", challengeIds),
+    client
+      .from("user_monthly_challenge_progress")
+      .select("user_id,challenge_id,progress,completed_at,updated_at")
+      .eq("user_id", userId)
+      .in("challenge_id", challengeIds),
+  ]);
+  if (challengesError) throw challengesError;
+  if (progressError) throw progressError;
+
+  const progressByChallenge = new Map(
+    ((rawProgress ?? []) as UserChallengeProgressRow[]).map((progress) => [
+      progress.challenge_id,
+      progress,
+    ]),
+  );
+  return mapMonthlyChallengeRows(
+    (rawChallenges ?? []) as unknown as MonthlyChallengeRow[],
+    progressByChallenge,
+    usePtBR,
+    earnedAtByChallenge,
+  );
 }
 
 /**

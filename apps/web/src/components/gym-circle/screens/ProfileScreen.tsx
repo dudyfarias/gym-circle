@@ -145,11 +145,12 @@ export function ProfileScreen({
   // profile.featuredAchievements (lookup por composite ID); (b) auto-
   // suggest top 3 por raridade (Relic > Trophy > Medal > Badge).
   // Lista vazia (nenhum earned ainda) → row simplesmente não renderiza.
+  const authoredPosts = posts.filter((post) => post.userId === currentUser.id);
   const allAchievements = getAllAchievements({
     user: currentUser,
-    postsCount: posts.length,
+    postsCount: authoredPosts.length,
     hasUsedStreakRestore: Boolean(currentUser.lastStreakRestoreUsedAt),
-    posts: posts.map((post) => ({
+    posts: authoredPosts.map((post) => ({
       createdAt: post.createdAt,
       workoutType: post.workoutType ?? null,
       workoutTypes: post.workoutTypes ?? null,

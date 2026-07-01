@@ -1,3 +1,4 @@
+import { getGymCircleHour } from "@gym-circle/core";
 import type { BadgeIconKey } from "./gamification";
 import type { EnrichedUser } from "./types";
 
@@ -116,11 +117,27 @@ export function parseAchievementCompositeId(compositeId: string): {
 } | null {
   const parts = compositeId.split(":");
   if (parts.length < 2) return null;
-  const kind = parts[0] as AchievementKind;
-  if (kind === "challenge" && parts.length === 3) {
+  const kind = parts[0];
+  if (
+    kind !== "badge" &&
+    kind !== "medal" &&
+    kind !== "trophy" &&
+    kind !== "relic" &&
+    kind !== "challenge"
+  ) {
+    return null;
+  }
+  if (
+    kind === "challenge" &&
+    parts.length === 3 &&
+    /^\d{4}-\d{2}$/.test(parts[1]) &&
+    parts[2]
+  ) {
     return { kind, periodKey: parts[1], id: parts[2] };
   }
-  return { kind, id: parts.slice(1).join(":") };
+  if (kind === "challenge") return null;
+  const id = parts.slice(1).join(":");
+  return id ? { kind, id } : null;
 }
 
 /**
@@ -206,7 +223,7 @@ function buildBadges(input: {
   let explorerEarned = false;
   if (posts && posts.length > 0) {
     for (const post of posts) {
-      const hour = new Date(post.createdAt).getHours();
+      const hour = getGymCircleHour(new Date(post.createdAt));
       if (hour >= 5 && hour < 7) earlyBirdEarned = true;
       if (hour >= 23 || hour < 4) nightOwlEarned = true;
       if (earlyBirdEarned && nightOwlEarned) break;
@@ -584,6 +601,23 @@ export function countEarnedAchievements(achievements: Achievement[]): number {
 }
 
 /**
+ * O cálculo derivado explica o progresso atual; o histórico persistido decide
+ * se algo já foi conquistado. Isso é essencial para metas que resetam por
+ * semana/mês e não podem voltar a ficar bloqueadas no Hall da Fama.
+ */
+export function applyPersistedAchievementHistory(
+  achievements: Achievement[],
+  persistedCompositeIds: Iterable<string>,
+): Achievement[] {
+  const persisted = new Set(persistedCompositeIds);
+  return achievements.map((achievement) =>
+    persisted.has(getAchievementCompositeId(achievement))
+      ? { ...achievement, earned: true, progress: undefined }
+      : achievement,
+  );
+}
+
+/**
  * Próximo achievement mais próximo de ser ganho. Mesma heurística do
  * `getNextBadge` antigo (Sprint 5.3): ignora secret (não dá hint do que
  * não foi revelado), prioriza por proporção de progresso.
@@ -660,9 +694,15 @@ export function resolveFeaturedAchievements(
       const parsed = parseAchievementCompositeId(compositeId);
       if (!parsed) continue;
       const match = achievements.find(
-        (a) => a.kind === parsed.kind && a.id === parsed.id,
+        (a) =>
+          a.kind === parsed.kind &&
+          a.id === parsed.id &&
+          (a.kind !== "challenge" || a.periodKey === parsed.periodKey),
       );
-      if (match && match.earned) resolved.push(match);
+      // IDs equipados já passaram pela validação contra user_achievements no
+      // momento da escrita. Metas semanais/mensais podem estar `earned=false`
+      // no cálculo atual, mas não deixam de ter sido conquistadas.
+      if (match) resolved.push({ ...match, earned: true, progress: undefined });
     }
     if (resolved.length > 0) return resolved.slice(0, count);
   }

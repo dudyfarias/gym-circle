@@ -86,6 +86,7 @@ export type AggregateState = {
   userGyms: UserGymRow[];
   follows: FollowRow[];
   feedPosts: FeedPostRow[];
+  feedCheckins: SurfaceCheckinRow[];
   profileFeedPosts: FeedPostRow[];
   storyTrayRows: StoryTrayRow[];
   stories: StoryRow[];
@@ -158,6 +159,25 @@ export type SurfacePostRow = FeedPostRow &
     is_following_author?: boolean | null;
     visibility?: string | null;
   };
+
+export type SurfaceCheckinRow = {
+  id: string;
+  user_id: string;
+  gym_id: string;
+  gym_name: string;
+  gym_city?: string | null;
+  gym_state?: string | null;
+  checkin_date: string;
+  created_at: string;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  author_current_streak?: number | null;
+  author_best_streak?: number | null;
+  author_badge_active?: boolean | null;
+  is_following_author?: boolean | null;
+  visibility?: string | null;
+};
 
 export type StoryTrayRow = MediaMetadata & {
   author_id?: string | null;

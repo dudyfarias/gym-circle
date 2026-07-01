@@ -154,6 +154,7 @@ export async function loadUserAchievementMeta(
     }
   } catch (err) {
     console.warn("[achievementsStats] loadUserAchievementMeta failed:", err);
+    throw err;
   }
   return map;
 }

@@ -7,6 +7,7 @@ import type {
   StoryRow,
   UserStatsRow,
 } from "@gym-circle/core";
+import { GYM_CIRCLE_TIME_ZONE } from "@gym-circle/core";
 import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
@@ -64,6 +65,7 @@ export function formatPostClock(createdAt: string): string {
   return new Intl.DateTimeFormat("pt-BR", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: GYM_CIRCLE_TIME_ZONE,
   }).format(new Date(createdAt));
 }
 

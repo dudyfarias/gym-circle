@@ -4,6 +4,10 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  getGymCircleDateKey,
+  GYM_CIRCLE_TIME_ZONE,
+} from "@gym-circle/core";
+import {
   Camera,
   Check,
   Clock,
@@ -44,17 +48,12 @@ function formatPostTime(iso: string, locale: string): string {
   return new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: GYM_CIRCLE_TIME_ZONE,
   }).format(new Date(iso));
 }
 
 function isTodayInSP(iso: string): boolean {
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date());
-  const that = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-  }).format(new Date(iso));
-  return today === that;
+  return getGymCircleDateKey() === getGymCircleDateKey(new Date(iso));
 }
 
 function isWithinLastDays(iso: string, days: number): boolean {
@@ -71,6 +70,7 @@ function formatRelativeDay(iso: string, locale: string, t: TFn): string {
   return new Intl.DateTimeFormat(locale, {
     day: "2-digit",
     month: "short",
+    timeZone: GYM_CIRCLE_TIME_ZONE,
   }).format(new Date(iso));
 }
 
