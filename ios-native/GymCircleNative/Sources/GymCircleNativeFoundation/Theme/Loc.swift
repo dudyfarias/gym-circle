@@ -28,6 +28,13 @@ public enum Loc {
         t("When your circle posts workouts, they'll show up here with streaks, likes, and comments.",
           "Quando seu circle publicar treinos, eles aparecem aqui com streak, curtidas e comentários.")
     }
+    // Copy 1:1 com o web (feed.error.* + common.retry).
+    public static var feedErrorTitle: String { t("Couldn't load the feed", "Não foi possível carregar o feed") }
+    public static var feedErrorSubtitle: String {
+        t("Check your connection and try again.",
+          "Verifique sua conexão e tente de novo.")
+    }
+    public static var tryAgain: String { t("Try again", "Tentar de novo") }
     public static var loadingFeed: String { t("Loading feed", "Carregando feed") }
     public static var like: String { t("Like", "Curtir") }
     public static var unlike: String { t("Unlike", "Descurtir") }

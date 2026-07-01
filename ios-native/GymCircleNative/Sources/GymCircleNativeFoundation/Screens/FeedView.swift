@@ -167,6 +167,23 @@ public struct FeedView: View {
 
                 if model.isLoading && model.posts.isEmpty {
                     GCFeedSkeleton()
+                } else if model.error != nil && model.posts.isEmpty {
+                    // Boot do feed falhou: em vez de mostrar o empty-state genérico
+                    // (que confunde "deu erro" com "sem posts"), mostra erro +
+                    // "Tentar de novo". Espelha o fix web (LiveHomeWrapper retry).
+                    VStack(spacing: 14) {
+                        GCText(Loc.feedErrorTitle, style: .headline)
+                        GCText(Loc.feedErrorSubtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                            .multilineTextAlignment(.center)
+                        GCButton(Loc.tryAgain, systemImage: "arrow.clockwise") {
+                            Task { await model.refreshFeed() }
+                        }
+                        .frame(maxWidth: 240)
+                        .padding(.top, 4)
+                    }
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 48)
+                    .frame(maxWidth: .infinity)
                 } else if model.posts.isEmpty {
                     GCEmptyState(
                         title: Loc.feedEmptyTitle,

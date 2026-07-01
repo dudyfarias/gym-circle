@@ -1038,7 +1038,10 @@ public struct EditPostSheet: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 10) {
-                    ForEach(Array(existingItems.enumerated()), id: \.offset) { index, item in
+                    // Key estável pela URL do storage (não pelo índice): ao remover
+                    // uma mídia do meio, o SwiftUI reusa a view certa em vez de
+                    // deslocar thumbs/poster. Espelha o fix web (key={item.imageUrl}).
+                    ForEach(Array(existingItems.enumerated()), id: \.element.imageURL) { index, item in
                         editThumb(index: index, isExisting: true) {
                             MediaView(
                                 url: item.thumbnailURL ?? item.posterURL ?? item.imageURL,

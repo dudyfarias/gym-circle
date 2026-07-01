@@ -422,6 +422,9 @@ public final class GymCircleAppModel: ObservableObject {
     /// (`isLoading`) — o spinner do gesto já dá o feedback.
     public func refreshFeed() async {
         guard let api else { return }
+        // Limpa o erro ao re-tentar (mesmo padrão de loadInitialSurfaces): um
+        // retry bem-sucedido some com o estado de erro em vez de deixá-lo preso.
+        error = nil
         do {
             async let feed = api.homeFeed()
             async let tray = api.storyTray()
