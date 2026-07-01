@@ -318,7 +318,7 @@ export function EditPostSheet({
             {mediaItems.map((item, index) => (
               <div
                 className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
-                key={index}
+                key={item.imageUrl}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

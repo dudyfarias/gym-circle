@@ -85,7 +85,7 @@ export function MediaCarousel({ media, altText, priority }: MediaCarouselProps) 
           ref={trackRef}
         >
           {media.map((item, index) => (
-            <div className="w-full shrink-0 snap-center snap-always" key={index}>
+            <div className="w-full shrink-0 snap-center snap-always" key={item.imageUrl}>
               <MediaSlide
                 altText={altText}
                 inCarousel
