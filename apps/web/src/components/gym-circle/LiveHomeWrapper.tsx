@@ -7,6 +7,7 @@ import { GymCirclePreview } from "./GymCirclePreview";
 import { LiveAuthGate } from "./LiveAuthGate";
 import { NativeBootController } from "./NativeBootController";
 import { NativePushController } from "./NativePushController";
+import { useTranslation } from "react-i18next";
 import { PwaController } from "./PwaController";
 import { markPerf, measurePerf } from "./performance";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
@@ -286,6 +287,7 @@ export function LiveHomeWrapper() {
 function AuthenticatedShell({ userId }: { userId: string }) {
   const services = useGymCircleServices();
   const social = useSupabaseSocial(userId);
+  const { t } = useTranslation();
 
   const uploadTo = useCallback(
     async (bucket: "posts" | "avatars" | "stories" | "chat-media", file: File) => {
@@ -386,9 +388,18 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   if (social.error && social.feedPosts.length === 0 && !social.loading) {
     return (
       <main className="grid min-h-screen place-items-center bg-black px-6 text-center text-white">
-        <div>
-          <p className="text-[16px] font-black text-[var(--gc-pink)]">Erro</p>
-          <p className="mt-2 text-[13px] font-bold text-white/60">{social.error.message}</p>
+        <div className="flex max-w-[300px] flex-col items-center">
+          <p className="text-[16px] font-black text-white">{t("feed.error.title")}</p>
+          <p className="mt-2 text-[13px] font-bold text-white/60">{t("feed.error.body")}</p>
+          {/* Antes era beco sem saída (só a mensagem); agora dá pra re-tentar
+              sem precisar recarregar a página. */}
+          <button
+            className="gc-pressable mt-5 h-12 rounded-full bg-[var(--gc-brand)] px-6 text-[14px] font-black text-black"
+            onClick={() => void social.refresh()}
+            type="button"
+          >
+            {t("common.retry")}
+          </button>
         </div>
       </main>
     );

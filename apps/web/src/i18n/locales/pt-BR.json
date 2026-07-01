@@ -47,6 +47,10 @@
       "body": "Quando seu circle publicar treinos, eles aparecem aqui com streak, curtidas e comentários.",
       "action": "Postar primeiro treino"
     },
+    "error": {
+      "title": "Não foi possível carregar o feed",
+      "body": "Verifique sua conexão e tente de novo."
+    },
     "post": {
       "comment": "Comentar",
       "share": "Compartilhar",

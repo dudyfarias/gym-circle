@@ -47,6 +47,10 @@
       "body": "When your circle posts workouts, they'll show up here with streaks, likes, and comments.",
       "action": "Post your first workout"
     },
+    "error": {
+      "title": "Couldn't load the feed",
+      "body": "Check your connection and try again."
+    },
     "post": {
       "comment": "Comment",
       "share": "Share",
