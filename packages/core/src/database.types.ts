@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          active_calories: number | null
+          activity_type: string
+          avg_hr: number | null
+          created_at: string
+          distance_m: number | null
+          elapsed_s: number
+          elevation_gain_m: number | null
+          ended_at: string
+          id: string
+          max_hr: number | null
+          mode: string
+          moving_s: number | null
+          origin: string
+          route: Json | null
+          source_app: string | null
+          splits: Json | null
+          started_at: string
+          total_calories: number | null
+          user_id: string
+          workout_date: string
+        }
+        Insert: {
+          active_calories?: number | null
+          activity_type: string
+          avg_hr?: number | null
+          created_at?: string
+          distance_m?: number | null
+          elapsed_s?: number
+          elevation_gain_m?: number | null
+          ended_at: string
+          id?: string
+          max_hr?: number | null
+          mode: string
+          moving_s?: number | null
+          origin: string
+          route?: Json | null
+          source_app?: string | null
+          splits?: Json | null
+          started_at: string
+          total_calories?: number | null
+          user_id: string
+          workout_date: string
+        }
+        Update: {
+          active_calories?: number | null
+          activity_type?: string
+          avg_hr?: number | null
+          created_at?: string
+          distance_m?: number | null
+          elapsed_s?: number
+          elevation_gain_m?: number | null
+          ended_at?: string
+          id?: string
+          max_hr?: number | null
+          mode?: string
+          moving_s?: number | null
+          origin?: string
+          route?: Json | null
+          source_app?: string | null
+          splits?: Json | null
+          started_at?: string
+          total_calories?: number | null
+          user_id?: string
+          workout_date?: string
+        }
+        Relationships: []
+      }
       account_deletion_requests: {
         Row: {
           created_at: string
@@ -689,6 +758,7 @@ export type Database = {
           media_width: number | null
           media_type: string
           poster_url: string | null
+          source_activity_id: string | null
           source_checkin_id: string | null
           thumbnail_url: string | null
           user_id: string
@@ -714,6 +784,7 @@ export type Database = {
           media_width?: number | null
           media_type?: string
           poster_url?: string | null
+          source_activity_id?: string | null
           source_checkin_id?: string | null
           thumbnail_url?: string | null
           user_id: string
@@ -739,6 +810,7 @@ export type Database = {
           media_width?: number | null
           media_type?: string
           poster_url?: string | null
+          source_activity_id?: string | null
           source_checkin_id?: string | null
           thumbnail_url?: string | null
           user_id?: string
@@ -759,6 +831,13 @@ export type Database = {
             columns: ["source_checkin_id"]
             isOneToOne: true
             referencedRelation: "checkins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_source_activity_id_fkey"
+            columns: ["source_activity_id"]
+            isOneToOne: true
+            referencedRelation: "activities"
             referencedColumns: ["id"]
           },
         ]
@@ -1428,6 +1507,13 @@ export type Database = {
       }
     }
     Functions: {
+      convert_social_post_to_checkin: {
+        Args: {
+          p_gym_id: string
+          p_post_id: string
+        }
+        Returns: string
+      }
       get_conversation_messages: {
         Args: {
           p_conversation_id: string
@@ -1470,6 +1556,22 @@ export type Database = {
           type: string | null
           unread_count: number | null
         }[]
+      }
+      update_social_checkin: {
+        Args: {
+          p_checkin_id: string
+          p_gym_id: string
+        }
+        Returns: string
+      }
+      update_social_post: {
+        Args: {
+          p_caption?: string | null
+          p_gym_id?: string | null
+          p_post_id: string
+          p_workout_types?: string[] | null
+        }
+        Returns: undefined
       }
       get_home_feed: {
         Args: {

@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from "vitest";
+import { activityService } from "./activities";
+import type { GymCircleClient } from "./supabase";
+import type { ActivityRow } from "../domain/activity";
+
+const baseRow: ActivityRow = {
+  id: "a1",
+  user_id: "u1",
+  activity_type: "strength",
+  mode: "session",
+  origin: "web_timer",
+  source_app: null,
+  started_at: "2026-07-02T21:00:00Z",
+  ended_at: "2026-07-02T21:58:00Z",
+  elapsed_s: 3480,
+  moving_s: null,
+  distance_m: null,
+  elevation_gain_m: null,
+  avg_hr: null,
+  max_hr: null,
+  active_calories: null,
+  total_calories: null,
+  workout_date: "2026-07-02",
+  created_at: "2026-07-02T21:58:01Z",
+};
+
+describe("activityService.create", () => {
+  it("insere a row mapeada e devolve o domínio", async () => {
+    const insert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: baseRow, error: null }),
+      }),
+    });
+    const client = {
+      from: vi.fn().mockReturnValue({ insert }),
+    } as unknown as GymCircleClient;
+
+    const activity = await activityService(client).create("u1", {
+      activityType: "strength",
+      mode: "session",
+      origin: "web_timer",
+      startedAt: "2026-07-02T21:00:00Z",
+      endedAt: "2026-07-02T21:58:00Z",
+      elapsedS: 3480,
+    });
+
+    expect(client.from).toHaveBeenCalledWith("activities");
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: "u1",
+        activity_type: "strength",
+        origin: "web_timer",
+        workout_date: "2026-07-02",
+      }),
+    );
+    expect(activity.id).toBe("a1");
+    expect(activity.elapsedS).toBe(3480);
+  });
+
+  it("propaga erro do banco", async () => {
+    const client = {
+      from: vi.fn().mockReturnValue({
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi
+              .fn()
+              .mockResolvedValue({ data: null, error: new Error("rls") }),
+          }),
+        }),
+      }),
+    } as unknown as GymCircleClient;
+
+    await expect(
+      activityService(client).create("u1", {
+        activityType: "strength",
+        mode: "session",
+        origin: "web_timer",
+        startedAt: "2026-07-02T21:00:00Z",
+        endedAt: "2026-07-02T21:58:00Z",
+        elapsedS: 60,
+      }),
+    ).rejects.toThrow("rls");
+  });
+});
+
+describe("activityService.recentForUser", () => {
+  it("lista ordenado por started_at desc com limite", async () => {
+    const limit = vi.fn().mockResolvedValue({ data: [baseRow], error: null });
+    const order = vi.fn().mockReturnValue({ limit });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const client = {
+      from: vi.fn().mockReturnValue({ select }),
+    } as unknown as GymCircleClient;
+
+    const list = await activityService(client).recentForUser("u1", 10);
+
+    expect(eq).toHaveBeenCalledWith("user_id", "u1");
+    expect(order).toHaveBeenCalledWith("started_at", { ascending: false });
+    expect(limit).toHaveBeenCalledWith(10);
+    expect(list).toHaveLength(1);
+    expect(list[0].userId).toBe("u1");
+  });
+});
