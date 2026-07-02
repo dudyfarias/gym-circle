@@ -166,53 +166,57 @@ async function imageFileVariant(
 async function createVideoPoster(file: File): Promise<(PreparedImageFile & { duration: number | null; blurDataUrl: string | null }) | null> {
   if (typeof window === "undefined" || !file.type.startsWith("video/")) return null;
   const url = URL.createObjectURL(file);
+  let video: HTMLVideoElement | null = null;
+  let canvas: HTMLCanvasElement | null = null;
   try {
-    const video = document.createElement("video");
-    video.muted = true;
-    video.playsInline = true;
-    video.preload = "metadata";
-    video.src = url;
+    video = document.createElement("video");
+    const activeVideo = video;
+    activeVideo.muted = true;
+    activeVideo.playsInline = true;
+    activeVideo.preload = "metadata";
+    activeVideo.src = url;
 
     await new Promise<void>((resolve, reject) => {
-      video.onloadedmetadata = () => resolve();
-      video.onerror = () => reject(new Error("Não foi possível gerar preview do vídeo."));
+      activeVideo.onloadedmetadata = () => resolve();
+      activeVideo.onerror = () => reject(new Error("Não foi possível gerar preview do vídeo."));
     });
 
-    const duration = Number.isFinite(video.duration) ? video.duration : null;
-    const width = video.videoWidth || null;
-    const height = video.videoHeight || null;
+    const duration = Number.isFinite(activeVideo.duration) ? activeVideo.duration : null;
+    const width = activeVideo.videoWidth || null;
+    const height = activeVideo.videoHeight || null;
     if (!width || !height) return null;
 
     const seekTo = duration ? Math.min(0.18, Math.max(0.01, duration - 0.01)) : 0.01;
     await new Promise<void>((resolve) => {
       const done = () => resolve();
-      video.onseeked = done;
+      activeVideo.onseeked = done;
       window.setTimeout(done, 900);
       try {
-        video.currentTime = seekTo;
+        activeVideo.currentTime = seekTo;
       } catch {
         resolve();
       }
     });
 
     const ratio = Math.min(1, POST_THUMBNAIL_MAX_EDGE / Math.max(width, height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(width * ratio));
-    canvas.height = Math.max(1, Math.round(height * ratio));
-    const context = canvas.getContext("2d");
+    canvas = document.createElement("canvas");
+    const posterCanvas = canvas;
+    posterCanvas.width = Math.max(1, Math.round(width * ratio));
+    posterCanvas.height = Math.max(1, Math.round(height * ratio));
+    const context = posterCanvas.getContext("2d");
     if (!context) return null;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    context.drawImage(activeVideo, 0, 0, posterCanvas.width, posterCanvas.height);
     const blob = await new Promise<Blob | null>((resolve) => {
       // Sprint 2.4: poster ganha quality HQ (0.88 vs 0.76 antigo). Frame
       // de vídeo precisa de detalhe pra não parecer pixelado quando o
       // user ver no feed antes do play.
-      canvas.toBlob(resolve, "image/jpeg", POSTER_QUALITY);
+      posterCanvas.toBlob(resolve, "image/jpeg", POSTER_QUALITY);
     });
     if (!blob) return null;
 
     // Sprint 2.4: também gera blur placeholder do poster — reusa o frame
     // já desenhado na canvas. Custo zero adicional.
-    const posterBlur = await generateBlurDataUrl(canvas);
+    const posterBlur = await generateBlurDataUrl(posterCanvas);
 
     const baseName = file.name.replace(/\.[^.]+$/, "") || "gym-circle-video";
     return {
@@ -228,6 +232,17 @@ async function createVideoPoster(file: File): Promise<(PreparedImageFile & { dur
   } catch {
     return null;
   } finally {
+    // Libera decoder e backing store antes do próximo item. Confiar só no GC
+    // mantém dezenas de MB vivos no WKWebView.
+    if (video) {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    }
+    if (canvas) {
+      canvas.width = 1;
+      canvas.height = 1;
+    }
     URL.revokeObjectURL(url);
   }
 }
@@ -312,15 +327,20 @@ function AuthenticatedShell({ userId }: { userId: string }) {
       try {
         if (file.type.startsWith("image/")) {
           markPerf("thumbnail_generation_start");
-          const [feedFile, thumbnail] = await Promise.all([
-            imageFileVariant(file, POST_IMAGE_MAX_EDGE, POST_IMAGE_QUALITY, "feed"),
-            imageFileVariant(
-              file,
-              POST_THUMBNAIL_MAX_EDGE,
-              POST_THUMBNAIL_QUALITY,
-              "thumb",
-            ),
-          ]);
+          // Sequencial por arquivo: evita manter dois decodes + dois canvas
+          // grandes ao mesmo tempo no iPhone.
+          const feedFile = await imageFileVariant(
+            file,
+            POST_IMAGE_MAX_EDGE,
+            POST_IMAGE_QUALITY,
+            "feed",
+          );
+          const thumbnail = await imageFileVariant(
+            file,
+            POST_THUMBNAIL_MAX_EDGE,
+            POST_THUMBNAIL_QUALITY,
+            "thumb",
+          );
           measurePerf(
             "thumbnail_generation_ms",
             "thumbnail_generation_start",

@@ -8,16 +8,19 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import {
+  ArrowLeft,
   Calendar,
   Camera,
   Check,
   ChevronDown,
+  ChevronRight,
   Loader2,
   Plus,
   RefreshCw,
   Search,
   Upload,
   UserPlus,
+  Video,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -29,23 +32,20 @@ import type {
   PostMediaItem,
   PostMediaType,
 } from "../social/types";
-import { TopBar } from "../TopBar";
 import { MediaCarousel } from "../design-system/MediaCarousel";
 import { PinchZoomImage } from "../design-system/PinchZoomImage";
 
 // Sprint 13 — limite do carrossel (alinhado com a regra de produto).
 const MAX_MEDIA = 10;
-import {
-  GymSearchSheet,
-  type LocatedPlaceCandidate,
-  type PlaceCandidate,
-} from "../GymSearchSheet";
+import { GymSearchSheet, type LocatedPlaceCandidate, type PlaceCandidate } from "../GymSearchSheet";
 import { HapticsService } from "../native/HapticsService";
 import { NativeMediaPickerService } from "../native/NativeMediaPickerService";
+import { allSettledWithConcurrency, getMediaUploadConcurrency } from "../mediaUploadQueue";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
   gyms?: GymLocationOption[];
+  onCancel: () => void;
   onPublish: (input: CreateWorkoutPostInput) => void | Promise<void>;
   onUploadImage?: (file: File) => Promise<string | WorkoutMediaUploadResult>;
   taggableUsers?: EnrichedUser[];
@@ -88,6 +88,7 @@ const workoutTypes: ReadonlyArray<{ key: string; value: string }> = [
 ];
 
 type SelectableLocationSource = Exclude<PostLocationSource, "custom">;
+type ComposerStep = "media" | "details";
 
 function getMediaType(file: File): PostMediaType {
   return file.type.startsWith("video/") ? "video" : "image";
@@ -96,7 +97,7 @@ function getMediaType(file: File): PostMediaType {
 /// Mídia em upload no strip (preview local instantâneo + estado de carregando).
 type PendingUpload = {
   id: string;
-  previewUrl: string;
+  previewUrl: string | null;
   mediaType: PostMediaType;
   status: "uploading" | "error";
 };
@@ -121,6 +122,7 @@ function getGymMapsUrl(gym: GymLocationOption): string {
 export function PostScreen({
   currentUser,
   gyms = [],
+  onCancel,
   onPublish,
   onUploadImage,
   onCatalogPlace,
@@ -137,6 +139,7 @@ export function PostScreen({
   const getErrorMessage = (err: unknown) =>
     err instanceof Error ? err.message : t("postScreen.publish.errors.generic");
   const [caption, setCaption] = useState("");
+  const [composerStep, setComposerStep] = useState<ComposerStep>("media");
   // Academias catalogadas durante essa sessão de post (via search sheet) —
   // se juntam às `gyms` recebidas via prop pra que o select reconheça.
   const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
@@ -161,7 +164,10 @@ export function PostScreen({
   // (preview via objectURL) — antes a tela ficava "travada" até o vídeo subir.
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   // Progresso real do lote: nº de mídias que já terminaram de subir / total.
-  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -174,11 +180,19 @@ export function PostScreen({
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const sectionRef = useRef<HTMLElement | null>(null);
   // Sprint 12.3 — trava re-entrância do picker. O `uploading` só cobre o upload,
   // não a fase "câmera/galeria aberta": sem isso, um segundo toque (ou reabrir)
   // dispara outro present e dá race no WKWebView iOS (câmera fecha sozinha +
   // botão trava). Ref (não state) pra não re-renderizar e pegar o valor na hora.
   const pickerBusyRef = useRef(false);
+
+  function showComposerStep(step: ComposerStep) {
+    setComposerStep(step);
+    window.requestAnimationFrame(() => {
+      sectionRef.current?.scrollIntoView({ block: "start" });
+    });
+  }
 
   // Sprint 13 — resolve as tags escolhidas (chips + "Outro" custom), cap 5. A
   // primeira (resolvedWorkoutType) vira a primária em posts.workout_type.
@@ -246,8 +260,7 @@ export function PostScreen({
       .filter((user) => !taggedUserIds.includes(user.id))
       .filter(
         (user) =>
-          user.username.toLowerCase().includes(query) ||
-          user.name.toLowerCase().includes(query),
+          user.username.toLowerCase().includes(query) || user.name.toLowerCase().includes(query),
       )
       .slice(0, 6);
   }, [currentUser.id, friendQuery, taggableUsers, taggedUserIds]);
@@ -389,7 +402,9 @@ export function PostScreen({
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
+      if (placeholder.previewUrl) {
       URL.revokeObjectURL(placeholder.previewUrl);
+      }
       setPendingUploads((prev) => prev.filter((x) => x.id !== placeholder.id));
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -415,7 +430,9 @@ export function PostScreen({
     // 1) placeholders NA HORA (preview instantâneo via objectURL).
     const placeholders: PendingUpload[] = chosen.map((file) => ({
       id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      previewUrl: URL.createObjectURL(file),
+      // Não cria <video>/object URL para cada pendência: quatro decoders
+      // simultâneos já bastavam para o iOS reiniciar o WebView.
+      previewUrl: file.type.startsWith("video/") ? null : URL.createObjectURL(file),
       mediaType: getMediaType(file),
       status: "uploading",
     }));
@@ -425,14 +442,16 @@ export function PostScreen({
     let done = 0;
     setUploadProgress({ done: 0, total: chosen.length });
     try {
-      // 2) sobe TODOS em paralelo; preserva a ordem de seleção no resultado.
-      const settled = await Promise.allSettled(
-        chosen.map((f) =>
-          uploadOne(f).finally(() => {
+      // 2) concorrência limitada: vídeos sequenciais no iPhone evitam que
+      // múltiplos decoders/canvas/uploads reiniciem o WebView inteiro.
+      const settled = await allSettledWithConcurrency(
+        chosen,
+        getMediaUploadConcurrency(chosen),
+        (file) =>
+          uploadOne(file).finally(() => {
             done += 1;
             setUploadProgress({ done, total: chosen.length });
           }),
-        ),
       );
       const picked: PostMediaItem[] = [];
       let firstError: unknown = null;
@@ -449,10 +468,10 @@ export function PostScreen({
     } catch (err) {
       setUploadError(getErrorMessage(err));
     } finally {
-      placeholders.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-      setPendingUploads((prev) =>
-        prev.filter((x) => !placeholders.some((ph) => ph.id === x.id)),
-      );
+      placeholders.forEach((p) => {
+        if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+      });
+      setPendingUploads((prev) => prev.filter((x) => !placeholders.some((ph) => ph.id === x.id)));
       setUploadProgress(null);
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -567,9 +586,7 @@ export function PostScreen({
         longitude: place.longitude,
       });
       setLocalGyms((current) =>
-        current.some((gym) => gym.id === cataloged.id)
-          ? current
-          : [...current, cataloged],
+        current.some((gym) => gym.id === cataloged.id) ? current : [...current, cataloged],
       );
       void HapticsService.selection();
       setLocationMode("gym");
@@ -577,9 +594,7 @@ export function PostScreen({
       setSearchOpen(false);
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : t("postScreen.location.errors.saveFailed");
+        err instanceof Error ? err.message : t("postScreen.location.errors.saveFailed");
       setSearchError(message);
     } finally {
       setCataloging(false);
@@ -651,11 +666,7 @@ export function PostScreen({
 
   const hasDestination = postToFeed || postToStory;
   const canPublish =
-    imageUrl.trim().length > 0 &&
-    hasDestination &&
-    locationReady &&
-    !uploading &&
-    !publishing;
+    imageUrl.trim().length > 0 && hasDestination && locationReady && !uploading && !publishing;
 
   const publishLabel = useMemo(() => {
     if (publishing) return t("postScreen.publish.publishing");
@@ -674,19 +685,60 @@ export function PostScreen({
   }, [postToFeed, postToStory, t]);
 
   return (
-    <section className="gc-screen-enter min-h-screen px-5 pb-6">
-      <TopBar
-        eyebrow={
-          isBackdated
-            ? t("postScreen.registerWorkout.eyebrow")
-            : t("postScreen.topBar.eyebrow")
-        }
-        title={
-          isBackdated
-            ? t("postScreen.registerWorkout.title", { date: backdatedLabel })
-            : t("postScreen.topBar.title")
-        }
-      />
+    <section
+      className="gc-screen-enter min-h-screen px-5 pb-6"
+      data-gc-no-screen-swipe
+      ref={sectionRef}
+    >
+      <header className="sticky top-0 z-20 -mx-5 flex min-h-20 items-center justify-between border-b border-white/[0.06] bg-black/92 px-5 backdrop-blur-xl">
+        <button
+          aria-label={t(
+            composerStep === "details" ? "postScreen.steps.back" : "postScreen.steps.cancel",
+          )}
+          className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
+          onClick={() => (composerStep === "details" ? showComposerStep("media") : onCancel())}
+          type="button"
+        >
+          {composerStep === "details" ? (
+            <ArrowLeft size={20} strokeWidth={2.4} />
+          ) : (
+            <X size={20} strokeWidth={2.4} />
+          )}
+        </button>
+        <div className="min-w-0 px-3 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.13em] text-white/36">
+            {isBackdated ? t("postScreen.registerWorkout.eyebrow") : t("postScreen.topBar.eyebrow")}
+          </p>
+          <h1 className="truncate text-[18px] font-black text-white">
+            {isBackdated
+              ? t("postScreen.registerWorkout.title", {
+                  date: backdatedLabel,
+                })
+              : t(
+                  composerStep === "media"
+                    ? "postScreen.steps.mediaTitle"
+                    : "postScreen.steps.detailsTitle",
+                )}
+          </h1>
+        </div>
+        {composerStep === "media" ? (
+          <button
+            aria-label={t("postScreen.steps.next")}
+            className="gc-pressable grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:bg-white/[0.06] disabled:text-white/24"
+            disabled={!imageUrl || uploading}
+            onClick={() => showComposerStep("details")}
+            type="button"
+          >
+            {uploading ? (
+              <Loader2 className="animate-spin" size={19} />
+            ) : (
+              <ChevronRight size={22} strokeWidth={2.8} />
+            )}
+          </button>
+        ) : (
+          <span aria-hidden className="size-11" />
+        )}
+      </header>
 
       {/* Registrar treino: aviso de data travada (post retroativo). */}
       {isBackdated ? (
@@ -716,7 +768,10 @@ export function PostScreen({
         type="file"
       />
 
-      {/* Área de mídia: protagonista quando preenchida, CTA simples quando vazia */}
+      {composerStep === "media" ? (
+        <>
+          {/* Passo 1: mídia ocupa a tela; teclado e campos pesados ainda não
+              existem. O usuário só avança quando todos os uploads terminam. */}
       {imageUrl || pendingUploads.length > 0 ? (
         <div className="mt-4 space-y-2">
           <div className="overflow-hidden rounded-[24px] bg-black">
@@ -724,19 +779,15 @@ export function PostScreen({
               // Só upload em curso (ainda sem mídia pronta): capa de carregando.
               <div className="relative aspect-[4/5]">
                 {pendingUploads[0].mediaType === "video" ? (
-                  <video
-                    className="h-full w-full object-cover"
-                    muted
-                    playsInline
-                    preload="metadata"
-                    src={pendingUploads[0].previewUrl}
-                  />
+                      <div className="grid h-full w-full place-items-center bg-white/[0.035] text-white/52">
+                        <Video size={42} strokeWidth={1.8} />
+                      </div>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     alt=""
                     className="h-full w-full object-cover"
-                    src={pendingUploads[0].previewUrl}
+                        src={pendingUploads[0].previewUrl ?? ""}
                   />
                 )}
                 <div className="absolute inset-0 grid place-items-center bg-black/45">
@@ -817,19 +868,15 @@ export function PostScreen({
                   key={pending.id}
                 >
                   {pending.mediaType === "video" ? (
-                    <video
-                      className="h-full w-full object-cover"
-                      muted
-                      playsInline
-                      preload="metadata"
-                      src={pending.previewUrl}
-                    />
+                        <div className="grid h-full w-full place-items-center bg-white/[0.035] text-white/52">
+                          <Video size={20} strokeWidth={1.8} />
+                        </div>
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       alt=""
                       className="h-full w-full object-cover"
-                      src={pending.previewUrl}
+                          src={pending.previewUrl ?? ""}
                     />
                   )}
                   <div className="absolute inset-0 grid animate-pulse place-items-center bg-black/45">
@@ -911,8 +958,53 @@ export function PostScreen({
           {t("postScreen.media.uploadFailed", { message: uploadError })}
         </p>
       ) : null}
+        </>
+      ) : (
+        <>
+          {/* Passo 2: usa somente o poster/thumbnail da capa. Nenhum decoder de
+              vídeo fica disputando memória com teclado, busca e localização. */}
+          <div className="mt-4 flex items-center gap-3 rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-3">
+            <div className="size-20 shrink-0 overflow-hidden rounded-[14px] bg-black">
+              {mediaItems[0]?.mediaType === "video" &&
+              !mediaItems[0]?.posterUrl &&
+              !mediaItems[0]?.thumbnailUrl ? (
+                <div className="grid h-full w-full place-items-center text-white/52">
+                  <Video size={24} strokeWidth={1.8} />
+                </div>
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  alt={t("postScreen.media.alt")}
+                  className="h-full w-full object-cover"
+                  src={
+                    mediaItems[0]?.posterUrl ??
+                    mediaItems[0]?.thumbnailUrl ??
+                    mediaItems[0]?.imageUrl ??
+                    imageUrl
+                  }
+                />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[14px] font-black text-white">
+                {t("postScreen.steps.mediaReady", {
+                  count: mediaItems.length,
+                })}
+              </p>
+              <p className="mt-1 text-[11px] font-bold text-white/42">
+                {t("postScreen.steps.mediaReadyHint")}
+              </p>
+            </div>
+            <button
+              className="gc-pressable h-9 shrink-0 rounded-full bg-white/[0.07] px-3 text-[12px] font-black text-white"
+              onClick={() => showComposerStep("media")}
+              type="button"
+            >
+              {t("postScreen.steps.editMedia")}
+            </button>
+          </div>
 
-      {/* Caption + opções + publicar — só aparecem quando tem mídia */}
+          {/* Caption + opções + publicar — só no segundo passo. */}
       {imageUrl ? (
         <>
           <textarea
@@ -990,9 +1082,7 @@ export function PostScreen({
                         className="gc-pressable inline-flex h-9 items-center gap-2 rounded-full bg-[var(--gc-brand)]/12 px-3 text-[12px] font-black text-[var(--gc-brand)]"
                         key={user.id}
                         onClick={() =>
-                          setTaggedUserIds((current) =>
-                            current.filter((id) => id !== user.id),
-                          )
+                              setTaggedUserIds((current) => current.filter((id) => id !== user.id))
                         }
                         type="button"
                       >
@@ -1088,7 +1178,6 @@ export function PostScreen({
                     {searchError}
                   </p>
                 ) : null}
-
               </div>
 
               {/* Registrar treino vai só pro feed (sem story) — esconde o toggle. */}
@@ -1126,7 +1215,9 @@ export function PostScreen({
             </button>
             <p className="text-center text-[11px] font-bold text-white/40">
               {isBackdated
-                ? t("postScreen.registerWorkout.hint", { date: backdatedLabel })
+                    ? t("postScreen.registerWorkout.hint", {
+                        date: backdatedLabel,
+                      })
                 : destinationHint}
             </p>
             {publishError ? (
@@ -1137,6 +1228,8 @@ export function PostScreen({
           </div>
         </>
       ) : null}
+        </>
+      )}
 
       <GymSearchSheet
         onClose={() => setSearchOpen(false)}
@@ -1173,9 +1266,7 @@ function DestinationToggle({ active, label, onToggle }: DestinationToggleProps) 
       aria-pressed={active}
       className={[
         "gc-pressable flex h-11 items-center justify-center gap-2 rounded-full text-[13px] font-black",
-        active
-          ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
-          : "bg-white/[0.05] text-white/56",
+        active ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]" : "bg-white/[0.05] text-white/56",
       ].join(" ")}
       onClick={onToggle}
       type="button"

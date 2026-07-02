@@ -435,6 +435,17 @@
       "eyebrow": "Post de treino",
       "title": "Publicar"
     },
+    "steps": {
+      "mediaTitle": "Novo post",
+      "detailsTitle": "Detalhes do post",
+      "cancel": "Cancelar novo post",
+      "back": "Voltar para as mídias",
+      "next": "Avançar para os detalhes",
+      "mediaReady_one": "1 mídia pronta",
+      "mediaReady_other": "{{count}} mídias prontas",
+      "mediaReadyHint": "Upload concluído. Agora adicione os detalhes.",
+      "editMedia": "Editar"
+    },
     "registerWorkout": {
       "eyebrow": "Registrar treino",
       "title": "Treino de {{date}}",

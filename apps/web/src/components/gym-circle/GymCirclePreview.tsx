@@ -1699,6 +1699,11 @@ export function GymCirclePreview({
             currentUser={social.currentUser}
             gyms={social.gyms ?? []}
             onCatalogPlace={social.actions.catalogPlace}
+            onCancel={() => {
+              setComposerWorkoutDate(null);
+              setScrollState("top");
+              setActiveScreen("feed");
+            }}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
               setComposerWorkoutDate(null);
@@ -1854,7 +1859,9 @@ export function GymCirclePreview({
                 {screen}
               </div>
             </div>
-            {!keyboardOpen && !(activeScreen === "chat" && chatThreadOpen) ? (
+            {activeScreen !== "post" &&
+            !keyboardOpen &&
+            !(activeScreen === "chat" && chatThreadOpen) ? (
               <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30">
                 <div className="pointer-events-auto">
                   <BottomNav

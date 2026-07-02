@@ -3,9 +3,21 @@
 import Image from "next/image";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, ImagePlus, Loader2, Plus, UserPlus, X } from "lucide-react";
+import {
+  Check,
+  ImagePlus,
+  Loader2,
+  Plus,
+  UserPlus,
+  Video,
+  X,
+} from "lucide-react";
 import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
+import {
+  allSettledWithConcurrency,
+  getMediaUploadConcurrency,
+} from "./mediaUploadQueue";
 import type {
   EditPostInput,
   EnrichedCheckin,
@@ -67,7 +79,7 @@ function normalizeSearch(value: string) {
 
 type PendingUpload = {
   id: string;
-  previewUrl: string;
+  previewUrl: string | null;
   mediaType: PostMediaType;
   status: "uploading" | "error";
 };
@@ -155,15 +167,20 @@ export function EditPostSheet({
     // Placeholders na hora (preview local) com animação de carregando.
     const placeholders: PendingUpload[] = chosen.map((file) => ({
       id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      previewUrl: URL.createObjectURL(file),
+      previewUrl: file.type.startsWith("video/")
+        ? null
+        : URL.createObjectURL(file),
       mediaType: getMediaType(file),
       status: "uploading",
     }));
     setPendingUploads((prev) => [...prev, ...placeholders]);
     setUploading(true);
     try {
-      // Sobe em paralelo; preserva a ordem.
-      const settled = await Promise.allSettled(chosen.map((f) => uploadOne(f)));
+      const settled = await allSettledWithConcurrency(
+        chosen,
+        getMediaUploadConcurrency(chosen),
+        uploadOne,
+      );
       const picked: PostMediaItem[] = [];
       let firstError: unknown = null;
       for (const result of settled) {
@@ -178,7 +195,9 @@ export function EditPostSheet({
     } catch (err) {
       setError((err as Error).message ?? t("editPost.errors.save"));
     } finally {
-      placeholders.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+      placeholders.forEach((p) => {
+        if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+      });
       setPendingUploads((prev) =>
         prev.filter((x) => !placeholders.some((ph) => ph.id === x.id)),
       );
@@ -396,16 +415,16 @@ export function EditPostSheet({
                 key={pending.id}
               >
                 {pending.mediaType === "video" ? (
-                  <video
-                    className="h-full w-full object-cover"
-                    muted
-                    playsInline
-                    preload="metadata"
-                    src={pending.previewUrl}
-                  />
+                  <div className="grid h-full w-full place-items-center bg-white/[0.035] text-white/52">
+                    <Video size={20} strokeWidth={1.8} />
+                  </div>
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" className="h-full w-full object-cover" src={pending.previewUrl} />
+                  <img
+                    alt=""
+                    className="h-full w-full object-cover"
+                    src={pending.previewUrl ?? ""}
+                  />
                 )}
                 <div className="absolute inset-0 grid animate-pulse place-items-center bg-black/45">
                   {pending.status === "error" ? (
