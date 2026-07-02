@@ -1,4 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
+import {
+  buildGoogleMapsSearchUrl,
+  buildGoogleMapsUrlFromCoordinates,
+} from "@gym-circle/core";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   DirectMessageRow,
@@ -47,6 +51,7 @@ import type {
   EnrichedUser,
   FeedbackTone,
   ProfileEditInput,
+  PromoteCheckinInput,
   SendChatMessageInput,
   StoryGroup,
 } from "./types";
@@ -790,6 +795,104 @@ export function createSocialActions(
           "success",
           taggedUserIds.length > 0 ? "Solicitação enviada" : "Post atualizado",
           taggedUserIds.length > 0 ? "Aguardando aceite" : undefined,
+        );
+      },
+      async promoteCheckin(checkinId: string, input: PromoteCheckinInput) {
+        const checkin = aggRef.current.feedCheckins.find(
+          (row) => row.id === checkinId,
+        );
+        if (!checkin || checkin.user_id !== currentUserId) {
+          throw new Error("Check-in não encontrado ou sem permissão.");
+        }
+        const cover = input.media[0];
+        if (!cover) {
+          throw new Error("Adicione pelo menos uma foto ou vídeo.");
+        }
+
+        const gym = aggRef.current.gyms.find(
+          (row) => row.id === checkin.gym_id,
+        );
+        const gymCoordinates =
+          typeof gym?.latitude === "number" &&
+          typeof gym?.longitude === "number"
+            ? { latitude: gym.latitude, longitude: gym.longitude }
+            : null;
+        const checkinCoordinates =
+          typeof checkin.gym_latitude === "number" &&
+          typeof checkin.gym_longitude === "number"
+            ? {
+                latitude: checkin.gym_latitude,
+                longitude: checkin.gym_longitude,
+              }
+            : null;
+        const coordinates = gymCoordinates ?? checkinCoordinates;
+        const mapsUrl = coordinates
+          ? buildGoogleMapsUrlFromCoordinates({
+              latitude: coordinates.latitude,
+              longitude: coordinates.longitude,
+            })
+          : buildGoogleMapsSearchUrl(
+              [
+                checkin.gym_name,
+                gym?.address ?? checkin.gym_address,
+                checkin.gym_city,
+                checkin.gym_state,
+              ]
+                .filter(Boolean)
+                .join(", "),
+            );
+
+        const post = await services.posts.create(currentUserId, {
+          sourceCheckinId: checkin.id,
+          imageUrl: cover.imageUrl,
+          mediaType: cover.mediaType,
+          thumbnailUrl: cover.thumbnailUrl ?? null,
+          posterUrl: cover.posterUrl ?? null,
+          mediaWidth: cover.mediaWidth ?? null,
+          mediaHeight: cover.mediaHeight ?? null,
+          mediaDurationSeconds: cover.mediaDurationSeconds ?? null,
+          blurDataUrl: cover.blurDataUrl ?? null,
+          caption: input.caption ?? "",
+          gymId: checkin.gym_id,
+          workoutType: input.workoutType ?? null,
+          workoutTypes: input.workoutType ? [input.workoutType] : null,
+          workoutDate: checkin.checkin_date,
+          createdAt: checkin.created_at,
+          media: input.media,
+          locationSource: "gym",
+          locationName: checkin.gym_name,
+          locationLatitude: coordinates?.latitude ?? null,
+          locationLongitude: coordinates?.longitude ?? null,
+          locationGoogleMapsUrl: mapsUrl,
+        });
+
+        const taggedUserIds = input.taggedUserIds ?? [];
+        const followUps: Promise<unknown>[] = [
+          services.stats.refreshMine(),
+          refresh(),
+        ];
+        if (taggedUserIds.length > 0) {
+          followUps.push(
+            services.participants.createPostTags(
+              post.id,
+              currentUserId,
+              taggedUserIds,
+            ),
+          );
+        }
+        const followUpResults = await Promise.allSettled(followUps);
+        for (const result of followUpResults) {
+          if (result.status === "rejected") {
+            console.warn(
+              "Pós-publicação do check-in falhou; o post já foi criado:",
+              result.reason,
+            );
+          }
+        }
+        showFeedback(
+          "success",
+          "Check-in atualizado",
+          "Agora ele é uma postagem completa no feed",
         );
       },
       async deletePost(postId: string) {

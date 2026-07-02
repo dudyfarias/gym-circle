@@ -3,15 +3,17 @@
 import Image from "next/image";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Loader2, Plus, UserPlus, X } from "lucide-react";
+import { Check, ImagePlus, Loader2, Plus, UserPlus, X } from "lucide-react";
 import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
 import type {
   EditPostInput,
+  EnrichedCheckin,
   EnrichedPost,
   EnrichedUser,
   PostMediaItem,
   PostMediaType,
+  PromoteCheckinInput,
 } from "./social/types";
 
 // Sprint 14 — limite do carrossel (igual ao composer).
@@ -30,9 +32,14 @@ type UploadResult = {
 type EditPostSheetProps = {
   open: boolean;
   post: EnrichedPost | null;
+  checkin?: EnrichedCheckin | null;
   taggableUsers?: EnrichedUser[];
   onClose: () => void;
   onSave: (postId: string, input: EditPostInput) => Promise<void>;
+  onPromoteCheckin?: (
+    checkinId: string,
+    input: PromoteCheckinInput,
+  ) => Promise<void>;
   // Sprint 14 — necessário pra adicionar novas mídias ao post.
   onUploadImage?: (file: File) => Promise<string | UploadResult>;
 };
@@ -89,9 +96,11 @@ function postToMediaItems(post: EnrichedPost): PostMediaItem[] {
 export function EditPostSheet({
   open,
   post,
+  checkin = null,
   taggableUsers = [],
   onClose,
   onSave,
+  onPromoteCheckin,
   onUploadImage,
 }: EditPostSheetProps) {
   const { t } = useTranslation();
@@ -108,6 +117,8 @@ export function EditPostSheet({
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const isPromotingCheckin = Boolean(checkin);
+  const targetUserId = post?.userId ?? checkin?.userId ?? null;
 
   async function uploadOne(file: File): Promise<PostMediaItem | null> {
     if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
@@ -195,18 +206,18 @@ export function EditPostSheet({
   }
 
   useEffect(() => {
-    if (!open || !post) return;
+    if (!open || (!post && !checkin)) return;
     const id = window.setTimeout(() => {
-      setCaption(post.caption ?? "");
-      setWorkoutType(post.workoutType ?? "");
+      setCaption(post?.caption ?? "");
+      setWorkoutType(post?.workoutType ?? "");
       setFriendQuery("");
       setTaggedUserIds([]);
       setError(null);
-      setMediaItems(postToMediaItems(post));
+      setMediaItems(post ? postToMediaItems(post) : []);
       setMediaChanged(false);
     }, 0);
     return () => window.clearTimeout(id);
-  }, [open, post]);
+  }, [checkin, open, post]);
 
   const activeParticipantIds = useMemo(() => {
     const ids = new Set<string>();
@@ -222,11 +233,11 @@ export function EditPostSheet({
   );
 
   const friendResults = useMemo(() => {
-    if (!post) return [];
+    if (!targetUserId) return [];
     const query = normalizeSearch(friendQuery);
     if (query.length < 1) return [];
     return taggableUsers
-      .filter((user) => user.id !== post.userId)
+      .filter((user) => user.id !== targetUserId)
       .filter((user) => !activeParticipantIds.has(user.id))
       .filter((user) => !taggedUserIds.includes(user.id))
       .filter((user) => {
@@ -234,24 +245,45 @@ export function EditPostSheet({
         return haystack.includes(query);
       })
       .slice(0, 6);
-  }, [activeParticipantIds, friendQuery, post, taggableUsers, taggedUserIds]);
+  }, [
+    activeParticipantIds,
+    friendQuery,
+    taggableUsers,
+    taggedUserIds,
+    targetUserId,
+  ]);
 
   const acceptedParticipants = post?.acceptedParticipants ?? [];
   const pendingParticipants = post?.pendingParticipants ?? [];
 
   async function handleSave() {
-    if (!post || saving) return;
+    if ((!post && !checkin) || saving) return;
     setSaving(true);
     setError(null);
     try {
-      await onSave(post.id, {
+      const commonInput = {
         caption: caption.trim() ? caption.trim() : null,
         workoutType: workoutType.trim() ? workoutType.trim() : null,
-        taggedUserIds: taggedUserIds.length > 0 ? taggedUserIds : undefined,
-        // Sprint 14 — só manda media se o user mexeu (evita reescrever/perder
-        // o carrossel quando edita só legenda/tipo).
-        media: mediaChanged ? mediaItems : undefined,
-      });
+        taggedUserIds:
+          taggedUserIds.length > 0 ? taggedUserIds : undefined,
+      };
+      if (checkin) {
+        if (!onPromoteCheckin || mediaItems.length === 0) {
+          setError(t("editCheckin.errors.mediaRequired"));
+          return;
+        }
+        await onPromoteCheckin(checkin.id, {
+          ...commonInput,
+          media: mediaItems,
+        });
+      } else if (post) {
+        await onSave(post.id, {
+          ...commonInput,
+          // Sprint 14 — só manda media se o user mexeu (evita reescrever/perder
+          // o carrossel quando edita só legenda/tipo).
+          media: mediaChanged ? mediaItems : undefined,
+        });
+      }
       onClose();
     } catch (err) {
       setError((err as Error).message ?? t("editPost.errors.save"));
@@ -260,13 +292,15 @@ export function EditPostSheet({
     }
   }
 
-  if (!open || !post) return null;
+  if (!open || (!post && !checkin)) return null;
 
   return (
     <div className="gc-safe-overlay absolute inset-0 z-[85] bg-black/94 backdrop-blur-2xl">
       <div className="relative mx-auto flex h-full max-h-[840px] min-h-[620px] flex-col overflow-hidden rounded-[36px] border border-white/[0.08] bg-[#0a0b0c] shadow-[0_28px_72px_rgba(0,0,0,0.7)]">
         <header className="flex items-center justify-between gap-3 border-b border-white/[0.06] p-4">
-          <p className="text-[17px] font-black">{t("editPost.title")}</p>
+          <p className="text-[17px] font-black">
+            {t(isPromotingCheckin ? "editCheckin.title" : "editPost.title")}
+          </p>
           <button
             aria-label={t("common.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
@@ -312,7 +346,24 @@ export function EditPostSheet({
                 sizes="(max-width: 480px) 100vw, 480px"
                 src={mediaItems[0].thumbnailUrl ?? mediaItems[0].imageUrl}
               />
-            ) : null}
+            ) : (
+              <button
+                className="gc-pressable flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 border border-dashed border-white/12 bg-white/[0.025] px-6 text-center"
+                disabled={uploading}
+                onClick={openGallery}
+                type="button"
+              >
+                <span className="grid size-14 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                  <ImagePlus size={24} />
+                </span>
+                <span className="text-[15px] font-black text-white">
+                  {t("editCheckin.addMedia")}
+                </span>
+                <span className="text-[12px] font-bold text-white/42">
+                  {t("editCheckin.addMediaHint")}
+                </span>
+              </button>
+            )}
           </div>
           <div className="gc-scrollbar flex gap-2 overflow-x-auto pb-1">
             {mediaItems.map((item, index) => (
@@ -524,12 +575,14 @@ export function EditPostSheet({
         <div className="border-t border-white/[0.06] p-4">
           <button
             className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
-            disabled={saving}
+            disabled={saving || uploading || (isPromotingCheckin && mediaItems.length === 0)}
             onClick={handleSave}
             type="button"
           >
             <Check size={17} strokeWidth={2.8} />
-            {saving ? t("editPost.saving") : t("editPost.save")}
+            {saving
+              ? t("editPost.saving")
+              : t(isPromotingCheckin ? "editCheckin.save" : "editPost.save")}
           </button>
         </div>
       </div>

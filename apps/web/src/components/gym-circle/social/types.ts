@@ -241,8 +241,11 @@ export type EnrichedCheckin = {
   userId: string;
   gymId: string;
   gymName: string;
+  gymAddress: string | null;
   gymCity: string | null;
   gymState: string | null;
+  gymLatitude: number | null;
+  gymLongitude: number | null;
   checkinDate: string;
   createdAt: string;
   author: EnrichedUser;
@@ -384,6 +387,13 @@ export type EditPostInput = {
   media?: PostMediaItem[];
 };
 
+export type PromoteCheckinInput = {
+  caption?: string | null;
+  workoutType?: string | null;
+  taggedUserIds?: string[];
+  media: PostMediaItem[];
+};
+
 export type SocialActions = {
   likePost: (postId: string) => void | Promise<void>;
   // Sprint 12.1 — parentCommentId opcional: quando presente, é uma resposta
@@ -419,6 +429,10 @@ export type SocialActions = {
    */
   setFeaturedAchievements?: (achievementIds: string[]) => Promise<void>;
   editPost?: (postId: string, input: EditPostInput) => Promise<void>;
+  promoteCheckin?: (
+    checkinId: string,
+    input: PromoteCheckinInput,
+  ) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   refreshChat?: () => Promise<void>;

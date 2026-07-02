@@ -689,6 +689,7 @@ export type Database = {
           media_width: number | null
           media_type: string
           poster_url: string | null
+          source_checkin_id: string | null
           thumbnail_url: string | null
           user_id: string
           workout_date: string
@@ -713,6 +714,7 @@ export type Database = {
           media_width?: number | null
           media_type?: string
           poster_url?: string | null
+          source_checkin_id?: string | null
           thumbnail_url?: string | null
           user_id: string
           workout_date?: string
@@ -737,6 +739,7 @@ export type Database = {
           media_width?: number | null
           media_type?: string
           poster_url?: string | null
+          source_checkin_id?: string | null
           thumbnail_url?: string | null
           user_id?: string
           workout_date?: string
@@ -749,6 +752,13 @@ export type Database = {
             columns: ["gym_id"]
             isOneToOne: false
             referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_source_checkin_id_fkey"
+            columns: ["source_checkin_id"]
+            isOneToOne: true
+            referencedRelation: "checkins"
             referencedColumns: ["id"]
           },
         ]

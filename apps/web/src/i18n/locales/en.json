@@ -693,7 +693,9 @@
     "checkin": {
       "badge": "Check-in",
       "action": "Checked in at",
-      "openProfile": "Open @{{username}}'s profile"
+      "openProfile": "Open @{{username}}'s profile",
+      "openLocation": "Open {{gym}} in Maps",
+      "edit": "Add photos and details"
     },
     "distance": {
       "title": "Show approximate distance",
@@ -738,6 +740,15 @@
     "save": "Save changes",
     "errors": {
       "save": "Failed to save"
+    }
+  },
+  "editCheckin": {
+    "title": "Edit check-in",
+    "addMedia": "Add photos or videos",
+    "addMediaHint": "The check-in becomes a full post without duplicating your workout.",
+    "save": "Turn into post",
+    "errors": {
+      "mediaRequired": "Add at least one photo or video."
     }
   },
   "streakScreen": {

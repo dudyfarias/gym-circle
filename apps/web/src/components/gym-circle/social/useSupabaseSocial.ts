@@ -55,6 +55,7 @@ import type {
   GymLocationOption,
   GymUser,
   ProfileEditInput,
+  PromoteCheckinInput,
   SendChatMessageInput,
   StoryGroup,
 } from "./types";
@@ -158,6 +159,10 @@ export type SupabaseSocialActions = {
     longitude: number;
   }) => Promise<GymLocationOption>;
   editPost: (postId: string, input: EditPostInput) => Promise<void>;
+  promoteCheckin: (
+    checkinId: string,
+    input: PromoteCheckinInput,
+  ) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
   markChatThreadRead: (userId: string) => Promise<void>;
@@ -1818,8 +1823,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             userId: row.user_id,
             gymId: row.gym_id,
             gymName: row.gym_name,
+            gymAddress: row.gym_address ?? null,
             gymCity: row.gym_city ?? null,
             gymState: row.gym_state ?? null,
+            gymLatitude: row.gym_latitude ?? null,
+            gymLongitude: row.gym_longitude ?? null,
             checkinDate: row.checkin_date,
             createdAt: row.created_at,
             author,

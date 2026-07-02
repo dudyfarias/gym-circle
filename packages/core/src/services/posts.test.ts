@@ -49,6 +49,56 @@ function createUnlikeCommentClientMock() {
   };
 }
 
+function createPostClientMock() {
+  const query = {
+    insert: vi.fn().mockReturnThis(),
+    select: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: {
+        id: "post-1",
+        user_id: "user-a",
+        source_checkin_id: "checkin-1",
+      },
+      error: null,
+    }),
+  };
+  const from = vi.fn(() => query);
+  return {
+    client: { from } as unknown as GymCircleClient,
+    from,
+    query,
+  };
+}
+
+describe("postService.create", () => {
+  it("links a promoted post to its source check-in", async () => {
+    const { client, from, query } = createPostClientMock();
+    const service = postService(client);
+
+    await service.create("user-a", {
+      sourceCheckinId: "checkin-1",
+      imageUrl: "https://cdn.gymcircle.test/photo.jpg",
+      mediaType: "image",
+      caption: "Treino feito.",
+      gymId: "gym-1",
+      workoutDate: "2026-07-01",
+      createdAt: "2026-07-01T12:30:00.000Z",
+      locationSource: "gym",
+      locationName: "Saint Thomas",
+    });
+
+    expect(from).toHaveBeenCalledWith("posts");
+    expect(query.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source_checkin_id: "checkin-1",
+        gym_id: "gym-1",
+        workout_date: "2026-07-01",
+        created_at: "2026-07-01T12:30:00.000Z",
+      }),
+    );
+  });
+});
+
 describe("postService.deleteComment", () => {
   it("deletes comments through the current user's ownership scope", async () => {
     const { client, from, query } = createDeleteCommentClientMock();

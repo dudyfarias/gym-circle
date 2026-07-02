@@ -56,6 +56,7 @@ type FeedScreenProps = {
   onSelectUser?: (userId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
+  onEditCheckin?: (checkinId: string) => void;
   onOpenLikes?: (postId: string) => void;
   postShareTargets?: EnrichedUser[];
   viewerLocationError?: string | null;
@@ -86,6 +87,7 @@ export function FeedScreen({
   onSelectUser,
   resolveUser,
   onOpenPostMenu,
+  onEditCheckin,
   onOpenLikes,
   postShareTargets = [],
   viewerLocationError,
@@ -240,6 +242,11 @@ export function FeedScreen({
                 <FeedCheckinCard
                   checkin={item.checkin}
                   formatTime={formatTime}
+                  onEdit={
+                    item.checkin.userId === currentUser.id
+                      ? onEditCheckin
+                      : undefined
+                  }
                   onSelectUser={onSelectUser}
                 />
               )}

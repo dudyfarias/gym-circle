@@ -246,6 +246,7 @@ export function GymCirclePreview({
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
+  const [editCheckinId, setEditCheckinId] = useState<string | null>(null);
   const [postDetailId, setPostDetailId] = useState<string | null>(null);
   // Sprint 5.11 — estado separado pro overlay full-screen do post (estilo
   // Instagram quando user tapa em foto do grid). `postDetailId` continua
@@ -597,6 +598,7 @@ export function GymCirclePreview({
   const closeAdmin = useCallback(() => setAdminOpen(false), []);
 
   const editPost = social.actions.editPost;
+  const promoteCheckin = social.actions.promoteCheckin;
   const deletePost = social.actions.deletePost;
   const canManageOwnPost = Boolean(editPost && deletePost);
 
@@ -607,7 +609,13 @@ export function GymCirclePreview({
     [],
   );
   const closePostMenu = useCallback(() => setPostMenuId(null), []);
-  const closeEditPost = useCallback(() => setEditPostId(null), []);
+  const closeEditPost = useCallback(() => {
+    setEditPostId(null);
+    setEditCheckinId(null);
+  }, []);
+  const openEditCheckin = useCallback((checkinId: string) => {
+    setEditCheckinId(checkinId);
+  }, []);
   const openPostDetail = useCallback(
     (postId: string) => {
       setPostDetailId(postId);
@@ -698,6 +706,13 @@ export function GymCirclePreview({
     if (!editPostId) return null;
     return (social.profilePosts ?? social.feedPosts).find((p) => p.id === editPostId) ?? null;
   }, [editPostId, social.feedPosts, social.profilePosts]);
+  const editCheckinTarget = useMemo(() => {
+    if (!editCheckinId) return null;
+    return (
+      social.feedCheckins?.find((checkin) => checkin.id === editCheckinId) ??
+      null
+    );
+  }, [editCheckinId, social.feedCheckins]);
   const postMenuTarget: EnrichedPost | null = useMemo(() => {
     if (!postMenuId) return null;
     return (social.profilePosts ?? social.feedPosts).find((p) => p.id === postMenuId) ?? null;
@@ -1746,6 +1761,7 @@ export function GymCirclePreview({
             // pro mesmo callback (`onOpenPost`) nos profile sheets.
             onOpenPostDetails={openPostDetail}
             onOpenPostMenu={openPostMenu}
+            onEditCheckin={promoteCheckin ? openEditCheckin : undefined}
             onOpenStory={social.actions.openStory}
             onSharePostToChat={social.actions.sharePostToChat}
             onDismissViewerLocationPrompt={viewerLocation.dismiss}
@@ -1788,6 +1804,8 @@ export function GymCirclePreview({
     usersById,
     resolveUser,
     openPostMenu,
+    openEditCheckin,
+    promoteCheckin,
     currentUserPosts,
     recentPostLocations,
     currentUserStoryGroup,
@@ -2311,10 +2329,12 @@ export function GymCirclePreview({
           />
           {editPost ? (
             <EditPostSheet
+              checkin={editCheckinTarget}
               onClose={closeEditPost}
+              onPromoteCheckin={promoteCheckin}
               onSave={editPost}
               onUploadImage={onUploadImage}
-              open={editPostId !== null}
+              open={editPostId !== null || editCheckinId !== null}
               post={editPostTarget}
               taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
             />

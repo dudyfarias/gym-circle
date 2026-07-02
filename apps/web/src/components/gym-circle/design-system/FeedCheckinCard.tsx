@@ -1,25 +1,48 @@
 "use client";
 
-import { MapPin } from "lucide-react";
+import { ImagePlus, MapPin } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import {
+  buildGoogleMapsSearchUrl,
+  buildGoogleMapsUrlFromCoordinates,
+} from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
 import type { EnrichedCheckin } from "../social/types";
 
 type FeedCheckinCardProps = {
   checkin: EnrichedCheckin;
   formatTime: (createdAt: string) => string;
+  onEdit?: (checkinId: string) => void;
   onSelectUser?: (userId: string) => void;
 };
 
 export function FeedCheckinCard({
   checkin,
   formatTime,
+  onEdit,
   onSelectUser,
 }: FeedCheckinCardProps) {
   const { t } = useTranslation();
-  const location = [checkin.gymCity, checkin.gymState]
+  const location = [checkin.gymAddress, checkin.gymCity, checkin.gymState]
     .filter(Boolean)
     .join(" · ");
+  const mapsUrl =
+    typeof checkin.gymLatitude === "number" &&
+    typeof checkin.gymLongitude === "number"
+      ? buildGoogleMapsUrlFromCoordinates({
+          latitude: checkin.gymLatitude,
+          longitude: checkin.gymLongitude,
+        })
+      : buildGoogleMapsSearchUrl(
+          [
+            checkin.gymName,
+            checkin.gymAddress,
+            checkin.gymCity,
+            checkin.gymState,
+          ]
+            .filter(Boolean)
+            .join(", "),
+        );
 
   return (
     <article className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(92,232,255,0.12),transparent_48%),#0c0d0e] shadow-[0_18px_54px_rgba(0,0,0,0.28)]">
@@ -58,7 +81,15 @@ export function FeedCheckinCard({
         </span>
       </div>
 
-      <div className="mx-4 mb-4 flex items-center gap-3 rounded-[20px] border border-[var(--gc-brand)]/12 bg-[var(--gc-brand)]/[0.055] p-4">
+      <a
+        aria-label={t("feedScreen.checkin.openLocation", {
+          gym: checkin.gymName,
+        })}
+        className="gc-pressable mx-4 mb-3 flex items-center gap-3 rounded-[20px] border border-[var(--gc-brand)]/12 bg-[var(--gc-brand)]/[0.055] p-4"
+        href={mapsUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
         <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--gc-brand)] text-black shadow-[0_0_28px_rgba(92,232,255,0.2)]">
           <MapPin size={21} strokeWidth={2.8} />
         </div>
@@ -75,7 +106,17 @@ export function FeedCheckinCard({
             </p>
           ) : null}
         </div>
-      </div>
+      </a>
+      {onEdit ? (
+        <button
+          className="gc-pressable mx-4 mb-4 flex h-11 w-[calc(100%_-_2rem)] items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-black"
+          onClick={() => onEdit(checkin.id)}
+          type="button"
+        >
+          <ImagePlus size={17} strokeWidth={2.6} />
+          {t("feedScreen.checkin.edit")}
+        </button>
+      ) : null}
     </article>
   );
 }

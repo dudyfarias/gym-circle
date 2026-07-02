@@ -165,8 +165,11 @@ export type SurfaceCheckinRow = {
   user_id: string;
   gym_id: string;
   gym_name: string;
+  gym_address?: string | null;
   gym_city?: string | null;
   gym_state?: string | null;
+  gym_latitude?: number | null;
+  gym_longitude?: number | null;
   checkin_date: string;
   created_at: string;
   username?: string | null;
