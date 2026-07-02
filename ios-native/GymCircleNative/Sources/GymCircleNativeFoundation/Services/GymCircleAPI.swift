@@ -34,6 +34,13 @@ public actor GymCircleAPI {
             .value
     }
 
+    public func homeCheckins(limit: Int = 30) async throws -> [FeedCheckin] {
+        try await client
+            .rpc("get_home_checkins", params: HomeCheckinsParams(p_limit: limit))
+            .execute()
+            .value
+    }
+
     public func storyTray(limit: Int = 40) async throws -> [StoryAuthorGroup] {
         let params = StoryTrayParams(p_limit: limit)
 
@@ -523,6 +530,10 @@ private struct PostLikeInsert: Encodable {
 
 private struct HomeFeedParams: Encodable {
     let p_cursor_created_at: String?
+    let p_limit: Int
+}
+
+private struct HomeCheckinsParams: Encodable {
     let p_limit: Int
 }
 

@@ -1,6 +1,50 @@
 import SwiftUI
 import AVKit
 
+private enum HomeFeedItem: Identifiable {
+    case post(FeedPost)
+    case checkin(FeedCheckin)
+
+    var id: String {
+        switch self {
+        case .post(let post): return "post:\(post.id)"
+        case .checkin(let checkin): return "checkin:\(checkin.id)"
+        }
+    }
+
+    var createdAt: String {
+        switch self {
+        case .post(let post): return post.createdAt
+        case .checkin(let checkin): return checkin.createdAt
+        }
+    }
+}
+
+private func gymCircleFeedTimeLabel(_ iso: String) -> String {
+    let parser = ISO8601DateFormatter()
+    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    let date = parser.date(from: iso)
+        ?? { let fallback = ISO8601DateFormatter(); return fallback.date(from: iso) }()
+    guard let date else { return "" }
+
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone =
+        TimeZone(identifier: "America/Sao_Paulo") ?? .current
+    if calendar.isDateInToday(date) {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: date)
+    }
+    let days = calendar.dateComponents(
+        [.day],
+        from: calendar.startOfDay(for: date),
+        to: calendar.startOfDay(for: Date())
+    ).day ?? 0
+    return days <= 0 ? Loc.t("now", "agora") : "\(days)d"
+}
+
 /// FeedView — Sprint 20.3a/b/c (feed interativo completo).
 ///
 ///   - 20.3a: carrossel + dots, curtir otimista, pull-to-refresh, paginação
@@ -17,6 +61,7 @@ public struct FeedView: View {
     @State private var commentsPost: FeedPost?
     @State private var likesPost: FeedPost?
     @State private var editingPost: FeedPost?
+    @State private var editingCheckin: FeedCheckin?
     @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
@@ -40,6 +85,14 @@ public struct FeedView: View {
 
     /// Âncora invisível no topo da lista pro ScrollViewReader.
     private let topAnchorID = "feed_top"
+
+    private var feedItems: [HomeFeedItem] {
+        (
+            model.posts.map(HomeFeedItem.post)
+                + model.checkins.map(HomeFeedItem.checkin)
+        )
+        .sorted { $0.createdAt > $1.createdAt }
+    }
 
     public init(model: GymCircleAppModel, myCircle: MyCircleViewData, scrollToTopSignal: Int = 0) {
         self.model = model
@@ -165,9 +218,9 @@ public struct FeedView: View {
                     distancePermissionCard
                 }
 
-                if model.isLoading && model.posts.isEmpty {
+                if model.isLoading && feedItems.isEmpty {
                     GCFeedSkeleton()
-                } else if model.error != nil && model.posts.isEmpty {
+                } else if model.error != nil && feedItems.isEmpty {
                     // Boot do feed falhou: em vez de mostrar o empty-state genérico
                     // (que confunde "deu erro" com "sem posts"), mostra erro +
                     // "Tentar de novo". Espelha o fix web (LiveHomeWrapper retry).
@@ -184,56 +237,77 @@ public struct FeedView: View {
                     .padding(.horizontal, 32)
                     .padding(.vertical, 48)
                     .frame(maxWidth: .infinity)
-                } else if model.posts.isEmpty {
+                } else if feedItems.isEmpty {
                     GCEmptyState(
                         title: Loc.feedEmptyTitle,
                         subtitle: Loc.feedEmptySubtitle
                     )
                 } else {
-                    ForEach(Array(model.posts.enumerated()), id: \.element.id) { index, post in
+                    ForEach(Array(feedItems.enumerated()), id: \.element.id) { index, item in
                         // Linha "Sugestões pra seguir" injetada após o 2º post (web).
                         if index == 2, !suggestions.isEmpty {
                             suggestionsRow
                         }
-                        FeedPostCard(
-                            post: post,
-                            currentUserId: model.currentUserId,
-                            viewerCoordinate: model.viewerCoordinate,
-                            onLike: {
-                                Haptics.impactLight()
-                                Task { await model.toggleLike(postId: post.id) }
-                            },
-                            onComments: { commentsPost = post },
-                            onOpenLikes: { likesPost = post },
-                            onMute: {
-                                Task { await model.muteAuthor(authorId: post.userId) }
-                            },
-                            onReport: {
-                                Haptics.success()
-                                Task { await model.reportPost(postId: post.id, authorId: post.userId) }
-                            },
-                            onDelete: {
-                                Task { await model.deletePost(postId: post.id) }
-                            },
-                            onEdit: { editingPost = post },
-                            onRespondInvite: { accepted in
-                                Haptics.impactLight()
-                                Task { await model.respondToInvite(postId: post.id, accepted: accepted) }
-                            },
-                            onPlayVideo: { url in
-                                playingVideo = PlayableVideo(url: url)
-                            },
-                            onShare: { sharingPost = post },
-                            onOpenProfile: { openProfile(userId: $0) },
-                            onOpenMention: { openMention(username: $0) }
-                        )
-                        .onAppear {
-                            // Dispara o load more no penúltimo post (espelho
-                            // do IntersectionObserver da web).
-                            let posts = model.posts
-                            if posts.count >= 2, post.id == posts[posts.count - 2].id {
-                                Task { await model.loadMoreFeed() }
+                        switch item {
+                        case .post(let post):
+                            FeedPostCard(
+                                post: post,
+                                currentUserId: model.currentUserId,
+                                viewerCoordinate: model.viewerCoordinate,
+                                onLike: {
+                                    Haptics.impactLight()
+                                    Task { await model.toggleLike(postId: post.id) }
+                                },
+                                onComments: { commentsPost = post },
+                                onOpenLikes: { likesPost = post },
+                                onMute: {
+                                    Task { await model.muteAuthor(authorId: post.userId) }
+                                },
+                                onReport: {
+                                    Haptics.success()
+                                    Task {
+                                        await model.reportPost(
+                                            postId: post.id,
+                                            authorId: post.userId
+                                        )
+                                    }
+                                },
+                                onDelete: {
+                                    Task { await model.deletePost(postId: post.id) }
+                                },
+                                onEdit: { editingPost = post },
+                                onRespondInvite: { accepted in
+                                    Haptics.impactLight()
+                                    Task {
+                                        await model.respondToInvite(
+                                            postId: post.id,
+                                            accepted: accepted
+                                        )
+                                    }
+                                },
+                                onPlayVideo: { url in
+                                    playingVideo = PlayableVideo(url: url)
+                                },
+                                onShare: { sharingPost = post },
+                                onOpenProfile: { openProfile(userId: $0) },
+                                onOpenMention: { openMention(username: $0) }
+                            )
+                            .onAppear {
+                                // Dispara o load more no penúltimo post (espelho
+                                // do IntersectionObserver da web).
+                                let posts = model.posts
+                                if posts.count >= 2,
+                                   post.id == posts[posts.count - 2].id {
+                                    Task { await model.loadMoreFeed() }
+                                }
                             }
+                        case .checkin(let checkin):
+                            FeedCheckinCard(
+                                checkin: checkin,
+                                currentUserId: model.currentUserId,
+                                onEdit: { editingCheckin = checkin },
+                                onOpenProfile: { openProfile(userId: $0) }
+                            )
                         }
                     }
 
@@ -423,6 +497,9 @@ public struct FeedView: View {
         .sheet(item: $editingPost) { post in
             EditPostSheet(model: model, post: post)
         }
+        .sheet(item: $editingCheckin) { checkin in
+            EditPostSheet(model: model, checkin: checkin)
+        }
         .fullScreenCover(item: $playingVideo) { video in
             VideoPlayerScreen(url: video.url)
         }
@@ -500,6 +577,187 @@ struct VideoPlayerScreen: View {
     }
 }
 
+public struct FeedCheckinCard: View {
+    private let checkin: FeedCheckin
+    private let currentUserId: String?
+    private let onEdit: (() -> Void)?
+    private let onOpenProfile: ((String) -> Void)?
+
+    public init(
+        checkin: FeedCheckin,
+        currentUserId: String? = nil,
+        onEdit: (() -> Void)? = nil,
+        onOpenProfile: ((String) -> Void)? = nil
+    ) {
+        self.checkin = checkin
+        self.currentUserId = currentUserId
+        self.onEdit = onEdit
+        self.onOpenProfile = onOpenProfile
+    }
+
+    private var isOwnCheckin: Bool {
+        currentUserId != nil && checkin.userId == currentUserId
+    }
+
+    private var timeLabel: String {
+        gymCircleFeedTimeLabel(checkin.createdAt)
+    }
+
+    public var body: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 12) {
+                Button {
+                    onOpenProfile?(checkin.userId)
+                } label: {
+                    GCAvatar(
+                        url: checkin.avatarURL,
+                        fallback: checkin.username
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(onOpenProfile == nil)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Button {
+                        onOpenProfile?(checkin.userId)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(checkin.displayAuthorName)
+                                .font(.system(size: 15, weight: .black))
+                                .foregroundStyle(
+                                    GymCircleTheme.ColorToken.primaryText
+                                )
+                                .lineLimit(1)
+                            if let streak = checkin.authorCurrentStreak,
+                               streak > 0 {
+                                StreakBadgeView(streak: streak, size: .sm)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onOpenProfile == nil)
+
+                    Text("@\(checkin.username) · \(timeLabel)")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.46))
+                }
+
+                Spacer()
+
+                Text(Loc.t("Check-in", "Check-in"))
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(0.8)
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(
+                            GymCircleTheme.ColorToken.cyan.opacity(0.10)
+                        )
+                    )
+            }
+
+            locationCard
+
+            if isOwnCheckin, let onEdit {
+                Button {
+                    onEdit()
+                } label: {
+                    Label(
+                        Loc.t(
+                            "Add photos and details",
+                            "Adicionar fotos e detalhes"
+                        ),
+                        systemImage: "photo.badge.plus"
+                    )
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(
+                        Capsule().fill(GymCircleTheme.ColorToken.cyan)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(GymCircleTheme.ColorToken.postCard)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: GymCircleTheme.Radius.postCard,
+                style: .continuous
+            )
+        )
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: GymCircleTheme.Radius.postCard,
+                style: .continuous
+            )
+            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.48), radius: 24, x: 0, y: 16)
+    }
+
+    @ViewBuilder
+    private var locationCard: some View {
+        let content = HStack(spacing: 12) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.cyan)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Loc.t("Checked in at", "Fez check-in em"))
+                    .font(.system(size: 11, weight: .black))
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+                    .foregroundStyle(Color.white.opacity(0.42))
+                Text(checkin.gymName)
+                    .font(.system(size: 16, weight: .black))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    .lineLimit(1)
+                if !checkin.locationSubtitle.isEmpty {
+                    Text(checkin.locationSubtitle)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.46))
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.cyan.opacity(0.055))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(
+                    GymCircleTheme.ColorToken.cyan.opacity(0.12),
+                    lineWidth: 1
+                )
+        )
+
+        if let mapsURL = checkin.mapsURL {
+            Link(destination: mapsURL) { content }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    Loc.t(
+                        "Open \(checkin.gymName) in Maps",
+                        "Abrir \(checkin.gymName) no mapa"
+                    )
+                )
+        } else {
+            content
+        }
+    }
+}
+
 public struct FeedPostCard: View {
     private let post: FeedPost
     private let currentUserId: String?
@@ -569,19 +827,7 @@ public struct FeedPostCard: View {
 
     /// Hora do post (paridade formatTime web): HH:mm se hoje, senão "Nd".
     private var postTimeLabel: String {
-        let parser = ISO8601DateFormatter()
-        parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let date = parser.date(from: post.createdAt)
-            ?? { let p = ISO8601DateFormatter(); return p.date(from: post.createdAt) }()
-        guard let date else { return "" }
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "HH:mm"
-            return formatter.string(from: date)
-        }
-        let days = calendar.dateComponents([.day], from: date, to: Date()).day ?? 0
-        return days <= 0 ? Loc.t("now", "agora") : "\(days)d"
+        gymCircleFeedTimeLabel(post.createdAt)
     }
 
     public var body: some View {

@@ -29,6 +29,7 @@ public final class GymCircleAppModel: ObservableObject {
     @Published public private(set) var hasBooted = false
     @Published public private(set) var error: String?
     @Published public private(set) var posts: [FeedPost] = []
+    @Published public private(set) var checkins: [FeedCheckin] = []
     // Sprint 20.3a — paginação infinita do feed.
     @Published public private(set) var isLoadingMoreFeed = false
     @Published public private(set) var feedHasMore = true
@@ -257,6 +258,7 @@ public final class GymCircleAppModel: ObservableObject {
         await sessionStore?.signOut()
         // Limpa estado in-memory
         posts = []
+        checkins = []
         stories = []
         profile = nil
         profilePosts = []
@@ -354,8 +356,10 @@ public final class GymCircleAppModel: ObservableObject {
 
         do {
             async let feed = api.homeFeed()
+            async let checkinFeed = api.homeCheckins()
             async let tray = api.storyTray()
             let feedPosts = try await feed
+            checkins = (try? await checkinFeed) ?? []
             stories = try await tray
             feedHasMore = feedPosts.count >= Self.feedPageSize
             posts = await hydrateCarouselMedia(feedPosts)
@@ -427,8 +431,10 @@ public final class GymCircleAppModel: ObservableObject {
         error = nil
         do {
             async let feed = api.homeFeed()
+            async let checkinFeed = api.homeCheckins()
             async let tray = api.storyTray()
             let feedPosts = try await feed
+            checkins = (try? await checkinFeed) ?? checkins
             stories = (try? await tray) ?? stories
             feedHasMore = feedPosts.count >= Self.feedPageSize
             posts = await hydrateCarouselMedia(feedPosts)
@@ -910,7 +916,10 @@ public final class GymCircleAppModel: ObservableObject {
                     // Backdata o created_at ao meio-dia (SP) do dia treinado.
                     createdAt: workoutDate.map { "\($0)T12:00:00-03:00" },
                     gymId: gym?.id,
-                    locationName: gym?.name
+                    locationName: gym?.name,
+                    locationLatitude: gym?.latitude,
+                    locationLongitude: gym?.longitude,
+                    locationGoogleMapsURL: Self.googleMapsURL(for: gym)
                 )
                 // Marcações são best-effort: post já está no ar. Só no feed
                 // (story não tem participantes).
@@ -930,6 +939,66 @@ public final class GymCircleAppModel: ObservableObject {
                     workoutType: workoutTypes.first
                 )
             }
+            await refreshFeed()
+            await loadMyCircle()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Converte um check-in sem mídia em post social completo. Os uploads já
+    /// chegam prontos do sheet; o vínculo source_checkin_id faz a troca de card
+    /// no feed sem apagar o check-in que sustenta streak/calendário.
+    public func promoteCheckin(
+        _ checkin: FeedCheckin,
+        medias: [PostComposerService.UploadedMedia],
+        caption: String,
+        workoutTypes: [String]
+    ) async -> Bool {
+        guard let composerService,
+              let userId = sessionStore?.currentUserId,
+              checkin.userId == userId,
+              !medias.isEmpty else { return false }
+        do {
+            let gym = await fetchGym(id: checkin.gymId)
+            let coordinates: (latitude: Double, longitude: Double)?
+            if let latitude = gym?.latitude, let longitude = gym?.longitude {
+                coordinates = (latitude, longitude)
+            } else if let latitude = checkin.gymLatitude,
+                      let longitude = checkin.gymLongitude {
+                coordinates = (latitude, longitude)
+            } else {
+                coordinates = nil
+            }
+            let mapsURL = Self.googleMapsURL(
+                latitude: coordinates?.latitude,
+                longitude: coordinates?.longitude,
+                fallback: [
+                    checkin.gymName,
+                    checkin.gymAddress,
+                    checkin.gymCity,
+                    checkin.gymState,
+                ]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: ", ")
+            )
+            _ = try await composerService.publish(
+                userId: userId,
+                medias: medias,
+                caption: caption,
+                workoutTypes: workoutTypes,
+                workoutDate: checkin.checkinDate,
+                createdAt: checkin.createdAt,
+                sourceCheckinId: checkin.id,
+                gymId: checkin.gymId,
+                locationName: checkin.gymName,
+                locationLatitude: coordinates?.latitude,
+                locationLongitude: coordinates?.longitude,
+                locationGoogleMapsURL: mapsURL
+            )
             await refreshFeed()
             await loadMyCircle()
             return true
@@ -1799,6 +1868,7 @@ public final class GymCircleAppModel: ObservableObject {
         )
         profile = demoProfile
         posts = []
+        checkins = []
         stories = []
         profilePosts = []
         myCircleData = MyCircleViewData.demo(userId: "demo-user", isOwn: true)
@@ -1813,5 +1883,41 @@ public final class GymCircleAppModel: ObservableObject {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: .now)
+    }
+
+    private static func googleMapsURL(for gym: GymOption?) -> String? {
+        guard let gym else { return nil }
+        let fallback = [gym.name, gym.address, gym.city, gym.state]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
+        return googleMapsURL(
+            latitude: gym.latitude,
+            longitude: gym.longitude,
+            fallback: fallback
+        )
+    }
+
+    private static func googleMapsURL(
+        latitude: Double?,
+        longitude: Double?,
+        fallback: String?
+    ) -> String? {
+        let query: String
+        if let latitude, let longitude {
+            query = "\(latitude),\(longitude)"
+        } else if let fallback, !fallback.isEmpty {
+            query = fallback
+        } else {
+            return nil
+        }
+        var components = URLComponents(
+            string: "https://www.google.com/maps/search/"
+        )
+        components?.queryItems = [
+            URLQueryItem(name: "api", value: "1"),
+            URLQueryItem(name: "query", value: query),
+        ]
+        return components?.url?.absoluteString
     }
 }

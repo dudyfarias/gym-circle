@@ -894,7 +894,12 @@ struct TagChipsRow: View {
 /// substitui post_media e atualiza a capa = item 0).
 public struct EditPostSheet: View {
     @ObservedObject private var model: GymCircleAppModel
-    private let post: FeedPost
+    private let target: EditTarget
+
+    private enum EditTarget {
+        case post(FeedPost)
+        case checkin(FeedCheckin)
+    }
 
     @Environment(\.dismiss) private var dismiss
     @State private var caption: String
@@ -924,10 +929,14 @@ public struct EditPostSheet: View {
     private var mediaChanged: Bool {
         existingItems.count != originalCount || !newMedias.isEmpty
     }
+    private var isPromotingCheckin: Bool {
+        if case .checkin = target { return true }
+        return false
+    }
 
     public init(model: GymCircleAppModel, post: FeedPost) {
         self.model = model
-        self.post = post
+        target = .post(post)
         _caption = State(initialValue: post.caption ?? "")
         _selectedTags = State(initialValue: post.workoutType.map { [$0] } ?? [])
         let items = post.carouselItems.map { item in
@@ -943,6 +952,15 @@ public struct EditPostSheet: View {
         }
         _existingItems = State(initialValue: items)
         originalCount = items.count
+    }
+
+    public init(model: GymCircleAppModel, checkin: FeedCheckin) {
+        self.model = model
+        target = .checkin(checkin)
+        _caption = State(initialValue: "")
+        _selectedTags = State(initialValue: [])
+        _existingItems = State(initialValue: [])
+        originalCount = 0
     }
 
     public var body: some View {
@@ -1001,7 +1019,11 @@ public struct EditPostSheet: View {
                 .padding(20)
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle(Loc.editPost)
+            .navigationTitle(
+                isPromotingCheckin
+                    ? Loc.t("Edit check-in", "Editar check-in")
+                    : Loc.editPost
+            )
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -1015,7 +1037,12 @@ public struct EditPostSheet: View {
                         if isSaving {
                             ProgressView().tint(GymCircleTheme.ColorToken.cyan)
                         } else {
-                            Text(Loc.save).bold()
+                            Text(
+                                isPromotingCheckin
+                                    ? Loc.t("Turn into post", "Transformar em post")
+                                    : Loc.save
+                            )
+                            .bold()
                                 .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                         }
                     }
@@ -1177,6 +1204,7 @@ public struct EditPostSheet: View {
         defer { isSaving = false; saveProgress = nil }
 
         var media: [PostComposerService.EditMediaItem]?
+        var uploadedMedias: [PostComposerService.UploadedMedia] = []
         if mediaChanged {
             var combined = existingItems
             if !newMedias.isEmpty { saveProgress = (0, newMedias.count) }
@@ -1189,6 +1217,7 @@ public struct EditPostSheet: View {
                     return
                 }
                 saveProgress = ((saveProgress?.done ?? 0) + 1, newMedias.count)
+                uploadedMedias.append(uploaded)
                 combined.append(
                     PostComposerService.EditMediaItem(
                         mediaType: uploaded.mediaType,
@@ -1204,12 +1233,23 @@ public struct EditPostSheet: View {
             media = combined
         }
 
-        let ok = await model.updatePost(
-            postId: post.id,
-            caption: caption,
-            workoutTypes: selectedTags,
-            media: media
-        )
+        let ok: Bool
+        switch target {
+        case .post(let post):
+            ok = await model.updatePost(
+                postId: post.id,
+                caption: caption,
+                workoutTypes: selectedTags,
+                media: media
+            )
+        case .checkin(let checkin):
+            ok = await model.promoteCheckin(
+                checkin,
+                medias: uploadedMedias,
+                caption: caption,
+                workoutTypes: selectedTags
+            )
+        }
         if ok {
             Haptics.success()
             dismiss()

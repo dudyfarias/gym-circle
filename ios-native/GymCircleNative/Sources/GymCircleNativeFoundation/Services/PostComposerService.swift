@@ -157,6 +157,7 @@ public actor PostComposerService {
 
     private struct PostInsert: Encodable {
         let user_id: String
+        let source_checkin_id: String?
         let image_url: String
         let media_type: String
         let thumbnail_url: String?
@@ -174,6 +175,9 @@ public actor PostComposerService {
         let location_source: String
         let gym_id: String?
         let location_name: String?
+        let location_latitude: Double?
+        let location_longitude: Double?
+        let location_google_maps_url: String?
     }
 
     private struct PostMediaInsert: Encodable {
@@ -198,8 +202,12 @@ public actor PostComposerService {
         workoutTypes: [String],
         workoutDate: String,
         createdAt: String? = nil,
+        sourceCheckinId: String? = nil,
         gymId: String? = nil,
-        locationName: String? = nil
+        locationName: String? = nil,
+        locationLatitude: Double? = nil,
+        locationLongitude: Double? = nil,
+        locationGoogleMapsURL: String? = nil
     ) async throws -> String {
         guard let cover = medias.first else { throw ComposerError.invalidImage }
 
@@ -209,6 +217,7 @@ public actor PostComposerService {
             .from("posts")
             .insert(PostInsert(
                 user_id: userId,
+                source_checkin_id: sourceCheckinId,
                 image_url: cover.imageURL,
                 media_type: cover.mediaType,
                 thumbnail_url: cover.thumbnailURL,
@@ -223,7 +232,11 @@ public actor PostComposerService {
                 created_at: createdAt,
                 location_source: gymId == nil ? "none" : "gym",
                 gym_id: gymId,
-                location_name: gymId == nil ? nil : locationName
+                location_name: gymId == nil ? nil : locationName,
+                location_latitude: gymId == nil ? nil : locationLatitude,
+                location_longitude: gymId == nil ? nil : locationLongitude,
+                location_google_maps_url:
+                    gymId == nil ? nil : locationGoogleMapsURL
             ))
             .select("id")
             .single()

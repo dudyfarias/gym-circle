@@ -25,6 +25,36 @@ final class NativeModelsTests: XCTestCase {
         XCTAssertEqual(rings.year, 1)
     }
 
+    func testFeedCheckinUsesExactCoordinatesForMaps() {
+        let checkin = FeedCheckin(
+            id: "checkin-1",
+            userId: "user-1",
+            gymId: "gym-1",
+            gymName: "Saint Thomas",
+            gymAddress: "Rua Monte Alegre, 662 - Perdizes, 05014-000",
+            gymCity: "São Paulo",
+            gymState: "SP",
+            gymLatitude: -23.5361423,
+            gymLongitude: -46.6689094,
+            checkinDate: "2026-07-01",
+            createdAt: "2026-07-01T12:30:00Z",
+            username: "dudy",
+            displayName: "Dudy",
+            avatarURL: nil,
+            authorCurrentStreak: 3,
+            authorBestStreak: 8,
+            authorBadgeActive: true,
+            isFollowingAuthor: false,
+            visibility: "owner"
+        )
+
+        XCTAssertEqual(
+            checkin.mapsURL?.query,
+            "api=1&query=-23.5361423,-46.6689094"
+        )
+        XCTAssertTrue(checkin.locationSubtitle.contains("Rua Monte Alegre"))
+    }
+
     private func makePost(thumbnailURL: String?, posterURL: String?) -> FeedPost {
         FeedPost(
             id: "post-1",

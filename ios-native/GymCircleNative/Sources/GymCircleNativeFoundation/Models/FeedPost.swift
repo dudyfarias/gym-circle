@@ -5,6 +5,81 @@ public enum FeedMediaType: String, Codable, Sendable {
     case video
 }
 
+/// Check-in social sem mídia. Quando o dono adiciona fotos, ele é promovido
+/// a FeedPost e deixa de aparecer nesta surface (source_checkin_id no banco).
+public struct FeedCheckin: Identifiable, Codable, Hashable, Sendable {
+    public let id: String
+    public let userId: String
+    public let gymId: String
+    public let gymName: String
+    public let gymAddress: String?
+    public let gymCity: String?
+    public let gymState: String?
+    public let gymLatitude: Double?
+    public let gymLongitude: Double?
+    public let checkinDate: String
+    public let createdAt: String
+    public let username: String
+    public let displayName: String?
+    public let avatarURL: String?
+    public let authorCurrentStreak: Int?
+    public let authorBestStreak: Int?
+    public let authorBadgeActive: Bool?
+    public let isFollowingAuthor: Bool?
+    public let visibility: String?
+
+    public var displayAuthorName: String {
+        displayName?.isEmpty == false ? displayName! : username
+    }
+
+    public var locationSubtitle: String {
+        [gymAddress, gymCity, gymState]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+    }
+
+    public var mapsURL: URL? {
+        var components = URLComponents(string: "https://www.google.com/maps/search/")
+        let query: String
+        if let gymLatitude, let gymLongitude {
+            query = "\(gymLatitude),\(gymLongitude)"
+        } else {
+            query = [gymName, gymAddress, gymCity, gymState]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: ", ")
+        }
+        components?.queryItems = [
+            URLQueryItem(name: "api", value: "1"),
+            URLQueryItem(name: "query", value: query),
+        ]
+        return components?.url
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case gymId = "gym_id"
+        case gymName = "gym_name"
+        case gymAddress = "gym_address"
+        case gymCity = "gym_city"
+        case gymState = "gym_state"
+        case gymLatitude = "gym_latitude"
+        case gymLongitude = "gym_longitude"
+        case checkinDate = "checkin_date"
+        case createdAt = "created_at"
+        case username
+        case displayName = "display_name"
+        case avatarURL = "avatar_url"
+        case authorCurrentStreak = "author_current_streak"
+        case authorBestStreak = "author_best_streak"
+        case authorBadgeActive = "author_badge_active"
+        case isFollowingAuthor = "is_following_author"
+        case visibility
+    }
+}
+
 /// Sprint 20.3a — item do carrossel (linha de `post_media`, ordenada por
 /// position). Post sem linhas = mídia única (a capa em posts.* continua
 /// sendo a fonte, paridade com a Sprint 13 web).
