@@ -501,6 +501,9 @@ export function CommentsBottomSheet({
           open ? "translate-y-0" : "translate-y-full",
         ].join(" ")}
         style={{ height: "min(82dvh, 720px)" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("comments.title")}
       >
         {/* Drag handle (visual only) */}
         <div className="flex justify-center pb-1.5 pt-2.5">

@@ -45,7 +45,12 @@ export function FollowListOverlay({
   };
 
   return (
-    <div className="fixed inset-0 z-[92] flex items-end justify-center bg-black/54 backdrop-blur-[10px]">
+    <div
+      className="fixed inset-0 z-[92] flex items-end justify-center bg-black/54 backdrop-blur-[10px]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={copy.title}
+    >
       <button
         aria-label={copy.closeAria}
         className="absolute inset-0 cursor-default"

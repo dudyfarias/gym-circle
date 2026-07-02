@@ -31,7 +31,12 @@ export function LikesOverlay({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/54 backdrop-blur-[10px]">
+    <div
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/54 backdrop-blur-[10px]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("likesOverlay.title")}
+    >
       <button
         aria-label={t("likesOverlay.closeAria")}
         className="absolute inset-0 cursor-default"
