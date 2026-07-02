@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Coordinates } from "@gym-circle/core";
 
 export type ViewerLocationStatus =
@@ -95,31 +95,17 @@ export function useViewerLocation() {
   });
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.permissions) return;
-    navigator.permissions
-      .query({ name: "geolocation" as PermissionName })
-      .then((permission) => {
-        if (permission.state === "granted") {
-          persistPromptStatus("granted");
-          setStatus((current) => (current === "requesting" ? current : "granted"));
-        }
-        if (permission.state === "denied") {
-          persistPromptStatus("denied");
-          setStatus((current) => (current === "requesting" ? current : "denied"));
-        }
-      })
-      .catch(() => undefined);
-  }, []);
+  const requestingRef = useRef(false);
 
   const request = useCallback(async () => {
+    if (requestingRef.current) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setStatus("unsupported");
       setError("Este navegador não suporta localização.");
       return;
     }
 
+    requestingRef.current = true;
     setStatus("requesting");
     setError(null);
 
@@ -145,8 +131,44 @@ export function useViewerLocation() {
       if (next.status === "denied") persistPromptStatus("denied");
       setStatus(next.status);
       setError(next.message);
+    } finally {
+      requestingRef.current = false;
     }
   }, []);
+
+  // Se a permissão já estava concedida, o Permissions API acima mudava apenas
+  // o status para "granted". Sem chamar geolocation, `coordinates` continuava
+  // null, o prompt sumia e nenhuma distância era calculada. Busca a posição
+  // também na restauração de sessão/permissão.
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    if (!navigator.permissions) {
+      if (loadStoredPromptStatus() === "granted") {
+        const timeout = window.setTimeout(() => void request(), 0);
+        return () => window.clearTimeout(timeout);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    navigator.permissions
+      .query({ name: "geolocation" as PermissionName })
+      .then((permission) => {
+        if (cancelled) return;
+        if (permission.state === "granted") {
+          persistPromptStatus("granted");
+          void request();
+        }
+        if (permission.state === "denied") {
+          persistPromptStatus("denied");
+          setStatus("denied");
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [request]);
 
   const dismiss = useCallback(() => {
     persistPromptStatus("dismissed");

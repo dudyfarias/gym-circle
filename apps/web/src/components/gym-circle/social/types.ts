@@ -381,6 +381,8 @@ export type ProfileEditInput = {
 export type EditPostInput = {
   caption?: string | null;
   workoutType?: string | null;
+  workoutTypes?: string[] | null;
+  gymId?: string | null;
   taggedUserIds?: string[];
   // Sprint 14 — lista COMPLETA de mídias desejada (add/remover, até 10). Quando
   // presente, substitui as mídias do post (capa = item 0).
@@ -390,6 +392,8 @@ export type EditPostInput = {
 export type PromoteCheckinInput = {
   caption?: string | null;
   workoutType?: string | null;
+  workoutTypes?: string[] | null;
+  gymId?: string;
   taggedUserIds?: string[];
   media: PostMediaItem[];
 };
@@ -411,6 +415,7 @@ export type SocialActions = {
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;
   checkIn: (gymName: string) => void | Promise<void>;
+  createCheckin?: (gymId: string, workoutDate?: string) => Promise<void>;
   signOut?: () => Promise<void>;
   updateProfile?: (input: ProfileEditInput) => Promise<void>;
   dismissProfileCompletionNotice?: () => Promise<void>;
@@ -433,6 +438,8 @@ export type SocialActions = {
     checkinId: string,
     input: PromoteCheckinInput,
   ) => Promise<void>;
+  updateCheckin?: (checkinId: string, gymId: string) => Promise<void>;
+  convertPostToCheckin?: (postId: string, gymId: string) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   refreshChat?: () => Promise<void>;

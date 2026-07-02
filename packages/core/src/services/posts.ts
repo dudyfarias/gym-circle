@@ -177,6 +177,35 @@ export function postService(client: GymCircleClient) {
       return data as PostRow;
     },
 
+    async updateSocialDetails(
+      postId: string,
+      input: {
+        caption?: string | null;
+        workoutTypes?: string[] | null;
+        gymId?: string | null;
+      },
+    ): Promise<void> {
+      const { error } = await client.rpc("update_social_post", {
+        p_post_id: postId,
+        p_caption: input.caption ?? null,
+        p_workout_types: input.workoutTypes ?? [],
+        p_gym_id: input.gymId ?? null,
+      });
+      if (error) throw error;
+    },
+
+    async convertToCheckin(postId: string, gymId: string): Promise<string> {
+      const { data, error } = await client.rpc("convert_social_post_to_checkin", {
+        p_post_id: postId,
+        p_gym_id: gymId,
+      });
+      if (error) throw error;
+      if (typeof data !== "string") {
+        throw new Error("O check-in convertido não foi retornado.");
+      }
+      return data;
+    },
+
     /**
      * Carrega o feed enriquecido com counts, autor e streak.
      * Usa a view `feed_posts` (security_invoker) e completa em TS com:

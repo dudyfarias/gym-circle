@@ -143,6 +143,7 @@ export type SupabaseSocialActions = {
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
   checkIn: (gymName: string) => Promise<void>;
+  createCheckin: (gymId: string, workoutDate?: string) => Promise<void>;
   /**
    * Cataloga um lugar buscado via Maps (Nominatim/etc) no banco e
    * vincula ao perfil do user atual. Retorna a gym row pra que o caller
@@ -163,6 +164,8 @@ export type SupabaseSocialActions = {
     checkinId: string,
     input: PromoteCheckinInput,
   ) => Promise<void>;
+  updateCheckin: (checkinId: string, gymId: string) => Promise<void>;
+  convertPostToCheckin: (postId: string, gymId: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
   markChatThreadRead: (userId: string) => Promise<void>;

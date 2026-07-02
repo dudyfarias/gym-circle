@@ -726,6 +726,20 @@ export function createSocialActions(
         await refresh();
         showFeedback("success", "Check-in feito", `${gymName} · dia marcado no calendário`);
       },
+      async createCheckin(gymId: string, workoutDate?: string) {
+        const gym = aggRef.current.gyms.find((row) => row.id === gymId);
+        if (!gym) {
+          throw new Error("Selecione um local cadastrado.");
+        }
+        await services.checkins.checkIn(currentUserId, gymId, workoutDate);
+        await services.stats.refreshMine();
+        await refresh();
+        showFeedback(
+          "success",
+          "Check-in feito",
+          `${gym.name} · dia marcado no calendário`,
+        );
+      },
       async acceptPostTag(postId: string) {
         await services.participants.respondToPostTag(postId, currentUserId, "accepted");
         await services.stats.refreshMine();
@@ -777,10 +791,14 @@ export function createSocialActions(
         };
       },
       async editPost(postId: string, input: EditPostInput) {
-        const patch: { caption?: string | null; workout_type?: string | null } = {};
-        if (input.caption !== undefined) patch.caption = input.caption;
-        if (input.workoutType !== undefined) patch.workout_type = input.workoutType;
-        await services.posts.update(postId, patch);
+        const workoutTypes =
+          input.workoutTypes ??
+          (input.workoutType?.trim() ? [input.workoutType.trim()] : []);
+        await services.posts.updateSocialDetails(postId, {
+          caption: input.caption,
+          workoutTypes,
+          gymId: input.gymId ?? null,
+        });
         // Sprint 14 — editar mídias (add/remover até 10). setMedia substitui
         // post_media + atualiza a capa. refresh() abaixo recarrega media[].
         if (input.media) {
@@ -809,9 +827,17 @@ export function createSocialActions(
           throw new Error("Adicione pelo menos uma foto ou vídeo.");
         }
 
+        const targetGymId = input.gymId ?? checkin.gym_id;
+        const sourceCheckinId =
+          targetGymId === checkin.gym_id
+            ? checkin.id
+            : await services.checkins.updateLocation(checkin.id, targetGymId);
         const gym = aggRef.current.gyms.find(
-          (row) => row.id === checkin.gym_id,
+          (row) => row.id === targetGymId,
         );
+        if (!gym) {
+          throw new Error("Selecione um local cadastrado.");
+        }
         const gymCoordinates =
           typeof gym?.latitude === "number" &&
           typeof gym?.longitude === "number"
@@ -843,7 +869,7 @@ export function createSocialActions(
             );
 
         const post = await services.posts.create(currentUserId, {
-          sourceCheckinId: checkin.id,
+          sourceCheckinId,
           imageUrl: cover.imageUrl,
           mediaType: cover.mediaType,
           thumbnailUrl: cover.thumbnailUrl ?? null,
@@ -853,14 +879,16 @@ export function createSocialActions(
           mediaDurationSeconds: cover.mediaDurationSeconds ?? null,
           blurDataUrl: cover.blurDataUrl ?? null,
           caption: input.caption ?? "",
-          gymId: checkin.gym_id,
+          gymId: targetGymId,
           workoutType: input.workoutType ?? null,
-          workoutTypes: input.workoutType ? [input.workoutType] : null,
+          workoutTypes:
+            input.workoutTypes ??
+            (input.workoutType ? [input.workoutType] : null),
           workoutDate: checkin.checkin_date,
           createdAt: checkin.created_at,
           media: input.media,
           locationSource: "gym",
-          locationName: checkin.gym_name,
+          locationName: gym.name,
           locationLatitude: coordinates?.latitude ?? null,
           locationLongitude: coordinates?.longitude ?? null,
           locationGoogleMapsUrl: mapsUrl,
@@ -893,6 +921,21 @@ export function createSocialActions(
           "success",
           "Check-in atualizado",
           "Agora ele é uma postagem completa no feed",
+        );
+      },
+      async updateCheckin(checkinId: string, gymId: string) {
+        await services.checkins.updateLocation(checkinId, gymId);
+        await refresh();
+        showFeedback("success", "Check-in atualizado");
+      },
+      async convertPostToCheckin(postId: string, gymId: string) {
+        await services.posts.convertToCheckin(postId, gymId);
+        await services.stats.refreshMine();
+        await refresh();
+        showFeedback(
+          "success",
+          "Post convertido em check-in",
+          "O dia continua contando no seu streak",
         );
       },
       async deletePost(postId: string) {

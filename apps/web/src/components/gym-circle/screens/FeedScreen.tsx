@@ -54,6 +54,7 @@ type FeedScreenProps = {
   onRequestViewerLocation?: () => void;
   onDismissViewerLocationPrompt?: () => void;
   onSelectUser?: (userId: string) => void;
+  onSelectGym?: (gymId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
   onEditCheckin?: (checkinId: string) => void;
@@ -85,6 +86,7 @@ export function FeedScreen({
   onRequestViewerLocation,
   onDismissViewerLocationPrompt,
   onSelectUser,
+  onSelectGym,
   resolveUser,
   onOpenPostMenu,
   onEditCheckin,
@@ -231,6 +233,7 @@ export function FeedScreen({
                   onOpenLikes={onOpenLikes}
                   onOpenComments={onOpenPostDetails}
                   onOpenPostMenu={onOpenPostMenu}
+                  onSelectGym={onSelectGym}
                   onSelectUser={onSelectUser}
                   onShareToChat={onSharePostToChat}
                   onToggleFollow={onToggleFollow}
@@ -247,6 +250,7 @@ export function FeedScreen({
                       ? onEditCheckin
                       : undefined
                   }
+                  onSelectGym={onSelectGym}
                   onSelectUser={onSelectUser}
                 />
               )}

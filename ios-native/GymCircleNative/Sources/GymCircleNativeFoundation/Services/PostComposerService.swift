@@ -27,6 +27,24 @@ public actor PostComposerService {
         public let width: Int?
         public let height: Int?
         public let durationSeconds: Double?
+
+        public init(
+            mediaType: String,
+            imageURL: String,
+            thumbnailURL: String?,
+            posterURL: String?,
+            width: Int?,
+            height: Int?,
+            durationSeconds: Double?
+        ) {
+            self.mediaType = mediaType
+            self.imageURL = imageURL
+            self.thumbnailURL = thumbnailURL
+            self.posterURL = posterURL
+            self.width = width
+            self.height = height
+            self.durationSeconds = durationSeconds
+        }
     }
 
     public enum ComposerError: Error, LocalizedError {
@@ -353,26 +371,53 @@ public actor PostComposerService {
     /// EditPostSheet web; mídia nova fica pro cutover).
     public func updatePost(
         postId: String,
-        userId: String,
         caption: String,
-        workoutTypes: [String]
+        workoutTypes: [String],
+        gymId: String?
     ) async throws {
-        struct PostPatch: Encodable {
-            let caption: String?
-            let workout_type: String?
-            let workout_types: [String]?
+        struct Params: Encodable {
+            let p_post_id: String
+            let p_caption: String?
+            let p_workout_types: [String]
+            let p_gym_id: String?
         }
         let trimmed = caption.trimmingCharacters(in: .whitespacesAndNewlines)
         try await client
-            .from("posts")
-            .update(PostPatch(
-                caption: trimmed.isEmpty ? nil : trimmed,
-                workout_type: workoutTypes.first,
-                workout_types: workoutTypes.isEmpty ? nil : workoutTypes
+            .rpc("update_social_post", params: Params(
+                p_post_id: postId,
+                p_caption: trimmed.isEmpty ? nil : trimmed,
+                p_workout_types: Array(workoutTypes.prefix(5)),
+                p_gym_id: gymId
             ))
-            .eq("id", value: postId)
-            .eq("user_id", value: userId)
             .execute()
+    }
+
+    public func updateCheckinLocation(checkinId: String, gymId: String) async throws -> String {
+        struct Params: Encodable {
+            let p_checkin_id: String
+            let p_gym_id: String
+        }
+        return try await client
+            .rpc("update_social_checkin", params: Params(
+                p_checkin_id: checkinId,
+                p_gym_id: gymId
+            ))
+            .execute()
+            .value
+    }
+
+    public func convertPostToCheckin(postId: String, gymId: String) async throws -> String {
+        struct Params: Encodable {
+            let p_post_id: String
+            let p_gym_id: String
+        }
+        return try await client
+            .rpc("convert_social_post_to_checkin", params: Params(
+                p_post_id: postId,
+                p_gym_id: gymId
+            ))
+            .execute()
+            .value
     }
 
     // MARK: - Helpers

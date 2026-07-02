@@ -99,6 +99,42 @@ describe("postService.create", () => {
   });
 });
 
+describe("postService unified social editor", () => {
+  it("updates metadata and location through the transactional RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const service = postService({ rpc } as unknown as GymCircleClient);
+
+    await service.updateSocialDetails("post-1", {
+      caption: "Treino forte",
+      workoutTypes: ["Musculação", "Cardio"],
+      gymId: "gym-2",
+    });
+
+    expect(rpc).toHaveBeenCalledWith("update_social_post", {
+      p_post_id: "post-1",
+      p_caption: "Treino forte",
+      p_workout_types: ["Musculação", "Cardio"],
+      p_gym_id: "gym-2",
+    });
+  });
+
+  it("converts the last-media removal into a check-in", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: "checkin-2",
+      error: null,
+    });
+    const service = postService({ rpc } as unknown as GymCircleClient);
+
+    const checkinId = await service.convertToCheckin("post-1", "gym-2");
+
+    expect(checkinId).toBe("checkin-2");
+    expect(rpc).toHaveBeenCalledWith("convert_social_post_to_checkin", {
+      p_post_id: "post-1",
+      p_gym_id: "gym-2",
+    });
+  });
+});
+
 describe("postService.deleteComment", () => {
   it("deletes comments through the current user's ownership scope", async () => {
     const { client, from, query } = createDeleteCommentClientMock();

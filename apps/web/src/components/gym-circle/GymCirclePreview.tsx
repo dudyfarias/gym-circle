@@ -247,6 +247,7 @@ export function GymCirclePreview({
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [editCheckinId, setEditCheckinId] = useState<string | null>(null);
+  const [checkinTargetGymId, setCheckinTargetGymId] = useState<string | null>(null);
   const [postDetailId, setPostDetailId] = useState<string | null>(null);
   // Sprint 5.11 — estado separado pro overlay full-screen do post (estilo
   // Instagram quando user tapa em foto do grid). `postDetailId` continua
@@ -722,12 +723,11 @@ export function GymCirclePreview({
     () =>
       social.feedPosts.some(
         (post) =>
-          post.userId !== social.currentUser.id &&
           (post.locationSource === "current" || post.locationSource === "gym") &&
           typeof post.locationLatitude === "number" &&
           typeof post.locationLongitude === "number",
       ),
-    [social.currentUser.id, social.feedPosts],
+    [social.feedPosts],
   );
 
   const addViewerDistance = useCallback((posts: EnrichedPost[]) => {
@@ -736,7 +736,6 @@ export function GymCirclePreview({
 
     return posts.map((post) => {
       if (
-        post.userId === social.currentUser.id ||
         (post.locationSource !== "current" && post.locationSource !== "gym") ||
         typeof post.locationLatitude !== "number" ||
         typeof post.locationLongitude !== "number"
@@ -756,7 +755,7 @@ export function GymCirclePreview({
         distanceLabel: `${formatDistanceKm(distanceKm)} de você`,
       };
     });
-  }, [social.currentUser.id, viewerLocation.coordinates]);
+  }, [viewerLocation.coordinates]);
 
   const feedPosts = useMemo<EnrichedPost[]>(
     () => addViewerDistance(social.feedPosts),
@@ -974,10 +973,17 @@ export function GymCirclePreview({
       if (screen === "feed") setScrollState("top");
       // Entrar no composer pela nav = post normal (sem data travada).
       if (screen === "post") setComposerWorkoutDate(null);
+      if (screen === "checkin") setCheckinTargetGymId(null);
       setActiveScreen(screen);
     },
     [activeScreen, scrollFeedToTop],
   );
+
+  const openGymDetail = useCallback((gymId: string) => {
+    setCheckinTargetGymId(gymId);
+    setScrollState("top");
+    setActiveScreen("checkin");
+  }, []);
 
   const handleTouchStart = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
@@ -1704,6 +1710,12 @@ export function GymCirclePreview({
               setScrollState("top");
               setActiveScreen("feed");
             }}
+            onCreateCheckin={async (gymId, workoutDate) => {
+              await social.actions.createCheckin?.(gymId, workoutDate);
+              setComposerWorkoutDate(null);
+              setScrollState("top");
+              setActiveScreen("feed");
+            }}
             onPublish={async (input) => {
               await social.actions.publishWorkout(input);
               setComposerWorkoutDate(null);
@@ -1728,8 +1740,16 @@ export function GymCirclePreview({
           <CheckInScreen
             currentUser={social.currentUser}
             gyms={social.gyms ?? []}
+            initialGymId={checkinTargetGymId}
             onCatalogPlace={social.actions.catalogPlace}
-            onCheckIn={social.actions.checkIn}
+            onCheckIn={async (gymId) => {
+              if (social.actions.createCheckin) {
+                await social.actions.createCheckin(gymId);
+                return;
+              }
+              const gym = social.gyms?.find((item) => item.id === gymId);
+              if (gym) await social.actions.checkIn(gym.name);
+            }}
             onSelectUser={openProfile}
             posts={social.feedPosts}
             users={social.users ?? {}}
@@ -1766,6 +1786,7 @@ export function GymCirclePreview({
             // pro mesmo callback (`onOpenPost`) nos profile sheets.
             onOpenPostDetails={openPostDetail}
             onOpenPostMenu={openPostMenu}
+            onSelectGym={openGymDetail}
             onEditCheckin={promoteCheckin ? openEditCheckin : undefined}
             onOpenStory={social.actions.openStory}
             onSharePostToChat={social.actions.sharePostToChat}
@@ -1785,12 +1806,14 @@ export function GymCirclePreview({
     }
   }, [
     activeScreen,
+    checkinTargetGymId,
     composerWorkoutDate,
     chatTargetUserId,
     allUsers,
     followedUsers,
     openAchievementDetailHybrid,
     openBadges,
+    openGymDetail,
     openMyCircle,
     feedPosts,
     scrollState,
@@ -2337,12 +2360,17 @@ export function GymCirclePreview({
           {editPost ? (
             <EditPostSheet
               checkin={editCheckinTarget}
+              gyms={social.gyms ?? []}
+              onCatalogPlace={social.actions.catalogPlace}
               onClose={closeEditPost}
+              onConvertPostToCheckin={social.actions.convertPostToCheckin}
               onPromoteCheckin={promoteCheckin}
               onSave={editPost}
+              onUpdateCheckin={social.actions.updateCheckin}
               onUploadImage={onUploadImage}
               open={editPostId !== null || editCheckinId !== null}
               post={editPostTarget}
+              recentLocations={recentPostLocations}
               taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
             />
           ) : null}

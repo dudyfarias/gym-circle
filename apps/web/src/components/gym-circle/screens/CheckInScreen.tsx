@@ -4,6 +4,8 @@ import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  buildGoogleMapsSearchUrl,
+  buildGoogleMapsUrlFromCoordinates,
   getGymCircleDateKey,
   GYM_CIRCLE_TIME_ZONE,
 } from "@gym-circle/core";
@@ -13,6 +15,7 @@ import {
   Clock,
   Loader2,
   MapPin,
+  Navigation,
   Search,
   X,
 } from "lucide-react";
@@ -29,15 +32,17 @@ import type {
   GymUser,
 } from "../social/types";
 import { TopBar } from "../TopBar";
+import { calculateDistanceKm, formatDistance } from "../social/locationSearch";
 
 type CheckInScreenProps = {
   currentUser: EnrichedUser;
   gyms: GymLocationOption[];
   posts: EnrichedPost[];
   users: Record<string, GymUser>;
-  onCheckIn: (gymName: string) => void | Promise<void>;
+  onCheckIn: (gymId: string) => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
   onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
+  initialGymId?: string | null;
 };
 
 type PeopleFilter = "today" | "week";
@@ -89,9 +94,10 @@ export function CheckInScreen({
   onCheckIn,
   onSelectUser,
   onCatalogPlace,
+  initialGymId = null,
 }: CheckInScreenProps) {
   const { t } = useTranslation();
-  const [selectedGymId, setSelectedGymId] = useState<string | null>(null);
+  const [selectedGymId, setSelectedGymId] = useState<string | null>(initialGymId);
   const [searchOpen, setSearchOpen] = useState(false);
   const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
   const [cataloging, setCataloging] = useState(false);
@@ -132,6 +138,26 @@ export function CheckInScreen({
   );
 
   const isViewingDetail = Boolean(selectedGym);
+
+  const distanceForGym = useCallback(
+    (gym: GymLocationOption | null) => {
+      if (
+        !coords ||
+        !gym ||
+        typeof gym.latitude !== "number" ||
+        typeof gym.longitude !== "number"
+      ) {
+        return null;
+      }
+      return formatDistance(
+        calculateDistanceKm(coords, {
+          lat: gym.latitude,
+          lng: gym.longitude,
+        }),
+      );
+    },
+    [coords],
+  );
 
   // Posts do gym ativo (selecionado ou último)
   const activeGymId = selectedGym?.id ?? lastGym?.id ?? null;
@@ -290,13 +316,13 @@ export function CheckInScreen({
     await handleCatalogPlace(place);
   }
 
-  async function handleCheckIn(gymName: string) {
+  async function handleCheckIn(gym: GymLocationOption) {
     if (checkinPending) return;
     setCheckinPending(true);
     setFeedback(null);
     try {
-      await onCheckIn(gymName);
-      setFeedback(t("checkInScreen.lastGym.feedback", { gym: gymName }));
+      await onCheckIn(gym.id);
+      setFeedback(t("checkInScreen.lastGym.feedback", { gym: gym.name }));
     } finally {
       setCheckinPending(false);
     }
@@ -316,7 +342,8 @@ export function CheckInScreen({
           checkinPending={checkinPending}
           feedback={feedback}
           gym={selectedGym}
-          onCheckIn={() => void handleCheckIn(selectedGym.name)}
+          distanceLabel={distanceForGym(selectedGym)}
+          onCheckIn={() => void handleCheckIn(selectedGym)}
           onChangeFilter={setPeopleFilter}
           onChangeGym={() => openGymDetail(null)}
           onSelectUser={onSelectUser}
@@ -330,9 +357,10 @@ export function CheckInScreen({
           feedback={feedback}
           friendsAtLastGym={friendsAtLastGym}
           lastGym={lastGym}
+          lastGymDistance={distanceForGym(lastGym)}
           nearbyLoading={nearbyLoading}
           nearbyPlaces={nearbyPlaces}
-          onCheckInLast={(gymName) => void handleCheckIn(gymName)}
+          onCheckInLast={(gym) => void handleCheckIn(gym)}
           onOpenLastDetail={() => lastGym && openGymDetail(lastGym.id)}
           onOpenSearch={() => setSearchOpen(true)}
           onSelectNearby={handleSelectNearby}
@@ -358,6 +386,7 @@ export function CheckInScreen({
 
 type DefaultViewProps = {
   lastGym: GymLocationOption | null;
+  lastGymDistance: string | null;
   nearbyPlaces: PlaceCandidate[];
   nearbyLoading: boolean;
   friendsAtLastGym: Array<{ user: GymUser; lastPost: EnrichedPost }>;
@@ -365,7 +394,7 @@ type DefaultViewProps = {
   checkinPending: boolean;
   feedback: string | null;
   onOpenLastDetail: () => void;
-  onCheckInLast: (gymName: string) => void;
+  onCheckInLast: (gym: GymLocationOption) => void;
   onOpenSearch: () => void;
   onSelectNearby: (place: PlaceCandidate) => void | Promise<void>;
   onSelectUser?: (userId: string) => void;
@@ -373,6 +402,7 @@ type DefaultViewProps = {
 
 function DefaultView({
   lastGym,
+  lastGymDistance,
   nearbyPlaces,
   nearbyLoading,
   friendsAtLastGym,
@@ -392,7 +422,8 @@ function DefaultView({
           checkinPending={checkinPending}
           feedback={feedback}
           gym={lastGym}
-          onCheckIn={() => onCheckInLast(lastGym.name)}
+          distanceLabel={lastGymDistance}
+          onCheckIn={() => onCheckInLast(lastGym)}
           onOpenDetail={onOpenLastDetail}
         />
       ) : (
@@ -423,12 +454,14 @@ function DefaultView({
 
 function LastGymCard({
   gym,
+  distanceLabel,
   onCheckIn,
   onOpenDetail,
   checkinPending,
   feedback,
 }: {
   gym: GymLocationOption;
+  distanceLabel: string | null;
   onCheckIn: () => void;
   onOpenDetail: () => void;
   checkinPending: boolean;
@@ -452,9 +485,12 @@ function LastGymCard({
           <span className="block truncate text-[20px] font-black leading-tight text-white">
             {gym.name}
           </span>
-          {gym.city || gym.address ? (
+          {gym.city || gym.address || distanceLabel ? (
             <span className="mt-0.5 block truncate text-[12px] font-bold text-white/52">
               {[gym.address, gym.city].filter(Boolean).join(" · ")}
+              {distanceLabel
+                ? `${gym.address || gym.city ? " · " : ""}${distanceLabel}`
+                : ""}
             </span>
           ) : null}
         </span>
@@ -675,6 +711,7 @@ function FriendsAtLastGymList({
 
 type SelectedGymViewProps = {
   gym: GymLocationOption;
+  distanceLabel: string | null;
   peopleAtGym: Array<{ user: GymUser; post: EnrichedPost }>;
   peopleFilter: PeopleFilter;
   recentPosts: EnrichedPost[];
@@ -688,6 +725,7 @@ type SelectedGymViewProps = {
 
 function SelectedGymView({
   gym,
+  distanceLabel,
   peopleAtGym,
   peopleFilter,
   recentPosts,
@@ -699,6 +737,15 @@ function SelectedGymView({
   onSelectUser,
 }: SelectedGymViewProps) {
   const { t, i18n } = useTranslation();
+  const mapsUrl =
+    typeof gym.latitude === "number" && typeof gym.longitude === "number"
+      ? buildGoogleMapsUrlFromCoordinates({
+          latitude: gym.latitude,
+          longitude: gym.longitude,
+        })
+      : buildGoogleMapsSearchUrl(
+          [gym.name, gym.address, gym.city, gym.state].filter(Boolean).join(", "),
+        );
   return (
     <>
       <div className="mt-5 flex items-start gap-3 rounded-[20px] border border-white/[0.08] bg-white/[0.03] p-4">
@@ -707,9 +754,12 @@ function SelectedGymView({
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-[16px] font-black text-white">{gym.name}</p>
-          {gym.city || gym.address ? (
+          {gym.city || gym.address || distanceLabel ? (
             <p className="mt-0.5 truncate text-[12px] font-bold text-white/52">
               {[gym.address, gym.city].filter(Boolean).join(" · ")}
+              {distanceLabel
+                ? `${gym.address || gym.city ? " · " : ""}${distanceLabel}`
+                : ""}
             </p>
           ) : null}
         </div>
@@ -722,6 +772,16 @@ function SelectedGymView({
           <X size={15} strokeWidth={2.4} />
         </button>
       </div>
+
+      <a
+        className="gc-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--gc-brand)]/28 bg-[var(--gc-brand)]/10 text-[13px] font-black text-[var(--gc-brand)]"
+        href={mapsUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        <Navigation size={15} strokeWidth={2.5} />
+        {t("checkInScreen.detail.openMap")}
+      </a>
 
       <button
         className="gc-pressable mt-3 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black shadow-[0_0_24px_rgba(92,232,255,0.32)] disabled:opacity-50 disabled:shadow-none"

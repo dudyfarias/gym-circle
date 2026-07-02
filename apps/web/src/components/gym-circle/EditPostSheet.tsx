@@ -4,25 +4,36 @@ import Image from "next/image";
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ArrowLeft,
+  ChevronRight,
   Check,
   ImagePlus,
   Loader2,
   Plus,
+  Search,
   UserPlus,
   Video,
   X,
 } from "lucide-react";
+import {
+  GymSearchSheet,
+  type LocatedPlaceCandidate,
+  type PlaceCandidate,
+} from "./GymSearchSheet";
 import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
 import {
   allSettledWithConcurrency,
   getMediaUploadConcurrency,
 } from "./mediaUploadQueue";
+import { getMediaFileType, isSupportedMediaFile } from "./mediaFileType";
+import { NativeMediaPickerService } from "./native/NativeMediaPickerService";
 import type {
   EditPostInput,
   EnrichedCheckin,
   EnrichedPost,
   EnrichedUser,
+  GymLocationOption,
   PostMediaItem,
   PostMediaType,
   PromoteCheckinInput,
@@ -52,6 +63,11 @@ type EditPostSheetProps = {
     checkinId: string,
     input: PromoteCheckinInput,
   ) => Promise<void>;
+  onUpdateCheckin?: (checkinId: string, gymId: string) => Promise<void>;
+  onConvertPostToCheckin?: (postId: string, gymId: string) => Promise<void>;
+  gyms?: GymLocationOption[];
+  recentLocations?: PlaceCandidate[];
+  onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
   // Sprint 14 — necessário pra adicionar novas mídias ao post.
   onUploadImage?: (file: File) => Promise<string | UploadResult>;
 };
@@ -85,7 +101,7 @@ type PendingUpload = {
 };
 
 function getMediaType(file: File): PostMediaType {
-  return file.type.startsWith("video/") ? "video" : "image";
+  return getMediaFileType(file) ?? "image";
 }
 
 // Sprint 14 — lista de mídias atual do post (post.media já vem ≥1; senão, capa).
@@ -113,6 +129,11 @@ export function EditPostSheet({
   onClose,
   onSave,
   onPromoteCheckin,
+  onUpdateCheckin,
+  onConvertPostToCheckin,
+  gyms = [],
+  recentLocations = [],
+  onCatalogPlace,
   onUploadImage,
 }: EditPostSheetProps) {
   const { t } = useTranslation();
@@ -122,6 +143,11 @@ export function EditPostSheet({
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<"media" | "details">("media");
+  const [selectedGymId, setSelectedGymId] = useState("");
+  const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [cataloging, setCataloging] = useState(false);
   // Sprint 14 — mídias editáveis. mediaChanged evita reescrever (e perder) o
   // carrossel quando o user só edita legenda/tipo.
   const [mediaItems, setMediaItems] = useState<PostMediaItem[]>([]);
@@ -129,11 +155,20 @@ export function EditPostSheet({
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const pickerBusyRef = useRef(false);
   const isPromotingCheckin = Boolean(checkin);
   const targetUserId = post?.userId ?? checkin?.userId ?? null;
+  const searchableGyms = useMemo(() => {
+    const merged = new Map<string, GymLocationOption>();
+    for (const gym of gyms) merged.set(gym.id, gym);
+    for (const gym of localGyms) merged.set(gym.id, gym);
+    return Array.from(merged.values());
+  }, [gyms, localGyms]);
+  const selectedGym =
+    searchableGyms.find((gym) => gym.id === selectedGymId) ?? null;
 
   async function uploadOne(file: File): Promise<PostMediaItem | null> {
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+    if (!isSupportedMediaFile(file)) {
       return null;
     }
     const type = getMediaType(file);
@@ -159,7 +194,7 @@ export function EditPostSheet({
     const room = Math.max(0, MAX_MEDIA - mediaItems.length - pendingUploads.length);
     const chosen = files
       .slice(0, room)
-      .filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+      .filter(isSupportedMediaFile);
     if (chosen.length === 0) {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -167,7 +202,7 @@ export function EditPostSheet({
     // Placeholders na hora (preview local) com animação de carregando.
     const placeholders: PendingUpload[] = chosen.map((file) => ({
       id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      previewUrl: file.type.startsWith("video/")
+      previewUrl: getMediaType(file) === "video"
         ? null
         : URL.createObjectURL(file),
       mediaType: getMediaType(file),
@@ -211,12 +246,29 @@ export function EditPostSheet({
     setMediaChanged(true);
   }
 
-  function openGallery() {
-    if (uploading || mediaItems.length >= MAX_MEDIA) return;
-    // Sprint 14.2 — galeria via <input multiple> (PHPicker nativo do iOS direto,
-    // sem o overhead/lentidão do plugin chooseFromGallery). handleFileChange
-    // faz o upload.
-    fileInputRef.current?.click();
+  async function openGallery() {
+    if (
+      pickerBusyRef.current ||
+      uploading ||
+      mediaItems.length >= MAX_MEDIA
+    ) {
+      return;
+    }
+    pickerBusyRef.current = true;
+    try {
+      if (await NativeMediaPickerService.isNativePlatform()) {
+        // O input do WebView pode devolver file://, HEIC ou MIME vazio.
+        // O picker nativo normaliza esses casos antes de iniciar o upload.
+        const picked = await NativeMediaPickerService.pickWorkoutMediaMultiple();
+        if (picked.length > 0) {
+          await addFiles(picked.map((item) => item.file));
+        }
+        return;
+      }
+      fileInputRef.current?.click();
+    } finally {
+      pickerBusyRef.current = false;
+    }
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -234,9 +286,46 @@ export function EditPostSheet({
       setError(null);
       setMediaItems(post ? postToMediaItems(post) : []);
       setMediaChanged(false);
+      setStep("media");
+      setSelectedGymId(post?.gymId ?? checkin?.gymId ?? "");
+      setLocalGyms([]);
     }, 0);
     return () => window.clearTimeout(id);
   }, [checkin, open, post]);
+
+  async function handlePlace(place: PlaceCandidate) {
+    setError(null);
+    if (place.provider === "registered" && place.gymId) {
+      setSelectedGymId(place.gymId);
+      setSearchOpen(false);
+      return;
+    }
+    if (!onCatalogPlace) {
+      setError("Não foi possível cadastrar este local.");
+      return;
+    }
+    if (typeof place.latitude !== "number" || typeof place.longitude !== "number") {
+      setError("Este local precisa de coordenadas para ser cadastrado.");
+      return;
+    }
+    setCataloging(true);
+    try {
+      const gym = await onCatalogPlace({
+        ...place,
+        latitude: place.latitude,
+        longitude: place.longitude,
+      });
+      setLocalGyms((current) =>
+        current.some((item) => item.id === gym.id) ? current : [...current, gym],
+      );
+      setSelectedGymId(gym.id);
+      setSearchOpen(false);
+    } catch (err) {
+      setError((err as Error).message ?? "Não foi possível salvar o local.");
+    } finally {
+      setCataloging(false);
+    }
+  }
 
   const activeParticipantIds = useMemo(() => {
     const ids = new Set<string>();
@@ -277,31 +366,53 @@ export function EditPostSheet({
 
   async function handleSave() {
     if ((!post && !checkin) || saving) return;
+    if (!selectedGym && mediaItems.length === 0) {
+      setError("Selecione um local cadastrado para manter como check-in.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       const commonInput = {
         caption: caption.trim() ? caption.trim() : null,
         workoutType: workoutType.trim() ? workoutType.trim() : null,
+        workoutTypes: workoutType.trim() ? [workoutType.trim()] : [],
+        gymId: selectedGym?.id ?? null,
         taggedUserIds:
           taggedUserIds.length > 0 ? taggedUserIds : undefined,
       };
       if (checkin) {
-        if (!onPromoteCheckin || mediaItems.length === 0) {
-          setError(t("editCheckin.errors.mediaRequired"));
-          return;
+        if (mediaItems.length === 0) {
+          if (!onUpdateCheckin || !selectedGym) {
+            setError("Não foi possível atualizar este check-in.");
+            return;
+          }
+          await onUpdateCheckin(checkin.id, selectedGym.id);
+        } else {
+          if (!onPromoteCheckin) {
+            setError(t("editCheckin.errors.mediaRequired"));
+            return;
+          }
+          await onPromoteCheckin(checkin.id, {
+            ...commonInput,
+            gymId: selectedGym?.id ?? checkin.gymId,
+            media: mediaItems,
+          });
         }
-        await onPromoteCheckin(checkin.id, {
-          ...commonInput,
-          media: mediaItems,
-        });
       } else if (post) {
-        await onSave(post.id, {
-          ...commonInput,
-          // Sprint 14 — só manda media se o user mexeu (evita reescrever/perder
-          // o carrossel quando edita só legenda/tipo).
-          media: mediaChanged ? mediaItems : undefined,
-        });
+        if (mediaItems.length === 0) {
+          if (!onConvertPostToCheckin || !selectedGym) {
+            setError("Selecione um local para transformar o post em check-in.");
+            return;
+          }
+          await onConvertPostToCheckin(post.id, selectedGym.id);
+        } else {
+          await onSave(post.id, {
+            ...commonInput,
+            // Só manda media se o usuário alterou o conjunto.
+            media: mediaChanged ? mediaItems : undefined,
+          });
+        }
       }
       onClose();
     } catch (err) {
@@ -321,16 +432,18 @@ export function EditPostSheet({
             {t(isPromotingCheckin ? "editCheckin.title" : "editPost.title")}
           </p>
           <button
-            aria-label={t("common.close")}
+            aria-label={step === "details" ? "Voltar" : t("common.close")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
-            onClick={onClose}
+            onClick={() => (step === "details" ? setStep("media") : onClose())}
             type="button"
           >
-            <X size={19} />
+            {step === "details" ? <ArrowLeft size={19} /> : <X size={19} />}
           </button>
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          {step === "media" ? (
+            <>
           {/* Sprint 14 — mídias EDITÁVEIS: carrossel + remover + adicionar até 10. */}
           <input
             accept="image/*,video/*"
@@ -369,7 +482,7 @@ export function EditPostSheet({
               <button
                 className="gc-pressable flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 border border-dashed border-white/12 bg-white/[0.025] px-6 text-center"
                 disabled={uploading}
-                onClick={openGallery}
+                onClick={() => void openGallery()}
                 type="button"
               >
                 <span className="grid size-14 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
@@ -396,16 +509,14 @@ export function EditPostSheet({
                   className="h-full w-full object-cover"
                   src={item.thumbnailUrl ?? item.imageUrl}
                 />
-                {mediaItems.length > 1 ? (
-                  <button
-                    aria-label={t("postScreen.media.remove")}
-                    className="gc-pressable absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/72 text-white"
-                    onClick={() => removeMediaAt(index)}
-                    type="button"
-                  >
-                    <X size={11} />
-                  </button>
-                ) : null}
+                <button
+                  aria-label={t("postScreen.media.remove")}
+                  className="gc-pressable absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/72 text-white"
+                  onClick={() => removeMediaAt(index)}
+                  type="button"
+                >
+                  <X size={11} />
+                </button>
               </div>
             ))}
             {/* Thumbs em upload: preview local + animação de carregando. */}
@@ -440,13 +551,16 @@ export function EditPostSheet({
                 aria-label={t("postScreen.media.addMore")}
                 className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
                 disabled={uploading}
-                onClick={openGallery}
+                onClick={() => void openGallery()}
                 type="button"
               >
                 <Plus size={18} />
               </button>
             ) : null}
           </div>
+            </>
+          ) : (
+            <>
 
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-black uppercase text-white/52">
@@ -460,6 +574,42 @@ export function EditPostSheet({
               value={caption}
             />
           </label>
+
+          <div>
+            <span className="mb-1.5 block text-[12px] font-black uppercase text-white/52">
+              Localização
+            </span>
+            <button
+              className="gc-pressable flex min-h-12 w-full items-center gap-3 rounded-[16px] border border-white/[0.08] bg-black/40 px-4 py-3 text-left"
+              disabled={cataloging}
+              onClick={() => setSearchOpen(true)}
+              type="button"
+            >
+              <Search className="shrink-0 text-white/52" size={17} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] font-bold text-white">
+                  {selectedGym?.name ?? "Buscar academia ou local"}
+                </span>
+                {selectedGym?.address || selectedGym?.city ? (
+                  <span className="mt-0.5 block truncate text-[11px] font-bold text-white/42">
+                    {[selectedGym.address, selectedGym.city, selectedGym.state]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                ) : null}
+              </span>
+              <ChevronRight className="text-white/36" size={17} />
+            </button>
+            {selectedGym && !checkin ? (
+              <button
+                className="gc-pressable mt-2 rounded-full bg-white/[0.05] px-3 py-2 text-[12px] font-bold text-white/58"
+                onClick={() => setSelectedGymId("")}
+                type="button"
+              >
+                Remover localização
+              </button>
+            ) : null}
+          </div>
 
           <label className="block">
             <span className="mb-1.5 block text-[12px] font-black uppercase text-white/52">
@@ -583,6 +733,8 @@ export function EditPostSheet({
               </p>
             ) : null}
           </div>
+            </>
+          )}
 
           {error ? (
             <p className="rounded-[16px] border border-[var(--gc-pink)]/30 bg-[var(--gc-pink)]/10 p-3 text-[12px] font-bold text-[var(--gc-pink)]">
@@ -592,19 +744,41 @@ export function EditPostSheet({
         </div>
 
         <div className="border-t border-white/[0.06] p-4">
-          <button
-            className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
-            disabled={saving || uploading || (isPromotingCheckin && mediaItems.length === 0)}
-            onClick={handleSave}
-            type="button"
-          >
-            <Check size={17} strokeWidth={2.8} />
-            {saving
-              ? t("editPost.saving")
-              : t(isPromotingCheckin ? "editCheckin.save" : "editPost.save")}
-          </button>
+          {step === "media" ? (
+            <button
+              className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
+              disabled={uploading}
+              onClick={() => setStep("details")}
+              type="button"
+            >
+              Continuar
+              <ChevronRight size={18} strokeWidth={2.8} />
+            </button>
+          ) : (
+            <button
+              className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
+              disabled={saving || uploading || (mediaItems.length === 0 && !selectedGym)}
+              onClick={handleSave}
+              type="button"
+            >
+              <Check size={17} strokeWidth={2.8} />
+              {saving
+                ? t("editPost.saving")
+                : mediaItems.length === 0
+                  ? "Salvar como check-in"
+                  : t(isPromotingCheckin ? "editCheckin.save" : "editPost.save")}
+            </button>
+          )}
         </div>
       </div>
+      <GymSearchSheet
+        onClose={() => setSearchOpen(false)}
+        onSelect={handlePlace}
+        open={searchOpen}
+        recentCandidates={recentLocations}
+        registeredGyms={searchableGyms}
+        title="Editar localização"
+      />
     </div>
   );
 }

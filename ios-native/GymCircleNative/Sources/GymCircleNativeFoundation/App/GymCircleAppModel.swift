@@ -867,11 +867,43 @@ public final class GymCircleAppModel: ObservableObject {
         case video(Data)
     }
 
-    /// Sobe as mídias (sequencial), publica o post (capa + carrossel +
-    /// local + participantes) e recarrega feed + MyCircle (streak,
-    /// desafios tipo Popstar e conquistas reagem na hora).
-    public func publishPost(
+    /// Etapa 1 do composer: envia em sequência e devolve somente referências
+    /// leves do Storage. A tela pode então liberar Data/UIImage antes de abrir
+    /// legenda, teclado, localização e participantes.
+    public func prepareComposerMedia(
         media: [ComposerMediaInput],
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async -> [PostComposerService.UploadedMedia]? {
+        guard let composerService,
+              let userId = sessionStore?.currentUserId,
+              !media.isEmpty else { return [] }
+        do {
+            var uploads: [PostComposerService.UploadedMedia] = []
+            onProgress?(0, media.count)
+            for item in media {
+                switch item {
+                case .photo(let data):
+                    uploads.append(
+                        try await composerService.uploadImage(userId: userId, imageData: data)
+                    )
+                case .video(let data):
+                    uploads.append(
+                        try await composerService.uploadVideo(userId: userId, videoData: data)
+                    )
+                }
+                onProgress?(uploads.count, media.count)
+            }
+            return uploads
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Etapa 2 do composer: publica referências já enviadas. Nenhum Data bruto
+    /// de foto/vídeo precisa permanecer em memória enquanto o teclado aparece.
+    public func publishPreparedPost(
+        media: [PostComposerService.UploadedMedia],
         caption: String,
         workoutTypes: [String],
         gym: GymOption? = nil,
@@ -883,9 +915,7 @@ public final class GymCircleAppModel: ObservableObject {
         // "Registrar treino" (post retroativo): YYYY-MM-DD de um dia já treinado
         // sem mídia. Quando setado, vai SÓ pro feed com created_at backdatado
         // (não sobe no topo do feed; preenche calendário/perfil).
-        workoutDate: String? = nil,
-        // Progresso REAL do upload: chamado após cada mídia subir (concluídas, total).
-        onProgress: ((Int, Int) -> Void)? = nil
+        workoutDate: String? = nil
     ) async -> Bool {
         let isBackdated = workoutDate != nil
         let wantsFeed = isBackdated ? true : postToFeed
@@ -895,21 +925,10 @@ public final class GymCircleAppModel: ObservableObject {
               !media.isEmpty,
               wantsFeed || wantsStory else { return false }
         do {
-            var uploads: [PostComposerService.UploadedMedia] = []
-            onProgress?(0, media.count)
-            for item in media {
-                switch item {
-                case .photo(let data):
-                    uploads.append(try await composerService.uploadImage(userId: userId, imageData: data))
-                case .video(let data):
-                    uploads.append(try await composerService.uploadVideo(userId: userId, videoData: data))
-                }
-                onProgress?(uploads.count, media.count)
-            }
             if wantsFeed {
                 let postId = try await composerService.publish(
                     userId: userId,
-                    medias: uploads,
+                    medias: media,
                     caption: caption,
                     workoutTypes: workoutTypes,
                     workoutDate: workoutDate ?? Self.todayKey(),
@@ -931,7 +950,7 @@ public final class GymCircleAppModel: ObservableObject {
                     )
                 }
             }
-            if wantsStory, let cover = uploads.first {
+            if wantsStory, let cover = media.first {
                 try? await storiesService?.createStory(
                     userId: userId,
                     media: cover,
@@ -948,6 +967,34 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Compatibilidade com callers antigos: prepara e publica em uma chamada.
+    public func publishPost(
+        media: [ComposerMediaInput],
+        caption: String,
+        workoutTypes: [String],
+        gym: GymOption? = nil,
+        taggedUserIds: [String] = [],
+        postToFeed: Bool = true,
+        postToStory: Bool = true,
+        workoutDate: String? = nil,
+        onProgress: ((Int, Int) -> Void)? = nil
+    ) async -> Bool {
+        guard let uploads = await prepareComposerMedia(
+            media: media,
+            onProgress: onProgress
+        ), !uploads.isEmpty else { return false }
+        return await publishPreparedPost(
+            media: uploads,
+            caption: caption,
+            workoutTypes: workoutTypes,
+            gym: gym,
+            taggedUserIds: taggedUserIds,
+            postToFeed: postToFeed,
+            postToStory: postToStory,
+            workoutDate: workoutDate
+        )
+    }
+
     /// Converte um check-in sem mídia em post social completo. Os uploads já
     /// chegam prontos do sheet; o vínculo source_checkin_id faz a troca de card
     /// no feed sem apagar o check-in que sustenta streak/calendário.
@@ -955,16 +1002,29 @@ public final class GymCircleAppModel: ObservableObject {
         _ checkin: FeedCheckin,
         medias: [PostComposerService.UploadedMedia],
         caption: String,
-        workoutTypes: [String]
+        workoutTypes: [String],
+        gym selectedGym: GymOption? = nil
     ) async -> Bool {
         guard let composerService,
               let userId = sessionStore?.currentUserId,
               checkin.userId == userId,
               !medias.isEmpty else { return false }
         do {
-            let gym = await fetchGym(id: checkin.gymId)
+            let gym: GymOption?
+            if let selectedGym {
+                gym = selectedGym
+            } else {
+                gym = await fetchGym(id: checkin.gymId)
+            }
+            guard let gym else { return false }
+            let sourceCheckinId = gym.id == checkin.gymId
+                ? checkin.id
+                : try await composerService.updateCheckinLocation(
+                    checkinId: checkin.id,
+                    gymId: gym.id
+                )
             let coordinates: (latitude: Double, longitude: Double)?
-            if let latitude = gym?.latitude, let longitude = gym?.longitude {
+            if let latitude = gym.latitude, let longitude = gym.longitude {
                 coordinates = (latitude, longitude)
             } else if let latitude = checkin.gymLatitude,
                       let longitude = checkin.gymLongitude {
@@ -976,10 +1036,10 @@ public final class GymCircleAppModel: ObservableObject {
                 latitude: coordinates?.latitude,
                 longitude: coordinates?.longitude,
                 fallback: [
-                    checkin.gymName,
-                    checkin.gymAddress,
-                    checkin.gymCity,
-                    checkin.gymState,
+                    gym.name,
+                    gym.address,
+                    gym.city,
+                    gym.state,
                 ]
                 .compactMap { $0 }
                 .filter { !$0.isEmpty }
@@ -992,9 +1052,9 @@ public final class GymCircleAppModel: ObservableObject {
                 workoutTypes: workoutTypes,
                 workoutDate: checkin.checkinDate,
                 createdAt: checkin.createdAt,
-                sourceCheckinId: checkin.id,
-                gymId: checkin.gymId,
-                locationName: checkin.gymName,
+                sourceCheckinId: sourceCheckinId,
+                gymId: gym.id,
+                locationName: gym.name,
                 locationLatitude: coordinates?.latitude,
                 locationLongitude: coordinates?.longitude,
                 locationGoogleMapsURL: mapsURL
@@ -1014,15 +1074,16 @@ public final class GymCircleAppModel: ObservableObject {
         postId: String,
         caption: String,
         workoutTypes: [String],
+        gym: GymOption?,
         media: [PostComposerService.EditMediaItem]? = nil
     ) async -> Bool {
-        guard let composerService, let userId = sessionStore?.currentUserId else { return false }
+        guard let composerService, sessionStore?.currentUserId != nil else { return false }
         do {
             try await composerService.updatePost(
                 postId: postId,
-                userId: userId,
                 caption: caption,
-                workoutTypes: workoutTypes
+                workoutTypes: workoutTypes,
+                gymId: gym?.id
             )
             // Paridade editPost web (Sprint 14): media != nil substitui o
             // carrossel inteiro + capa via setMedia.
@@ -1030,6 +1091,57 @@ public final class GymCircleAppModel: ObservableObject {
                 try await composerService.setMedia(postId: postId, items: media)
             }
             await refreshFeed()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func updateCheckin(_ checkin: FeedCheckin, gym: GymOption) async -> Bool {
+        guard let composerService,
+              let userId = sessionStore?.currentUserId,
+              checkin.userId == userId else { return false }
+        do {
+            _ = try await composerService.updateCheckinLocation(
+                checkinId: checkin.id,
+                gymId: gym.id
+            )
+            await refreshFeed()
+            await loadMyCircle()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func convertPostToCheckin(postId: String, gym: GymOption) async -> Bool {
+        guard let composerService else { return false }
+        do {
+            _ = try await composerService.convertPostToCheckin(
+                postId: postId,
+                gymId: gym.id
+            )
+            await refreshFeed()
+            await loadMyCircle()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func createComposerCheckin(gym: GymOption, workoutDate: String?) async -> Bool {
+        guard let api, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await api.checkIn(
+                userId: userId,
+                gymId: gym.id,
+                checkinDate: workoutDate
+            )
+            await refreshFeed()
+            await loadMyCircle()
             return true
         } catch {
             self.error = error.localizedDescription

@@ -15,6 +15,7 @@ public struct CheckInView: View {
     @State private var selectedGym: GymOption?
     @State private var nearbyGyms: [GymOption] = []
     @State private var nearbyPlaces: [NativePlaceCandidate] = []
+    @State private var viewerCoordinate: GymCircleCoordinate?
     @State private var gymPosts: [GymCheckInPost] = []
     @State private var followingIds: Set<String> = []
     @State private var peopleFilter: PeopleFilter = .today
@@ -27,8 +28,9 @@ public struct CheckInView: View {
     @State private var searchPresented = false
     @State private var openedProfile: OtherProfileSummary?
 
-    public init(model: GymCircleAppModel) {
+    public init(model: GymCircleAppModel, initialGym: GymOption? = nil) {
         self.model = model
+        _selectedGym = State(initialValue: initialGym)
     }
 
     private enum PeopleFilter { case today, week }
@@ -202,12 +204,24 @@ public struct CheckInView: View {
             }
 
             ForEach(nearbyGyms.prefix(5)) { gym in
-                Button { select(gym) } label: { placeRow(name: gym.name, subtitle: gym.subtitle, registered: true) }
+                Button { select(gym) } label: {
+                    placeRow(
+                        name: gym.name,
+                        subtitle: gym.subtitle,
+                        distance: distanceLabel(for: gym),
+                        registered: true
+                    )
+                }
                     .buttonStyle(.plain)
             }
             ForEach(nearbyPlaces.prefix(5)) { place in
                 Button { Task { await catalogAndSelect(place) } } label: {
-                    placeRow(name: place.name, subtitle: place.subtitle, registered: false)
+                    placeRow(
+                        name: place.name,
+                        subtitle: place.subtitle,
+                        distance: distanceLabel(to: place.coordinate),
+                        registered: false
+                    )
                 }
                 .buttonStyle(.plain)
             }
@@ -230,6 +244,13 @@ public struct CheckInView: View {
                 if !gym.subtitle.isEmpty {
                     GCText(gym.subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
                 }
+                if let distance = distanceLabel(for: gym) {
+                    GCText(
+                        Loc.t("\(distance) away", "\(distance) de você"),
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.cyan
+                    )
+                }
             }
             Spacer(minLength: 0)
             Button { selectedGym = nil; feedback = nil } label: {
@@ -243,6 +264,23 @@ public struct CheckInView: View {
         }
         .padding(14)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(GymCircleTheme.ColorToken.elevatedCard.opacity(0.4)))
+
+        Link(destination: mapsURL(for: gym)) {
+            Label(Loc.t("View on map", "Ver no mapa"), systemImage: "location.fill")
+                .font(.system(size: 14, weight: .black))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.cyan.opacity(0.10))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.28), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
 
         checkInButton(gym: gym, large: true)
 
@@ -345,7 +383,12 @@ public struct CheckInView: View {
         .buttonStyle(.plain)
     }
 
-    private func placeRow(name: String, subtitle: String, registered: Bool) -> some View {
+    private func placeRow(
+        name: String,
+        subtitle: String,
+        distance: String?,
+        registered: Bool
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: registered ? "mappin.circle.fill" : "mappin.circle")
                 .foregroundStyle(registered ? GymCircleTheme.ColorToken.cyan : GymCircleTheme.ColorToken.secondaryText)
@@ -353,6 +396,13 @@ public struct CheckInView: View {
                 GCText(name, style: .body)
                 if !subtitle.isEmpty {
                     GCText(subtitle, style: .caption, color: GymCircleTheme.ColorToken.secondaryText)
+                }
+                if let distance {
+                    GCText(
+                        Loc.t("\(distance) away", "\(distance) de você"),
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.cyan
+                    )
                 }
             }
             Spacer(minLength: 0)
@@ -464,6 +514,7 @@ public struct CheckInView: View {
         defer { isLocating = false }
         do {
             let coordinate = try await AppleMapsLocationProvider.shared.currentPosition()
+            viewerCoordinate = coordinate
             async let dbGyms = model.nearbyGyms(coordinate: coordinate)
             async let mapPlaces = AppleMapsLocationProvider.shared.nearbyPlaces(near: coordinate)
             nearbyGyms = await dbGyms
@@ -504,6 +555,39 @@ public struct CheckInView: View {
                 openedProfile = summary
             }
         }
+    }
+
+    private func distanceLabel(for gym: GymOption) -> String? {
+        guard let latitude = gym.latitude, let longitude = gym.longitude else { return nil }
+        return distanceLabel(to: GymCircleCoordinate(
+            latitude: latitude,
+            longitude: longitude
+        ))
+    }
+
+    private func distanceLabel(to coordinate: GymCircleCoordinate) -> String? {
+        guard let viewerCoordinate else { return nil }
+        return NativeLocationProvider.formattedDistanceKm(
+            NativeLocationProvider.distanceKm(from: viewerCoordinate, to: coordinate)
+        )
+    }
+
+    private func mapsURL(for gym: GymOption) -> URL {
+        var components = URLComponents(string: "https://www.google.com/maps/search/")
+        let query: String
+        if let latitude = gym.latitude, let longitude = gym.longitude {
+            query = "\(latitude),\(longitude)"
+        } else {
+            query = [gym.name, gym.address, gym.city, gym.state]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+                .joined(separator: ", ")
+        }
+        components?.queryItems = [
+            URLQueryItem(name: "api", value: "1"),
+            URLQueryItem(name: "query", value: query),
+        ]
+        return components?.url ?? URL(string: "https://maps.google.com")!
     }
 
     // MARK: - Date helpers (America/Sao_Paulo, igual ao web)

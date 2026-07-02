@@ -485,18 +485,37 @@ public actor GymCircleAPI {
         }
     }
 
-    public func checkIn(userId: String, gymId: String) async throws {
+    public func checkIn(
+        userId: String,
+        gymId: String,
+        checkinDate: String? = nil
+    ) async throws {
         struct CheckInInsert: Encodable {
             let user_id: String
             let gym_id: String
             let checkin_date: String
+            let created_at: String?
         }
+        let date = checkinDate ?? Self.todayKey()
+        struct ExistingCheckin: Decodable { let id: String }
+        let existing: [ExistingCheckin] = try await client
+            .from("checkins")
+            .select("id")
+            .eq("user_id", value: userId)
+            .eq("gym_id", value: gymId)
+            .eq("checkin_date", value: date)
+            .limit(1)
+            .execute()
+            .value
+        if !existing.isEmpty { return }
+
         try await client
             .from("checkins")
             .insert(CheckInInsert(
                 user_id: userId,
                 gym_id: gymId,
-                checkin_date: Self.todayKey()
+                checkin_date: date,
+                created_at: checkinDate == nil ? nil : "\(date)T12:00:00-03:00"
             ))
             .execute()
     }

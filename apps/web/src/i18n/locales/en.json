@@ -823,6 +823,7 @@
     },
     "detail": {
       "changeGymAria": "Change place",
+      "openMap": "View on map",
       "ctaConfirming": "Confirming...",
       "cta": "I'm training here",
       "peopleTitle": "Who trained here",

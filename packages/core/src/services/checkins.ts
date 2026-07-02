@@ -4,8 +4,11 @@ import type { GymCircleClient } from "./supabase";
 
 export function checkinService(client: GymCircleClient) {
   return {
-    async checkIn(userId: string, gymId: string): Promise<CheckinRow> {
-      const checkinDate = getGymCircleDateKey();
+    async checkIn(
+      userId: string,
+      gymId: string,
+      checkinDate = getGymCircleDateKey(),
+    ): Promise<CheckinRow> {
       const { data: existing, error: existingError } = await client
         .from("checkins")
         .select("*")
@@ -24,10 +27,25 @@ export function checkinService(client: GymCircleClient) {
           user_id: userId,
           gym_id: gymId,
           checkin_date: checkinDate,
+          ...(checkinDate === getGymCircleDateKey()
+            ? {}
+            : { created_at: `${checkinDate}T12:00:00-03:00` }),
         })
         .select("*")
         .single();
       if (error) throw error;
+      return data;
+    },
+
+    async updateLocation(checkinId: string, gymId: string): Promise<string> {
+      const { data, error } = await client.rpc("update_social_checkin", {
+        p_checkin_id: checkinId,
+        p_gym_id: gymId,
+      });
+      if (error) throw error;
+      if (typeof data !== "string") {
+        throw new Error("O check-in atualizado não foi retornado.");
+      }
       return data;
     },
 

@@ -11,6 +11,7 @@ public struct NativeGymSearchSheet: View {
 
     @State private var query = ""
     @State private var results: [GymOption] = []
+    @State private var mapResults: [NativePlaceCandidate] = []
     @State private var recent: [GymOption] = []
     @State private var nearbyGyms: [GymOption] = []
     @State private var nearbyPlaces: [NativePlaceCandidate] = []
@@ -43,6 +44,12 @@ public struct NativeGymSearchSheet: View {
                             gyms: results,
                             emptyHint: Loc.t("Nothing found.", "Nada encontrado.")
                         )
+                        if !mapResults.isEmpty {
+                            placesSection(
+                                Loc.t("New places from Apple Maps", "Novos lugares do Apple Maps"),
+                                places: mapResults
+                            )
+                        }
                     } else {
                         if !recent.isEmpty {
                             gymsSection(Loc.t("Recent", "Recentes"), gyms: recent)
@@ -51,7 +58,7 @@ public struct NativeGymSearchSheet: View {
                             gymsSection(Loc.registeredGymsNearby, gyms: nearbyGyms)
                         }
                         if !nearbyPlaces.isEmpty {
-                            placesSection
+                            placesSection("Apple Maps", places: nearbyPlaces)
                         }
                     }
                 }
@@ -77,7 +84,18 @@ public struct NativeGymSearchSheet: View {
                 try? await Task.sleep(nanoseconds: 300_000_000)
                 guard !Task.isCancelled else { return }
                 let q = value.trimmingCharacters(in: .whitespaces)
-                results = q.count >= 2 ? await model.searchGyms(query: q) : []
+                guard q.count >= 2 else {
+                    results = []
+                    mapResults = []
+                    return
+                }
+                async let saved = model.searchGyms(query: q)
+                async let apple = AppleMapsLocationProvider.shared.searchPlaces(
+                    query: q,
+                    near: nil
+                )
+                results = await saved
+                mapResults = (try? await apple) ?? []
             }
         }
     }
@@ -129,10 +147,13 @@ public struct NativeGymSearchSheet: View {
         }
     }
 
-    private var placesSection: some View {
+    private func placesSection(
+        _ title: String,
+        places: [NativePlaceCandidate]
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            GCText("Apple Maps", style: .sectionLabel)
-            ForEach(nearbyPlaces.prefix(8)) { place in
+            GCText(title, style: .sectionLabel)
+            ForEach(places.prefix(8)) { place in
                 Button { Task { await selectPlace(place) } } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "mappin.circle")

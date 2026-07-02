@@ -10,6 +10,7 @@ import { NativePushController } from "./NativePushController";
 import { useTranslation } from "react-i18next";
 import { PwaController } from "./PwaController";
 import { markPerf, measurePerf } from "./performance";
+import { getMediaFileType } from "./mediaFileType";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
 // Sprint 2.4: qualidade priorizada (revert Sprint 1 agressivo).
@@ -41,10 +42,14 @@ type PreparedImageFile = {
   height: number | null;
 };
 
+function isImageMediaFile(file: File) {
+  return getMediaFileType(file) === "image";
+}
+
 function isResizableImage(file: File) {
   return (
     typeof window !== "undefined" &&
-    file.type.startsWith("image/") &&
+    isImageMediaFile(file) &&
     file.type !== "image/gif" &&
     file.type !== "image/svg+xml"
   );
@@ -325,52 +330,60 @@ function AuthenticatedShell({ userId }: { userId: string }) {
     async (file: File): Promise<UploadedWorkoutMedia> => {
       markPerf("image_upload_start");
       try {
-        if (file.type.startsWith("image/")) {
-          markPerf("thumbnail_generation_start");
-          // Sequencial por arquivo: evita manter dois decodes + dois canvas
-          // grandes ao mesmo tempo no iPhone.
-          const feedFile = await imageFileVariant(
-            file,
-            POST_IMAGE_MAX_EDGE,
-            POST_IMAGE_QUALITY,
-            "feed",
-          );
-          const thumbnail = await imageFileVariant(
-            file,
-            POST_THUMBNAIL_MAX_EDGE,
-            POST_THUMBNAIL_QUALITY,
-            "thumb",
-          );
-          measurePerf(
-            "thumbnail_generation_ms",
-            "thumbnail_generation_start",
-            "thumbnail_generation_end",
-          );
-          // Sprint 2.4: gera blur placeholder no client durante o
-          // upload. Custo: 1 canvas 10x10px + toDataURL JPEG. Resultado
-          // ~500 bytes que vai pro `blur_data_url` no banco e elimina o
-          // flash preto no feed/stories quando o post aparecer.
-          markPerf("blur_generation_start");
-          const blurImage = await loadImageFile(file).catch(() => null);
-          const blurDataUrl = blurImage
-            ? await generateBlurDataUrl(blurImage)
-            : null;
-          measurePerf(
-            "blur_generation_ms",
-            "blur_generation_start",
-            "blur_generation_end",
-          );
-          const [imageUrl, thumbnailUrl] = await Promise.all([
-            uploadTo("posts", feedFile.file),
-            uploadTo("posts", thumbnail.file),
-          ]);
-          return {
-            imageUrl,
-            thumbnailUrl,
-            blurDataUrl,
-            mediaWidth: feedFile.width ?? thumbnail.width ?? null,
-            mediaHeight: feedFile.height ?? thumbnail.height ?? null,
-          };
+        if (isImageMediaFile(file)) {
+          try {
+            markPerf("thumbnail_generation_start");
+            // Sequencial por arquivo: evita manter dois decodes + dois canvas
+            // grandes ao mesmo tempo no iPhone.
+            const feedFile = await imageFileVariant(
+              file,
+              POST_IMAGE_MAX_EDGE,
+              POST_IMAGE_QUALITY,
+              "feed",
+            );
+            const thumbnail = await imageFileVariant(
+              file,
+              POST_THUMBNAIL_MAX_EDGE,
+              POST_THUMBNAIL_QUALITY,
+              "thumb",
+            );
+            measurePerf(
+              "thumbnail_generation_ms",
+              "thumbnail_generation_start",
+              "thumbnail_generation_end",
+            );
+            // Blur é best-effort; falhar nunca bloqueia a foto.
+            markPerf("blur_generation_start");
+            const blurImage = await loadImageFile(file).catch(() => null);
+            const blurDataUrl = blurImage
+              ? await generateBlurDataUrl(blurImage)
+              : null;
+            measurePerf(
+              "blur_generation_ms",
+              "blur_generation_start",
+              "blur_generation_end",
+            );
+            const [imageUrl, thumbnailUrl] = await Promise.all([
+              uploadTo("posts", feedFile.file),
+              uploadTo("posts", thumbnail.file),
+            ]);
+            return {
+              imageUrl,
+              thumbnailUrl,
+              blurDataUrl,
+              mediaWidth: feedFile.width ?? thumbnail.width ?? null,
+              mediaHeight: feedFile.height ?? thumbnail.height ?? null,
+            };
+          } catch (error) {
+            // Alguns providers do iOS entregam HEIC/arquivos sem MIME que o
+            // canvas da WebView não decodifica. A foto continua válida para o
+            // Storage: envia o original em vez de deixar o editor "parado".
+            console.warn(
+              "Otimização da imagem falhou; enviando o arquivo original:",
+              error,
+            );
+            return { imageUrl: await uploadTo("posts", file) };
+          }
         }
 
         const poster = await createVideoPoster(file);

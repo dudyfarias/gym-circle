@@ -15,6 +15,8 @@ function extensionFor(format: string | undefined, kind: NativeMediaKind) {
   const normalized = (format || "").toLowerCase().replace("jpeg", "jpg");
   if (normalized.includes("png")) return "png";
   if (normalized.includes("webp")) return "webp";
+  if (normalized.includes("heic")) return "heic";
+  if (normalized.includes("heif")) return "heif";
   if (normalized.includes("mp4")) return "mp4";
   if (normalized.includes("mov") || normalized.includes("quicktime")) return "mov";
   return kind === "video" ? "mp4" : "jpg";
@@ -24,6 +26,8 @@ function mimeFor(format: string | undefined, kind: NativeMediaKind) {
   const ext = extensionFor(format, kind);
   if (ext === "png") return "image/png";
   if (ext === "webp") return "image/webp";
+  if (ext === "heic") return "image/heic";
+  if (ext === "heif") return "image/heif";
   if (ext === "mov") return "video/quicktime";
   if (ext === "mp4") return "video/mp4";
   return "image/jpeg";

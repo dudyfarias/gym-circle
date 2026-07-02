@@ -10,8 +10,11 @@ import AVFoundation
 public struct ComposerView: View {
     @ObservedObject private var model: GymCircleAppModel
 
+    private enum ComposerStep { case media, details }
+    @State private var composerStep: ComposerStep = .media
     @State private var pickerItems: [PhotosPickerItem] = []
     @State private var pickedMedia: [PickedMedia] = []
+    @State private var preparedMedia: [PostComposerService.UploadedMedia] = []
     @State private var caption = ""
     @State private var selectedTags: [String] = []
     @State private var customTag = ""
@@ -88,12 +91,17 @@ public struct ComposerView: View {
             VStack(alignment: .leading, spacing: 18) {
                 composerHeader
                 if isBackdated { backdatedNotice }
-                mediaSection
-                // Paridade web: legenda + opções + publicar só aparecem depois
-                // que há mídia (a mídia é a protagonista da tela).
-                if !pickedMedia.isEmpty {
-                    captionSection
-                    moreOptions
+                if composerStep == .media {
+                    mediaSection
+                    continueButton
+                } else {
+                    preparedMediaSummary
+                    if preparedMedia.isEmpty {
+                        gymSection
+                    } else {
+                        captionSection
+                        moreOptions
+                    }
                     publishButton
                 }
             }
@@ -110,7 +118,7 @@ public struct ComposerView: View {
         }
         .sheet(isPresented: $cameraPresented) {
             CameraPicker { data in
-                guard pickedMedia.count < Self.maxMedias else { return }
+                guard totalMediaCount < Self.maxMedias else { return }
                 pickedMedia.append(
                     PickedMedia(isVideo: false, data: data, preview: UIImage(data: data))
                 )
@@ -174,11 +182,115 @@ public struct ComposerView: View {
 
     @ViewBuilder
     private var mediaSection: some View {
-        if pickedMedia.isEmpty {
+        if totalMediaCount == 0 {
             emptyMediaCTA
         } else {
-            filledMedia
+            VStack(alignment: .leading, spacing: 14) {
+                if !preparedMedia.isEmpty { preparedMediaEditor }
+                if !pickedMedia.isEmpty { filledMedia }
+            }
         }
+    }
+
+    private var totalMediaCount: Int {
+        preparedMedia.count + pickedMedia.count
+    }
+
+    private var preparedMediaEditor: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let cover = preparedMedia.first {
+                MediaView(
+                    url: cover.posterURL ?? cover.thumbnailURL ?? cover.imageURL,
+                    aspectRatio: 4.0 / 5.0,
+                    isVideo: cover.mediaType == "video"
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(Array(preparedMedia.enumerated()), id: \.element.imageURL) { index, item in
+                        ZStack(alignment: .topTrailing) {
+                            MediaView(
+                                url: item.posterURL ?? item.thumbnailURL ?? item.imageURL,
+                                aspectRatio: 4.0 / 5.0,
+                                isVideo: item.mediaType == "video"
+                            )
+                            .frame(width: 64, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            Button { preparedMedia.remove(at: index) } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(.white, .black.opacity(0.55))
+                            }
+                            .padding(2)
+                        }
+                    }
+                    if totalMediaCount < Self.maxMedias {
+                        PhotosPicker(
+                            selection: $pickerItems,
+                            maxSelectionCount: Self.maxMedias - totalMediaCount,
+                            matching: .any(of: [.images, .videos])
+                        ) {
+                            addThumbLabel(icon: "plus")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var preparedMediaSummary: some View {
+        HStack(spacing: 12) {
+            if let cover = preparedMedia.first {
+                MediaView(
+                    url: cover.posterURL ?? cover.thumbnailURL ?? cover.imageURL,
+                    aspectRatio: 1,
+                    isVideo: cover.mediaType == "video"
+                )
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .frame(width: 72, height: 72)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.cyan.opacity(0.10))
+                    )
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                GCText(
+                    preparedMedia.isEmpty
+                        ? Loc.t("Check-in without media", "Check-in sem mídia")
+                        : Loc.t(
+                            "\(preparedMedia.count) media ready",
+                            "\(preparedMedia.count) mídia(s) pronta(s)"
+                        ),
+                    style: .body
+                )
+                GCText(
+                    Loc.t(
+                        "Heavy files were released from memory.",
+                        "Os arquivos pesados já saíram da memória."
+                    ),
+                    style: .caption,
+                    color: GymCircleTheme.ColorToken.secondaryText
+                )
+            }
+            Spacer()
+            Button {
+                composerStep = .media
+            } label: {
+                Text(Loc.t("Edit", "Editar")).font(.system(size: 13, weight: .bold))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.035))
+        )
     }
 
     // Estado VAZIO (paridade web): caixa 4:5 com ícone de câmera, dica e os 2
@@ -334,10 +446,10 @@ public struct ComposerView: View {
                     }
                 }
 
-                if pickedMedia.count < Self.maxMedias {
+                if totalMediaCount < Self.maxMedias {
                     PhotosPicker(
                         selection: $pickerItems,
-                        maxSelectionCount: Self.maxMedias,
+                        maxSelectionCount: Self.maxMedias - totalMediaCount,
                         matching: .any(of: [.images, .videos])
                     ) {
                         addThumbLabel(icon: "plus")
@@ -630,21 +742,75 @@ public struct ComposerView: View {
         )
     }
 
-    // Precisa de mídia E pelo menos um destino (paridade web hasDestination).
-    // Registrar treino é sempre feed (basta a mídia).
+    private var canContinue: Bool {
+        pickedMedia.allSatisfy { $0.isReady } && !isPublishing
+    }
+
+    private var continueButton: some View {
+        VStack(spacing: 8) {
+            Button {
+                Task { await prepareAndContinue() }
+            } label: {
+                HStack(spacing: 8) {
+                    if isPublishing {
+                        ProgressView().tint(.black)
+                    }
+                    Text(
+                        totalMediaCount == 0
+                            ? Loc.t("Continue as check-in", "Continuar como check-in")
+                            : Loc.t("Continue", "Continuar")
+                    )
+                    .font(.system(size: 16, weight: .black))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .black))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    Capsule().fill(
+                        canContinue
+                            ? AnyShapeStyle(GymCircleTheme.ColorToken.cyan)
+                            : AnyShapeStyle(GymCircleTheme.ColorToken.elevatedCard)
+                    )
+                )
+                .foregroundStyle(canContinue ? .black : GymCircleTheme.ColorToken.secondaryText)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canContinue)
+
+            if totalMediaCount == 0 {
+                GCText(
+                    Loc.t(
+                        "Without media, choose a registered place on the next step.",
+                        "Sem mídia, escolha um local cadastrado na próxima etapa."
+                    ),
+                    style: .caption,
+                    color: GymCircleTheme.ColorToken.secondaryText
+                )
+                .multilineTextAlignment(.center)
+            }
+            if let errorMessage {
+                GCText(errorMessage, style: .caption, color: GymCircleTheme.ColorToken.pink)
+            }
+        }
+    }
+
+    // Com mídia: precisa de destino. Sem mídia: precisa de local e vira check-in.
     private var canPublish: Bool {
-        !pickedMedia.isEmpty
-            && pickedMedia.allSatisfy { $0.isReady }
-            && (isBackdated || postToFeed || postToStory)
+        if preparedMedia.isEmpty {
+            return selectedGym != nil && !isPublishing
+        }
+        return (isBackdated || postToFeed || postToStory) && !isPublishing
     }
 
     private var isLoadingMedia: Bool {
-        pickedMedia.contains { $0.status == .loading }
+        pickedMedia.contains { $0.status == .loading } || isPublishing
     }
 
     // CTA muda conforme o destino (paridade web ctaBoth/ctaFeed/ctaStory).
     private var publishCTA: String {
         if isLoadingMedia { return Loc.t("Loading media…", "Carregando mídias…") }
+        if preparedMedia.isEmpty { return Loc.t("Check in", "Fazer check-in") }
         if isBackdated { return Loc.t("Log workout", "Registrar treino") }
         if postToFeed && postToStory { return Loc.t("Publish", "Publicar") }
         if postToStory && !postToFeed { return Loc.t("Publish story", "Publicar story") }
@@ -745,7 +911,7 @@ public struct ComposerView: View {
 
     private func loadPicked(_ items: [PhotosPickerItem]) async {
         guard !items.isEmpty else { return }
-        let room = max(0, Self.maxMedias - pickedMedia.count)
+        let room = max(0, Self.maxMedias - totalMediaCount)
         guard room > 0 else { pickerItems = []; return }
         let toLoad = Array(items.prefix(room))
 
@@ -811,31 +977,79 @@ public struct ComposerView: View {
         }
     }
 
-    private func publish() async {
-        guard !pickedMedia.isEmpty, pickedMedia.allSatisfy({ $0.isReady }) else { return }
-        isPublishing = true
+    private func prepareAndContinue() async {
+        guard canContinue else { return }
         errorMessage = nil
-        defer { isPublishing = false; publishProgress = nil }
 
+        if pickedMedia.isEmpty {
+            composerStep = .details
+            return
+        }
+
+        isPublishing = true
+        publishProgress = (0, pickedMedia.count)
         let inputs: [GymCircleAppModel.ComposerMediaInput] = pickedMedia.compactMap { media in
             guard let data = media.data else { return nil }
             return media.isVideo ? .video(data) : .photo(data)
         }
-        let ok = await model.publishPost(
+        guard let uploads = await model.prepareComposerMedia(
             media: inputs,
-            caption: caption,
-            workoutTypes: selectedTags,
-            gym: selectedGym,
-            taggedUserIds: Array(taggedUserIds),
-            postToFeed: postToFeed,
-            postToStory: postToStory,
-            workoutDate: workoutDate,
             onProgress: { done, total in publishProgress = (done, total) }
-        )
+        ) else {
+            isPublishing = false
+            publishProgress = nil
+            Haptics.error()
+            errorMessage = model.error ?? Loc.photoUploadFailed
+            return
+        }
+
+        preparedMedia.append(contentsOf: uploads)
+        // O ganho de memória acontece aqui, antes de criar TextField/teclado:
+        // Data e previews locais deixam o estado; ficam apenas URLs do Storage.
+        pickedMedia.removeAll(keepingCapacity: false)
+        pickerItems = []
+        isPublishing = false
+        publishProgress = nil
+        composerStep = .details
+    }
+
+    private func publish() async {
+        guard canPublish else { return }
+        isPublishing = true
+        errorMessage = nil
+        defer { isPublishing = false; publishProgress = nil }
+
+        let ok: Bool
+        if preparedMedia.isEmpty {
+            guard let selectedGym else {
+                errorMessage = Loc.t(
+                    "Choose a registered place for your check-in.",
+                    "Escolha um local cadastrado para o check-in."
+                )
+                return
+            }
+            ok = await model.createComposerCheckin(
+                gym: selectedGym,
+                workoutDate: workoutDate
+            )
+        } else {
+            ok = await model.publishPreparedPost(
+                media: preparedMedia,
+                caption: caption,
+                workoutTypes: selectedTags,
+                gym: selectedGym,
+                taggedUserIds: Array(taggedUserIds),
+                postToFeed: postToFeed,
+                postToStory: postToStory,
+                workoutDate: workoutDate
+            )
+        }
         if ok {
             Haptics.success()
             pickedMedia = []
+            preparedMedia = []
             pickerItems = []
+            composerStep = .media
             caption = ""
             selectedTags = []
             selectedGym = nil
@@ -895,6 +1109,7 @@ struct TagChipsRow: View {
 public struct EditPostSheet: View {
     @ObservedObject private var model: GymCircleAppModel
     private let target: EditTarget
+    private enum EditStep { case media, details }
 
     private enum EditTarget {
         case post(FeedPost)
@@ -904,6 +1119,9 @@ public struct EditPostSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var caption: String
     @State private var selectedTags: [String]
+    @State private var step: EditStep = .media
+    @State private var selectedGym: GymOption?
+    @State private var gymSearchPresented = false
     @State private var customTag = ""
     @State private var isSaving = false
     // Progresso REAL do upload das fotos novas no salvar (concluídas, total).
@@ -914,6 +1132,8 @@ public struct EditPostSheet: View {
     @State private var existingItems: [PostComposerService.EditMediaItem]
     @State private var newMedias: [NewEditMedia] = []
     @State private var pickerItems: [PhotosPickerItem] = []
+    @State private var mediaWasChanged = false
+    @State private var isLoadingSelection = false
     private let originalCount: Int
 
     /// Mídia nova (ainda não enviada) escolhida no editor — foto OU vídeo.
@@ -927,7 +1147,7 @@ public struct EditPostSheet: View {
 
     private var totalCount: Int { existingItems.count + newMedias.count }
     private var mediaChanged: Bool {
-        existingItems.count != originalCount || !newMedias.isEmpty
+        mediaWasChanged || existingItems.count != originalCount || !newMedias.isEmpty
     }
     private var isPromotingCheckin: Bool {
         if case .checkin = target { return true }
@@ -951,6 +1171,14 @@ public struct EditPostSheet: View {
             )
         }
         _existingItems = State(initialValue: items)
+        _selectedGym = State(initialValue: post.gymId.map {
+            GymOption(
+                id: $0,
+                name: post.locationName ?? Loc.t("Selected place", "Local selecionado"),
+                latitude: post.locationLatitude,
+                longitude: post.locationLongitude
+            )
+        })
         originalCount = items.count
     }
 
@@ -960,6 +1188,15 @@ public struct EditPostSheet: View {
         _caption = State(initialValue: "")
         _selectedTags = State(initialValue: [])
         _existingItems = State(initialValue: [])
+        _selectedGym = State(initialValue: GymOption(
+            id: checkin.gymId,
+            name: checkin.gymName,
+            address: checkin.gymAddress,
+            city: checkin.gymCity,
+            state: checkin.gymState,
+            latitude: checkin.gymLatitude,
+            longitude: checkin.gymLongitude
+        ))
         originalCount = 0
     }
 
@@ -967,9 +1204,13 @@ public struct EditPostSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
-                    mediaEditor
+                    if step == .media {
+                        mediaEditor
+                    } else {
+                        editMediaSummary
 
-                    VStack(alignment: .leading, spacing: 8) {
+                    if totalCount > 0 {
+                      VStack(alignment: .leading, spacing: 8) {
                         GCText(Loc.caption, style: .headline)
                         TextField(Loc.captionPlaceholder, text: $caption, axis: .vertical)
                             .lineLimit(3...6)
@@ -978,9 +1219,11 @@ public struct EditPostSheet: View {
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     .fill(GymCircleTheme.ColorToken.elevatedCard)
                             )
+                      }
                     }
 
-                    VStack(alignment: .leading, spacing: 10) {
+                    if totalCount > 0 {
+                      VStack(alignment: .leading, spacing: 10) {
                         GCText(Loc.workoutType, style: .headline)
                         TagChipsRow(
                             presets: ["Musculação", "Corrida", "Bike", "Funcional", "Cardio", "Mobilidade"],
@@ -1010,10 +1253,14 @@ public struct EditPostSheet: View {
                             }
                             .buttonStyle(.plain)
                         }
+                      }
                     }
+
+                    editGymSection
 
                     if let errorMessage {
                         GCText(errorMessage, style: .caption, color: GymCircleTheme.ColorToken.pink)
+                    }
                     }
                 }
                 .padding(20)
@@ -1027,32 +1274,146 @@ public struct EditPostSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(Loc.cancel) { dismiss() }
+                    Button(step == .media ? Loc.cancel : Loc.t("Back", "Voltar")) {
+                        if step == .media { dismiss() } else { step = .media }
+                    }
                         .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task { await save() }
+                        Task {
+                            if step == .media {
+                                await prepareEditMedia()
+                            } else {
+                                await save()
+                            }
+                        }
                     } label: {
                         if isSaving {
                             ProgressView().tint(GymCircleTheme.ColorToken.cyan)
                         } else {
                             Text(
-                                isPromotingCheckin
-                                    ? Loc.t("Turn into post", "Transformar em post")
-                                    : Loc.save
+                                step == .media
+                                    ? Loc.t("Continue", "Continuar")
+                                    : totalCount == 0
+                                        ? Loc.t("Save as check-in", "Salvar como check-in")
+                                        : isPromotingCheckin
+                                            ? Loc.t("Turn into post", "Transformar em post")
+                                            : Loc.save
                             )
                             .bold()
                                 .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                         }
                     }
-                    .disabled(isSaving || totalCount == 0)
+                    .disabled(
+                        isSaving ||
+                        isLoadingSelection ||
+                        (step == .details && totalCount == 0 && selectedGym == nil)
+                    )
                 }
             }
         }
         .preferredColorScheme(.dark)
         .onChange(of: pickerItems) { newItems in
             Task { await loadPicked(newItems) }
+        }
+        .sheet(isPresented: $gymSearchPresented) {
+            NativeGymSearchSheet(model: model) { gym in selectedGym = gym }
+        }
+    }
+
+    private var editMediaSummary: some View {
+        HStack(spacing: 12) {
+            if let cover = existingItems.first {
+                MediaView(
+                    url: cover.posterURL ?? cover.thumbnailURL ?? cover.imageURL,
+                    aspectRatio: 1,
+                    isVideo: cover.mediaType == "video"
+                )
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            } else {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .frame(width: 72, height: 72)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.cyan.opacity(0.10))
+                    )
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                GCText(
+                    totalCount == 0
+                        ? Loc.t("Will be saved as check-in", "Será salvo como check-in")
+                        : Loc.t(
+                            "\(totalCount) media ready",
+                            "\(totalCount) mídia(s) pronta(s)"
+                        ),
+                    style: .body
+                )
+                GCText(
+                    Loc.t(
+                        "The heavy files were released before editing details.",
+                        "Os arquivos pesados foram liberados antes dos detalhes."
+                    ),
+                    style: .caption,
+                    color: GymCircleTheme.ColorToken.secondaryText
+                )
+            }
+            Spacer()
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.035))
+        )
+    }
+
+    private var editGymSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            GCText(
+                totalCount == 0
+                    ? Loc.t("Location required", "Local obrigatório")
+                    : Loc.t("Location", "Localização"),
+                style: .headline
+            )
+            Button { gymSearchPresented = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "mappin.circle.fill")
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    VStack(alignment: .leading, spacing: 2) {
+                        GCText(
+                            selectedGym?.name ?? Loc.searchGymPlaceholder,
+                            style: .body
+                        )
+                        if let subtitle = selectedGym?.subtitle, !subtitle.isEmpty {
+                            GCText(
+                                subtitle,
+                                style: .caption,
+                                color: GymCircleTheme.ColorToken.secondaryText
+                            )
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.elevatedCard)
+                )
+            }
+            .buttonStyle(.plain)
+
+            if selectedGym != nil, totalCount > 0, !isPromotingCheckin {
+                Button(Loc.t("Remove location", "Remover localização")) {
+                    selectedGym = nil
+                }
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.secondaryText)
+            }
         }
     }
 
@@ -1112,6 +1473,17 @@ public struct EditPostSheet: View {
             }
             .disabled(totalCount >= 10)
 
+            if isLoadingSelection {
+                HStack(spacing: 8) {
+                    ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                    GCText(
+                        Loc.t("Preparing selected media…", "Preparando mídia selecionada…"),
+                        style: .caption,
+                        color: GymCircleTheme.ColorToken.secondaryText
+                    )
+                }
+            }
+
             // Barra de progresso REAL do upload das fotos novas ao salvar.
             if let progress = saveProgress, progress.total > 1 {
                 VStack(spacing: 5) {
@@ -1162,6 +1534,7 @@ public struct EditPostSheet: View {
                 } else {
                     newMedias.remove(at: index)
                 }
+                mediaWasChanged = true
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 18))
@@ -1183,6 +1556,13 @@ public struct EditPostSheet: View {
     }
 
     private func loadPicked(_ items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+        isLoadingSelection = true
+        errorMessage = nil
+        defer {
+            isLoadingSelection = false
+            pickerItems = []
+        }
         var loaded: [NewEditMedia] = []
         for item in items {
             let isVideo = item.supportedContentTypes.contains {
@@ -1192,63 +1572,126 @@ public struct EditPostSheet: View {
                 loaded.append(NewEditMedia(data: data, isVideo: isVideo))
             }
         }
-        guard !loaded.isEmpty else { return }
+        guard !loaded.isEmpty else {
+            errorMessage = Loc.t(
+                "The selected media could not be read. Try another photo.",
+                "Não foi possível ler a mídia selecionada. Tente outra foto."
+            )
+            return
+        }
         newMedias.append(contentsOf: loaded.prefix(max(0, 10 - totalCount)))
+        mediaWasChanged = true
+    }
+
+    private func prepareEditMedia() async {
+        errorMessage = nil
+        guard !newMedias.isEmpty else {
+            step = .details
+            return
+        }
+
+        isSaving = true
+        defer { isSaving = false; saveProgress = nil }
+        saveProgress = (0, newMedias.count)
+        let pending = newMedias
+        var uploadedItems: [PostComposerService.EditMediaItem] = []
+        var uploadedIds = Set<UUID>()
+        for item in pending {
+            let uploaded = item.isVideo
+                ? await model.uploadEditVideo(data: item.data)
+                : await model.uploadEditImage(data: item.data)
+            guard let uploaded else {
+                existingItems.append(contentsOf: uploadedItems)
+                newMedias.removeAll { uploadedIds.contains($0.id) }
+                errorMessage = model.error ?? Loc.photoUploadFailed
+                return
+            }
+            uploadedItems.append(
+                PostComposerService.EditMediaItem(
+                    mediaType: uploaded.mediaType,
+                    imageURL: uploaded.imageURL,
+                    thumbnailURL: uploaded.thumbnailURL,
+                    posterURL: uploaded.posterURL,
+                    mediaWidth: uploaded.width,
+                    mediaHeight: uploaded.height,
+                    mediaDurationSeconds: uploaded.durationSeconds
+                )
+            )
+            uploadedIds.insert(item.id)
+            saveProgress = ((saveProgress?.done ?? 0) + 1, newMedias.count)
+        }
+        existingItems.append(contentsOf: uploadedItems)
+        // Libera os Data brutos antes de abrir campos/teclado.
+        newMedias.removeAll(keepingCapacity: false)
         pickerItems = []
+        mediaWasChanged = true
+        step = .details
     }
 
     private func save() async {
-        guard totalCount > 0 else { return }
+        if totalCount == 0, selectedGym == nil {
+            errorMessage = Loc.t(
+                "Choose a registered place for the check-in.",
+                "Escolha um local cadastrado para o check-in."
+            )
+            return
+        }
+        if !newMedias.isEmpty {
+            await prepareEditMedia()
+            guard newMedias.isEmpty else { return }
+        }
+
         isSaving = true
         errorMessage = nil
         defer { isSaving = false; saveProgress = nil }
 
-        var media: [PostComposerService.EditMediaItem]?
-        var uploadedMedias: [PostComposerService.UploadedMedia] = []
-        if mediaChanged {
-            var combined = existingItems
-            if !newMedias.isEmpty { saveProgress = (0, newMedias.count) }
-            for item in newMedias {
-                let uploaded = item.isVideo
-                    ? await model.uploadEditVideo(data: item.data)
-                    : await model.uploadEditImage(data: item.data)
-                guard let uploaded else {
-                    errorMessage = model.error ?? Loc.photoUploadFailed
-                    return
-                }
-                saveProgress = ((saveProgress?.done ?? 0) + 1, newMedias.count)
-                uploadedMedias.append(uploaded)
-                combined.append(
-                    PostComposerService.EditMediaItem(
-                        mediaType: uploaded.mediaType,
-                        imageURL: uploaded.imageURL,
-                        thumbnailURL: uploaded.thumbnailURL,
-                        posterURL: uploaded.posterURL,
-                        mediaWidth: uploaded.width,
-                        mediaHeight: uploaded.height,
-                        mediaDurationSeconds: uploaded.durationSeconds
-                    )
-                )
-            }
-            media = combined
-        }
-
         let ok: Bool
         switch target {
         case .post(let post):
-            ok = await model.updatePost(
-                postId: post.id,
-                caption: caption,
-                workoutTypes: selectedTags,
-                media: media
-            )
+            if existingItems.isEmpty, let selectedGym {
+                ok = await model.convertPostToCheckin(
+                    postId: post.id,
+                    gym: selectedGym
+                )
+            } else {
+                ok = await model.updatePost(
+                    postId: post.id,
+                    caption: caption,
+                    workoutTypes: selectedTags,
+                    gym: selectedGym,
+                    media: mediaChanged ? existingItems : nil
+                )
+            }
         case .checkin(let checkin):
-            ok = await model.promoteCheckin(
-                checkin,
-                medias: uploadedMedias,
-                caption: caption,
-                workoutTypes: selectedTags
-            )
+            guard let selectedGym else {
+                errorMessage = Loc.t(
+                    "Choose a registered place.",
+                    "Escolha um local cadastrado."
+                )
+                return
+            }
+            if existingItems.isEmpty {
+                ok = await model.updateCheckin(checkin, gym: selectedGym)
+            } else {
+                let medias = existingItems.map {
+                    PostComposerService.UploadedMedia(
+                        mediaType: $0.mediaType,
+                        imageURL: $0.imageURL,
+                        thumbnailURL: $0.thumbnailURL,
+                        posterURL: $0.posterURL,
+                        width: $0.mediaWidth,
+                        height: $0.mediaHeight,
+                        durationSeconds: $0.mediaDurationSeconds
+                    )
+                }
+                ok = await model.promoteCheckin(
+                    checkin,
+                    medias: medias,
+                    caption: caption,
+                    workoutTypes: selectedTags,
+                    gym: selectedGym
+                )
+            }
         }
         if ok {
             Haptics.success()

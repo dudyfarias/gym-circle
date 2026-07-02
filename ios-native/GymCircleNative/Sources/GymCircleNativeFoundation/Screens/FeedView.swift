@@ -75,6 +75,7 @@ public struct FeedView: View {
     // Perfil aberto ao tocar num nome/avatar (autor do post, participante,
     // story, sugestão). Tap em qualquer user → perfil dele.
     @State private var openedProfile: OtherProfileSummary?
+    @State private var openedGym: GymOption?
     // "Registrar treino": dia treinado sem mídia no calendário → composer.
     @State private var registerTarget: RegisterWorkoutTarget?
 
@@ -289,6 +290,19 @@ public struct FeedView: View {
                                     playingVideo = PlayableVideo(url: url)
                                 },
                                 onShare: { sharingPost = post },
+                                onOpenGym: {
+                                    Task {
+                                        openedGym = await model.fetchGym(id: post.gymId ?? "")
+                                            ?? post.gymId.map {
+                                                GymOption(
+                                                    id: $0,
+                                                    name: post.locationName ?? "Academia",
+                                                    latitude: post.locationLatitude,
+                                                    longitude: post.locationLongitude
+                                                )
+                                            }
+                                    }
+                                },
                                 onOpenProfile: { openProfile(userId: $0) },
                                 onOpenMention: { openMention(username: $0) }
                             )
@@ -306,6 +320,21 @@ public struct FeedView: View {
                                 checkin: checkin,
                                 currentUserId: model.currentUserId,
                                 onEdit: { editingCheckin = checkin },
+                                onOpenGym: {
+                                    Task {
+                                        openedGym = await model.fetchGym(
+                                            id: checkin.gymId
+                                        ) ?? GymOption(
+                                            id: checkin.gymId,
+                                            name: checkin.gymName,
+                                            address: checkin.gymAddress,
+                                            city: checkin.gymCity,
+                                            state: checkin.gymState,
+                                            latitude: checkin.gymLatitude,
+                                            longitude: checkin.gymLongitude
+                                        )
+                                    }
+                                },
                                 onOpenProfile: { openProfile(userId: $0) }
                             )
                         }
@@ -430,6 +459,11 @@ public struct FeedView: View {
                 model: model
             )
             .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $openedGym) { gym in
+            NavigationStack {
+                CheckInView(model: model, initialGym: gym)
+            }
         }
         .sheet(item: $likesPost) { post in
             LikesSheet(post: post, model: model) { postId in
@@ -581,17 +615,20 @@ public struct FeedCheckinCard: View {
     private let checkin: FeedCheckin
     private let currentUserId: String?
     private let onEdit: (() -> Void)?
+    private let onOpenGym: (() -> Void)?
     private let onOpenProfile: ((String) -> Void)?
 
     public init(
         checkin: FeedCheckin,
         currentUserId: String? = nil,
         onEdit: (() -> Void)? = nil,
+        onOpenGym: (() -> Void)? = nil,
         onOpenProfile: ((String) -> Void)? = nil
     ) {
         self.checkin = checkin
         self.currentUserId = currentUserId
         self.onEdit = onEdit
+        self.onOpenGym = onOpenGym
         self.onOpenProfile = onOpenProfile
     }
 
@@ -743,7 +780,16 @@ public struct FeedCheckinCard: View {
                 )
         )
 
-        if let mapsURL = checkin.mapsURL {
+        if let onOpenGym {
+            Button(action: onOpenGym) { content }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    Loc.t(
+                        "Open \(checkin.gymName) details",
+                        "Abrir detalhes de \(checkin.gymName)"
+                    )
+                )
+        } else if let mapsURL = checkin.mapsURL {
             Link(destination: mapsURL) { content }
                 .buttonStyle(.plain)
                 .accessibilityLabel(
@@ -772,6 +818,7 @@ public struct FeedPostCard: View {
     private let onRespondInvite: ((Bool) -> Void)?
     private let onPlayVideo: ((URL) -> Void)?
     private let onShare: (() -> Void)?
+    private let onOpenGym: (() -> Void)?
     private let onOpenProfile: ((String) -> Void)?
     private let onOpenMention: ((String) -> Void)?
 
@@ -793,6 +840,7 @@ public struct FeedPostCard: View {
         onRespondInvite: ((Bool) -> Void)? = nil,
         onPlayVideo: ((URL) -> Void)? = nil,
         onShare: (() -> Void)? = nil,
+        onOpenGym: (() -> Void)? = nil,
         onOpenProfile: ((String) -> Void)? = nil,
         onOpenMention: ((String) -> Void)? = nil
     ) {
@@ -809,6 +857,7 @@ public struct FeedPostCard: View {
         self.onRespondInvite = onRespondInvite
         self.onPlayVideo = onPlayVideo
         self.onShare = onShare
+        self.onOpenGym = onOpenGym
         self.onOpenProfile = onOpenProfile
         self.onOpenMention = onOpenMention
     }
@@ -995,7 +1044,10 @@ public struct FeedPostCard: View {
             Text(distanceSuffixed(location))
                 .lineLimit(1)
         }
-        if let urlString = post.locationGoogleMapsUrl, let url = URL(string: urlString) {
+        if post.gymId != nil, let onOpenGym {
+            Button(action: onOpenGym) { content }
+                .buttonStyle(.plain)
+        } else if let urlString = post.locationGoogleMapsUrl, let url = URL(string: urlString) {
             Link(destination: url) { content }
         } else {
             content

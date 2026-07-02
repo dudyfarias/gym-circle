@@ -40,6 +40,7 @@ type SocialPostCardProps = {
    *  Pra seguir, user entra no perfil. Marcado opcional. */
   onToggleFollow?: (userId: string) => void;
   onSelectUser?: (userId: string) => void;
+  onSelectGym?: (gymId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   shareTargets?: EnrichedUser[];
   /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
@@ -68,6 +69,7 @@ function SocialPostCardComponent({
   onOpenComments,
   onShareToChat,
   onSelectUser,
+  onSelectGym,
   resolveUser,
   shareTargets = [],
   onOpenPostMenu,
@@ -121,6 +123,7 @@ function SocialPostCardComponent({
   });
   const canOpenLocationMap =
     Boolean(post.locationGoogleMapsUrl) && (!isCurrentLocation || isPostOwner);
+  const canOpenGymDetail = Boolean(post.gymId && onSelectGym);
   const directShareTargets = useMemo(
     () =>
       shareTargets
@@ -259,7 +262,16 @@ function SocialPostCardComponent({
             </div>
             <p className="flex min-w-0 items-center gap-1 truncate text-[12px] font-bold text-white/46">
               {locationLabel ? (
-                canOpenLocationMap ? (
+                canOpenGymDetail ? (
+                  <button
+                    className="gc-pressable inline-flex min-w-0 items-center gap-1 truncate hover:text-[var(--gc-brand)]"
+                    onClick={() => onSelectGym?.(post.gymId)}
+                    type="button"
+                  >
+                    <MapPin size={12} className="shrink-0" />
+                    <span className="truncate">{locationLabel}</span>
+                  </button>
+                ) : canOpenLocationMap ? (
                   <a
                     className="gc-pressable inline-flex min-w-0 items-center gap-1 truncate hover:text-[var(--gc-brand)]"
                     href={post.locationGoogleMapsUrl ?? undefined}

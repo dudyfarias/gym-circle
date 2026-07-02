@@ -41,12 +41,14 @@ import { GymSearchSheet, type LocatedPlaceCandidate, type PlaceCandidate } from 
 import { HapticsService } from "../native/HapticsService";
 import { NativeMediaPickerService } from "../native/NativeMediaPickerService";
 import { allSettledWithConcurrency, getMediaUploadConcurrency } from "../mediaUploadQueue";
+import { getMediaFileType, isSupportedMediaFile } from "../mediaFileType";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
   gyms?: GymLocationOption[];
   onCancel: () => void;
   onPublish: (input: CreateWorkoutPostInput) => void | Promise<void>;
+  onCreateCheckin?: (gymId: string, workoutDate?: string) => void | Promise<void>;
   onUploadImage?: (file: File) => Promise<string | WorkoutMediaUploadResult>;
   taggableUsers?: EnrichedUser[];
   /**
@@ -91,7 +93,7 @@ type SelectableLocationSource = Exclude<PostLocationSource, "custom">;
 type ComposerStep = "media" | "details";
 
 function getMediaType(file: File): PostMediaType {
-  return file.type.startsWith("video/") ? "video" : "image";
+  return getMediaFileType(file) ?? "image";
 }
 
 /// Mídia em upload no strip (preview local instantâneo + estado de carregando).
@@ -124,6 +126,7 @@ export function PostScreen({
   gyms = [],
   onCancel,
   onPublish,
+  onCreateCheckin,
   onUploadImage,
   onCatalogPlace,
   recentLocations = [],
@@ -333,7 +336,7 @@ export function PostScreen({
   // Sprint 13 — sobe UM arquivo e devolve o item (sem tocar no state). Os
   // callers (câmera = single/replace, galeria = multi/append) controlam o state.
   async function uploadOne(file: File): Promise<PostMediaItem | null> {
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+    if (!isSupportedMediaFile(file)) {
       setUploadError(t("postScreen.publish.errors.uploadInvalidType"));
       return null;
     }
@@ -379,7 +382,7 @@ export function PostScreen({
   async function uploadSelectedFile(file: File) {
     setUploadError(null);
     setPublishError(null);
-    if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+    if (!isSupportedMediaFile(file)) {
       setUploadError(t("postScreen.publish.errors.uploadInvalidType"));
       if (fileInputRef.current) fileInputRef.current.value = "";
       if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -422,7 +425,7 @@ export function PostScreen({
     const room = Math.max(0, MAX_MEDIA - mediaItems.length - pendingUploads.length);
     const chosen = files
       .slice(0, room)
-      .filter((f) => f.type.startsWith("image/") || f.type.startsWith("video/"));
+      .filter(isSupportedMediaFile);
     if (chosen.length === 0) {
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -432,7 +435,7 @@ export function PostScreen({
       id: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       // Não cria <video>/object URL para cada pendência: quatro decoders
       // simultâneos já bastavam para o iOS reiniciar o WebView.
-      previewUrl: file.type.startsWith("video/") ? null : URL.createObjectURL(file),
+      previewUrl: getMediaType(file) === "video" ? null : URL.createObjectURL(file),
       mediaType: getMediaType(file),
       status: "uploading",
     }));
@@ -515,15 +518,22 @@ export function PostScreen({
     }
   }
 
-  function openNativeGallery() {
-    if (uploading) return;
+  async function openNativeGallery() {
+    if (pickerBusyRef.current || uploading) return;
+    pickerBusyRef.current = true;
     void HapticsService.selection();
-    // Sprint 14.2 — galeria via <input multiple>: o WKWebView abre o PHPicker
-    // NATIVO do iOS direto e devolve os File[] sem o overhead do plugin
-    // chooseFromGallery (re-encode quality + copy + metadata = lentidão) e sem
-    // o bug de file:// (o WebView entrega o File pronto). handleFileChange
-    // decide single vs carrossel. Vale web + nativo (mesmo caminho).
-    fileInputRef.current?.click();
+    try {
+      if (await NativeMediaPickerService.isNativePlatform()) {
+        const picked = await NativeMediaPickerService.pickWorkoutMediaMultiple();
+        if (picked.length > 0) {
+          await uploadGalleryFiles(picked.map((item) => item.file));
+        }
+        return;
+      }
+      fileInputRef.current?.click();
+    } finally {
+      pickerBusyRef.current = false;
+    }
   }
 
   function removeLocation() {
@@ -545,6 +555,7 @@ export function PostScreen({
     try {
       if (
         place.provider === "current" &&
+        mediaItems.length > 0 &&
         typeof place.latitude === "number" &&
         typeof place.longitude === "number"
       ) {
@@ -605,7 +616,21 @@ export function PostScreen({
     if (publishing) return;
 
     if (!imageUrl.trim()) {
-      setPublishError(t("postScreen.publish.errors.needsMedia"));
+      if (!onCreateCheckin || !selectedGym || resolvedLocation.gymId === null) {
+        setPublishError("Selecione um local cadastrado para fazer check-in.");
+        return;
+      }
+      setPublishing(true);
+      setPublishError(null);
+      try {
+        await onCreateCheckin(resolvedLocation.gymId, workoutDate);
+        void HapticsService.success();
+      } catch (err) {
+        void HapticsService.error();
+        setPublishError(getErrorMessage(err));
+      } finally {
+        setPublishing(false);
+      }
       return;
     }
 
@@ -665,17 +690,23 @@ export function PostScreen({
   }
 
   const hasDestination = postToFeed || postToStory;
+  const isCheckinDraft = mediaItems.length === 0;
   const canPublish =
-    imageUrl.trim().length > 0 && hasDestination && locationReady && !uploading && !publishing;
+    !uploading &&
+    !publishing &&
+    (isCheckinDraft
+      ? Boolean(onCreateCheckin && resolvedLocation.gymId)
+      : imageUrl.trim().length > 0 && hasDestination && locationReady);
 
   const publishLabel = useMemo(() => {
     if (publishing) return t("postScreen.publish.publishing");
+    if (isCheckinDraft) return "Fazer check-in";
     if (isBackdated) return t("postScreen.registerWorkout.cta");
     if (postToFeed && postToStory) return t("postScreen.publish.ctaBoth");
     if (postToFeed) return t("postScreen.publish.ctaFeed");
     if (postToStory) return t("postScreen.publish.ctaStory");
     return t("postScreen.publish.ctaNoDestination");
-  }, [isBackdated, postToFeed, postToStory, publishing, t]);
+  }, [isBackdated, isCheckinDraft, postToFeed, postToStory, publishing, t]);
 
   const destinationHint = useMemo(() => {
     if (postToFeed && postToStory) return t("postScreen.destinations.hintBoth");
@@ -725,7 +756,7 @@ export function PostScreen({
           <button
             aria-label={t("postScreen.steps.next")}
             className="gc-pressable grid size-11 place-items-center rounded-full bg-[var(--gc-brand)] text-black disabled:bg-white/[0.06] disabled:text-white/24"
-            disabled={!imageUrl || uploading}
+            disabled={uploading}
             onClick={() => showComposerStep("details")}
             type="button"
           >
@@ -827,7 +858,7 @@ export function PostScreen({
                 <button
                   aria-label={t("postScreen.media.swapAria")}
                   className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
-                  onClick={openNativeGallery}
+                  onClick={() => void openNativeGallery()}
                   type="button"
                 >
                   <RefreshCw size={16} strokeWidth={2.4} />
@@ -893,7 +924,7 @@ export function PostScreen({
                   aria-label={t("postScreen.media.addMore")}
                   className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
                   disabled={uploading}
-                  onClick={openNativeGallery}
+                  onClick={() => void openNativeGallery()}
                   type="button"
                 >
                   <Plus size={18} />
@@ -943,7 +974,7 @@ export function PostScreen({
             <button
               className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[14px] font-bold text-white disabled:opacity-55"
               disabled={uploading}
-              onClick={openNativeGallery}
+              onClick={() => void openNativeGallery()}
               type="button"
             >
               <Upload size={16} strokeWidth={2.4} />
@@ -965,7 +996,11 @@ export function PostScreen({
               vídeo fica disputando memória com teclado, busca e localização. */}
           <div className="mt-4 flex items-center gap-3 rounded-[20px] border border-white/[0.08] bg-white/[0.035] p-3">
             <div className="size-20 shrink-0 overflow-hidden rounded-[14px] bg-black">
-              {mediaItems[0]?.mediaType === "video" &&
+              {mediaItems.length === 0 ? (
+                <div className="grid h-full w-full place-items-center bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]">
+                  <Search size={24} strokeWidth={2.2} />
+                </div>
+              ) : mediaItems[0]?.mediaType === "video" &&
               !mediaItems[0]?.posterUrl &&
               !mediaItems[0]?.thumbnailUrl ? (
                 <div className="grid h-full w-full place-items-center text-white/52">
@@ -987,12 +1022,16 @@ export function PostScreen({
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-black text-white">
-                {t("postScreen.steps.mediaReady", {
-                  count: mediaItems.length,
-                })}
+                {mediaItems.length === 0
+                  ? "Check-in sem mídia"
+                  : t("postScreen.steps.mediaReady", {
+                      count: mediaItems.length,
+                    })}
               </p>
               <p className="mt-1 text-[11px] font-bold text-white/42">
-                {t("postScreen.steps.mediaReadyHint")}
+                {mediaItems.length === 0
+                  ? "Escolha o local na próxima etapa. Você pode voltar e adicionar fotos."
+                  : t("postScreen.steps.mediaReadyHint")}
               </p>
             </div>
             <button
@@ -1227,7 +1266,53 @@ export function PostScreen({
             ) : null}
           </div>
         </>
-      ) : null}
+      ) : (
+        <div className="mt-4 space-y-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-wide text-white/42">
+              {t("postScreen.location.label")}
+            </p>
+            <button
+              className="gc-pressable mt-2 flex min-h-12 w-full items-center gap-3 rounded-[16px] border border-white/[0.1] bg-white/[0.03] px-4 py-3 text-left text-[14px] font-bold text-white"
+              disabled={cataloging}
+              onClick={() => {
+                setSearchError(null);
+                setSearchOpen(true);
+              }}
+              type="button"
+            >
+              <Search className="shrink-0 text-white/52" size={16} strokeWidth={2.4} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">
+                  {selectedLocationLabel || "Buscar academia ou local"}
+                </span>
+                {selectedLocationMeta ? (
+                  <span className="mt-0.5 block truncate text-[11px] text-white/42">
+                    {selectedLocationMeta}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          </div>
+          <button
+            className="gc-pressable flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-black disabled:bg-white/[0.05] disabled:text-white/30"
+            disabled={!canPublish}
+            onClick={publishWorkout}
+            type="button"
+          >
+            <Check size={18} strokeWidth={2.8} />
+            {publishLabel}
+          </button>
+          <p className="text-center text-[11px] font-bold text-white/40">
+            Sem mídia, a publicação aparece como check-in e continua contando no streak.
+          </p>
+          {publishError ? (
+            <p className="text-center text-[12px] font-bold text-[var(--gc-pink)]">
+              {publishError}
+            </p>
+          ) : null}
+        </div>
+      )}
         </>
       )}
 
