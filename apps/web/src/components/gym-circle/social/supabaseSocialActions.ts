@@ -15,6 +15,7 @@ import type {
   UserStatsRow,
 } from "@gym-circle/core";
 import { clearImageCache } from "../design-system/imageCache";
+import { recordMediaPipelineEvent } from "../mediaTelemetry";
 import { clearNativeFeelCaches } from "../native/LocalAppCache";
 import { PushNotificationsService } from "../native/PushNotificationsService";
 import { markPerf, measurePerf } from "../performance";
@@ -124,6 +125,33 @@ export function createSocialActions(
     enrichedAll,
     agg,
   } = ctx;
+  const createPostWithTelemetry = async (
+    operation: string,
+    input: Parameters<typeof services.posts.create>[1],
+  ) => {
+    const startedAt = performance.now();
+    try {
+      const post = await services.posts.create(currentUserId, input);
+      void recordMediaPipelineEvent(services.client, {
+        operation,
+        stage: "metadata",
+        status: "succeeded",
+        durationMs: performance.now() - startedAt,
+        metadata: { media_count: input.media?.length ?? 1 },
+      });
+      return post;
+    } catch (error) {
+      await recordMediaPipelineEvent(services.client, {
+        operation,
+        stage: "metadata",
+        status: "failed",
+        durationMs: performance.now() - startedAt,
+        error,
+        metadata: { media_count: input.media?.length ?? 1 },
+      });
+      throw error;
+    }
+  };
   // Padrão idêntico ao useMemo<SupabaseSocialActions>(() => ({...})) original:
   // a arrow atribuída a um slot `() => T` dá tipagem contextual aos params
   // (catalogPlace/createGroupConversation) E permite a prop extra deleteComment
@@ -690,9 +718,13 @@ export function createSocialActions(
         }
 
         const taggedUserIds = input.taggedUserIds ?? [];
+        const postCommitFollowUps: Promise<unknown>[] = [];
+        let feedCommitted = false;
+        let storyCommitted = false;
+        let partialFailure: unknown = null;
 
         if (wantsFeed) {
-          const post = await services.posts.create(currentUserId, {
+          const post = await createPostWithTelemetry("publish_post", {
             workoutDate: backdate ?? undefined,
             createdAt: publishPlan.createdAt,
             sourceActivityId: input.sourceActivityId ?? null,
@@ -717,36 +749,73 @@ export function createSocialActions(
             locationLongitude: input.locationLongitude ?? null,
             locationGoogleMapsUrl: input.locationGoogleMapsUrl ?? null,
           });
-          await services.participants.createPostTags(post.id, currentUserId, taggedUserIds);
+          feedCommitted = true;
+          if (taggedUserIds.length > 0) {
+            postCommitFollowUps.push(
+              services.participants.createPostTags(
+                post.id,
+                currentUserId,
+                taggedUserIds,
+              ),
+            );
+          }
         }
 
         if (wantsStory) {
-          const story = await services.stories.create(currentUserId, {
-            mediaUrl: input.imageUrl,
-            mediaType: input.mediaType,
-            thumbnailUrl: input.thumbnailUrl ?? null,
-            posterUrl: input.posterUrl ?? null,
-            mediaWidth: input.mediaWidth ?? null,
-            mediaHeight: input.mediaHeight ?? null,
-            mediaDurationSeconds: input.mediaDurationSeconds ?? null,
-            blurDataUrl: input.blurDataUrl ?? null,
-            gymId: input.gymId ?? null,
-            workoutType: input.workoutType ?? null,
-          });
-          await services.participants.createStoryTags(story.id, currentUserId, taggedUserIds);
+          try {
+            const story = await services.stories.create(currentUserId, {
+              mediaUrl: input.imageUrl,
+              mediaType: input.mediaType,
+              thumbnailUrl: input.thumbnailUrl ?? null,
+              posterUrl: input.posterUrl ?? null,
+              mediaWidth: input.mediaWidth ?? null,
+              mediaHeight: input.mediaHeight ?? null,
+              mediaDurationSeconds: input.mediaDurationSeconds ?? null,
+              blurDataUrl: input.blurDataUrl ?? null,
+              gymId: input.gymId ?? null,
+              workoutType: input.workoutType ?? null,
+            });
+            storyCommitted = true;
+            if (taggedUserIds.length > 0) {
+              postCommitFollowUps.push(
+                services.participants.createStoryTags(
+                  story.id,
+                  currentUserId,
+                  taggedUserIds,
+                ),
+              );
+            }
+          } catch (error) {
+            // Se o feed já foi commitado, propagar este erro faria o usuário
+            // tentar novamente e duplicar o post. Mantemos o sucesso parcial
+            // explícito; story-only continua falhando normalmente.
+            if (!feedCommitted) throw error;
+            partialFailure = error;
+          }
         }
 
-        await services.stats.refreshMine();
-        await refresh();
+        postCommitFollowUps.push(services.stats.refreshMine(), refresh());
+        const followUpResults = await Promise.allSettled(postCommitFollowUps);
+        const rejectedFollowUp = followUpResults.find(
+          (result): result is PromiseRejectedResult =>
+            result.status === "rejected",
+        );
+        if (!partialFailure) {
+          partialFailure = rejectedFollowUp?.reason ?? null;
+        }
 
         if (publishPlan.isManualBackdate) {
           showFeedback("success", "Treino registrado", "Foto adicionada ao calendário");
           return;
         }
 
-        const detail = wantsFeed && wantsStory
-          ? "Feed + story atualizados"
-          : wantsFeed
+        const detail = partialFailure
+          ? feedCommitted && wantsStory && !storyCommitted
+            ? "Feed publicado; o story não pôde ser criado"
+            : "Publicado; uma atualização secundária será refeita depois"
+          : feedCommitted && storyCommitted
+            ? "Feed + story atualizados"
+            : feedCommitted
             ? "Postado no feed"
             : "Story publicado";
         showFeedback("success", "Treino publicado", detail);
@@ -832,15 +901,31 @@ export function createSocialActions(
         const workoutTypes =
           input.workoutTypes ??
           (input.workoutType?.trim() ? [input.workoutType.trim()] : []);
-        await services.posts.updateSocialDetails(postId, {
-          caption: input.caption,
-          workoutTypes,
-          gymId: input.gymId ?? null,
-        });
-        // Sprint 14 — editar mídias (add/remover até 10). setMedia substitui
-        // post_media + atualiza a capa. refresh() abaixo recarrega media[].
-        if (input.media) {
-          await services.posts.setMedia(postId, input.media);
+        const startedAt = performance.now();
+        try {
+          await services.posts.updateSocialDetails(postId, {
+            caption: input.caption,
+            workoutTypes,
+            gymId: input.gymId ?? null,
+            media: input.media,
+          });
+          void recordMediaPipelineEvent(services.client, {
+            operation: "edit_post",
+            stage: "metadata",
+            status: "succeeded",
+            durationMs: performance.now() - startedAt,
+            metadata: { media_count: input.media?.length ?? 0 },
+          });
+        } catch (error) {
+          await recordMediaPipelineEvent(services.client, {
+            operation: "edit_post",
+            stage: "metadata",
+            status: "failed",
+            durationMs: performance.now() - startedAt,
+            error,
+            metadata: { media_count: input.media?.length ?? 0 },
+          });
+          throw error;
         }
         const taggedUserIds = input.taggedUserIds ?? [];
         if (taggedUserIds.length > 0) {
@@ -906,7 +991,7 @@ export function createSocialActions(
                 .join(", "),
             );
 
-        const post = await services.posts.create(currentUserId, {
+        const post = await createPostWithTelemetry("promote_checkin", {
           sourceCheckinId,
           imageUrl: cover.imageUrl,
           mediaType: cover.mediaType,

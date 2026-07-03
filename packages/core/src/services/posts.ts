@@ -9,6 +9,7 @@ import type {
   PostMuteRow,
   PostRow,
 } from "../domain/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GymCircleClient } from "./supabase";
 
 type CommentRow = PostCommentRow & {
@@ -18,77 +19,88 @@ type CommentRow = PostCommentRow & {
   author_current_streak: number | null;
 };
 
+function mediaRpcRows(items: PostMediaInput[]) {
+  return items.slice(0, 10).map((media) => ({
+    media_type: media.mediaType,
+    image_url: media.imageUrl,
+    thumbnail_url: media.thumbnailUrl?.trim() || null,
+    poster_url: media.posterUrl?.trim() || null,
+    blur_data_url: media.blurDataUrl?.trim() || null,
+    media_width: media.mediaWidth ?? null,
+    media_height: media.mediaHeight ?? null,
+    media_duration_seconds: media.mediaDurationSeconds ?? null,
+  }));
+}
+
 export function postService(client: GymCircleClient) {
+  // Os RPCs desta entrega são mantidos na migration junto do código. O cast
+  // local evita que um type snapshot antigo do Supabase force o app a voltar
+  // ao fluxo multi-request não atômico.
+  const rpcClient = client as unknown as SupabaseClient;
+
   return {
     async create(userId: string, input: CreatePostInput): Promise<PostRow> {
       if (!input.imageUrl?.trim()) {
         throw new Error("foto ou vídeo obrigatório");
       }
       const locationSource = input.locationSource ?? "none";
-      const { data, error } = await client
-        .from("posts")
-        .insert({
-          user_id: userId,
-          source_checkin_id: input.sourceCheckinId ?? null,
-          source_activity_id: input.sourceActivityId ?? null,
-          image_url: input.imageUrl,
-          media_type: input.mediaType,
-          thumbnail_url: input.thumbnailUrl?.trim() || null,
-          poster_url: input.posterUrl?.trim() || null,
-          media_width: input.mediaWidth ?? null,
-          media_height: input.mediaHeight ?? null,
-          media_duration_seconds: input.mediaDurationSeconds ?? null,
-          blur_data_url: input.blurDataUrl?.trim() || null,
-          caption: input.caption.trim() || null,
-          gym_id: input.gymId,
-          workout_type: input.workoutType?.trim() || null,
-          // Sprint 13 — até 5 tags; primária (workout_type) mantida acima.
-          workout_types:
-            input.workoutTypes && input.workoutTypes.length > 0
-              ? input.workoutTypes
-              : null,
-          workout_date: input.workoutDate,
-          // "Registrar treino": backdata o created_at só quando fornecido; post
-          // normal omite a chave e o DB usa o default now().
-          ...(input.createdAt ? { created_at: input.createdAt } : {}),
-          location_source: locationSource,
-          location_name: locationSource === "none" ? null : input.locationName?.trim() || null,
-          location_latitude: locationSource === "none" ? null : input.locationLatitude ?? null,
-          location_longitude: locationSource === "none" ? null : input.locationLongitude ?? null,
-          location_google_maps_url:
-            locationSource === "none" ? null : input.locationGoogleMapsUrl?.trim() || null,
+      const completeMedia =
+        input.media && input.media.length > 0
+          ? input.media
+          : [
+              {
+                mediaType: input.mediaType,
+                imageUrl: input.imageUrl,
+                thumbnailUrl: input.thumbnailUrl ?? null,
+                posterUrl: input.posterUrl ?? null,
+                blurDataUrl: input.blurDataUrl ?? null,
+                mediaWidth: input.mediaWidth ?? null,
+                mediaHeight: input.mediaHeight ?? null,
+                mediaDurationSeconds: input.mediaDurationSeconds ?? null,
+              },
+            ];
+      const { data, error } = await rpcClient
+        .rpc("create_social_post_with_media", {
+          p_post: {
+            source_checkin_id: input.sourceCheckinId ?? null,
+            source_activity_id: input.sourceActivityId ?? null,
+            caption: input.caption.trim() || null,
+            gym_id: input.gymId,
+            workout_type: input.workoutType?.trim() || null,
+            workout_types:
+              input.workoutTypes && input.workoutTypes.length > 0
+                ? input.workoutTypes
+                : null,
+            workout_date: input.workoutDate ?? null,
+            created_at: input.createdAt ?? null,
+            location_source: locationSource,
+            location_name:
+              locationSource === "none"
+                ? null
+                : input.locationName?.trim() || null,
+            location_latitude:
+              locationSource === "none"
+                ? null
+                : input.locationLatitude ?? null,
+            location_longitude:
+              locationSource === "none"
+                ? null
+                : input.locationLongitude ?? null,
+            location_google_maps_url:
+              locationSource === "none"
+                ? null
+                : input.locationGoogleMapsUrl?.trim() || null,
+          },
+          p_media: mediaRpcRows(completeMedia),
         })
-        .select("*")
         .single();
       if (error) throw error;
-      const post = data as PostRow;
-
-      // Sprint 13 — carrossel: grava as N mídias em post_media (a capa = item 0
-      // já está em posts.*). Só quando há >1 item; single fica só na capa, igual
-      // antes (posts antigos seguem sem linhas em post_media).
-      const media = input.media;
-      if (media && media.length > 1) {
-        const rows = media.map((m, i) => ({
-          post_id: post.id,
-          position: i,
-          media_type: m.mediaType,
-          image_url: m.imageUrl,
-          thumbnail_url: m.thumbnailUrl?.trim() || null,
-          poster_url: m.posterUrl?.trim() || null,
-          blur_data_url: m.blurDataUrl?.trim() || null,
-          media_width: m.mediaWidth ?? null,
-          media_height: m.mediaHeight ?? null,
-          media_duration_seconds: m.mediaDurationSeconds ?? null,
-        }));
-        const { error: mediaErr } = await client.from("post_media").insert(rows);
-        // Best-effort: o post + capa já estão commitados. Se as linhas extras
-        // falharem, o post degrada pra single (capa) em vez de derrubar a
-        // publicação (e evita post duplicado num retry do usuário).
-        if (mediaErr) {
-          console.warn("post_media insert falhou (post fica single):", mediaErr);
-        }
+      // O RPC usa auth.uid() como fonte da verdade. O parâmetro continua na
+      // assinatura pública do service por compatibilidade e é validado aqui.
+      if (!userId || (data as PostRow).user_id !== userId) {
+        throw new Error("O post criado não pertence à sessão atual.");
       }
-      return post;
+      return data as PostRow;
     },
 
     /**
@@ -115,48 +127,11 @@ export function postService(client: GymCircleClient) {
      * + post_media_insert/delete).
      */
     async setMedia(postId: string, items: PostMediaInput[]): Promise<void> {
-      const { error: delErr } = await client
-        .from("post_media")
-        .delete()
-        .eq("post_id", postId);
-      if (delErr) throw delErr;
-
-      // post_media só existe quando há >1 (single fica só na capa).
-      if (items.length > 1) {
-        const rows = items.slice(0, 10).map((m, i) => ({
-          post_id: postId,
-          position: i,
-          media_type: m.mediaType,
-          image_url: m.imageUrl,
-          thumbnail_url: m.thumbnailUrl?.trim() || null,
-          poster_url: m.posterUrl?.trim() || null,
-          blur_data_url: m.blurDataUrl?.trim() || null,
-          media_width: m.mediaWidth ?? null,
-          media_height: m.mediaHeight ?? null,
-          media_duration_seconds: m.mediaDurationSeconds ?? null,
-        }));
-        const { error: insErr } = await client.from("post_media").insert(rows);
-        if (insErr) throw insErr;
-      }
-
-      // Capa = item 0 (mantém feed/grids/recap antigos lendo posts.*).
-      const cover = items[0];
-      if (cover) {
-        const { error: upErr } = await client
-          .from("posts")
-          .update({
-            image_url: cover.imageUrl,
-            media_type: cover.mediaType,
-            thumbnail_url: cover.thumbnailUrl?.trim() || null,
-            poster_url: cover.posterUrl?.trim() || null,
-            blur_data_url: cover.blurDataUrl?.trim() || null,
-            media_width: cover.mediaWidth ?? null,
-            media_height: cover.mediaHeight ?? null,
-            media_duration_seconds: cover.mediaDurationSeconds ?? null,
-          })
-          .eq("id", postId);
-        if (upErr) throw upErr;
-      }
+      const { error } = await rpcClient.rpc("replace_social_post_media", {
+        p_post_id: postId,
+        p_media: mediaRpcRows(items),
+      });
+      if (error) throw error;
     },
 
     async remove(postId: string): Promise<void> {
@@ -184,13 +159,15 @@ export function postService(client: GymCircleClient) {
         caption?: string | null;
         workoutTypes?: string[] | null;
         gymId?: string | null;
+        media?: PostMediaInput[];
       },
     ): Promise<void> {
-      const { error } = await client.rpc("update_social_post", {
+      const { error } = await rpcClient.rpc("update_social_post_full", {
         p_post_id: postId,
         p_caption: input.caption ?? null,
         p_workout_types: input.workoutTypes ?? [],
         p_gym_id: input.gymId ?? null,
+        p_media: input.media ? mediaRpcRows(input.media) : null,
       });
       if (error) throw error;
     },

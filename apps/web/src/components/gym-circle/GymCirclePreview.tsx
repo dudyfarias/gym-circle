@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import type { MediaUploadProgress } from "./resumableUpload";
 import { type TouchEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
@@ -178,7 +179,10 @@ const SCREEN_SWIPE_DOMINANCE = 2.15;
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
-  onUploadImage?: (file: File) => Promise<
+  onUploadImage?: (
+    file: File,
+    onProgress?: (progress: MediaUploadProgress) => void,
+  ) => Promise<
     | string
     | {
         imageUrl: string;

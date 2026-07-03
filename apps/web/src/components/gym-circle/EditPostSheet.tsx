@@ -8,7 +8,6 @@ import {
   ChevronRight,
   Check,
   ImagePlus,
-  Loader2,
   Plus,
   Search,
   UserPlus,
@@ -27,6 +26,7 @@ import {
   getMediaUploadConcurrency,
 } from "./mediaUploadQueue";
 import { getMediaFileType, isSupportedMediaFile } from "./mediaFileType";
+import type { MediaUploadProgress } from "./resumableUpload";
 import type {
   EditPostInput,
   EnrichedCheckin,
@@ -68,7 +68,10 @@ type EditPostSheetProps = {
   recentLocations?: PlaceCandidate[];
   onCatalogPlace?: (place: LocatedPlaceCandidate) => Promise<GymLocationOption>;
   // Sprint 14 — necessário pra adicionar novas mídias ao post.
-  onUploadImage?: (file: File) => Promise<string | UploadResult>;
+  onUploadImage?: (
+    file: File,
+    onProgress?: (progress: MediaUploadProgress) => void,
+  ) => Promise<string | UploadResult>;
 };
 
 // Workout types: value PT-BR é source-of-truth no DB.
@@ -97,6 +100,7 @@ type PendingUpload = {
   previewUrl: string | null;
   mediaType: PostMediaType;
   status: "uploading" | "error";
+  progress: number;
 };
 
 function getMediaType(file: File): PostMediaType {
@@ -165,13 +169,16 @@ export function EditPostSheet({
   const selectedGym =
     searchableGyms.find((gym) => gym.id === selectedGymId) ?? null;
 
-  async function uploadOne(file: File): Promise<PostMediaItem | null> {
+  async function uploadOne(
+    file: File,
+    onProgress?: (progress: MediaUploadProgress) => void,
+  ): Promise<PostMediaItem | null> {
     if (!isSupportedMediaFile(file)) {
       return null;
     }
     const type = getMediaType(file);
     const uploaded = onUploadImage
-      ? await onUploadImage(file)
+      ? await onUploadImage(file, onProgress)
       : URL.createObjectURL(file);
     if (typeof uploaded === "string") return { mediaType: type, imageUrl: uploaded };
     return {
@@ -205,6 +212,7 @@ export function EditPostSheet({
         : URL.createObjectURL(file),
       mediaType: getMediaType(file),
       status: "uploading",
+      progress: 0,
     }));
     setPendingUploads((prev) => [...prev, ...placeholders]);
     setUploading(true);
@@ -212,7 +220,18 @@ export function EditPostSheet({
       const settled = await allSettledWithConcurrency(
         chosen,
         getMediaUploadConcurrency(chosen),
-        uploadOne,
+        (file, index) => {
+          const placeholderId = placeholders[index]?.id;
+          return uploadOne(file, (progress) => {
+            setPendingUploads((current) =>
+              current.map((pending) =>
+                pending.id === placeholderId
+                  ? { ...pending, progress: progress.percentage }
+                  : pending,
+              ),
+            );
+          });
+        },
       );
       const picked: PostMediaItem[] = [];
       let firstError: unknown = null;
@@ -523,7 +542,9 @@ export function EditPostSheet({
                   {pending.status === "error" ? (
                     <span className="text-[10px] font-black text-amber-300">!</span>
                   ) : (
-                    <Loader2 className="size-5 animate-spin text-white" />
+                    <span className="text-[10px] font-black text-white">
+                      {pending.progress}%
+                    </span>
                   )}
                 </div>
               </div>

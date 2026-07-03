@@ -10,7 +10,15 @@ import { NativePushController } from "./NativePushController";
 import { useTranslation } from "react-i18next";
 import { PwaController } from "./PwaController";
 import { markPerf, measurePerf } from "./performance";
-import { getMediaFileType } from "./mediaFileType";
+import {
+  assertMediaFileCanUpload,
+  getMediaFileType,
+} from "./mediaFileType";
+import {
+  type MediaUploadProgress,
+  uploadFileToStorage,
+} from "./resumableUpload";
+import { recordMediaPipelineEvent } from "./mediaTelemetry";
 import { useSupabaseSocial } from "./social/useSupabaseSocial";
 
 // Sprint 2.4: qualidade priorizada (revert Sprint 1 agressivo).
@@ -25,6 +33,10 @@ const POSTER_QUALITY = 0.88;
 // renderiza como "watercolor" suave que casa com qualquer foto.
 const BLUR_PLACEHOLDER_EDGE = 10;
 const BLUR_PLACEHOLDER_QUALITY = 0.5;
+// Acima disso, tentar decodificar a imagem original dentro do WKWebView pode
+// multiplicar o uso de RAM (arquivo comprimido -> bitmap RGBA). O original
+// continua aceito até 1 GB e sobe de forma resumível, só sem variantes locais.
+const MAX_IMAGE_OPTIMIZATION_SOURCE_BYTES = 24 * 1024 * 1024;
 
 type UploadedWorkoutMedia = {
   imageUrl: string;
@@ -122,27 +134,23 @@ async function generateBlurDataUrl(
 
 async function imageFileVariant(
   file: File,
+  image: HTMLImageElement,
   maxEdge: number,
   quality: number,
   suffix: string,
 ): Promise<PreparedImageFile> {
-  if (!isResizableImage(file)) {
-    return { file, width: null, height: null };
+  const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+  if (!longestEdge) return { file, width: null, height: null };
+
+  const ratio = Math.min(1, maxEdge / longestEdge);
+  const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+  const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+  if (ratio === 1 && suffix !== "thumb") {
+    return { file, width: image.naturalWidth, height: image.naturalHeight };
   }
 
+  const canvas = document.createElement("canvas");
   try {
-    const image = await loadImageFile(file);
-    const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
-    if (!longestEdge) return { file, width: null, height: null };
-
-    const ratio = Math.min(1, maxEdge / longestEdge);
-    const width = Math.max(1, Math.round(image.naturalWidth * ratio));
-    const height = Math.max(1, Math.round(image.naturalHeight * ratio));
-    if (ratio === 1 && suffix !== "thumb") {
-      return { file, width: image.naturalWidth, height: image.naturalHeight };
-    }
-
-    const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext("2d");
@@ -163,8 +171,47 @@ async function imageFileVariant(
       width,
       height,
     };
-  } catch {
-    return { file, width: null, height: null };
+  } finally {
+    canvas.width = 1;
+    canvas.height = 1;
+  }
+}
+
+async function prepareImageVariants(file: File) {
+  if (
+    !isResizableImage(file) ||
+    file.size > MAX_IMAGE_OPTIMIZATION_SOURCE_BYTES
+  ) {
+    return {
+      feed: { file, width: null, height: null } satisfies PreparedImageFile,
+      thumbnail: null,
+      blurDataUrl: null,
+    };
+  }
+
+  const image = await loadImageFile(file);
+  try {
+    // Um único decode alimenta feed, thumbnail e blur. Antes a mesma foto era
+    // decodificada três vezes, que é justamente o tipo de pico que reinicia o
+    // WKWebView durante a seleção da galeria.
+    const feed = await imageFileVariant(
+      file,
+      image,
+      POST_IMAGE_MAX_EDGE,
+      POST_IMAGE_QUALITY,
+      "feed",
+    );
+    const thumbnail = await imageFileVariant(
+      file,
+      image,
+      POST_THUMBNAIL_MAX_EDGE,
+      POST_THUMBNAIL_QUALITY,
+      "thumb",
+    );
+    const blurDataUrl = await generateBlurDataUrl(image);
+    return { feed, thumbnail, blurDataUrl };
+  } finally {
+    image.src = "";
   }
 }
 
@@ -310,69 +357,89 @@ function AuthenticatedShell({ userId }: { userId: string }) {
   const { t } = useTranslation();
 
   const uploadTo = useCallback(
-    async (bucket: "posts" | "avatars" | "stories" | "chat-media", file: File) => {
+    async (
+      bucket: "posts" | "avatars" | "stories" | "chat-media",
+      file: File,
+      onProgress?: (progress: MediaUploadProgress) => void,
+    ) => {
       const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const { error } = await services.client.storage
-        .from(bucket)
-        .upload(path, file, {
-          cacheControl: "3600",
-          contentType: file.type || `image/${ext}`,
+      const startedAt = performance.now();
+      void recordMediaPipelineEvent(services.client, {
+        operation: "upload",
+        stage: "storage",
+        status: "started",
+        bucketId: bucket,
+        fileSizeBytes: file.size,
+        mimeType: file.type,
+      });
+      try {
+        await uploadFileToStorage({
+          client: services.client,
+          bucket,
+          path,
+          file,
+          onProgress,
         });
-      if (error) throw error;
-      const { data } = services.client.storage.from(bucket).getPublicUrl(path);
-      return data.publicUrl;
+        void recordMediaPipelineEvent(services.client, {
+          operation: "upload",
+          stage: "storage",
+          status: "succeeded",
+          bucketId: bucket,
+          fileSizeBytes: file.size,
+          mimeType: file.type,
+          durationMs: performance.now() - startedAt,
+        });
+        const { data } = services.client.storage.from(bucket).getPublicUrl(path);
+        return data.publicUrl;
+      } catch (error) {
+        await recordMediaPipelineEvent(services.client, {
+          operation: "upload",
+          stage: "storage",
+          status: "failed",
+          bucketId: bucket,
+          fileSizeBytes: file.size,
+          mimeType: file.type,
+          durationMs: performance.now() - startedAt,
+          error,
+        });
+        throw error;
+      }
     },
     [services, userId],
   );
 
   const onUploadImage = useCallback(
-    async (file: File): Promise<UploadedWorkoutMedia> => {
+    async (
+      file: File,
+      onProgress?: (progress: MediaUploadProgress) => void,
+    ): Promise<UploadedWorkoutMedia> => {
+      assertMediaFileCanUpload(file);
       markPerf("image_upload_start");
       try {
         if (isImageMediaFile(file)) {
           try {
             markPerf("thumbnail_generation_start");
-            // Sequencial por arquivo: evita manter dois decodes + dois canvas
-            // grandes ao mesmo tempo no iPhone.
-            const feedFile = await imageFileVariant(
-              file,
-              POST_IMAGE_MAX_EDGE,
-              POST_IMAGE_QUALITY,
-              "feed",
-            );
-            const thumbnail = await imageFileVariant(
-              file,
-              POST_THUMBNAIL_MAX_EDGE,
-              POST_THUMBNAIL_QUALITY,
-              "thumb",
-            );
+            const prepared = await prepareImageVariants(file);
             measurePerf(
               "thumbnail_generation_ms",
               "thumbnail_generation_start",
               "thumbnail_generation_end",
             );
-            // Blur é best-effort; falhar nunca bloqueia a foto.
-            markPerf("blur_generation_start");
-            const blurImage = await loadImageFile(file).catch(() => null);
-            const blurDataUrl = blurImage
-              ? await generateBlurDataUrl(blurImage)
-              : null;
-            measurePerf(
-              "blur_generation_ms",
-              "blur_generation_start",
-              "blur_generation_end",
-            );
+            const feedFile = prepared.feed;
+            const thumbnail = prepared.thumbnail;
             const [imageUrl, thumbnailUrl] = await Promise.all([
-              uploadTo("posts", feedFile.file),
-              uploadTo("posts", thumbnail.file),
+              uploadTo("posts", feedFile.file, onProgress),
+              thumbnail
+                ? uploadTo("posts", thumbnail.file)
+                : Promise.resolve(null),
             ]);
             return {
               imageUrl,
               thumbnailUrl,
-              blurDataUrl,
-              mediaWidth: feedFile.width ?? thumbnail.width ?? null,
-              mediaHeight: feedFile.height ?? thumbnail.height ?? null,
+              blurDataUrl: prepared.blurDataUrl,
+              mediaWidth: feedFile.width ?? thumbnail?.width ?? null,
+              mediaHeight: feedFile.height ?? thumbnail?.height ?? null,
             };
           } catch (error) {
             // Alguns providers do iOS entregam HEIC/arquivos sem MIME que o
@@ -382,13 +449,13 @@ function AuthenticatedShell({ userId }: { userId: string }) {
               "Otimização da imagem falhou; enviando o arquivo original:",
               error,
             );
-            return { imageUrl: await uploadTo("posts", file) };
+            return { imageUrl: await uploadTo("posts", file, onProgress) };
           }
         }
 
         const poster = await createVideoPoster(file);
         const [imageUrl, posterUrl] = await Promise.all([
-          uploadTo("posts", file),
+          uploadTo("posts", file, onProgress),
           poster ? uploadTo("posts", poster.file) : Promise.resolve(null),
         ]);
         return {

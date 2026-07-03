@@ -50,9 +50,7 @@ function createUnlikeCommentClientMock() {
 }
 
 function createPostClientMock() {
-  const query = {
-    insert: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
+  const rpcQuery = {
     single: vi.fn().mockResolvedValue({
       data: {
         id: "post-1",
@@ -62,17 +60,17 @@ function createPostClientMock() {
       error: null,
     }),
   };
-  const from = vi.fn(() => query);
+  const rpc = vi.fn(() => rpcQuery);
   return {
-    client: { from } as unknown as GymCircleClient,
-    from,
-    query,
+    client: { rpc } as unknown as GymCircleClient,
+    rpc,
+    rpcQuery,
   };
 }
 
 describe("postService.create", () => {
   it("links a promoted post to its source check-in", async () => {
-    const { client, from, query } = createPostClientMock();
+    const { client, rpc } = createPostClientMock();
     const service = postService(client);
 
     await service.create("user-a", {
@@ -87,15 +85,20 @@ describe("postService.create", () => {
       locationName: "Saint Thomas",
     });
 
-    expect(from).toHaveBeenCalledWith("posts");
-    expect(query.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
+    expect(rpc).toHaveBeenCalledWith("create_social_post_with_media", {
+      p_post: expect.objectContaining({
         source_checkin_id: "checkin-1",
         gym_id: "gym-1",
         workout_date: "2026-07-01",
         created_at: "2026-07-01T12:30:00.000Z",
       }),
-    );
+      p_media: [
+        expect.objectContaining({
+          media_type: "image",
+          image_url: "https://cdn.gymcircle.test/photo.jpg",
+        }),
+      ],
+    });
   });
 });
 
@@ -110,12 +113,39 @@ describe("postService unified social editor", () => {
       gymId: "gym-2",
     });
 
-    expect(rpc).toHaveBeenCalledWith("update_social_post", {
+    expect(rpc).toHaveBeenCalledWith("update_social_post_full", {
       p_post_id: "post-1",
       p_caption: "Treino forte",
       p_workout_types: ["Musculação", "Cardio"],
       p_gym_id: "gym-2",
+      p_media: null,
     });
+  });
+
+  it("updates post metadata and carousel in the same RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const service = postService({ rpc } as unknown as GymCircleClient);
+
+    await service.updateSocialDetails("post-1", {
+      caption: "Carrossel",
+      workoutTypes: ["Cardio"],
+      gymId: null,
+      media: [
+        { mediaType: "image", imageUrl: "https://cdn.gym/one.jpg" },
+        { mediaType: "video", imageUrl: "https://cdn.gym/two.mp4" },
+      ],
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "update_social_post_full",
+      expect.objectContaining({
+        p_post_id: "post-1",
+        p_media: [
+          expect.objectContaining({ media_type: "image" }),
+          expect.objectContaining({ media_type: "video" }),
+        ],
+      }),
+    );
   });
 
   it("converts the last-media removal into a check-in", async () => {

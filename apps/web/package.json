@@ -27,7 +27,8 @@
     "next": "^16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "react-i18next": "^17.0.8"
+    "react-i18next": "^17.0.8",
+    "tus-js-client": "^4.3.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

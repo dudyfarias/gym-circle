@@ -46,6 +46,7 @@ import { NativeMediaPickerService } from "../native/NativeMediaPickerService";
 import { allSettledWithConcurrency, getMediaUploadConcurrency } from "../mediaUploadQueue";
 import { getMediaFileType, isSupportedMediaFile } from "../mediaFileType";
 import { errorMessage } from "../errorMessage";
+import type { MediaUploadProgress } from "../resumableUpload";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
@@ -53,7 +54,10 @@ type PostScreenProps = {
   onCancel: () => void;
   onPublish: (input: CreateWorkoutPostInput) => void | Promise<void>;
   onCreateCheckin?: (gymId: string, workoutDate?: string) => void | Promise<void>;
-  onUploadImage?: (file: File) => Promise<string | WorkoutMediaUploadResult>;
+  onUploadImage?: (
+    file: File,
+    onProgress?: (progress: MediaUploadProgress) => void,
+  ) => Promise<string | WorkoutMediaUploadResult>;
   taggableUsers?: EnrichedUser[];
   /**
    * Cataloga um lugar buscado via Maps no banco (dedup + insert) e
@@ -121,6 +125,7 @@ type PendingUpload = {
   previewUrl: string | null;
   mediaType: PostMediaType;
   status: "uploading" | "error";
+  progress: number;
 };
 
 function getGymMeta(gym: GymLocationOption): string {
@@ -388,13 +393,18 @@ export function PostScreen({
 
   // Sprint 13 — sobe UM arquivo e devolve o item (sem tocar no state). Os
   // callers (câmera = single/replace, galeria = multi/append) controlam o state.
-  async function uploadOne(file: File): Promise<PostMediaItem | null> {
+  async function uploadOne(
+    file: File,
+    onProgress?: (progress: MediaUploadProgress) => void,
+  ): Promise<PostMediaItem | null> {
     if (!isSupportedMediaFile(file)) {
       setUploadError(t("postScreen.publish.errors.uploadInvalidType"));
       return null;
     }
     const type = getMediaType(file);
-    const uploaded = onUploadImage ? await onUploadImage(file) : URL.createObjectURL(file);
+    const uploaded = onUploadImage
+      ? await onUploadImage(file, onProgress)
+      : URL.createObjectURL(file);
     if (typeof uploaded === "string") {
       return { mediaType: type, imageUrl: uploaded };
     }
@@ -446,11 +456,20 @@ export function PostScreen({
       previewUrl: URL.createObjectURL(file),
       mediaType: getMediaType(file),
       status: "uploading",
+      progress: 0,
     };
     setPendingUploads((prev) => [...prev, placeholder]);
     setUploading(true);
     try {
-      const item = await uploadOne(file);
+      const item = await uploadOne(file, (progress) => {
+        setPendingUploads((current) =>
+          current.map((pending) =>
+            pending.id === placeholder.id
+              ? { ...pending, progress: progress.percentage }
+              : pending,
+          ),
+        );
+      });
       if (item) {
         setMediaItems([item]);
         applyCover(item);
@@ -491,6 +510,7 @@ export function PostScreen({
       previewUrl: getMediaType(file) === "video" ? null : URL.createObjectURL(file),
       mediaType: getMediaType(file),
       status: "uploading",
+      progress: 0,
     }));
     setPendingUploads((prev) => [...prev, ...placeholders]);
     setUploading(true);
@@ -503,8 +523,17 @@ export function PostScreen({
       const settled = await allSettledWithConcurrency(
         chosen,
         getMediaUploadConcurrency(chosen),
-        (file) =>
-          uploadOne(file).finally(() => {
+        (file, index) =>
+          uploadOne(file, (progress) => {
+            const placeholderId = placeholders[index]?.id;
+            setPendingUploads((current) =>
+              current.map((pending) =>
+                pending.id === placeholderId
+                  ? { ...pending, progress: progress.percentage }
+                  : pending,
+              ),
+            );
+          }).finally(() => {
             done += 1;
             setUploadProgress({ done, total: chosen.length });
           }),
@@ -925,7 +954,12 @@ export function PostScreen({
                   />
                 )}
                 <div className="absolute inset-0 grid place-items-center bg-black/45">
-                  <Loader2 className="size-9 animate-spin text-white" />
+                  <div className="grid place-items-center gap-2">
+                    <Loader2 className="size-9 animate-spin text-white" />
+                    <span className="text-[12px] font-black text-white">
+                      {pendingUploads[0].progress}%
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : /* Sprint 13 — >1 mídia: preview em carrossel (swipe pra revisar). */
@@ -1017,7 +1051,9 @@ export function PostScreen({
                     {pending.status === "error" ? (
                       <span className="text-[10px] font-black text-amber-300">!</span>
                     ) : (
-                      <Loader2 className="size-5 animate-spin text-white" />
+                      <span className="text-[10px] font-black text-white">
+                        {pending.progress}%
+                      </span>
                     )}
                   </div>
                 </div>
