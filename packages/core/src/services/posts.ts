@@ -30,6 +30,7 @@ export function postService(client: GymCircleClient) {
         .insert({
           user_id: userId,
           source_checkin_id: input.sourceCheckinId ?? null,
+          source_activity_id: input.sourceActivityId ?? null,
           image_url: input.imageUrl,
           media_type: input.mediaType,
           thumbnail_url: input.thumbnailUrl?.trim() || null,

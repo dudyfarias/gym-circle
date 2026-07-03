@@ -132,6 +132,8 @@ export type PostMediaInput = {
 export type CreatePostInput = {
   /** Check-in que este post promove. Mantém streak/histórico sem duplicar o feed. */
   sourceCheckinId?: string | null;
+  /** Atividade rastreada que este post compartilha (rastreio de treino). */
+  sourceActivityId?: string | null;
   imageUrl: string;
   mediaType: PostMediaType;
   thumbnailUrl?: string | null;

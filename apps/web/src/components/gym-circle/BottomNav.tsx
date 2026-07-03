@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  Camera,
   CircleUserRound,
   House,
   MapPin,
   MessageCircle,
+  Plus,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { BottomTabBar } from "./design-system";
@@ -22,7 +22,9 @@ type BottomNavProps = {
 const baseNavItems = [
   { key: "feed", labelKey: "tabs.home", icon: House },
   { key: "chat", labelKey: "tabs.chat", icon: MessageCircle },
-  { key: "post", labelKey: "tabs.post", icon: Camera },
+  // Rastreio de treino (Fase 1): a câmera virou o hub "+" (iniciar treino /
+  // postar / check-in) — o GymCirclePreview intercepta e abre o CreateHubSheet.
+  { key: "post", labelKey: "tabs.post", icon: Plus },
   { key: "checkin", labelKey: "tabs.map", icon: MapPin },
   { key: "profile", labelKey: "tabs.profile", icon: CircleUserRound },
 ] satisfies Array<{

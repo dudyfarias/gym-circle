@@ -1,4 +1,5 @@
 import type { GymCircleClient } from "./supabase";
+import { activityService } from "./activities";
 import { adminService } from "./admin";
 import { analyticsService } from "./analytics";
 import { authService } from "./auth";
@@ -18,6 +19,7 @@ import { statsService } from "./stats";
 import { storyService } from "./stories";
 
 export * from "./supabase";
+export * from "./activities";
 export * from "./admin";
 export * from "./analytics";
 export * from "./auth";
@@ -39,6 +41,7 @@ export * from "./stories";
 export function createGymCircleServices(client: GymCircleClient) {
   return {
     client,
+    activities: activityService(client),
     admin: adminService(client),
     analytics: analyticsService(client),
     auth: authService(client),

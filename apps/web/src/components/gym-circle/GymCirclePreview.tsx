@@ -13,6 +13,8 @@ import { RefreshCw } from "lucide-react";
 import { ToastFeedback } from "./design-system";
 import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
+import { CreateHubSheet } from "./CreateHubSheet";
+import { WebWorkoutScreen } from "./screens/WebWorkoutScreen";
 import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
@@ -199,6 +201,12 @@ export function GymCirclePreview({
   // "Registrar treino": quando setado (YYYY-MM-DD), o composer abre travado
   // nessa data (post retroativo). null = post normal de hoje.
   const [composerWorkoutDate, setComposerWorkoutDate] = useState<string | null>(null);
+  // Rastreio de treino (Fase 1): hub do "+" + treino cronometrado do web.
+  // composerSourceActivityId linka o post criado no composer à atividade
+  // recém-encerrada ("Adicionar foto do treino" no resumo).
+  const [createHubOpen, setCreateHubOpen] = useState(false);
+  const [workoutOpen, setWorkoutOpen] = useState(false);
+  const [composerSourceActivityId, setComposerSourceActivityId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -971,8 +979,12 @@ export function GymCirclePreview({
         return;
       }
       if (screen === "feed") setScrollState("top");
-      // Entrar no composer pela nav = post normal (sem data travada).
-      if (screen === "post") setComposerWorkoutDate(null);
+      // Rastreio de treino (Fase 1): o "+" central abre o hub de criar em vez
+      // de ir direto ao composer (iniciar treino / postar / check-in).
+      if (screen === "post") {
+        setCreateHubOpen(true);
+        return;
+      }
       if (screen === "checkin") setCheckinTargetGymId(null);
       setActiveScreen(screen);
     },
@@ -1706,6 +1718,7 @@ export function GymCirclePreview({
             gyms={social.gyms ?? []}
             onCatalogPlace={social.actions.catalogPlace}
             onCancel={() => {
+              setComposerSourceActivityId(null);
               setComposerWorkoutDate(null);
               setScrollState("top");
               setActiveScreen("feed");
@@ -1717,7 +1730,13 @@ export function GymCirclePreview({
               setActiveScreen("feed");
             }}
             onPublish={async (input) => {
-              await social.actions.publishWorkout(input);
+              await social.actions.publishWorkout({
+                ...input,
+                // Post nascido do resumo do treino ("Adicionar foto") fica
+                // linkado à atividade rastreada.
+                sourceActivityId: composerSourceActivityId ?? input.sourceActivityId,
+              });
+              setComposerSourceActivityId(null);
               setComposerWorkoutDate(null);
               setScrollState("top");
               // Registrar treino volta pro MyCircle (calendário) em vez do feed,
@@ -1807,6 +1826,7 @@ export function GymCirclePreview({
   }, [
     activeScreen,
     checkinTargetGymId,
+    composerSourceActivityId,
     composerWorkoutDate,
     chatTargetUserId,
     allUsers,
@@ -1897,6 +1917,51 @@ export function GymCirclePreview({
               </div>
             ) : null}
           </div>
+          {/* Rastreio de treino (Fase 1): hub do "+" + treino cronometrado web. */}
+          <CreateHubSheet
+            onCheckIn={() => {
+              setCreateHubOpen(false);
+              setCheckinTargetGymId(null);
+              setScrollState("top");
+              setActiveScreen("checkin");
+            }}
+            onClose={() => setCreateHubOpen(false)}
+            onPostWorkout={() => {
+              setCreateHubOpen(false);
+              setComposerWorkoutDate(null);
+              setComposerSourceActivityId(null);
+              setScrollState("top");
+              setActiveScreen("post");
+            }}
+            onStartWorkout={() => {
+              setCreateHubOpen(false);
+              setWorkoutOpen(true);
+            }}
+            open={createHubOpen}
+          />
+          <WebWorkoutScreen
+            onAddPhoto={(activity) => {
+              setWorkoutOpen(false);
+              // Atividade de demo não linka post (id não existe no banco).
+              setComposerSourceActivityId(
+                activity.id.startsWith("demo-") ? null : activity.id,
+              );
+              setComposerWorkoutDate(null);
+              setScrollState("top");
+              setActiveScreen("post");
+            }}
+            onClose={() => setWorkoutOpen(false)}
+            onFinish={
+              social.actions.finishWebActivity ??
+              (async (input) => ({
+                // Fallback do modo demo (mock não tem Supabase).
+                id: `demo-${Date.now()}`,
+                workoutDate: input.endedAt.slice(0, 10),
+                elapsedS: input.elapsedS,
+              }))
+            }
+            open={workoutOpen}
+          />
           <StoryViewer
             currentUserId={social.currentUser.id}
             hasNext={hasNextStoryOrAuthor}

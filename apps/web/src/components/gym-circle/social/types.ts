@@ -353,6 +353,26 @@ export type CreateWorkoutPostInput = {
    * calendário/perfil. Ausente = post normal de hoje.
    */
   workoutDate?: string;
+  /** Atividade rastreada que este post compartilha (rastreio de treino). */
+  sourceActivityId?: string | null;
+};
+
+/**
+ * Rastreio de treino (Fase 1) — treino cronometrado no web. Sem GPS/FC/
+ * calorias (isso é o app nativo); o web conta tempo + descanso e a atividade
+ * marca o dia/streak via trigger.
+ */
+export type WebActivityInput = {
+  activityType: "strength" | "run" | "walk" | "ride" | "other";
+  startedAt: string;
+  endedAt: string;
+  elapsedS: number;
+};
+
+export type FinishedWebActivity = {
+  id: string;
+  workoutDate: string;
+  elapsedS: number;
 };
 
 export type FeedbackTone = "brand" | "success" | "like" | "comment" | "follow";
@@ -414,6 +434,8 @@ export type SocialActions = {
   openStory: (storyId: string) => void;
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;
+  /** Rastreio de treino (Fase 1): fecha o treino cronometrado do web. */
+  finishWebActivity?: (input: WebActivityInput) => Promise<FinishedWebActivity>;
   checkIn: (gymName: string) => void | Promise<void>;
   createCheckin?: (gymId: string, workoutDate?: string) => Promise<void>;
   signOut?: () => Promise<void>;

@@ -35,9 +35,54 @@
   "tabs": {
     "home": "Início",
     "chat": "Conversas",
-    "post": "Postar",
+    "post": "Criar",
     "map": "Mapa",
     "profile": "Perfil"
+  },
+  "createHub": {
+    "title": "Criar",
+    "startWorkout": {
+      "title": "Iniciar treino",
+      "detail": "Cronômetro e descanso · no app tem GPS e batimentos"
+    },
+    "postWorkout": {
+      "title": "Postar treino",
+      "detail": "Fotos e vídeos do treino que você fez"
+    },
+    "checkIn": {
+      "title": "Check-in",
+      "detail": "Marcar presença numa academia, sem foto"
+    }
+  },
+  "workout": {
+    "title": "Iniciar treino",
+    "precisionNotice": "No app fica mais preciso — GPS, batimentos e calorias. Aqui contamos o tempo e o descanso.",
+    "elapsed": "Tempo de treino",
+    "types": {
+      "strength": "Musculação",
+      "run": "Corrida",
+      "walk": "Caminhada",
+      "ride": "Bike",
+      "other": "Outro"
+    },
+    "rest": {
+      "title": "Descanso",
+      "start": "Iniciar descanso",
+      "cancel": "Cancelar",
+      "done": "Bora!"
+    },
+    "finish": "Encerrar treino",
+    "finishing": "Salvando…",
+    "discard": "Descartar treino",
+    "errors": {
+      "finish": "Não foi possível salvar o treino. Tente de novo."
+    },
+    "summary": {
+      "title": "Treino concluído",
+      "streakKept": "Dia marcado no calendário · streak mantido",
+      "addPhoto": "Adicionar foto do treino",
+      "saveWithoutPhoto": "Salvar sem foto"
+    }
   },
   "feed": {
     "title": "Gym Circle",

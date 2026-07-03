@@ -35,9 +35,54 @@
   "tabs": {
     "home": "Home",
     "chat": "Chats",
-    "post": "Post",
+    "post": "Create",
     "map": "Map",
     "profile": "Profile"
+  },
+  "createHub": {
+    "title": "Create",
+    "startWorkout": {
+      "title": "Start workout",
+      "detail": "Timer and rest · the app adds GPS and heart rate"
+    },
+    "postWorkout": {
+      "title": "Post workout",
+      "detail": "Photos and videos of the workout you did"
+    },
+    "checkIn": {
+      "title": "Check-in",
+      "detail": "Mark you were at a gym, no photo needed"
+    }
+  },
+  "workout": {
+    "title": "Start workout",
+    "precisionNotice": "The app is more precise — GPS, heart rate and calories. Here we track time and rest.",
+    "elapsed": "Workout time",
+    "types": {
+      "strength": "Strength",
+      "run": "Run",
+      "walk": "Walk",
+      "ride": "Ride",
+      "other": "Other"
+    },
+    "rest": {
+      "title": "Rest",
+      "start": "Start rest",
+      "cancel": "Cancel",
+      "done": "Go!"
+    },
+    "finish": "Finish workout",
+    "finishing": "Saving…",
+    "discard": "Discard workout",
+    "errors": {
+      "finish": "Couldn't save the workout. Try again."
+    },
+    "summary": {
+      "title": "Workout complete",
+      "streakKept": "Day marked on your calendar · streak kept",
+      "addPhoto": "Add a workout photo",
+      "saveWithoutPhoto": "Save without photo"
+    }
   },
   "feed": {
     "title": "Gym Circle",

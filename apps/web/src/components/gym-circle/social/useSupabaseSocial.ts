@@ -51,12 +51,14 @@ import type {
   EnrichedUser,
   FeedbackMessage,
   FeedbackTone,
+  FinishedWebActivity,
   FollowActionResult,
   GymLocationOption,
   GymUser,
   ProfileEditInput,
   PromoteCheckinInput,
   SendChatMessageInput,
+  WebActivityInput,
   StoryGroup,
 } from "./types";
 
@@ -142,6 +144,8 @@ export type SupabaseSocialActions = {
   openStory: (storyId: string) => void;
   closeStory: () => void;
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
+  /** Rastreio de treino (Fase 1): fecha o treino cronometrado do web. */
+  finishWebActivity: (input: WebActivityInput) => Promise<FinishedWebActivity>;
   checkIn: (gymName: string) => Promise<void>;
   createCheckin: (gymId: string, workoutDate?: string) => Promise<void>;
   /**

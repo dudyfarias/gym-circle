@@ -50,10 +50,12 @@ import type {
   EnrichedStory,
   EnrichedUser,
   FeedbackTone,
+  FinishedWebActivity,
   ProfileEditInput,
   PromoteCheckinInput,
   SendChatMessageInput,
   StoryGroup,
+  WebActivityInput,
 } from "./types";
 import type { SupabaseSocialActions } from "./useSupabaseSocial";
 
@@ -635,6 +637,26 @@ export function createSocialActions(
         await refreshChat();
         showFeedback("comment", "Story enviado", receiver.name);
       },
+      // Rastreio de treino (Fase 1): fecha o treino cronometrado no web.
+      // A activity marca o dia/streak via trigger; o post é opcional (o
+      // resumo oferece "Adicionar foto" → publishWorkout com sourceActivityId).
+      async finishWebActivity(input: WebActivityInput): Promise<FinishedWebActivity> {
+        const activity = await services.activities.create(currentUserId, {
+          activityType: input.activityType,
+          mode: "session",
+          origin: "web_timer",
+          startedAt: input.startedAt,
+          endedAt: input.endedAt,
+          elapsedS: input.elapsedS,
+        });
+        await services.stats.refreshMine();
+        await refresh();
+        return {
+          id: activity.id,
+          workoutDate: activity.workoutDate,
+          elapsedS: activity.elapsedS,
+        };
+      },
       async publishWorkout(input: CreateWorkoutPostInput) {
         // "Registrar treino": post retroativo de um dia treinado sem mídia.
         // Vai SÓ pro feed (sem story) e com created_at backdatado ao meio-dia
@@ -658,6 +680,7 @@ export function createSocialActions(
           const post = await services.posts.create(currentUserId, {
             workoutDate: backdate ?? undefined,
             createdAt: backdatedCreatedAt,
+            sourceActivityId: input.sourceActivityId ?? null,
             imageUrl: input.imageUrl,
             mediaType: input.mediaType,
             thumbnailUrl: input.thumbnailUrl ?? null,
