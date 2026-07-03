@@ -65,6 +65,14 @@
       "ride": "Bike",
       "other": "Outro"
     },
+    "typeHints": {
+      "strength": "Cronômetro + timer de descanso",
+      "run": "No app: GPS, ritmo e rota",
+      "walk": "No app: GPS e distância",
+      "ride": "No app: GPS, velocidade e rota",
+      "other": "Qualquer treino, só o tempo"
+    },
+    "liveBadge": "Ao vivo",
     "rest": {
       "title": "Descanso",
       "start": "Iniciar descanso",
@@ -476,6 +484,10 @@
     }
   },
   "postScreen": {
+    "activity": {
+      "title": "Treino concluído — {{type}} · {{elapsed}}",
+      "notice": "Dia marcado no calendário e streak mantido. Foto é opcional — sem foto, publicamos um card com as stats do treino."
+    },
     "topBar": {
       "eyebrow": "Post de treino",
       "title": "Publicar"

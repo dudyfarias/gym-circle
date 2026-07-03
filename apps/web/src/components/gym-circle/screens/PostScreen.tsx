@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
+  ComposerActivityContext,
   CreateWorkoutPostInput,
   EnrichedUser,
   GymLocationOption,
@@ -34,6 +35,8 @@ import type {
 } from "../social/types";
 import { MediaCarousel } from "../design-system/MediaCarousel";
 import { PinchZoomImage } from "../design-system/PinchZoomImage";
+import { createWorkoutCoverFile } from "../workout/workoutCover";
+import { formatElapsed } from "../workout/workoutElapsed";
 
 // Sprint 13 — limite do carrossel (alinhado com a regra de produto).
 const MAX_MEDIA = 10;
@@ -64,6 +67,19 @@ type PostScreenProps = {
    * gravado naquele dia (preenche o calendário). Ausente = post normal de hoje.
    */
   workoutDate?: string;
+  /**
+   * Rastreio de treino (Fase 1): treino recém-encerrado virando post. Foto é
+   * OPCIONAL — sem mídia, geramos a capa de stats em canvas na hora do publish.
+   */
+  activityContext?: ComposerActivityContext | null;
+};
+
+// Rastreio de treino → tag preset do composer (values PT-BR do banco).
+const ACTIVITY_TYPE_TO_WORKOUT_VALUE: Record<string, string> = {
+  strength: "Musculação",
+  run: "Corrida",
+  ride: "Bike",
+  walk: "Cardio",
 };
 
 type WorkoutMediaUploadResult = {
@@ -132,6 +148,7 @@ export function PostScreen({
   recentLocations = [],
   taggableUsers = [],
   workoutDate,
+  activityContext = null,
 }: PostScreenProps) {
   const { t } = useTranslation();
   // "Registrar treino": modo retroativo (dia treinado sem mídia).
@@ -150,7 +167,13 @@ export function PostScreen({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [cataloging, setCataloging] = useState(false);
   // Sprint 13 — até 5 tags (multi-select de chips). Guarda os VALORES escolhidos.
-  const [selectedWorkoutValues, setSelectedWorkoutValues] = useState<string[]>([]);
+  // Treino rastreado pré-seleciona a tag correspondente ao tipo.
+  const [selectedWorkoutValues, setSelectedWorkoutValues] = useState<string[]>(() => {
+    const preset = activityContext
+      ? ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType]
+      : undefined;
+    return preset ? [preset] : [];
+  });
   const [customWorkoutType, setCustomWorkoutType] = useState("");
   const [locationMode, setLocationMode] = useState<SelectableLocationSource>("none");
   const [selectedGymId, setSelectedGymId] = useState("");
@@ -177,8 +200,9 @@ export function PostScreen({
   const [publishError, setPublishError] = useState<string | null>(null);
   // Default = feed + story. Story acende o badge do streak; feed dá conteúdo
   // permanente. Ambos saem da mesma upload — escolher é caso de power user.
+  // Treino rastreado default = só feed (a capa gerada não é story material).
   const [postToFeed, setPostToFeed] = useState(true);
-  const [postToStory, setPostToStory] = useState(true);
+  const [postToStory, setPostToStory] = useState(!activityContext);
   const [friendQuery, setFriendQuery] = useState("");
   const [taggedUserIds, setTaggedUserIds] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -615,7 +639,7 @@ export function PostScreen({
   async function publishWorkout() {
     if (publishing) return;
 
-    if (!imageUrl.trim()) {
+    if (!imageUrl.trim() && !activityContext) {
       if (!onCreateCheckin || !selectedGym || resolvedLocation.gymId === null) {
         setPublishError("Selecione um local cadastrado para fazer check-in.");
         return;
@@ -652,6 +676,43 @@ export function PostScreen({
     setPublishing(true);
     setPublishError(null);
     try {
+      // Treino rastreado sem foto: gera a capa de stats em canvas e sobe como
+      // mídia do post (o modelo de posts exige capa; o feed renderiza igual).
+      let cover = {
+        imageUrl,
+        meta: mediaMeta,
+        mediaType,
+      };
+      if (!imageUrl.trim() && activityContext) {
+        if (!onUploadImage) {
+          throw new Error(t("postScreen.publish.errors.generic"));
+        }
+        const coverFile = await createWorkoutCoverFile({
+          typeLabel:
+            ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType] ??
+            t("workout.types.other"),
+          elapsedLabel: formatElapsed(activityContext.elapsedS),
+          elapsedCaption: t("workout.elapsed"),
+          dateLabel: `${activityContext.workoutDate.slice(8, 10)}/${activityContext.workoutDate.slice(5, 7)}/${activityContext.workoutDate.slice(0, 4)}`,
+        });
+        const generated = await uploadOne(coverFile);
+        if (!generated) {
+          throw new Error(t("postScreen.publish.errors.generic"));
+        }
+        cover = {
+          imageUrl: generated.imageUrl,
+          meta: {
+            thumbnailUrl: generated.thumbnailUrl ?? null,
+            posterUrl: generated.posterUrl ?? null,
+            mediaWidth: generated.mediaWidth ?? null,
+            mediaHeight: generated.mediaHeight ?? null,
+            mediaDurationSeconds: null,
+            blurDataUrl: generated.blurDataUrl ?? null,
+          },
+          mediaType: "image",
+        };
+      }
+
       await onPublish({
         caption,
         workoutType: resolvedWorkoutType,
@@ -660,14 +721,14 @@ export function PostScreen({
         workoutTypes: resolvedWorkoutTypes.length > 0 ? resolvedWorkoutTypes : null,
         gymId: resolvedLocation.gymId,
         gymName: resolvedLocation.name ?? "",
-        imageUrl,
-        thumbnailUrl: mediaMeta.thumbnailUrl ?? null,
-        posterUrl: mediaMeta.posterUrl ?? null,
-        mediaWidth: mediaMeta.mediaWidth ?? null,
-        mediaHeight: mediaMeta.mediaHeight ?? null,
-        mediaDurationSeconds: mediaMeta.mediaDurationSeconds ?? null,
-        blurDataUrl: mediaMeta.blurDataUrl ?? null,
-        mediaType,
+        imageUrl: cover.imageUrl,
+        thumbnailUrl: cover.meta.thumbnailUrl ?? null,
+        posterUrl: cover.meta.posterUrl ?? null,
+        mediaWidth: cover.meta.mediaWidth ?? null,
+        mediaHeight: cover.meta.mediaHeight ?? null,
+        mediaDurationSeconds: cover.meta.mediaDurationSeconds ?? null,
+        blurDataUrl: cover.meta.blurDataUrl ?? null,
+        mediaType: cover.mediaType,
         locationSource: resolvedLocation.source,
         locationName: resolvedLocation.name,
         locationLatitude: resolvedLocation.latitude,
@@ -690,13 +751,18 @@ export function PostScreen({
   }
 
   const hasDestination = postToFeed || postToStory;
-  const isCheckinDraft = mediaItems.length === 0;
+  // Sem mídia: treino rastreado publica mesmo assim (capa gerada); sem
+  // atividade vira rascunho de check-in (comportamento original).
+  const isActivityDraft = mediaItems.length === 0 && Boolean(activityContext);
+  const isCheckinDraft = mediaItems.length === 0 && !activityContext;
   const canPublish =
     !uploading &&
     !publishing &&
     (isCheckinDraft
       ? Boolean(onCreateCheckin && resolvedLocation.gymId)
-      : imageUrl.trim().length > 0 && hasDestination && locationReady);
+      : isActivityDraft
+        ? hasDestination && locationReady
+        : imageUrl.trim().length > 0 && hasDestination && locationReady);
 
   const publishLabel = useMemo(() => {
     if (publishing) return t("postScreen.publish.publishing");
@@ -777,6 +843,23 @@ export function PostScreen({
           <Calendar className="shrink-0 text-[var(--gc-brand)]" size={16} strokeWidth={2.4} />
           <p className="text-[12px] font-bold text-white/72">
             {t("postScreen.registerWorkout.notice", { date: backdatedLabel })}
+          </p>
+        </div>
+      ) : null}
+
+      {/* Rastreio de treino: treino encerrado virando post (foto opcional). */}
+      {activityContext ? (
+        <div className="mt-3 rounded-[16px] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
+          <p className="text-[12.5px] font-black text-emerald-300">
+            {t("postScreen.activity.title", {
+              type:
+                ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType] ??
+                t("workout.types.other"),
+              elapsed: formatElapsed(activityContext.elapsedS),
+            })}
+          </p>
+          <p className="mt-0.5 text-[12px] font-bold text-white/56">
+            {t("postScreen.activity.notice")}
           </p>
         </div>
       ) : null}

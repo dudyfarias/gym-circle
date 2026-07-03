@@ -1,9 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { Camera, Check, Flame, Smartphone, Square } from "lucide-react";
+import {
+  Bike,
+  Dumbbell,
+  Footprints,
+  MoveRight,
+  Play,
+  Smartphone,
+  Square,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { FinishedWebActivity, WebActivityInput } from "../social/types";
+import type {
+  ComposerActivityContext,
+  FinishedWebActivity,
+  WebActivityInput,
+} from "../social/types";
 import {
   REST_PRESETS_S,
   REST_TIMER_INITIAL,
@@ -17,8 +30,8 @@ type WebWorkoutScreenProps = {
   open: boolean;
   onClose: () => void;
   onFinish: (input: WebActivityInput) => Promise<FinishedWebActivity>;
-  /** Abre o composer já linkado à atividade ("Adicionar foto do treino"). */
-  onAddPhoto: (activity: FinishedWebActivity) => void;
+  /** Encerrar → composer (legenda/local/tags); post sai mesmo sem foto. */
+  onCompose: (activity: ComposerActivityContext) => void;
 };
 
 // Persistência anti-refresh: o cronômetro deriva SEMPRE de startedAt.
@@ -38,62 +51,66 @@ function readStored(): StoredWorkout | null {
   }
 }
 
-const TYPE_KEYS: WorkoutType[] = ["strength", "run", "walk", "ride", "other"];
+// Seletor estilo Apple Exercício: academia primeiro (público principal).
+const TYPE_CARDS: Array<{ type: WorkoutType; icon: typeof Dumbbell }> = [
+  { type: "strength", icon: Dumbbell },
+  { type: "run", icon: MoveRight },
+  { type: "walk", icon: Footprints },
+  { type: "ride", icon: Bike },
+  { type: "other", icon: Play },
+];
 
 /**
  * Rastreio de treino (Fase 1) — "Iniciar treino" no web, versão enxuta:
- * cronômetro + timer de descanso programável + aviso de que o app é mais
- * preciso (GPS/FC/calorias são nativos). Ao encerrar, a atividade marca o
- * dia/streak e o resumo oferece virar post com foto.
+ * seletor de tipo (cards estilo Apple Watch) → cronômetro + timer de
+ * descanso + aviso de precisão → encerrar → composer (post mesmo sem foto).
  */
 export function WebWorkoutScreen({
   open,
   onClose,
   onFinish,
-  onAddPhoto,
+  onCompose,
 }: WebWorkoutScreenProps) {
   const { t } = useTranslation();
+  const [stage, setStage] = useState<"pick" | "live">("pick");
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
   const [activityType, setActivityType] = useState<WorkoutType>("strength");
   const [elapsedS, setElapsedS] = useState(0);
   const [rest, dispatchRest] = useReducer(restTimerReducer, REST_TIMER_INITIAL);
-  const [finished, setFinished] = useState<FinishedWebActivity | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const restDoneNotified = useRef(false);
 
-  // Abrir = iniciar (retomando treino em andamento se houver). setTimeout(0)
-  // evita o lint set-state-in-effect (mesmo padrão do EditPostSheet).
+  // Abrir: treino em andamento (refresh/reabriu) retoma direto no live;
+  // senão começa no seletor de tipo. setTimeout(0) evita set-state-in-effect.
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
       const stored = readStored();
-      const startMs = stored?.startedAtMs ?? Date.now();
-      setStartedAtMs(startMs);
-      if (stored?.activityType) setActivityType(stored.activityType);
-      setFinished(null);
       setFinishError(null);
-      setElapsedS(elapsedSecondsSince(startMs, Date.now()));
-      window.localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          startedAtMs: startMs,
-          activityType: stored?.activityType ?? "strength",
-        } satisfies StoredWorkout),
-      );
+      if (stored) {
+        setStartedAtMs(stored.startedAtMs);
+        setActivityType(stored.activityType);
+        setElapsedS(elapsedSecondsSince(stored.startedAtMs, Date.now()));
+        setStage("live");
+      } else {
+        setStartedAtMs(null);
+        setElapsedS(0);
+        setStage("pick");
+      }
     }, 0);
     return () => window.clearTimeout(id);
   }, [open]);
 
   // Tick de 1s: cronômetro (derivado do relógio) + timer de descanso.
   useEffect(() => {
-    if (!open || startedAtMs === null || finished) return;
+    if (!open || stage !== "live" || startedAtMs === null) return;
     const id = window.setInterval(() => {
       setElapsedS(elapsedSecondsSince(startedAtMs, Date.now()));
       dispatchRest({ type: "tick" });
     }, 1000);
     return () => window.clearInterval(id);
-  }, [open, startedAtMs, finished]);
+  }, [open, stage, startedAtMs]);
 
   // Descanso zerou → vibra (quando suportado), uma vez por contagem.
   useEffect(() => {
@@ -104,18 +121,18 @@ export function WebWorkoutScreen({
     if (rest.status !== "done") restDoneNotified.current = false;
   }, [rest.status]);
 
-  const selectType = useCallback(
-    (type: WorkoutType) => {
-      setActivityType(type);
-      if (startedAtMs !== null) {
-        window.localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({ startedAtMs, activityType: type } satisfies StoredWorkout),
-        );
-      }
-    },
-    [startedAtMs],
-  );
+  const startWorkout = useCallback((type: WorkoutType) => {
+    const startMs = Date.now();
+    setActivityType(type);
+    setStartedAtMs(startMs);
+    setElapsedS(0);
+    setStage("live");
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ startedAtMs: startMs, activityType: type } satisfies StoredWorkout),
+    );
+    navigator.vibrate?.(60);
+  }, []);
 
   const handleFinish = useCallback(async () => {
     if (startedAtMs === null || finishing) return;
@@ -130,13 +147,20 @@ export function WebWorkoutScreen({
         elapsedS: elapsedSecondsSince(startedAtMs, endedMs),
       });
       window.localStorage.removeItem(STORAGE_KEY);
-      setFinished(activity);
+      dispatchRest({ type: "reset" });
+      // Direto pro composer: legenda, local, tags — post sai mesmo sem foto.
+      onCompose({
+        id: activity.id,
+        activityType,
+        elapsedS: activity.elapsedS,
+        workoutDate: activity.workoutDate,
+      });
     } catch (err) {
       setFinishError(err instanceof Error ? err.message : t("workout.errors.finish"));
     } finally {
       setFinishing(false);
     }
-  }, [activityType, finishing, onFinish, startedAtMs, t]);
+  }, [activityType, finishing, onCompose, onFinish, startedAtMs, t]);
 
   const handleDiscard = useCallback(() => {
     window.localStorage.removeItem(STORAGE_KEY);
@@ -154,68 +178,54 @@ export function WebWorkoutScreen({
       aria-label={t("workout.title")}
     >
       <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+18px)]">
-        {finished ? (
+        {stage === "pick" ? (
           <>
-            {/* Resumo — treino concluído */}
-            <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <div className="grid size-14 place-items-center rounded-full bg-emerald-500/12 text-emerald-400">
-                <Check size={30} />
-              </div>
-              <h2 className="mt-4 text-[20px] font-black text-white">
-                {t("workout.summary.title")}
-              </h2>
-              <p className="mt-1 text-[13px] font-bold text-white/46">
-                {t(`workout.types.${activityType}`)} · {formatElapsed(finished.elapsedS)}
-              </p>
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3.5 py-2.5 text-[12.5px] font-bold text-emerald-300">
-                <Flame size={15} />
-                {t("workout.summary.streakKept")}
-              </div>
-              <div className="mt-7 w-full rounded-[24px] border border-white/[0.08] bg-[#0c0d0e] px-5 py-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
-                  {t("workout.elapsed")}
-                </p>
-                <p className="mt-1 text-[34px] font-black leading-none text-white">
-                  {formatElapsed(finished.elapsedS)}
-                </p>
-              </div>
+            {/* Seletor de tipo — cards estilo Apple Exercício */}
+            <header className="flex items-center justify-between">
+              <h2 className="text-[26px] font-black text-white">{t("workout.title")}</h2>
+              <button
+                aria-label={t("common.close")}
+                className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
+                onClick={onClose}
+                type="button"
+              >
+                <X size={20} strokeWidth={2.4} />
+              </button>
+            </header>
+            <div className="mt-4 space-y-3 pb-6">
+              {TYPE_CARDS.map(({ type, icon: Icon }) => (
+                <button
+                  className="gc-pressable w-full rounded-[24px] border border-white/[0.07] bg-[#101214] px-5 py-5 text-left"
+                  key={type}
+                  onClick={() => startWorkout(type)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between">
+                    <Icon className="text-[var(--gc-blue)]" size={30} strokeWidth={2.2} />
+                    <span className="grid size-12 place-items-center rounded-full bg-[var(--gc-blue)] text-black">
+                      <Play className="ml-0.5" fill="currentColor" size={20} />
+                    </span>
+                  </div>
+                  <p className="mt-3 text-[19px] font-black text-white">
+                    {t(`workout.types.${type}`)}
+                  </p>
+                  <p className="mt-0.5 text-[12px] font-bold text-white/40">
+                    {t(`workout.typeHints.${type}`)}
+                  </p>
+                </button>
+              ))}
             </div>
-            <button
-              className="gc-pressable mt-6 flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[var(--gc-blue)] py-3.5 text-[15px] font-black text-black"
-              onClick={() => onAddPhoto(finished)}
-              type="button"
-            >
-              <Camera size={18} />
-              {t("workout.summary.addPhoto")}
-            </button>
-            <button
-              className="gc-pressable mt-2 w-full py-3 text-center text-[13.5px] font-bold text-white/50"
-              onClick={onClose}
-              type="button"
-            >
-              {t("workout.summary.saveWithoutPhoto")}
-            </button>
           </>
         ) : (
           <>
-            {/* Tipo de exercício */}
-            <h2 className="text-[22px] font-black text-white">{t("workout.title")}</h2>
-            <div className="gc-scrollbar -mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1">
-              {TYPE_KEYS.map((type) => (
-                <button
-                  className={[
-                    "gc-pressable shrink-0 rounded-full px-3.5 py-2 text-[12.5px] font-black",
-                    type === activityType
-                      ? "bg-[var(--gc-blue)]/15 text-[var(--gc-blue)]"
-                      : "bg-white/[0.055] text-white/60",
-                  ].join(" ")}
-                  key={type}
-                  onClick={() => selectType(type)}
-                  type="button"
-                >
-                  {t(`workout.types.${type}`)}
-                </button>
-              ))}
+            {/* Ao vivo — data-first */}
+            <div className="flex items-center justify-between">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3.5 py-2 text-[13px] font-black text-white">
+                {t(`workout.types.${activityType}`)}
+              </span>
+              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[var(--gc-blue)]">
+                {t("workout.liveBadge")}
+              </span>
             </div>
 
             {/* Aviso: no app é mais preciso */}
@@ -295,7 +305,7 @@ export function WebWorkoutScreen({
               </p>
             ) : null}
 
-            {/* Encerrar / descartar */}
+            {/* Encerrar (→ composer) / descartar */}
             <div className="mt-auto pt-8">
               <button
                 className="gc-pressable flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--gc-pink)] py-3.5 text-[15px] font-black text-white disabled:opacity-60"

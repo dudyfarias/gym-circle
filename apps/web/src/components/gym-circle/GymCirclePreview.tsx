@@ -43,7 +43,12 @@ import {
 } from "./social/achievementsCelebration";
 import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
-import type { EnrichedPost, EnrichedUser, SocialBundle } from "./social/types";
+import type {
+  ComposerActivityContext,
+  EnrichedPost,
+  EnrichedUser,
+  SocialBundle,
+} from "./social/types";
 import { getAdjacentStoryId } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
 import {
@@ -202,11 +207,11 @@ export function GymCirclePreview({
   // nessa data (post retroativo). null = post normal de hoje.
   const [composerWorkoutDate, setComposerWorkoutDate] = useState<string | null>(null);
   // Rastreio de treino (Fase 1): hub do "+" + treino cronometrado do web.
-  // composerSourceActivityId linka o post criado no composer à atividade
-  // recém-encerrada ("Adicionar foto do treino" no resumo).
+  // composerActivity = treino recém-encerrado dentro do composer (encerrar →
+  // legenda/local → post no feed, mesmo sem foto — capa de stats gerada).
   const [createHubOpen, setCreateHubOpen] = useState(false);
   const [workoutOpen, setWorkoutOpen] = useState(false);
-  const [composerSourceActivityId, setComposerSourceActivityId] = useState<string | null>(null);
+  const [composerActivity, setComposerActivity] = useState<ComposerActivityContext | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -1714,11 +1719,12 @@ export function GymCirclePreview({
       case "post":
         return (
           <PostScreen
+            activityContext={composerActivity}
             currentUser={social.currentUser}
             gyms={social.gyms ?? []}
             onCatalogPlace={social.actions.catalogPlace}
             onCancel={() => {
-              setComposerSourceActivityId(null);
+              setComposerActivity(null);
               setComposerWorkoutDate(null);
               setScrollState("top");
               setActiveScreen("feed");
@@ -1732,11 +1738,14 @@ export function GymCirclePreview({
             onPublish={async (input) => {
               await social.actions.publishWorkout({
                 ...input,
-                // Post nascido do resumo do treino ("Adicionar foto") fica
-                // linkado à atividade rastreada.
-                sourceActivityId: composerSourceActivityId ?? input.sourceActivityId,
+                // Post nascido do treino encerrado fica linkado à atividade
+                // (id demo- é do modo mock e não existe no banco).
+                sourceActivityId:
+                  composerActivity && !composerActivity.id.startsWith("demo-")
+                    ? composerActivity.id
+                    : input.sourceActivityId,
               });
-              setComposerSourceActivityId(null);
+              setComposerActivity(null);
               setComposerWorkoutDate(null);
               setScrollState("top");
               // Registrar treino volta pro MyCircle (calendário) em vez do feed,
@@ -1826,7 +1835,7 @@ export function GymCirclePreview({
   }, [
     activeScreen,
     checkinTargetGymId,
-    composerSourceActivityId,
+    composerActivity,
     composerWorkoutDate,
     chatTargetUserId,
     allUsers,
@@ -1929,7 +1938,7 @@ export function GymCirclePreview({
             onPostWorkout={() => {
               setCreateHubOpen(false);
               setComposerWorkoutDate(null);
-              setComposerSourceActivityId(null);
+              setComposerActivity(null);
               setScrollState("top");
               setActiveScreen("post");
             }}
@@ -1940,12 +1949,9 @@ export function GymCirclePreview({
             open={createHubOpen}
           />
           <WebWorkoutScreen
-            onAddPhoto={(activity) => {
+            onCompose={(activity) => {
               setWorkoutOpen(false);
-              // Atividade de demo não linka post (id não existe no banco).
-              setComposerSourceActivityId(
-                activity.id.startsWith("demo-") ? null : activity.id,
-              );
+              setComposerActivity(activity);
               setComposerWorkoutDate(null);
               setScrollState("top");
               setActiveScreen("post");

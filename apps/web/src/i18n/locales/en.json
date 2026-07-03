@@ -65,6 +65,14 @@
       "ride": "Ride",
       "other": "Other"
     },
+    "typeHints": {
+      "strength": "Stopwatch + rest timer",
+      "run": "In the app: GPS, pace and route",
+      "walk": "In the app: GPS and distance",
+      "ride": "In the app: GPS, speed and route",
+      "other": "Any workout, time only"
+    },
+    "liveBadge": "Live",
     "rest": {
       "title": "Rest",
       "start": "Start rest",
@@ -476,6 +484,10 @@
     }
   },
   "postScreen": {
+    "activity": {
+      "title": "Workout complete — {{type}} · {{elapsed}}",
+      "notice": "Day marked on your calendar and streak kept. Photo is optional — without one, we publish a card with your workout stats."
+    },
     "topBar": {
       "eyebrow": "Workout post",
       "title": "Publish"

@@ -375,6 +375,17 @@ export type FinishedWebActivity = {
   elapsedS: number;
 };
 
+/**
+ * Contexto do treino recém-encerrado dentro do composer: encerrar → legenda/
+ * local/tags → post no feed MESMO SEM FOTO (capa de stats gerada em canvas).
+ */
+export type ComposerActivityContext = {
+  id: string;
+  activityType: WebActivityInput["activityType"];
+  elapsedS: number;
+  workoutDate: string;
+};
+
 export type FeedbackTone = "brand" | "success" | "like" | "comment" | "follow";
 
 export type FeedbackMessage = {
