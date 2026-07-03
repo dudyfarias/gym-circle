@@ -47,6 +47,10 @@
       "title": "Iniciar treino",
       "detail": "Cronômetro, descanso e registro automático"
     },
+    "resumeWorkout": {
+      "title": "Retomar treino",
+      "detail": "Voltar ao treino que está em andamento"
+    },
     "postWorkout": {
       "title": "Publicar treino",
       "detail": "Fotos e vídeos"
@@ -61,7 +65,12 @@
     "pickTitle": "Escolha seu treino",
     "pickHint": "O cronômetro começa assim que você escolher uma modalidade.",
     "inProgress": "Treino em andamento",
+    "active": "Ativo",
+    "paused": "Pausado",
+    "pause": "Pausar",
+    "resume": "Retomar",
     "minimize": "Minimizar treino",
+    "minimizeShort": "Fechar",
     "precisionNotice": "Modo simples · tempo e descanso",
     "elapsed": "Tempo de treino",
     "types": {
@@ -85,10 +94,35 @@
       "startFor": "Iniciar {{duration}}",
       "cancel": "Cancelar descanso",
       "done": "Bora!",
-      "restart": "Novo descanso"
+      "restart": "Novo descanso",
+      "increase": "Adicionar 10 segundos",
+      "decrease": "Diminuir 10 segundos",
+      "inProgress": "Em andamento"
     },
     "finish": "Concluir treino",
+    "finishShort": "Encerrar",
     "finishing": "Salvando…",
+    "finishConfirm": {
+      "title": "Encerrar este treino?",
+      "description": "Você treinou por {{duration}}. Depois poderá adicionar legenda, localização e fotos."
+    },
+    "gps": {
+      "strong": "GPS forte",
+      "weak": "GPS fraco",
+      "searching": "Buscando GPS",
+      "off": "GPS indisponível"
+    },
+    "metrics": {
+      "distance": "Distância",
+      "pace": "Ritmo",
+      "speed": "Velocidade",
+      "elevation": "Subida",
+      "started": "Início",
+      "rests": "Descansos",
+      "paused": "Pausado",
+      "status": "Status",
+      "moving": "Em movimento"
+    },
     "discard": "Descartar treino",
     "discardConfirm": {
       "title": "Descartar este treino?",

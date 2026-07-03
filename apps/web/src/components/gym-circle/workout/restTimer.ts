@@ -4,8 +4,6 @@
  * Lógica PURA (reducer) — o componente dispara `tick` a cada segundo via
  * setInterval; aqui só evolui o estado, então dá pra testar sem timers reais.
  */
-export const REST_PRESETS_S = [60, 90, 120] as const;
-
 export type RestTimerState = {
   status: "idle" | "running" | "paused" | "done";
   /** Duração escolhida (preset ou custom), em segundos. */
@@ -20,12 +18,13 @@ export type RestTimerAction =
   | { type: "pause" }
   | { type: "resume" }
   | { type: "reset" }
+  | { type: "adjust"; deltaS: number }
   | { type: "setPreset"; presetS: number };
 
 export const REST_TIMER_INITIAL: RestTimerState = {
   status: "idle",
-  presetS: 90,
-  remainingS: 90,
+  presetS: 60,
+  remainingS: 60,
 };
 
 export function restTimerReducer(
@@ -61,6 +60,21 @@ export function restTimerReducer(
       return state.status === "paused"
         ? { ...state, status: "running" }
         : state;
+    case "adjust": {
+      const deltaS = Math.trunc(action.deltaS);
+      const presetS = Math.max(10, Math.min(15 * 60, state.presetS + deltaS));
+      if (state.status === "running" || state.status === "paused") {
+        return {
+          ...state,
+          presetS,
+          remainingS: Math.max(
+            0,
+            Math.min(15 * 60, state.remainingS + deltaS),
+          ),
+        };
+      }
+      return { status: "idle", presetS, remainingS: presetS };
+    }
     case "reset":
       return { status: "idle", presetS: state.presetS, remainingS: state.presetS };
     default:

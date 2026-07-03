@@ -673,11 +673,19 @@ export function createSocialActions(
       async finishWebActivity(input: WebActivityInput): Promise<FinishedWebActivity> {
         const activity = await services.activities.create(currentUserId, {
           activityType: input.activityType,
-          mode: "session",
+          mode:
+            input.activityType === "run" ||
+            input.activityType === "walk" ||
+            input.activityType === "ride"
+              ? "route"
+              : "session",
           origin: "web_timer",
           startedAt: input.startedAt,
           endedAt: input.endedAt,
           elapsedS: input.elapsedS,
+          movingS: input.movingS ?? input.elapsedS,
+          distanceM: input.distanceM ?? null,
+          elevationGainM: input.elevationGainM ?? null,
         });
         await services.stats.refreshMine();
         await refresh();

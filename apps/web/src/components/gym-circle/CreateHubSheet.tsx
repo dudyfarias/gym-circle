@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 
 type CreateHubSheetProps = {
   open: boolean;
+  hasActiveWorkout?: boolean;
   onClose: () => void;
   onStartWorkout: () => void;
   onPostWorkout: () => void;
@@ -18,6 +19,7 @@ type CreateHubSheetProps = {
  */
 export function CreateHubSheet({
   open,
+  hasActiveWorkout = false,
   onClose,
   onStartWorkout,
   onPostWorkout,
@@ -30,8 +32,12 @@ export function CreateHubSheet({
     {
       key: "start",
       icon: <Timer size={22} />,
-      title: t("createHub.startWorkout.title"),
-      detail: t("createHub.startWorkout.detail"),
+      title: hasActiveWorkout
+        ? t("createHub.resumeWorkout.title")
+        : t("createHub.startWorkout.title"),
+      detail: hasActiveWorkout
+        ? t("createHub.resumeWorkout.detail")
+        : t("createHub.startWorkout.detail"),
       onClick: onStartWorkout,
     },
     {

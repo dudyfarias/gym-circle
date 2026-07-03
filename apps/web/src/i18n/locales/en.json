@@ -47,6 +47,10 @@
       "title": "Start workout",
       "detail": "Timer, rest and automatic tracking"
     },
+    "resumeWorkout": {
+      "title": "Resume workout",
+      "detail": "Return to the workout already in progress"
+    },
     "postWorkout": {
       "title": "Share workout",
       "detail": "Photos and videos"
@@ -61,7 +65,12 @@
     "pickTitle": "Choose your workout",
     "pickHint": "The timer starts as soon as you choose an activity.",
     "inProgress": "Workout in progress",
+    "active": "Active",
+    "paused": "Paused",
+    "pause": "Pause",
+    "resume": "Resume",
     "minimize": "Minimize workout",
+    "minimizeShort": "Close",
     "precisionNotice": "Simple mode · time and rest",
     "elapsed": "Workout time",
     "types": {
@@ -85,10 +94,35 @@
       "startFor": "Start {{duration}}",
       "cancel": "Cancel rest",
       "done": "Go!",
-      "restart": "New rest"
+      "restart": "New rest",
+      "increase": "Add 10 seconds",
+      "decrease": "Remove 10 seconds",
+      "inProgress": "In progress"
     },
     "finish": "Complete workout",
+    "finishShort": "Finish",
     "finishing": "Saving…",
+    "finishConfirm": {
+      "title": "Finish this workout?",
+      "description": "You worked out for {{duration}}. You can add a caption, location and photos next."
+    },
+    "gps": {
+      "strong": "Strong GPS",
+      "weak": "Weak GPS",
+      "searching": "Finding GPS",
+      "off": "GPS unavailable"
+    },
+    "metrics": {
+      "distance": "Distance",
+      "pace": "Pace",
+      "speed": "Speed",
+      "elevation": "Elevation",
+      "started": "Started",
+      "rests": "Rests",
+      "paused": "Paused",
+      "status": "Status",
+      "moving": "Moving"
+    },
     "discard": "Discard workout",
     "discardConfirm": {
       "title": "Discard this workout?",

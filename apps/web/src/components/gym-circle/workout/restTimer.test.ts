@@ -57,6 +57,20 @@ describe("restTimerReducer", () => {
     const s = restTimerReducer(REST_TIMER_INITIAL, { type: "start", presetS: 1 });
     expect(s.presetS).toBe(5);
   });
+
+  it("começa em 1:00 e ajusta em passos de 10s", () => {
+    expect(REST_TIMER_INITIAL).toMatchObject({
+      presetS: 60,
+      remainingS: 60,
+    });
+    let s = restTimerReducer(REST_TIMER_INITIAL, {
+      type: "adjust",
+      deltaS: 10,
+    });
+    expect(s).toMatchObject({ presetS: 70, remainingS: 70 });
+    s = restTimerReducer(s, { type: "adjust", deltaS: -10 });
+    expect(s).toMatchObject({ presetS: 60, remainingS: 60 });
+  });
 });
 
 describe("workoutElapsed", () => {

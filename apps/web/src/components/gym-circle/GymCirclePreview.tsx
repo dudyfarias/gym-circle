@@ -16,6 +16,7 @@ import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CreateHubSheet } from "./CreateHubSheet";
 import { WebWorkoutScreen } from "./screens/WebWorkoutScreen";
+import { hasStoredWorkoutSession } from "./workout/workoutSession";
 import { CheckInScreen } from "./screens/CheckInScreen";
 import { FeedScreen } from "./screens/FeedScreen";
 import { SearchSheetProvider } from "./SearchSheetContext";
@@ -217,6 +218,9 @@ export function GymCirclePreview({
   // legenda/local → post no feed, mesmo sem foto — capa de stats gerada).
   const [createHubOpen, setCreateHubOpen] = useState(false);
   const [workoutOpen, setWorkoutOpen] = useState(false);
+  const [workoutSessionActive, setWorkoutSessionActive] = useState(
+    () => hasStoredWorkoutSession(),
+  );
   const [composerActivity, setComposerActivity] = useState<ComposerActivityContext | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
@@ -1077,6 +1081,7 @@ export function GymCirclePreview({
       // Rastreio de treino (Fase 1): o "+" central abre o hub de criar em vez
       // de ir direto ao composer (iniciar treino / postar / check-in).
       if (screen === "post") {
+        setWorkoutSessionActive(hasStoredWorkoutSession());
         setCreateHubOpen(true);
         return;
       }
@@ -2036,6 +2041,7 @@ export function GymCirclePreview({
           </div>
           {/* Rastreio de treino (Fase 1): hub do "+" + treino cronometrado web. */}
           <CreateHubSheet
+            hasActiveWorkout={workoutSessionActive}
             onCheckIn={() => {
               setCreateHubOpen(false);
               setCheckinTargetGymId(null);
@@ -2074,6 +2080,7 @@ export function GymCirclePreview({
                 elapsedS: input.elapsedS,
               }))
             }
+            onSessionChange={setWorkoutSessionActive}
             open={workoutOpen}
           />
           <StoryViewer

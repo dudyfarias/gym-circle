@@ -395,15 +395,18 @@ export type CreateWorkoutPostInput = {
 };
 
 /**
- * Rastreio de treino (Fase 1) — treino cronometrado no web. Sem GPS/FC/
- * calorias (isso é o app nativo); o web conta tempo + descanso e a atividade
- * marca o dia/streak via trigger.
+ * Rastreio de treino no web/Capacitor. Modalidades de rota podem enviar
+ * distância/elevação calculadas com posições reais do dispositivo; dados de
+ * Saúde (FC/calorias) continuam exclusivos das APIs nativas.
  */
 export type WebActivityInput = {
   activityType: "strength" | "run" | "walk" | "ride" | "other";
   startedAt: string;
   endedAt: string;
   elapsedS: number;
+  movingS?: number | null;
+  distanceM?: number | null;
+  elevationGainM?: number | null;
 };
 
 export type FinishedWebActivity = {
