@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
+  ActivityEntryInput,
   ComposerActivityContext,
   CreateWorkoutPostInput,
   EnrichedUser,
@@ -35,7 +36,6 @@ import type {
 } from "../social/types";
 import { MediaCarousel } from "../design-system/MediaCarousel";
 import { PinchZoomImage } from "../design-system/PinchZoomImage";
-import { createWorkoutCoverFile } from "../workout/workoutCover";
 import { formatElapsed } from "../workout/workoutElapsed";
 
 // Sprint 13 — limite do carrossel (alinhado com a regra de produto).
@@ -72,6 +72,8 @@ type PostScreenProps = {
    * OPCIONAL — sem mídia, geramos a capa de stats em canvas na hora do publish.
    */
   activityContext?: ComposerActivityContext | null;
+  /** Salva legenda/local/tags na entrada de atividade (publish sem foto). */
+  onSaveActivityEntry?: (input: ActivityEntryInput) => void | Promise<void>;
 };
 
 // Rastreio de treino → tag preset do composer (values PT-BR do banco).
@@ -149,6 +151,7 @@ export function PostScreen({
   taggableUsers = [],
   workoutDate,
   activityContext = null,
+  onSaveActivityEntry,
 }: PostScreenProps) {
   const { t } = useTranslation();
   // "Registrar treino": modo retroativo (dia treinado sem mídia).
@@ -673,46 +676,41 @@ export function PostScreen({
       return;
     }
 
+    // Treino rastreado SEM foto: não vira post — salva as infos (legenda/
+    // local/tags) na ENTRADA de atividade, que aparece no feed como
+    // check-in(treino) e pode virar post/carrossel depois (modelo mutável).
+    if (!imageUrl.trim() && activityContext) {
+      if (!onSaveActivityEntry) {
+        setPublishError(t("postScreen.publish.errors.generic"));
+        return;
+      }
+      setPublishing(true);
+      setPublishError(null);
+      try {
+        await onSaveActivityEntry({
+          caption,
+          workoutTypes:
+            resolvedWorkoutTypes.length > 0 ? resolvedWorkoutTypes : null,
+          gymId: resolvedLocation.gymId,
+          locationSource: resolvedLocation.source,
+          locationName: resolvedLocation.name,
+          locationLatitude: resolvedLocation.latitude,
+          locationLongitude: resolvedLocation.longitude,
+          locationGoogleMapsUrl: resolvedLocation.googleMapsUrl,
+        });
+        void HapticsService.success();
+      } catch (err) {
+        void HapticsService.error();
+        setPublishError(getErrorMessage(err));
+      } finally {
+        setPublishing(false);
+      }
+      return;
+    }
+
     setPublishing(true);
     setPublishError(null);
     try {
-      // Treino rastreado sem foto: gera a capa de stats em canvas e sobe como
-      // mídia do post (o modelo de posts exige capa; o feed renderiza igual).
-      let cover = {
-        imageUrl,
-        meta: mediaMeta,
-        mediaType,
-      };
-      if (!imageUrl.trim() && activityContext) {
-        if (!onUploadImage) {
-          throw new Error(t("postScreen.publish.errors.generic"));
-        }
-        const coverFile = await createWorkoutCoverFile({
-          typeLabel:
-            ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType] ??
-            t("workout.types.other"),
-          elapsedLabel: formatElapsed(activityContext.elapsedS),
-          elapsedCaption: t("workout.elapsed"),
-          dateLabel: `${activityContext.workoutDate.slice(8, 10)}/${activityContext.workoutDate.slice(5, 7)}/${activityContext.workoutDate.slice(0, 4)}`,
-        });
-        const generated = await uploadOne(coverFile);
-        if (!generated) {
-          throw new Error(t("postScreen.publish.errors.generic"));
-        }
-        cover = {
-          imageUrl: generated.imageUrl,
-          meta: {
-            thumbnailUrl: generated.thumbnailUrl ?? null,
-            posterUrl: generated.posterUrl ?? null,
-            mediaWidth: generated.mediaWidth ?? null,
-            mediaHeight: generated.mediaHeight ?? null,
-            mediaDurationSeconds: null,
-            blurDataUrl: generated.blurDataUrl ?? null,
-          },
-          mediaType: "image",
-        };
-      }
-
       await onPublish({
         caption,
         workoutType: resolvedWorkoutType,
@@ -721,14 +719,14 @@ export function PostScreen({
         workoutTypes: resolvedWorkoutTypes.length > 0 ? resolvedWorkoutTypes : null,
         gymId: resolvedLocation.gymId,
         gymName: resolvedLocation.name ?? "",
-        imageUrl: cover.imageUrl,
-        thumbnailUrl: cover.meta.thumbnailUrl ?? null,
-        posterUrl: cover.meta.posterUrl ?? null,
-        mediaWidth: cover.meta.mediaWidth ?? null,
-        mediaHeight: cover.meta.mediaHeight ?? null,
-        mediaDurationSeconds: cover.meta.mediaDurationSeconds ?? null,
-        blurDataUrl: cover.meta.blurDataUrl ?? null,
-        mediaType: cover.mediaType,
+        imageUrl,
+        thumbnailUrl: mediaMeta.thumbnailUrl ?? null,
+        posterUrl: mediaMeta.posterUrl ?? null,
+        mediaWidth: mediaMeta.mediaWidth ?? null,
+        mediaHeight: mediaMeta.mediaHeight ?? null,
+        mediaDurationSeconds: mediaMeta.mediaDurationSeconds ?? null,
+        blurDataUrl: mediaMeta.blurDataUrl ?? null,
+        mediaType,
         locationSource: resolvedLocation.source,
         locationName: resolvedLocation.name,
         locationLatitude: resolvedLocation.latitude,

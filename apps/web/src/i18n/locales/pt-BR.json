@@ -41,22 +41,28 @@
   },
   "createHub": {
     "title": "Criar",
+    "question": "O que você quer fazer?",
+    "subtitle": "Registre um treino agora ou publique algo que já aconteceu.",
     "startWorkout": {
       "title": "Iniciar treino",
-      "detail": "Cronômetro e descanso · no app tem GPS e batimentos"
+      "detail": "Cronômetro, descanso e registro automático"
     },
     "postWorkout": {
-      "title": "Postar treino",
-      "detail": "Fotos e vídeos do treino que você fez"
+      "title": "Publicar treino",
+      "detail": "Fotos e vídeos"
     },
     "checkIn": {
-      "title": "Check-in",
-      "detail": "Marcar presença numa academia, sem foto"
+      "title": "Fazer check-in",
+      "detail": "Só localização"
     }
   },
   "workout": {
     "title": "Iniciar treino",
-    "precisionNotice": "No app fica mais preciso — GPS, batimentos e calorias. Aqui contamos o tempo e o descanso.",
+    "pickTitle": "Escolha seu treino",
+    "pickHint": "O cronômetro começa assim que você escolher uma modalidade.",
+    "inProgress": "Treino em andamento",
+    "minimize": "Minimizar treino",
+    "precisionNotice": "Modo simples · tempo e descanso",
     "elapsed": "Tempo de treino",
     "types": {
       "strength": "Musculação",
@@ -72,16 +78,23 @@
       "ride": "No app: GPS, velocidade e rota",
       "other": "Qualquer treino, só o tempo"
     },
-    "liveBadge": "Ao vivo",
     "rest": {
       "title": "Descanso",
+      "subtitle": "Timer entre séries",
       "start": "Iniciar descanso",
-      "cancel": "Cancelar",
-      "done": "Bora!"
+      "startFor": "Iniciar {{duration}}",
+      "cancel": "Cancelar descanso",
+      "done": "Bora!",
+      "restart": "Novo descanso"
     },
-    "finish": "Encerrar treino",
+    "finish": "Concluir treino",
     "finishing": "Salvando…",
     "discard": "Descartar treino",
+    "discardConfirm": {
+      "title": "Descartar este treino?",
+      "description": "O cronômetro será apagado e este treino não contará no seu calendário.",
+      "confirm": "Descartar treino"
+    },
     "errors": {
       "finish": "Não foi possível salvar o treino. Tente de novo."
     },
@@ -486,7 +499,7 @@
   "postScreen": {
     "activity": {
       "title": "Treino concluído — {{type}} · {{elapsed}}",
-      "notice": "Dia marcado no calendário e streak mantido. Foto é opcional — sem foto, publicamos um card com as stats do treino."
+      "notice": "Dia marcado no calendário e streak mantido. Sem foto, o treino aparece no feed do mesmo jeito — dá pra adicionar fotos depois e virar post."
     },
     "topBar": {
       "eyebrow": "Post de treino",
@@ -758,6 +771,11 @@
     },
     "loadingMore": "Carregando mais...",
     "skeletonAria": "Carregando feed",
+    "activity": {
+      "badge": "Treino",
+      "openProfile": "Abrir perfil de @{{username}}",
+      "addPhoto": "Adicionar fotos"
+    },
     "checkin": {
       "badge": "Check-in",
       "action": "Fez check-in em",

@@ -45,6 +45,8 @@ import type {
   ChatConversation,
   CreateWorkoutPostInput,
   EditPostInput,
+  ActivityEntryInput,
+  EnrichedActivity,
   EnrichedCheckin,
   EnrichedPost,
   EnrichedStory,
@@ -102,6 +104,7 @@ import {
   optionalStorySocialRows,
   queryCircleRankingClientFallback,
   queryCircleRankingSurface,
+  queryHomeActivitiesSurface,
   queryHomeCheckinsSurface,
   queryHomeFeedSurface,
   queryStoryTraySurface,
@@ -132,6 +135,7 @@ import type {
   RankingScope,
   RealtimePayload,
   StoryTrayRow,
+  SurfaceActivityRow,
   SurfaceCheckinRow,
   SurfacePostRow,
 } from "./supabaseSocialTypes";
@@ -146,6 +150,11 @@ export type SupabaseSocialActions = {
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
   /** Rastreio de treino (Fase 1): fecha o treino cronometrado do web. */
   finishWebActivity: (input: WebActivityInput) => Promise<FinishedWebActivity>;
+  /** Salva legenda/local/tags na ENTRADA de atividade (treino sem foto). */
+  saveActivityEntry: (
+    activityId: string,
+    input: ActivityEntryInput,
+  ) => Promise<void>;
   checkIn: (gymName: string) => Promise<void>;
   createCheckin: (gymId: string, workoutDate?: string) => Promise<void>;
   /**
@@ -226,6 +235,7 @@ export type SupabaseSocialResult = {
   gyms: GymLocationOption[];
   feedPosts: EnrichedPost[];
   feedCheckins: EnrichedCheckin[];
+  feedActivities: EnrichedActivity[];
   profilePosts: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   storyGroups: StoryGroup[];
@@ -348,6 +358,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followsRes,
         feedRes,
         checkinsRes,
+        activitiesRes,
         storiesRes,
         blocksRes,
         postMutesRes,
@@ -368,6 +379,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           .or(`follower_id.eq.${currentUserId},following_id.eq.${currentUserId}`),
         queryHomeFeedSurface(services.client, INITIAL_FEED_LIMIT),
         queryHomeCheckinsSurface(services.client, INITIAL_FEED_LIMIT),
+        queryHomeActivitiesSurface(services.client, INITIAL_FEED_LIMIT),
         queryStoryTraySurface(services.client, INITIAL_STORY_LIMIT),
         // Apple Guideline 1.2: app de UGC precisa filtrar conteúdo de
         // blocked users de TODOS os surfaces (feed, stories, profiles,
@@ -391,6 +403,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         followsRes,
         feedRes,
         checkinsRes,
+        activitiesRes,
         storiesRes,
         blocksRes,
         postMutesRes,
@@ -400,6 +413,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
       const feedSurfaceRows = (feedRes.data ?? []) as SurfacePostRow[];
       const checkinSurfaceRows = (checkinsRes.data ?? []) as SurfaceCheckinRow[];
+      const activitySurfaceRows = (activitiesRes.data ?? []) as SurfaceActivityRow[];
       const storySurfaceRows = (storiesRes.data ?? []) as StoryTrayRow[];
       const feedPosts = feedSurfaceRows.map(feedPostRowFromSurface);
       const stories = storySurfaceRows
@@ -424,12 +438,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           : null,
         ...feedSurfaceRows.map(profileRowFromSurface),
         ...checkinSurfaceRows.map(profileRowFromSurface),
+        ...activitySurfaceRows.map(profileRowFromSurface),
         ...storySurfaceRows.map(profileRowFromSurface),
       ].filter((profile): profile is ProfileRow => Boolean(profile));
       const surfaceStats = [
         currentStatsRes.data as UserStatsRow | null,
         ...feedSurfaceRows.map(statsRowFromSurface),
         ...checkinSurfaceRows.map(statsRowFromSurface),
+        ...activitySurfaceRows.map(statsRowFromSurface),
         ...storySurfaceRows.map(statsRowFromSurface),
       ].filter((stats): stats is UserStatsRow => Boolean(stats));
       const currentProfile = surfaceProfiles.find(
@@ -456,6 +472,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         follows: (followsRes.data ?? []) as FollowRow[],
         feedPosts,
         feedCheckins: checkinSurfaceRows,
+        feedActivities: activitySurfaceRows,
         storyTrayRows: storySurfaceRows,
         stories,
         postLikes: [
@@ -1678,6 +1695,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       .on("postgres_changes", { event: "*", schema: "public", table: "post_comments" }, handlePostCommentRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "follows" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "checkins" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "activities" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "user_stats" }, scheduleRefresh)
       .on("postgres_changes", { event: "*", schema: "public", table: "direct_messages" }, handleChatRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, handleChatRealtime)
@@ -1842,6 +1860,37 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         })
         .filter((item): item is EnrichedCheckin => Boolean(item)),
     [agg.feedCheckins, enrichedAll],
+  );
+
+  // Rastreio de treino — entradas de atividade no feed (mirror do check-in).
+  const feedActivities = useMemo<EnrichedActivity[]>(
+    () =>
+      agg.feedActivities
+        .map((row) => {
+          const author = enrichedAll.get(row.user_id);
+          if (!author) return null;
+          return {
+            id: row.id,
+            userId: row.user_id,
+            activityType: row.activity_type,
+            elapsedS: row.elapsed_s,
+            avgHr: row.avg_hr ?? null,
+            totalCalories: row.total_calories ?? null,
+            workoutDate: row.workout_date,
+            createdAt: row.created_at,
+            caption: row.caption ?? null,
+            workoutTypes: row.workout_types ?? null,
+            gymId: row.gym_id ?? null,
+            gymName: row.gym_name ?? null,
+            locationName: row.location_name ?? null,
+            locationLatitude: row.location_latitude ?? null,
+            locationLongitude: row.location_longitude ?? null,
+            locationGoogleMapsUrl: row.location_google_maps_url ?? null,
+            author,
+          };
+        })
+        .filter((item): item is EnrichedActivity => Boolean(item)),
+    [agg.feedActivities, enrichedAll],
   );
 
   const storyItems = useMemo<EnrichedStory[]>(
@@ -2104,6 +2153,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     gyms: gymOptions,
     feedPosts,
     feedCheckins,
+    feedActivities,
     profilePosts,
     storyBubbles,
     storyGroups,

@@ -87,6 +87,7 @@ export type AggregateState = {
   follows: FollowRow[];
   feedPosts: FeedPostRow[];
   feedCheckins: SurfaceCheckinRow[];
+  feedActivities: SurfaceActivityRow[];
   profileFeedPosts: FeedPostRow[];
   storyTrayRows: StoryTrayRow[];
   stories: StoryRow[];
@@ -172,6 +173,39 @@ export type SurfaceCheckinRow = {
   gym_longitude?: number | null;
   checkin_date: string;
   created_at: string;
+  username?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  author_current_streak?: number | null;
+  author_best_streak?: number | null;
+  author_badge_active?: boolean | null;
+  is_following_author?: boolean | null;
+  visibility?: string | null;
+};
+
+// Rastreio de treino — entrada de atividade no feed (get_home_activities).
+export type SurfaceActivityRow = {
+  id: string;
+  user_id: string;
+  activity_type: string;
+  mode?: string | null;
+  origin?: string | null;
+  source_app?: string | null;
+  elapsed_s: number;
+  avg_hr?: number | null;
+  max_hr?: number | null;
+  active_calories?: number | null;
+  total_calories?: number | null;
+  workout_date: string;
+  created_at: string;
+  caption?: string | null;
+  workout_types?: string[] | null;
+  gym_id?: string | null;
+  gym_name?: string | null;
+  location_name?: string | null;
+  location_latitude?: number | null;
+  location_longitude?: number | null;
+  location_google_maps_url?: string | null;
   username?: string | null;
   display_name?: string | null;
   avatar_url?: string | null;

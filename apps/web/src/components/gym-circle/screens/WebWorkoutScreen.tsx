@@ -3,15 +3,18 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import {
   Bike,
+  Check,
+  ChevronDown,
   Dumbbell,
   Footprints,
+  Info,
   MoveRight,
   Play,
-  Smartphone,
-  Square,
+  Timer,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ConfirmSheet } from "../ConfirmSheet";
 import type {
   ComposerActivityContext,
   FinishedWebActivity,
@@ -79,6 +82,7 @@ export function WebWorkoutScreen({
   const [rest, dispatchRest] = useReducer(restTimerReducer, REST_TIMER_INITIAL);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const restDoneNotified = useRef(false);
 
   // Abrir: treino em andamento (refresh/reabriu) retoma direto no live;
@@ -88,6 +92,7 @@ export function WebWorkoutScreen({
     const id = window.setTimeout(() => {
       const stored = readStored();
       setFinishError(null);
+      setDiscardConfirmOpen(false);
       if (stored) {
         setStartedAtMs(stored.startedAtMs);
         setActivityType(stored.activityType);
@@ -165,123 +170,166 @@ export function WebWorkoutScreen({
   const handleDiscard = useCallback(() => {
     window.localStorage.removeItem(STORAGE_KEY);
     dispatchRest({ type: "reset" });
+    setDiscardConfirmOpen(false);
     onClose();
   }, [onClose]);
 
   if (!open) return null;
+
+  const restProgress =
+    rest.presetS > 0
+      ? Math.max(0, Math.min(100, (rest.remainingS / rest.presetS) * 100))
+      : 0;
 
   return (
     <div
       className="fixed inset-0 z-[95] flex justify-center overflow-y-auto bg-black"
       role="dialog"
       aria-modal="true"
-      aria-label={t("workout.title")}
+      aria-label={t("workout.inProgress")}
     >
       <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+18px)]">
         {stage === "pick" ? (
           <>
-            {/* Seletor de tipo — cards estilo Apple Exercício */}
-            <header className="flex items-center justify-between">
-              <h2 className="text-[26px] font-black text-white">{t("workout.title")}</h2>
+            <header className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <h2 className="text-[25px] font-black leading-tight text-white">
+                  {t("workout.pickTitle")}
+                </h2>
+                <p className="mt-1 max-w-[320px] text-[13px] font-semibold leading-snug text-white/48">
+                  {t("workout.pickHint")}
+                </p>
+              </div>
               <button
                 aria-label={t("common.close")}
-                className="gc-pressable grid size-11 place-items-center rounded-full bg-white/[0.06] text-white"
+                className="gc-pressable grid size-10 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.055] text-white/82"
                 onClick={onClose}
                 type="button"
               >
-                <X size={20} strokeWidth={2.4} />
+                <X size={18} strokeWidth={2.4} />
               </button>
             </header>
-            <div className="mt-4 space-y-3 pb-6">
+            <div className="mt-6 space-y-2.5 pb-6">
               {TYPE_CARDS.map(({ type, icon: Icon }) => (
                 <button
-                  className="gc-pressable w-full rounded-[24px] border border-white/[0.07] bg-[#101214] px-5 py-5 text-left"
+                  className="gc-pressable flex w-full items-center gap-3.5 rounded-[22px] border border-white/[0.08] bg-white/[0.035] p-3.5 text-left"
                   key={type}
                   onClick={() => startWorkout(type)}
                   type="button"
                 >
-                  <div className="flex items-start justify-between">
-                    <Icon className="text-[var(--gc-blue)]" size={30} strokeWidth={2.2} />
-                    <span className="grid size-12 place-items-center rounded-full bg-[var(--gc-blue)] text-black">
-                      <Play className="ml-0.5" fill="currentColor" size={20} />
+                  <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                    <Icon size={22} strokeWidth={2.3} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[16px] font-black text-white">
+                      {t(`workout.types.${type}`)}
                     </span>
-                  </div>
-                  <p className="mt-3 text-[19px] font-black text-white">
-                    {t(`workout.types.${type}`)}
-                  </p>
-                  <p className="mt-0.5 text-[12px] font-bold text-white/40">
-                    {t(`workout.typeHints.${type}`)}
-                  </p>
+                    <span className="mt-0.5 block truncate text-[12px] font-bold text-white/42">
+                      {t(`workout.typeHints.${type}`)}
+                    </span>
+                  </span>
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
+                    <Play className="ml-0.5" fill="currentColor" size={16} />
+                  </span>
                 </button>
               ))}
             </div>
           </>
         ) : (
           <>
-            {/* Ao vivo — data-first */}
-            <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3.5 py-2 text-[13px] font-black text-white">
-                {t(`workout.types.${activityType}`)}
+            <header className="flex items-center gap-2">
+              <span className="inline-flex min-w-0 items-center rounded-full border border-white/[0.08] bg-white/[0.055] px-3.5 py-2 text-[13px] font-black text-white">
+                <span className="truncate">{t(`workout.types.${activityType}`)}</span>
               </span>
-              <span className="text-[11px] font-black uppercase tracking-[0.12em] text-[var(--gc-blue)]">
-                {t("workout.liveBadge")}
-              </span>
-            </div>
-
-            {/* Aviso: no app é mais preciso */}
-            <div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-[var(--gc-blue)]/24 bg-[var(--gc-blue)]/10 px-3.5 py-3">
-              <Smartphone className="mt-0.5 shrink-0 text-[var(--gc-blue)]" size={17} />
-              <p className="text-[12.5px] font-bold leading-snug text-[#bfe6f0]">
-                {t("workout.precisionNotice")}
-              </p>
-            </div>
-
-            {/* Cronômetro */}
-            <div className="mt-7 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
-                {t("workout.elapsed")}
-              </p>
-              <p className="mt-1 text-[64px] font-black leading-none tracking-tight text-[var(--gc-blue)]">
-                {formatElapsed(elapsedS)}
-              </p>
-            </div>
-
-            {/* Timer de descanso */}
-            <div className="mt-7 rounded-[24px] border border-white/[0.08] bg-[#0c0d0e] px-5 py-5 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
-                {t("workout.rest.title")}
-              </p>
-              <p
-                className={[
-                  "mt-2 text-[40px] font-black leading-none",
-                  rest.status === "done" ? "text-emerald-400" : "text-white",
-                ].join(" ")}
+              <button
+                aria-label={t("workout.minimize")}
+                className="gc-pressable ml-auto grid size-10 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.055] text-white/82"
+                onClick={onClose}
+                type="button"
               >
-                {rest.status === "done"
-                  ? t("workout.rest.done")
-                  : formatElapsed(rest.remainingS)}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {REST_PRESETS_S.map((preset) => (
-                  <button
-                    className={[
-                      "gc-pressable rounded-full px-3.5 py-2 text-[12.5px] font-black",
-                      rest.presetS === preset
-                        ? "bg-[var(--gc-blue)]/15 text-[var(--gc-blue)]"
-                        : "bg-white/[0.055] text-white/60",
-                    ].join(" ")}
-                    key={preset}
-                    onClick={() => dispatchRest({ type: "setPreset", presetS: preset })}
-                    type="button"
-                  >
-                    {preset}s
-                  </button>
-                ))}
+                <ChevronDown size={19} strokeWidth={2.4} />
+              </button>
+            </header>
+
+            <main className="flex flex-1 flex-col">
+              <section className="pt-9 text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-white/40">
+                  {t("workout.elapsed")}
+                </p>
+                <p
+                  aria-label={`${t("workout.elapsed")}: ${formatElapsed(elapsedS)}`}
+                  className="mt-2 text-[72px] font-black leading-none tracking-[-0.06em] text-[var(--gc-brand)] tabular-nums"
+                >
+                  {formatElapsed(elapsedS)}
+                </p>
+              </section>
+
+              <div className="mt-7 flex items-center justify-center gap-2 text-[11.5px] font-bold text-white/42">
+                <Info className="shrink-0 text-[var(--gc-brand)]" size={15} />
+                <span>{t("workout.precisionNotice")}</span>
               </div>
-              <div className="mt-3 flex items-center justify-center gap-2">
+
+              <section className="mt-5 rounded-[28px] border border-white/[0.085] bg-[#0b0d0e] p-5 shadow-[0_18px_48px_rgba(0,0,0,0.28)]">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-10 place-items-center rounded-[14px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                    <Timer size={19} strokeWidth={2.4} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-black text-white">
+                      {t("workout.rest.title")}
+                    </p>
+                    <p className="text-[11.5px] font-bold text-white/38">
+                      {t("workout.rest.subtitle")}
+                    </p>
+                  </div>
+                  <p
+                    className={[
+                      "text-[34px] font-black leading-none tracking-tight tabular-nums",
+                      rest.status === "done"
+                        ? "text-[var(--gc-brand)]"
+                        : rest.status === "running"
+                          ? "text-white"
+                          : "text-white/82",
+                    ].join(" ")}
+                  >
+                    {rest.status === "done"
+                      ? t("workout.rest.done")
+                      : formatElapsed(rest.remainingS)}
+                  </p>
+                </div>
+
+                <div className="mt-5 grid grid-cols-3 gap-2 rounded-full bg-black/52 p-1">
+                  {REST_PRESETS_S.map((preset) => (
+                    <button
+                      aria-pressed={rest.presetS === preset}
+                      className={[
+                        "gc-pressable h-10 rounded-full text-[12.5px] font-black disabled:opacity-45",
+                        rest.presetS === preset
+                          ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
+                          : "text-white/46",
+                      ].join(" ")}
+                      disabled={rest.status === "running"}
+                      key={preset}
+                      onClick={() => dispatchRest({ type: "setPreset", presetS: preset })}
+                      type="button"
+                    >
+                      {formatElapsed(preset)}
+                    </button>
+                  ))}
+                </div>
+
+                {rest.status === "running" ? (
+                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+                    <div
+                      className="h-full rounded-full bg-[var(--gc-brand)] transition-[width] duration-500"
+                      style={{ width: `${restProgress}%` }}
+                    />
+                  </div>
+                ) : null}
+
                 {rest.status === "running" ? (
                   <button
-                    className="gc-pressable rounded-full bg-white/[0.08] px-5 py-2.5 text-[13px] font-black text-white"
+                    className="gc-pressable mt-4 flex h-12 w-full items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.055] text-[13px] font-black text-white"
                     onClick={() => dispatchRest({ type: "reset" })}
                     type="button"
                   >
@@ -289,41 +337,55 @@ export function WebWorkoutScreen({
                   </button>
                 ) : (
                   <button
-                    className="gc-pressable rounded-full bg-[var(--gc-blue)] px-6 py-2.5 text-[13px] font-black text-black"
+                    className="gc-pressable mt-4 flex h-12 w-full items-center justify-center rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] shadow-[0_0_22px_rgba(92,232,255,0.2)]"
                     onClick={() => dispatchRest({ type: "start" })}
                     type="button"
                   >
-                    {t("workout.rest.start")}
+                    {rest.status === "done"
+                      ? t("workout.rest.restart")
+                      : t("workout.rest.startFor", {
+                          duration: formatElapsed(rest.presetS),
+                        })}
                   </button>
                 )}
-              </div>
-            </div>
+              </section>
 
-            {finishError ? (
-              <p className="mt-4 text-center text-[12.5px] font-bold text-[var(--gc-pink)]">
-                {finishError}
-              </p>
-            ) : null}
+              {finishError ? (
+                <p className="mt-4 text-center text-[12.5px] font-bold text-[var(--gc-pink)]">
+                  {finishError}
+                </p>
+              ) : null}
 
-            {/* Encerrar (→ composer) / descartar */}
-            <div className="mt-auto pt-8">
-              <button
-                className="gc-pressable flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--gc-pink)] py-3.5 text-[15px] font-black text-white disabled:opacity-60"
-                disabled={finishing}
-                onClick={() => void handleFinish()}
-                type="button"
-              >
-                <Square size={16} />
-                {finishing ? t("workout.finishing") : t("workout.finish")}
-              </button>
-              <button
-                className="gc-pressable mt-2 w-full py-3 text-center text-[13px] font-bold text-white/40"
-                onClick={handleDiscard}
-                type="button"
-              >
-                {t("workout.discard")}
-              </button>
-            </div>
+              <footer className="mt-auto pt-8">
+                <button
+                  className="gc-pressable flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-[var(--gc-brand-ink)] shadow-[0_0_28px_rgba(92,232,255,0.22)] disabled:opacity-60"
+                  disabled={finishing}
+                  onClick={() => void handleFinish()}
+                  type="button"
+                >
+                  <Check size={18} strokeWidth={2.8} />
+                  {finishing ? t("workout.finishing") : t("workout.finish")}
+                </button>
+                <button
+                  className="gc-pressable mt-2 w-full py-3 text-center text-[12.5px] font-black text-[var(--gc-pink)]/62"
+                  onClick={() => setDiscardConfirmOpen(true)}
+                  type="button"
+                >
+                  {t("workout.discard")}
+                </button>
+              </footer>
+            </main>
+
+            <ConfirmSheet
+              cancelLabel={t("common.cancel")}
+              confirmLabel={t("workout.discardConfirm.confirm")}
+              description={t("workout.discardConfirm.description")}
+              onClose={() => setDiscardConfirmOpen(false)}
+              onConfirm={handleDiscard}
+              open={discardConfirmOpen}
+              title={t("workout.discardConfirm.title")}
+              tone="destructive"
+            />
           </>
         )}
       </div>

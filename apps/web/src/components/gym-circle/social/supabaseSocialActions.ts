@@ -44,6 +44,7 @@ import {
 import { querySearchProfilesSurface } from "./supabaseSocialSurfaces";
 import type { AggregateState } from "./supabaseSocialTypes";
 import type {
+  ActivityEntryInput,
   CreateWorkoutPostInput,
   EditPostInput,
   EnrichedPost,
@@ -656,6 +657,22 @@ export function createSocialActions(
           workoutDate: activity.workoutDate,
           elapsedS: activity.elapsedS,
         };
+      },
+      // Salva legenda/local/tags na ENTRADA de atividade (treino sem foto no
+      // feed — modelo check-in↔post↔carrossel).
+      async saveActivityEntry(activityId: string, input: ActivityEntryInput) {
+        await services.activities.updateEntry(activityId, {
+          caption: input.caption ?? null,
+          workoutTypes: input.workoutTypes ?? null,
+          gymId: input.gymId ?? null,
+          locationSource: input.locationSource ?? "none",
+          locationName: input.locationName ?? null,
+          locationLatitude: input.locationLatitude ?? null,
+          locationLongitude: input.locationLongitude ?? null,
+          locationGoogleMapsUrl: input.locationGoogleMapsUrl ?? null,
+        });
+        await refresh();
+        showFeedback("success", "Treino no feed", "Adicione fotos quando quiser");
       },
       async publishWorkout(input: CreateWorkoutPostInput) {
         // "Registrar treino": post retroativo de um dia treinado sem mídia.

@@ -251,6 +251,43 @@ export type EnrichedCheckin = {
   author: EnrichedUser;
 };
 
+/**
+ * Rastreio de treino — atividade como ENTRADA do feed (modelo check-in↔post↔
+ * carrossel, tudo mutável): treino sem foto aparece como entrada com as mesmas
+ * infos de post (legenda/local/tags); com foto vira post (source_activity_id).
+ */
+export type EnrichedActivity = {
+  id: string;
+  userId: string;
+  activityType: string;
+  elapsedS: number;
+  avgHr: number | null;
+  totalCalories: number | null;
+  workoutDate: string;
+  createdAt: string;
+  caption: string | null;
+  workoutTypes: string[] | null;
+  gymId: string | null;
+  gymName: string | null;
+  locationName: string | null;
+  locationLatitude: number | null;
+  locationLongitude: number | null;
+  locationGoogleMapsUrl: string | null;
+  author: EnrichedUser;
+};
+
+/** Infos de post salvas na ENTRADA de atividade (treino sem foto). */
+export type ActivityEntryInput = {
+  caption?: string | null;
+  workoutTypes?: string[] | null;
+  gymId?: string | null;
+  locationSource?: PostLocationSource;
+  locationName?: string | null;
+  locationLatitude?: number | null;
+  locationLongitude?: number | null;
+  locationGoogleMapsUrl?: string | null;
+};
+
 export type EnrichedStory = GymStory & {
   author: EnrichedUser;
   acceptedParticipants?: EnrichedUser[];
@@ -447,6 +484,11 @@ export type SocialActions = {
   publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;
   /** Rastreio de treino (Fase 1): fecha o treino cronometrado do web. */
   finishWebActivity?: (input: WebActivityInput) => Promise<FinishedWebActivity>;
+  /** Salva legenda/local/tags na ENTRADA de atividade (treino sem foto). */
+  saveActivityEntry?: (
+    activityId: string,
+    input: ActivityEntryInput,
+  ) => Promise<void>;
   checkIn: (gymName: string) => void | Promise<void>;
   createCheckin?: (gymId: string, workoutDate?: string) => Promise<void>;
   signOut?: () => Promise<void>;
@@ -544,6 +586,7 @@ export type SocialBundle = {
   gyms?: GymLocationOption[];
   feedPosts: EnrichedPost[];
   feedCheckins?: EnrichedCheckin[];
+  feedActivities?: EnrichedActivity[];
   profilePosts?: EnrichedPost[];
   storyBubbles: EnrichedStory[];
   storyGroups?: StoryGroup[];

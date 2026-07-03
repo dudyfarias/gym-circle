@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import {
   DiscoveryUserCard,
   EmptyState,
+  FeedActivityCard,
   FeedCheckinCard,
   SocialPostCard,
   StoryBubbles,
@@ -25,6 +26,7 @@ import {
 } from "../design-system/imageCache";
 import { MediaLoadingService } from "../media/MediaLoadingService";
 import type {
+  EnrichedActivity,
   EnrichedCheckin,
   EnrichedPost,
   EnrichedUser,
@@ -40,6 +42,7 @@ type FeedScreenProps = {
   currentUser: EnrichedUser;
   feedPosts: EnrichedPost[];
   feedCheckins?: EnrichedCheckin[];
+  feedActivities?: EnrichedActivity[];
   stories: StoryGroup[];
   suggestedUsers: EnrichedUser[];
   formatTime: (createdAt: string) => string;
@@ -58,6 +61,8 @@ type FeedScreenProps = {
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
   onEditCheckin?: (checkinId: string) => void;
+  /** Dono da atividade: adicionar foto → composer promove a entrada a post. */
+  onAddActivityPhoto?: (activity: EnrichedActivity) => void;
   onOpenLikes?: (postId: string) => void;
   postShareTargets?: EnrichedUser[];
   viewerLocationError?: string | null;
@@ -74,6 +79,7 @@ export function FeedScreen({
   currentUser,
   feedPosts,
   feedCheckins = [],
+  feedActivities = [],
   stories,
   suggestedUsers,
   formatTime,
@@ -90,6 +96,7 @@ export function FeedScreen({
   resolveUser,
   onOpenPostMenu,
   onEditCheckin,
+  onAddActivityPhoto,
   onOpenLikes,
   postShareTargets = [],
   viewerLocationError,
@@ -118,11 +125,17 @@ export function FeedScreen({
           id: checkin.id,
           kind: "checkin" as const,
         })),
+        ...feedActivities.map((activity) => ({
+          activity,
+          createdAt: activity.createdAt,
+          id: activity.id,
+          kind: "activity" as const,
+        })),
       ].sort(
         (a, b) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
-    [feedCheckins, feedPosts],
+    [feedActivities, feedCheckins, feedPosts],
   );
 
   useEffect(() => {
@@ -241,13 +254,25 @@ export function FeedScreen({
                   resolveUser={resolveUser}
                   shareTargets={postShareTargets}
                 />
-              ) : (
+              ) : item.kind === "checkin" ? (
                 <FeedCheckinCard
                   checkin={item.checkin}
                   formatTime={formatTime}
                   onEdit={
                     item.checkin.userId === currentUser.id
                       ? onEditCheckin
+                      : undefined
+                  }
+                  onSelectGym={onSelectGym}
+                  onSelectUser={onSelectUser}
+                />
+              ) : (
+                <FeedActivityCard
+                  activity={item.activity}
+                  formatTime={formatTime}
+                  onAddPhoto={
+                    item.activity.userId === currentUser.id
+                      ? onAddActivityPhoto
                       : undefined
                   }
                   onSelectGym={onSelectGym}

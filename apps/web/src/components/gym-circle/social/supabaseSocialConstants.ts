@@ -16,6 +16,7 @@ export const EMPTY: AggregateState = {
   follows: [],
   feedPosts: [],
   feedCheckins: [],
+  feedActivities: [],
   profileFeedPosts: [],
   storyTrayRows: [],
   stories: [],

@@ -19,12 +19,19 @@ export type Database = {
           active_calories: number | null
           activity_type: string
           avg_hr: number | null
+          caption: string | null
           created_at: string
           distance_m: number | null
           elapsed_s: number
           elevation_gain_m: number | null
           ended_at: string
+          gym_id: string | null
           id: string
+          location_google_maps_url: string | null
+          location_latitude: number | null
+          location_longitude: number | null
+          location_name: string | null
+          location_source: string
           max_hr: number | null
           mode: string
           moving_s: number | null
@@ -36,17 +43,25 @@ export type Database = {
           total_calories: number | null
           user_id: string
           workout_date: string
+          workout_types: string[] | null
         }
         Insert: {
           active_calories?: number | null
           activity_type: string
           avg_hr?: number | null
+          caption?: string | null
           created_at?: string
           distance_m?: number | null
           elapsed_s?: number
           elevation_gain_m?: number | null
           ended_at: string
+          gym_id?: string | null
           id?: string
+          location_google_maps_url?: string | null
+          location_latitude?: number | null
+          location_longitude?: number | null
+          location_name?: string | null
+          location_source?: string
           max_hr?: number | null
           mode: string
           moving_s?: number | null
@@ -58,17 +73,25 @@ export type Database = {
           total_calories?: number | null
           user_id: string
           workout_date: string
+          workout_types?: string[] | null
         }
         Update: {
           active_calories?: number | null
           activity_type?: string
           avg_hr?: number | null
+          caption?: string | null
           created_at?: string
           distance_m?: number | null
           elapsed_s?: number
           elevation_gain_m?: number | null
           ended_at?: string
+          gym_id?: string | null
           id?: string
+          location_google_maps_url?: string | null
+          location_latitude?: number | null
+          location_longitude?: number | null
+          location_name?: string | null
+          location_source?: string
           max_hr?: number | null
           mode?: string
           moving_s?: number | null
@@ -80,6 +103,7 @@ export type Database = {
           total_calories?: number | null
           user_id?: string
           workout_date?: string
+          workout_types?: string[] | null
         }
         Relationships: []
       }

@@ -17,6 +17,7 @@ import type {
   RankingScope,
   StoryTrayRow,
   StoryViewerItemRow,
+  SurfaceActivityRow,
   SurfaceCheckinRow,
   SurfacePostRow,
 } from "./supabaseSocialTypes";
@@ -165,6 +166,28 @@ export async function queryHomeCheckinsSurface(
     data: [],
     error: isMissingRpc ? null : rpcRes.error,
   };
+}
+
+// Rastreio de treino — entradas de atividade no feed (mirror do check-in).
+// Fail-soft total: a surface é aditiva e nunca derruba o feed.
+export async function queryHomeActivitiesSurface(
+  client: GymCircleSupabaseClient,
+  limit: number,
+): Promise<{ data: SurfaceActivityRow[]; error: unknown }> {
+  const rpcRes = await (client as unknown as SupabaseClient).rpc(
+    "get_home_activities",
+    {
+      p_limit: limit,
+    },
+  );
+  if (!rpcRes.error) {
+    return {
+      data: (rpcRes.data ?? []) as unknown as SurfaceActivityRow[],
+      error: null,
+    };
+  }
+  logSurfaceFallback("home activities", rpcRes.error);
+  return { data: [], error: null };
 }
 
 export async function queryStoryTraySurface(

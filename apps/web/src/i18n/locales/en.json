@@ -41,22 +41,28 @@
   },
   "createHub": {
     "title": "Create",
+    "question": "What do you want to do?",
+    "subtitle": "Track a workout now or share something that already happened.",
     "startWorkout": {
       "title": "Start workout",
-      "detail": "Timer and rest · the app adds GPS and heart rate"
+      "detail": "Timer, rest and automatic tracking"
     },
     "postWorkout": {
-      "title": "Post workout",
-      "detail": "Photos and videos of the workout you did"
+      "title": "Share workout",
+      "detail": "Photos and videos"
     },
     "checkIn": {
-      "title": "Check-in",
-      "detail": "Mark you were at a gym, no photo needed"
+      "title": "Check in",
+      "detail": "Location only"
     }
   },
   "workout": {
     "title": "Start workout",
-    "precisionNotice": "The app is more precise — GPS, heart rate and calories. Here we track time and rest.",
+    "pickTitle": "Choose your workout",
+    "pickHint": "The timer starts as soon as you choose an activity.",
+    "inProgress": "Workout in progress",
+    "minimize": "Minimize workout",
+    "precisionNotice": "Simple mode · time and rest",
     "elapsed": "Workout time",
     "types": {
       "strength": "Strength",
@@ -72,16 +78,23 @@
       "ride": "In the app: GPS, speed and route",
       "other": "Any workout, time only"
     },
-    "liveBadge": "Live",
     "rest": {
       "title": "Rest",
+      "subtitle": "Timer between sets",
       "start": "Start rest",
-      "cancel": "Cancel",
-      "done": "Go!"
+      "startFor": "Start {{duration}}",
+      "cancel": "Cancel rest",
+      "done": "Go!",
+      "restart": "New rest"
     },
-    "finish": "Finish workout",
+    "finish": "Complete workout",
     "finishing": "Saving…",
     "discard": "Discard workout",
+    "discardConfirm": {
+      "title": "Discard this workout?",
+      "description": "The timer will be deleted and this workout won't count on your calendar.",
+      "confirm": "Discard workout"
+    },
     "errors": {
       "finish": "Couldn't save the workout. Try again."
     },
@@ -486,7 +499,7 @@
   "postScreen": {
     "activity": {
       "title": "Workout complete — {{type}} · {{elapsed}}",
-      "notice": "Day marked on your calendar and streak kept. Photo is optional — without one, we publish a card with your workout stats."
+      "notice": "Day marked on your calendar and streak kept. Without a photo your workout still shows in the feed — you can add photos later to turn it into a post."
     },
     "topBar": {
       "eyebrow": "Workout post",
@@ -758,6 +771,11 @@
     },
     "loadingMore": "Loading more...",
     "skeletonAria": "Loading feed",
+    "activity": {
+      "badge": "Workout",
+      "openProfile": "Open @{{username}}'s profile",
+      "addPhoto": "Add photos"
+    },
     "checkin": {
       "badge": "Check-in",
       "action": "Checked in at",

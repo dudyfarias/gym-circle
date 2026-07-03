@@ -1735,6 +1735,17 @@ export function GymCirclePreview({
               setScrollState("top");
               setActiveScreen("feed");
             }}
+            onSaveActivityEntry={async (input) => {
+              // Sem foto: salva legenda/local/tags na ENTRADA de atividade
+              // (feed mostra como check-in de treino; foto depois promove).
+              if (composerActivity && !composerActivity.id.startsWith("demo-")) {
+                await social.actions.saveActivityEntry?.(composerActivity.id, input);
+              }
+              setComposerActivity(null);
+              setComposerWorkoutDate(null);
+              setScrollState("top");
+              setActiveScreen("feed");
+            }}
             onPublish={async (input) => {
               await social.actions.publishWorkout({
                 ...input,
@@ -1788,9 +1799,24 @@ export function GymCirclePreview({
         return (
           <FeedScreen
             currentUser={social.currentUser}
+            feedActivities={social.feedActivities ?? []}
             feedCheckins={social.feedCheckins}
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
+            onAddActivityPhoto={(activity) => {
+              // Entrada de atividade + foto → composer promove a post
+              // (source_activity_id); a entrada some do feed ao publicar.
+              setComposerActivity({
+                id: activity.id,
+                activityType:
+                  activity.activityType as ComposerActivityContext["activityType"],
+                elapsedS: activity.elapsedS,
+                workoutDate: activity.workoutDate,
+              });
+              setComposerWorkoutDate(null);
+              setScrollState("top");
+              setActiveScreen("post");
+            }}
             hasDistancePosts={hasDistancePosts}
             headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
