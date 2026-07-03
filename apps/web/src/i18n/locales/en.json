@@ -683,6 +683,14 @@
   "postMenu": {
     "editCaption": "Edit caption and type",
     "deletePost": "Delete post",
+    "editCheckin": "Edit check-in",
+    "deleteCheckin": "Delete check-in",
+    "deleteCheckinTitle": "Delete this check-in?",
+    "deleteCheckinDescription": "This can't be undone. The check-in will be removed from the feed and that day's streak will be recalculated.",
+    "editActivity": "Edit workout",
+    "deleteActivity": "Delete workout",
+    "deleteActivityTitle": "Delete this workout?",
+    "deleteActivityDescription": "This can't be undone. The workout will be removed from the feed and that day's streak will be recalculated.",
     "muteUser": "Mute user",
     "reportPost": "Report post",
     "blockUser": "Block user"

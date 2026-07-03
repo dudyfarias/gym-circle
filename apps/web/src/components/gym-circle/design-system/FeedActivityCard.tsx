@@ -1,8 +1,9 @@
 "use client";
 
-import { ImagePlus, MapPin, Timer } from "lucide-react";
+import { ImagePlus, MapPin, MoreHorizontal, Timer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/IconButton";
 import type { EnrichedActivity } from "../social/types";
 import { formatElapsed } from "../workout/workoutElapsed";
 
@@ -11,6 +12,7 @@ type FeedActivityCardProps = {
   formatTime: (createdAt: string) => string;
   /** Dono: adicionar foto → o composer promove a entrada a post. */
   onAddPhoto?: (activity: EnrichedActivity) => void;
+  onOpenMenu?: (activityId: string) => void;
   onSelectGym?: (gymId: string) => void;
   onSelectUser?: (userId: string) => void;
 };
@@ -32,6 +34,7 @@ export function FeedActivityCard({
   activity,
   formatTime,
   onAddPhoto,
+  onOpenMenu,
   onSelectGym,
   onSelectUser,
 }: FeedActivityCardProps) {
@@ -71,9 +74,20 @@ export function FeedActivityCard({
             @{activity.author.username} · {formatTime(activity.createdAt)}
           </p>
         </div>
-        <span className="rounded-full bg-[var(--gc-blue)]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--gc-blue)]">
-          {t("feedScreen.activity.badge")}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="rounded-full bg-[var(--gc-blue)]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--gc-blue)]">
+            {t("feedScreen.activity.badge")}
+          </span>
+          {onOpenMenu ? (
+            <IconButton
+              className="size-11"
+              label={t("feed.post.menuOpenLabel")}
+              onClick={() => onOpenMenu(activity.id)}
+            >
+              <MoreHorizontal size={18} />
+            </IconButton>
+          ) : null}
+        </div>
       </div>
 
       {/* Stats do treino (tipo + duração + extras quando existem) */}

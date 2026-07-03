@@ -102,3 +102,19 @@ describe("activityService.recentForUser", () => {
     expect(list[0].userId).toBe("u1");
   });
 });
+
+describe("activityService.remove", () => {
+  it("apaga a atividade pelo id", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const remove = vi.fn().mockReturnValue({ eq });
+    const client = {
+      from: vi.fn().mockReturnValue({ delete: remove }),
+    } as unknown as GymCircleClient;
+
+    await activityService(client).remove("a1");
+
+    expect(client.from).toHaveBeenCalledWith("activities");
+    expect(remove).toHaveBeenCalledOnce();
+    expect(eq).toHaveBeenCalledWith("id", "a1");
+  });
+});

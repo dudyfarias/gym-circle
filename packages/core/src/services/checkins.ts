@@ -49,6 +49,15 @@ export function checkinService(client: GymCircleClient) {
       return data;
     },
 
+    /** Remove um check-in próprio; o trigger recalcula dia/streak. */
+    async remove(checkinId: string): Promise<void> {
+      const { error } = await client
+        .from("checkins")
+        .delete()
+        .eq("id", checkinId);
+      if (error) throw error;
+    },
+
     async listToday(): Promise<CheckinRow[]> {
       const today = getGymCircleDateKey();
       const { data, error } = await client

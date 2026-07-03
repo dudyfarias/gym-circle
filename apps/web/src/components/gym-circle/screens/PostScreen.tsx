@@ -161,7 +161,7 @@ export function PostScreen({
     : "";
   const getErrorMessage = (err: unknown) =>
     err instanceof Error ? err.message : t("postScreen.publish.errors.generic");
-  const [caption, setCaption] = useState("");
+  const [caption, setCaption] = useState(activityContext?.caption ?? "");
   const [composerStep, setComposerStep] = useState<ComposerStep>("media");
   // Academias catalogadas durante essa sessão de post (via search sheet) —
   // se juntam às `gyms` recebidas via prop pra que o select reconheça.
@@ -172,16 +172,38 @@ export function PostScreen({
   // Sprint 13 — até 5 tags (multi-select de chips). Guarda os VALORES escolhidos.
   // Treino rastreado pré-seleciona a tag correspondente ao tipo.
   const [selectedWorkoutValues, setSelectedWorkoutValues] = useState<string[]>(() => {
+    if (activityContext?.workoutTypes?.length) {
+      return activityContext.workoutTypes.slice(0, 5);
+    }
     const preset = activityContext
       ? ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType]
       : undefined;
     return preset ? [preset] : [];
   });
   const [customWorkoutType, setCustomWorkoutType] = useState("");
-  const [locationMode, setLocationMode] = useState<SelectableLocationSource>("none");
-  const [selectedGymId, setSelectedGymId] = useState("");
-  const [locationName, setLocationName] = useState("");
-  const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
+  const [locationMode, setLocationMode] = useState<SelectableLocationSource>(
+    activityContext?.gymId
+      ? "gym"
+      : typeof activityContext?.locationLatitude === "number" &&
+          typeof activityContext.locationLongitude === "number"
+        ? "current"
+        : "none",
+  );
+  const [selectedGymId, setSelectedGymId] = useState(
+    activityContext?.gymId ?? "",
+  );
+  const [locationName, setLocationName] = useState(
+    activityContext?.locationName ?? "",
+  );
+  const [coordinates, setCoordinates] = useState<Coordinates | null>(
+    typeof activityContext?.locationLatitude === "number" &&
+      typeof activityContext.locationLongitude === "number"
+      ? {
+          latitude: activityContext.locationLatitude,
+          longitude: activityContext.locationLongitude,
+        }
+      : null,
+  );
   const [imageUrl, setImageUrl] = useState("");
   const [mediaMeta, setMediaMeta] = useState<Omit<WorkoutMediaUploadResult, "imageUrl">>({});
   const [mediaType, setMediaType] = useState<PostMediaType>("image");

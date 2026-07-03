@@ -56,6 +56,15 @@ export function activityService(client: GymCircleClient) {
       if (error) throw error;
     },
 
+    /** Remove uma atividade própria; o trigger recalcula dia/streak. */
+    async remove(activityId: string): Promise<void> {
+      const { error } = await client
+        .from("activities")
+        .delete()
+        .eq("id", activityId);
+      if (error) throw error;
+    },
+
     /** Atividades recentes do próprio user (RLS restringe ao dono). */
     async recentForUser(userId: string, limit = 30): Promise<Activity[]> {
       const { data, error } = await client

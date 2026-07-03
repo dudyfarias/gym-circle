@@ -983,6 +983,18 @@ export function createSocialActions(
         await refresh();
         showFeedback("success", "Post apagado");
       },
+      async deleteCheckin(checkinId: string) {
+        await services.checkins.remove(checkinId);
+        await services.stats.refreshMine();
+        await refresh();
+        showFeedback("success", "Check-in apagado");
+      },
+      async deleteActivity(activityId: string) {
+        await services.activities.remove(activityId);
+        await services.stats.refreshMine();
+        await refresh();
+        showFeedback("success", "Treino apagado");
+      },
       async sendChatMessage(input: SendChatMessageInput) {
         let conversationIdForMessages = input.conversationId ?? null;
         if (input.conversationId) {

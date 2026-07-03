@@ -45,6 +45,8 @@ import { getLikesOverlayUsers } from "./social/likes";
 import { getRecentPostLocations } from "./social/locationSearch";
 import type {
   ComposerActivityContext,
+  EnrichedActivity,
+  EnrichedCheckin,
   EnrichedPost,
   EnrichedUser,
   SocialBundle,
@@ -198,7 +200,7 @@ export function GymCirclePreview({
   onUploadChatImage,
   onUploadAvatar,
 }: GymCirclePreviewProps) {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   // Sprint 4.5: services.push é o PushService de core/hooks, usado pelo
   // toggle de push notifications no AccountSettingsSheet.
   const services = useGymCircleServices();
@@ -258,6 +260,10 @@ export function GymCirclePreview({
   const [monthlyRecapOpen, setMonthlyRecapOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
+  const [entryMenuTarget, setEntryMenuTarget] = useState<{
+    kind: "checkin" | "activity";
+    id: string;
+  } | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [editCheckinId, setEditCheckinId] = useState<string | null>(null);
   const [checkinTargetGymId, setCheckinTargetGymId] = useState<string | null>(null);
@@ -295,6 +301,8 @@ export function GymCirclePreview({
   // destrutivas. `intent` decide qual handler dispara no botão "Confirmar".
   const [confirmIntent, setConfirmIntent] = useState<
     | { kind: "delete-post"; postId: string }
+    | { kind: "delete-checkin"; checkinId: string }
+    | { kind: "delete-activity"; activityId: string }
     | { kind: "delete-account" }
     | { kind: "sign-out" }
     | { kind: "suspend-account" }
@@ -614,6 +622,8 @@ export function GymCirclePreview({
   const editPost = social.actions.editPost;
   const promoteCheckin = social.actions.promoteCheckin;
   const deletePost = social.actions.deletePost;
+  const deleteCheckin = social.actions.deleteCheckin;
+  const deleteActivity = social.actions.deleteActivity;
   const canManageOwnPost = Boolean(editPost && deletePost);
 
   const openPostMenu = useCallback(
@@ -623,12 +633,37 @@ export function GymCirclePreview({
     [],
   );
   const closePostMenu = useCallback(() => setPostMenuId(null), []);
+  const openCheckinMenu = useCallback((checkinId: string) => {
+    setEntryMenuTarget({ kind: "checkin", id: checkinId });
+  }, []);
+  const openActivityMenu = useCallback((activityId: string) => {
+    setEntryMenuTarget({ kind: "activity", id: activityId });
+  }, []);
+  const closeEntryMenu = useCallback(() => setEntryMenuTarget(null), []);
   const closeEditPost = useCallback(() => {
     setEditPostId(null);
     setEditCheckinId(null);
   }, []);
   const openEditCheckin = useCallback((checkinId: string) => {
     setEditCheckinId(checkinId);
+  }, []);
+  const openActivityComposer = useCallback((activity: EnrichedActivity) => {
+    setComposerActivity({
+      id: activity.id,
+      activityType:
+        activity.activityType as ComposerActivityContext["activityType"],
+      elapsedS: activity.elapsedS,
+      workoutDate: activity.workoutDate,
+      caption: activity.caption,
+      workoutTypes: activity.workoutTypes,
+      gymId: activity.gymId,
+      locationName: activity.locationName ?? activity.gymName,
+      locationLatitude: activity.locationLatitude,
+      locationLongitude: activity.locationLongitude,
+    });
+    setComposerWorkoutDate(null);
+    setScrollState("top");
+    setActiveScreen("post");
   }, []);
   const openPostDetail = useCallback(
     (postId: string) => {
@@ -731,6 +766,57 @@ export function GymCirclePreview({
     if (!postMenuId) return null;
     return (social.profilePosts ?? social.feedPosts).find((p) => p.id === postMenuId) ?? null;
   }, [postMenuId, social.feedPosts, social.profilePosts]);
+  const entryMenuCheckin: EnrichedCheckin | null = useMemo(() => {
+    if (entryMenuTarget?.kind !== "checkin") return null;
+    return (
+      social.feedCheckins?.find(
+        (checkin) => checkin.id === entryMenuTarget.id,
+      ) ?? null
+    );
+  }, [entryMenuTarget, social.feedCheckins]);
+  const entryMenuActivity: EnrichedActivity | null = useMemo(() => {
+    if (entryMenuTarget?.kind !== "activity") return null;
+    return (
+      social.feedActivities?.find(
+        (activity) => activity.id === entryMenuTarget.id,
+      ) ?? null
+    );
+  }, [entryMenuTarget, social.feedActivities]);
+
+  const handleStartEditEntry = useCallback(() => {
+    if (entryMenuCheckin) {
+      setEditCheckinId(entryMenuCheckin.id);
+      setEntryMenuTarget(null);
+      return;
+    }
+    if (entryMenuActivity) {
+      setEntryMenuTarget(null);
+      openActivityComposer(entryMenuActivity);
+    }
+  }, [entryMenuActivity, entryMenuCheckin, openActivityComposer]);
+
+  const handleConfirmDeleteEntry = useCallback(() => {
+    if (entryMenuCheckin && deleteCheckin) {
+      setConfirmIntent({
+        kind: "delete-checkin",
+        checkinId: entryMenuCheckin.id,
+      });
+      setEntryMenuTarget(null);
+      return;
+    }
+    if (entryMenuActivity && deleteActivity) {
+      setConfirmIntent({
+        kind: "delete-activity",
+        activityId: entryMenuActivity.id,
+      });
+      setEntryMenuTarget(null);
+    }
+  }, [
+    deleteActivity,
+    deleteCheckin,
+    entryMenuActivity,
+    entryMenuCheckin,
+  ]);
 
   const hasDistancePosts = useMemo(
     () =>
@@ -1803,20 +1889,7 @@ export function GymCirclePreview({
             feedCheckins={social.feedCheckins}
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
-            onAddActivityPhoto={(activity) => {
-              // Entrada de atividade + foto → composer promove a post
-              // (source_activity_id); a entrada some do feed ao publicar.
-              setComposerActivity({
-                id: activity.id,
-                activityType:
-                  activity.activityType as ComposerActivityContext["activityType"],
-                elapsedS: activity.elapsedS,
-                workoutDate: activity.workoutDate,
-              });
-              setComposerWorkoutDate(null);
-              setScrollState("top");
-              setActiveScreen("post");
-            }}
+            onAddActivityPhoto={openActivityComposer}
             hasDistancePosts={hasDistancePosts}
             headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
@@ -1840,6 +1913,8 @@ export function GymCirclePreview({
             // pro mesmo callback (`onOpenPost`) nos profile sheets.
             onOpenPostDetails={openPostDetail}
             onOpenPostMenu={openPostMenu}
+            onOpenActivityMenu={openActivityMenu}
+            onOpenCheckinMenu={openCheckinMenu}
             onSelectGym={openGymDetail}
             onEditCheckin={promoteCheckin ? openEditCheckin : undefined}
             onOpenStory={social.actions.openStory}
@@ -1887,6 +1962,9 @@ export function GymCirclePreview({
     usersById,
     resolveUser,
     openPostMenu,
+    openActivityMenu,
+    openCheckinMenu,
+    openActivityComposer,
     openEditCheckin,
     promoteCheckin,
     currentUserPosts,
@@ -2454,6 +2532,23 @@ export function GymCirclePreview({
             }}
             open={postMenuId !== null}
           />
+          <PostMenuSheet
+            deleteLabel={
+              entryMenuTarget?.kind === "checkin"
+                ? t("postMenu.deleteCheckin")
+                : t("postMenu.deleteActivity")
+            }
+            editLabel={
+              entryMenuTarget?.kind === "checkin"
+                ? t("postMenu.editCheckin")
+                : t("postMenu.editActivity")
+            }
+            isOwner
+            onClose={closeEntryMenu}
+            onDelete={handleConfirmDeleteEntry}
+            onEdit={handleStartEditEntry}
+            open={entryMenuTarget !== null}
+          />
           {editPost ? (
             <EditPostSheet
               checkin={editCheckinTarget}
@@ -2472,7 +2567,7 @@ export function GymCirclePreview({
             />
           ) : null}
           <ConfirmSheet
-            cancelLabel="Cancelar"
+            cancelLabel={t("common.cancel")}
             confirmLabel={
               activeConfirmKind === "delete-account"
                 ? "Excluir minha conta"
@@ -2482,7 +2577,11 @@ export function GymCirclePreview({
                     ? "Sair"
                     : activeConfirmKind === "restore-streak"
                       ? "Restaurar"
-                      : "Apagar post"
+                      : activeConfirmKind === "delete-checkin"
+                        ? t("postMenu.deleteCheckin")
+                        : activeConfirmKind === "delete-activity"
+                          ? t("postMenu.deleteActivity")
+                          : t("postMenu.deletePost")
             }
             description={
               activeConfirmKind === "delete-account"
@@ -2493,7 +2592,11 @@ export function GymCirclePreview({
                     ? "Você volta para a tela inicial. Sua conta continua ativa e seus dados permanecem salvos."
                     : activeConfirmKind === "restore-streak"
                       ? `Use 1 restaurador para proteger o dia que passou. ${restoreCountdown ?? "A janela está quase acabando."}`
-                      : "Não dá pra desfazer. O post some do feed e do seu perfil."
+                      : activeConfirmKind === "delete-checkin"
+                        ? t("postMenu.deleteCheckinDescription")
+                        : activeConfirmKind === "delete-activity"
+                          ? t("postMenu.deleteActivityDescription")
+                          : "Não dá pra desfazer. O post some do feed e do seu perfil."
             }
             onClose={() => {
               if (restorePromptOpen && restorePromptKey) {
@@ -2517,6 +2620,14 @@ export function GymCirclePreview({
                 // user deleta o post que está sendo exibido lá.
                 if (postDetailFullId === intent.postId) closePostDetailFull();
                 await deletePost(intent.postId);
+                return;
+              }
+              if (intent.kind === "delete-checkin" && deleteCheckin) {
+                await deleteCheckin(intent.checkinId);
+                return;
+              }
+              if (intent.kind === "delete-activity" && deleteActivity) {
+                await deleteActivity(intent.activityId);
                 return;
               }
               if (intent.kind === "delete-account") {
@@ -2547,7 +2658,11 @@ export function GymCirclePreview({
                     ? "Sair da conta?"
                     : activeConfirmKind === "restore-streak"
                       ? "Restaurar streak?"
-                      : "Apagar esse post?"
+                      : activeConfirmKind === "delete-checkin"
+                        ? t("postMenu.deleteCheckinTitle")
+                        : activeConfirmKind === "delete-activity"
+                          ? t("postMenu.deleteActivityTitle")
+                          : "Apagar esse post?"
             }
             tone={
               activeConfirmKind === "restore-streak" || activeConfirmKind === "sign-out"

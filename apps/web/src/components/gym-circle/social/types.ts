@@ -421,6 +421,12 @@ export type ComposerActivityContext = {
   activityType: WebActivityInput["activityType"];
   elapsedS: number;
   workoutDate: string;
+  caption?: string | null;
+  workoutTypes?: string[] | null;
+  gymId?: string | null;
+  locationName?: string | null;
+  locationLatitude?: number | null;
+  locationLongitude?: number | null;
 };
 
 export type FeedbackTone = "brand" | "success" | "like" | "comment" | "follow";
@@ -516,6 +522,8 @@ export type SocialActions = {
   updateCheckin?: (checkinId: string, gymId: string) => Promise<void>;
   convertPostToCheckin?: (postId: string, gymId: string) => Promise<void>;
   deletePost?: (postId: string) => Promise<void>;
+  deleteCheckin?: (checkinId: string) => Promise<void>;
+  deleteActivity?: (activityId: string) => Promise<void>;
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   refreshChat?: () => Promise<void>;
   refreshPostDetails?: (postId: string) => Promise<void>;

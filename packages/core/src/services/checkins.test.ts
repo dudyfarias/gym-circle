@@ -18,4 +18,17 @@ describe("checkinService unified social editor", () => {
       p_gym_id: "gym-2",
     });
   });
+
+  it("apaga um check-in pelo id", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const remove = vi.fn().mockReturnValue({ eq });
+    const service = checkinService({
+      from: vi.fn().mockReturnValue({ delete: remove }),
+    } as unknown as GymCircleClient);
+
+    await service.remove("checkin-1");
+
+    expect(remove).toHaveBeenCalledOnce();
+    expect(eq).toHaveBeenCalledWith("id", "checkin-1");
+  });
 });

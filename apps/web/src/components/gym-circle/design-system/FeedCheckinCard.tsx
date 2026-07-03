@@ -1,18 +1,20 @@
 "use client";
 
-import { ImagePlus, MapPin } from "lucide-react";
+import { ImagePlus, MapPin, MoreHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
   buildGoogleMapsSearchUrl,
   buildGoogleMapsUrlFromCoordinates,
 } from "@gym-circle/core";
 import { Avatar } from "@/components/ui/Avatar";
+import { IconButton } from "@/components/ui/IconButton";
 import type { EnrichedCheckin } from "../social/types";
 
 type FeedCheckinCardProps = {
   checkin: EnrichedCheckin;
   formatTime: (createdAt: string) => string;
   onEdit?: (checkinId: string) => void;
+  onOpenMenu?: (checkinId: string) => void;
   onSelectGym?: (gymId: string) => void;
   onSelectUser?: (userId: string) => void;
 };
@@ -21,6 +23,7 @@ export function FeedCheckinCard({
   checkin,
   formatTime,
   onEdit,
+  onOpenMenu,
   onSelectGym,
   onSelectUser,
 }: FeedCheckinCardProps) {
@@ -98,9 +101,20 @@ export function FeedCheckinCard({
             @{checkin.author.username} · {formatTime(checkin.createdAt)}
           </p>
         </div>
-        <span className="rounded-full bg-[var(--gc-brand)]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--gc-brand)]">
-          {t("feedScreen.checkin.badge")}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="rounded-full bg-[var(--gc-brand)]/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--gc-brand)]">
+            {t("feedScreen.checkin.badge")}
+          </span>
+          {onOpenMenu ? (
+            <IconButton
+              className="size-11"
+              label={t("feed.post.menuOpenLabel")}
+              onClick={() => onOpenMenu(checkin.id)}
+            >
+              <MoreHorizontal size={18} />
+            </IconButton>
+          ) : null}
+        </div>
       </div>
 
       {onSelectGym ? (

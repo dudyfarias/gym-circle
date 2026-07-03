@@ -683,6 +683,14 @@
   "postMenu": {
     "editCaption": "Editar legenda e tipo",
     "deletePost": "Apagar post",
+    "editCheckin": "Editar check-in",
+    "deleteCheckin": "Apagar check-in",
+    "deleteCheckinTitle": "Apagar este check-in?",
+    "deleteCheckinDescription": "Não dá para desfazer. O check-in será removido do feed e o streak deste dia será recalculado.",
+    "editActivity": "Editar treino",
+    "deleteActivity": "Apagar treino",
+    "deleteActivityTitle": "Apagar este treino?",
+    "deleteActivityDescription": "Não dá para desfazer. O treino será removido do feed e o streak deste dia será recalculado.",
     "muteUser": "Silenciar usuário",
     "reportPost": "Denunciar post",
     "blockUser": "Bloquear usuário"

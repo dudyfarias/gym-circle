@@ -14,6 +14,8 @@ type PostMenuSheetProps = {
   onBlock?: () => void;
   /** Silencia posts desse autor sem deixar de seguir nem bloquear. */
   onMute?: () => void;
+  editLabel?: string;
+  deleteLabel?: string;
 };
 
 /**
@@ -29,6 +31,8 @@ export function PostMenuSheet({
   onReport,
   onBlock,
   onMute,
+  editLabel,
+  deleteLabel,
 }: PostMenuSheetProps) {
   const { t } = useTranslation();
   useEffect(() => {
@@ -60,7 +64,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <Pencil size={17} strokeWidth={2.6} />
-                {t("postMenu.editCaption")}
+                {editLabel ?? t("postMenu.editCaption")}
               </button>
               <button
                 className="gc-pressable flex h-14 w-full items-center justify-center gap-2 text-[15px] font-black text-[var(--gc-pink)]"
@@ -68,7 +72,7 @@ export function PostMenuSheet({
                 type="button"
               >
                 <Trash2 size={17} strokeWidth={2.6} />
-                {t("postMenu.deletePost")}
+                {deleteLabel ?? t("postMenu.deletePost")}
               </button>
             </>
           ) : (

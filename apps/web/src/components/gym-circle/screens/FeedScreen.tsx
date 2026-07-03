@@ -60,6 +60,8 @@ type FeedScreenProps = {
   onSelectGym?: (gymId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
+  onOpenCheckinMenu?: (checkinId: string) => void;
+  onOpenActivityMenu?: (activityId: string) => void;
   onEditCheckin?: (checkinId: string) => void;
   /** Dono da atividade: adicionar foto → composer promove a entrada a post. */
   onAddActivityPhoto?: (activity: EnrichedActivity) => void;
@@ -95,6 +97,8 @@ export function FeedScreen({
   onSelectGym,
   resolveUser,
   onOpenPostMenu,
+  onOpenCheckinMenu,
+  onOpenActivityMenu,
   onEditCheckin,
   onAddActivityPhoto,
   onOpenLikes,
@@ -263,6 +267,11 @@ export function FeedScreen({
                       ? onEditCheckin
                       : undefined
                   }
+                  onOpenMenu={
+                    item.checkin.userId === currentUser.id
+                      ? onOpenCheckinMenu
+                      : undefined
+                  }
                   onSelectGym={onSelectGym}
                   onSelectUser={onSelectUser}
                 />
@@ -273,6 +282,11 @@ export function FeedScreen({
                   onAddPhoto={
                     item.activity.userId === currentUser.id
                       ? onAddActivityPhoto
+                      : undefined
+                  }
+                  onOpenMenu={
+                    item.activity.userId === currentUser.id
+                      ? onOpenActivityMenu
                       : undefined
                   }
                   onSelectGym={onSelectGym}
