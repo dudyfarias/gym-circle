@@ -27,7 +27,6 @@ import {
   getMediaUploadConcurrency,
 } from "./mediaUploadQueue";
 import { getMediaFileType, isSupportedMediaFile } from "./mediaFileType";
-import { NativeMediaPickerService } from "./native/NativeMediaPickerService";
 import type {
   EditPostInput,
   EnrichedCheckin,
@@ -155,7 +154,6 @@ export function EditPostSheet({
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const pickerBusyRef = useRef(false);
   const isPromotingCheckin = Boolean(checkin);
   const targetUserId = post?.userId ?? checkin?.userId ?? null;
   const searchableGyms = useMemo(() => {
@@ -246,29 +244,13 @@ export function EditPostSheet({
     setMediaChanged(true);
   }
 
-  async function openGallery() {
-    if (
-      pickerBusyRef.current ||
-      uploading ||
-      mediaItems.length >= MAX_MEDIA
-    ) {
+  function openGallery() {
+    if (uploading || mediaItems.length >= MAX_MEDIA) {
       return;
     }
-    pickerBusyRef.current = true;
-    try {
-      if (await NativeMediaPickerService.isNativePlatform()) {
-        // O input do WebView pode devolver file://, HEIC ou MIME vazio.
-        // O picker nativo normaliza esses casos antes de iniciar o upload.
-        const picked = await NativeMediaPickerService.pickWorkoutMediaMultiple();
-        if (picked.length > 0) {
-          await addFiles(picked.map((item) => item.file));
-        }
-        return;
-      }
-      fileInputRef.current?.click();
-    } finally {
-      pickerBusyRef.current = false;
-    }
+    // Mesmo caminho do composer: o input do WKWebView entrega File direto e
+    // evita o chooseFromGallery 8.2, que pode voltar vazio para PHAssets.
+    fileInputRef.current?.click();
   }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -482,7 +464,7 @@ export function EditPostSheet({
               <button
                 className="gc-pressable flex aspect-[4/5] w-full flex-col items-center justify-center gap-3 border border-dashed border-white/12 bg-white/[0.025] px-6 text-center"
                 disabled={uploading}
-                onClick={() => void openGallery()}
+                onClick={openGallery}
                 type="button"
               >
                 <span className="grid size-14 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
@@ -551,7 +533,7 @@ export function EditPostSheet({
                 aria-label={t("postScreen.media.addMore")}
                 className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
                 disabled={uploading}
-                onClick={() => void openGallery()}
+                onClick={openGallery}
                 type="button"
               >
                 <Plus size={18} />

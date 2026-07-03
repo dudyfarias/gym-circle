@@ -45,6 +45,7 @@ import { HapticsService } from "../native/HapticsService";
 import { NativeMediaPickerService } from "../native/NativeMediaPickerService";
 import { allSettledWithConcurrency, getMediaUploadConcurrency } from "../mediaUploadQueue";
 import { getMediaFileType, isSupportedMediaFile } from "../mediaFileType";
+import { errorMessage } from "../errorMessage";
 
 type PostScreenProps = {
   currentUser: EnrichedUser;
@@ -155,12 +156,15 @@ export function PostScreen({
 }: PostScreenProps) {
   const { t } = useTranslation();
   // "Registrar treino": modo retroativo (dia treinado sem mídia).
-  const isBackdated = Boolean(workoutDate);
+  const isBackdated = Boolean(workoutDate && !activityContext);
+  // Posts promovidos de uma atividade precisam herdar o mesmo workout_date
+  // para passar pela validação do banco, sem virar o fluxo "Registrar treino".
+  const publishWorkoutDate = workoutDate ?? activityContext?.workoutDate;
   const backdatedLabel = workoutDate
     ? `${workoutDate.slice(8, 10)}/${workoutDate.slice(5, 7)}/${workoutDate.slice(0, 4)}`
     : "";
   const getErrorMessage = (err: unknown) =>
-    err instanceof Error ? err.message : t("postScreen.publish.errors.generic");
+    errorMessage(err, t("postScreen.publish.errors.generic"));
   const [caption, setCaption] = useState(activityContext?.caption ?? "");
   const [composerStep, setComposerStep] = useState<ComposerStep>("media");
   // Academias catalogadas durante essa sessão de post (via search sheet) —
@@ -536,12 +540,17 @@ export function PostScreen({
     applyCover(next[0] ?? null);
   }
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleGalleryFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
-    // Câmera (1) ou galeria web (N). 1 = single (replace); N = carrossel.
-    if (files.length === 1) await uploadSelectedFile(files[0]);
-    else await uploadGalleryFiles(files);
+    // Galeria sempre adiciona. Antes, selecionar UMA mídia ao tocar em "+"
+    // apagava o carrossel atual ao cair no fluxo single/replace da câmera.
+    await uploadGalleryFiles(files);
+  }
+
+  async function handleCameraFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file) await uploadSelectedFile(file);
   }
 
   async function openNativeCamera() {
@@ -567,22 +576,13 @@ export function PostScreen({
     }
   }
 
-  async function openNativeGallery() {
-    if (pickerBusyRef.current || uploading) return;
-    pickerBusyRef.current = true;
+  function openGallery() {
+    if (uploading) return;
     void HapticsService.selection();
-    try {
-      if (await NativeMediaPickerService.isNativePlatform()) {
-        const picked = await NativeMediaPickerService.pickWorkoutMediaMultiple();
-        if (picked.length > 0) {
-          await uploadGalleryFiles(picked.map((item) => item.file));
-        }
-        return;
-      }
-      fileInputRef.current?.click();
-    } finally {
-      pickerBusyRef.current = false;
-    }
+    // O chooseFromGallery do @capacitor/camera 8.2 pode voltar vazio no iOS
+    // quando o PHAsset não expõe fullSizeImageURL. O input do WKWebView usa o
+    // picker do sistema e entrega File diretamente, sem URI -> fetch -> Blob.
+    fileInputRef.current?.click();
   }
 
   function removeLocation() {
@@ -653,9 +653,9 @@ export function PostScreen({
       setSelectedGymId(cataloged.id);
       setSearchOpen(false);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : t("postScreen.location.errors.saveFailed");
-      setSearchError(message);
+      setSearchError(
+        errorMessage(err, t("postScreen.location.errors.saveFailed")),
+      );
     } finally {
       setCataloging(false);
     }
@@ -672,7 +672,7 @@ export function PostScreen({
       setPublishing(true);
       setPublishError(null);
       try {
-        await onCreateCheckin(resolvedLocation.gymId, workoutDate);
+        await onCreateCheckin(resolvedLocation.gymId, publishWorkoutDate);
         void HapticsService.success();
       } catch (err) {
         void HapticsService.error();
@@ -759,7 +759,7 @@ export function PostScreen({
         destinations: isBackdated
           ? { feed: true, story: false }
           : { feed: postToFeed, story: postToStory },
-        workoutDate,
+        workoutDate: publishWorkoutDate,
       });
       void HapticsService.success();
     } catch (err) {
@@ -889,7 +889,7 @@ export function PostScreen({
         accept="image/*,video/*"
         className="hidden"
         multiple
-        onChange={handleFileChange}
+        onChange={handleGalleryFileChange}
         ref={fileInputRef}
         type="file"
       />
@@ -897,7 +897,7 @@ export function PostScreen({
         accept="image/*,video/*"
         capture="environment"
         className="hidden"
-        onChange={handleFileChange}
+        onChange={handleCameraFileChange}
         ref={cameraInputRef}
         type="file"
       />
@@ -961,7 +961,7 @@ export function PostScreen({
                 <button
                   aria-label={t("postScreen.media.swapAria")}
                   className="gc-pressable absolute right-3 top-3 grid size-11 place-items-center rounded-full bg-black/72 text-white backdrop-blur-md"
-                  onClick={() => void openNativeGallery()}
+                  onClick={openGallery}
                   type="button"
                 >
                   <RefreshCw size={16} strokeWidth={2.4} />
@@ -1027,7 +1027,7 @@ export function PostScreen({
                   aria-label={t("postScreen.media.addMore")}
                   className="gc-pressable grid size-16 shrink-0 place-items-center rounded-xl border border-white/10 bg-white/[0.04] text-white/60 disabled:opacity-50"
                   disabled={uploading}
-                  onClick={() => void openNativeGallery()}
+                  onClick={openGallery}
                   type="button"
                 >
                   <Plus size={18} />
@@ -1077,7 +1077,7 @@ export function PostScreen({
             <button
               className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.06] text-[14px] font-bold text-white disabled:opacity-55"
               disabled={uploading}
-              onClick={() => void openNativeGallery()}
+              onClick={openGallery}
               type="button"
             >
               <Upload size={16} strokeWidth={2.4} />

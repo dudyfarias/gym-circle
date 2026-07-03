@@ -18,6 +18,7 @@ import { clearImageCache } from "../design-system/imageCache";
 import { clearNativeFeelCaches } from "../native/LocalAppCache";
 import { PushNotificationsService } from "../native/PushNotificationsService";
 import { markPerf, measurePerf } from "../performance";
+import { buildWorkoutPublishPlan } from "../postPublishPlan";
 import { simulateHaptic } from "./haptics";
 import { mergeProfileRows } from "./profileRows";
 import { buildStoryShareBody } from "./storyInteractions";
@@ -675,15 +676,12 @@ export function createSocialActions(
         showFeedback("success", "Treino no feed", "Adicione fotos quando quiser");
       },
       async publishWorkout(input: CreateWorkoutPostInput) {
-        // "Registrar treino": post retroativo de um dia treinado sem mídia.
-        // Vai SÓ pro feed (sem story) e com created_at backdatado ao meio-dia
-        // daquele dia (SP) — não sobe no topo do feed; só preenche o
-        // calendário/perfil via workout_date.
-        const backdate = input.workoutDate?.trim() || null;
-        const backdatedCreatedAt = backdate ? `${backdate}T12:00:00-03:00` : undefined;
-        const destinations = backdate
-          ? { feed: true, story: false }
-          : input.destinations ?? { feed: true, story: true };
+        // `workoutDate` tem dois sentidos: registro manual retroativo (força
+        // feed + created_at antigo) ou dia herdado de sourceActivityId (mantém
+        // publicação normal, mas satisfaz o vínculo validado pelo banco).
+        const publishPlan = buildWorkoutPublishPlan(input);
+        const backdate = publishPlan.workoutDate;
+        const destinations = publishPlan.destinations;
         const wantsFeed = destinations.feed;
         const wantsStory = destinations.story;
         if (!wantsFeed && !wantsStory) {
@@ -696,7 +694,7 @@ export function createSocialActions(
         if (wantsFeed) {
           const post = await services.posts.create(currentUserId, {
             workoutDate: backdate ?? undefined,
-            createdAt: backdatedCreatedAt,
+            createdAt: publishPlan.createdAt,
             sourceActivityId: input.sourceActivityId ?? null,
             imageUrl: input.imageUrl,
             mediaType: input.mediaType,
@@ -741,7 +739,7 @@ export function createSocialActions(
         await services.stats.refreshMine();
         await refresh();
 
-        if (backdate) {
+        if (publishPlan.isManualBackdate) {
           showFeedback("success", "Treino registrado", "Foto adicionada ao calendário");
           return;
         }
