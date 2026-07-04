@@ -277,8 +277,20 @@ export function EditPostSheet({
     if (files.length > 0) await addFiles(files);
   }
 
+  // Só reinicializa o form UMA vez por alvo aberto. Antes o efeito dependia
+  // do OBJETO `post` inteiro e chamava setStep("media") toda vez que o feed
+  // reconstruía o post (realtime/refresh) — o que jogava o usuário de volta
+  // pra etapa da foto no meio da edição. Agora reseta só quando abre pra um
+  // post/check-in diferente (por id).
+  const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!open || (!post && !checkin)) return;
+    if (!open || (!post && !checkin)) {
+      initializedForRef.current = null;
+      return;
+    }
+    const targetKey = `${post?.id ?? ""}:${checkin?.id ?? ""}`;
+    if (initializedForRef.current === targetKey) return;
+    initializedForRef.current = targetKey;
     const id = window.setTimeout(() => {
       setCaption(post?.caption ?? "");
       setWorkoutType(post?.workoutType ?? "");
