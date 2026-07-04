@@ -10,9 +10,7 @@ import {
   MapPin,
   MessageCircle,
   MoreHorizontal,
-  Route,
   Send,
-  Timer,
   Video,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -25,7 +23,6 @@ import {
 import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
 import type { EnrichedPost, EnrichedUser, WorkoutDetail } from "../social/types";
-import { formatElapsed, formatKm } from "../workout/workoutElapsed";
 import { MediaCarousel } from "./MediaCarousel";
 import { PinchZoomImage } from "./PinchZoomImage";
 import { StreakBadge } from "./StreakBadge";
@@ -353,33 +350,6 @@ function SocialPostCardComponent({
         </div>
       </div>
 
-      {/* P0.1 — post promovido de treino: faixa tocável (área sem botões do
-          header) → overlay de detalhes estilo Apple. Só quando há métricas. */}
-      {post.workout && onOpenWorkoutDetail ? (
-        <button
-          className="gc-pressable mx-4 mb-3 flex w-[calc(100%_-_2rem)] items-center gap-3 rounded-[18px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] px-3.5 py-2.5 text-left"
-          onClick={() => post.workout && onOpenWorkoutDetail(post.workout)}
-          type="button"
-        >
-          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--gc-blue)] text-black">
-            {(post.workout.distanceM ?? 0) > 0 ? (
-              <Route size={16} strokeWidth={2.8} />
-            ) : (
-              <Timer size={16} strokeWidth={2.8} />
-            )}
-          </span>
-          <span className="min-w-0 flex-1 text-[12.5px] font-black text-white">
-            {(post.workout.distanceM ?? 0) > 0
-              ? formatKm(post.workout.distanceM ?? 0)
-              : formatElapsed(post.workout.elapsedS)}
-            <span className="ml-1.5 font-bold text-white/45">
-              {t("workoutDetail.detailsTitle")}
-            </span>
-          </span>
-          <ChevronRight className="shrink-0 text-white/40" size={16} strokeWidth={2.6} />
-        </button>
-      ) : null}
-
       {/* Double-tap-to-like (Instagram): wrapper em volta da mídia (carrossel
           OU single) detecta o duplo-toque e mostra o coração. Não bloqueia
           swipe/pinch/tap-de-vídeo (ver handlers). */}
@@ -508,9 +478,23 @@ function SocialPostCardComponent({
             ) : null}
           </div>
           {post.workoutType ? (
-            <span className="rounded-full bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-white/72">
-              {post.workoutType}
-            </span>
+            post.workout && onOpenWorkoutDetail ? (
+              // Post com treino integrado: a tag da modalidade abre o overlay
+              // de detalhes (estilo Apple) — sem faixa extra, menos poluído.
+              <button
+                aria-label={t("workoutDetail.title")}
+                className="gc-pressable flex items-center gap-1.5 rounded-full bg-[var(--gc-blue)]/12 px-3 py-2 text-[12px] font-black text-[var(--gc-blue)]"
+                onClick={() => post.workout && onOpenWorkoutDetail(post.workout)}
+                type="button"
+              >
+                {post.workoutType}
+                <ChevronRight size={13} strokeWidth={3} />
+              </button>
+            ) : (
+              <span className="rounded-full bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-white/72">
+                {post.workoutType}
+              </span>
+            )
           ) : null}
         </div>
 
