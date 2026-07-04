@@ -711,6 +711,18 @@ export function createSocialActions(
         await refresh();
         showFeedback("success", "Treino no feed", "Adicione fotos quando quiser");
       },
+      async fetchMergeableActivities(workoutDate: string) {
+        return services.activities.mergeableForDate(workoutDate);
+      },
+      async integrateWorkoutIntoPost(postId: string, activityId: string) {
+        await services.activities.mergeIntoPost(postId, activityId);
+        await refresh();
+        showFeedback(
+          "success",
+          "Treino integrado",
+          "As estatísticas aparecem no post",
+        );
+      },
       async publishWorkout(input: CreateWorkoutPostInput) {
         // `workoutDate` tem dois sentidos: registro manual retroativo (força
         // feed + created_at antigo) ou dia herdado de sourceActivityId (mantém

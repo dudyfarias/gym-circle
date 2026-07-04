@@ -152,6 +152,11 @@
     "avgHeartRate": "Batimentos Médios",
     "mapTitle": "Mapa"
   },
+  "integrateWorkout": {
+    "title": "Integrar treino",
+    "subtitle": "Escolha um treino deste dia para juntar ao post. As estatísticas aparecem no post e o treino sai do feed.",
+    "empty": "Nenhum treino livre neste dia."
+  },
   "feed": {
     "title": "Gym Circle",
     "loading": "Carregando feed...",
@@ -740,7 +745,8 @@
     "deleteActivityDescription": "Não dá para desfazer. O treino será removido do feed e o streak deste dia será recalculado.",
     "muteUser": "Silenciar usuário",
     "reportPost": "Denunciar post",
-    "blockUser": "Bloquear usuário"
+    "blockUser": "Bloquear usuário",
+    "integrateWorkout": "Integrar treino"
   },
   "likesOverlay": {
     "title": "Curtidas",

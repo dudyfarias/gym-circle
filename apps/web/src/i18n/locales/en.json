@@ -152,6 +152,11 @@
     "avgHeartRate": "Avg. Heart Rate",
     "mapTitle": "Map"
   },
+  "integrateWorkout": {
+    "title": "Add a workout",
+    "subtitle": "Pick a workout from this day to merge into the post. The stats show on the post and the workout leaves the feed.",
+    "empty": "No free workout on this day."
+  },
   "feed": {
     "title": "Gym Circle",
     "loading": "Loading feed...",
@@ -740,7 +745,8 @@
     "deleteActivityDescription": "This can't be undone. The workout will be removed from the feed and that day's streak will be recalculated.",
     "muteUser": "Mute user",
     "reportPost": "Report post",
-    "blockUser": "Block user"
+    "blockUser": "Block user",
+    "integrateWorkout": "Add workout"
   },
   "likesOverlay": {
     "title": "Likes",

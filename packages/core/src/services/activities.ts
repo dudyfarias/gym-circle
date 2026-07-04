@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   activityInputToRow,
   activityRowToDomain,
@@ -76,5 +77,68 @@ export function activityService(client: GymCircleClient) {
       if (error) throw error;
       return ((data ?? []) as ActivityRow[]).map(activityRowToDomain);
     },
+
+    /**
+     * "Integrar treino": treinos do próprio user num dia (mesma data do post),
+     * ainda não vinculados a nenhum post. Alimenta o picker de integração.
+     */
+    async mergeableForDate(workoutDate: string): Promise<MergeableActivity[]> {
+      const { data, error } = await (client as unknown as SupabaseClient).rpc("get_mergeable_activities", {
+        p_workout_date: workoutDate,
+      });
+      if (error) throw error;
+      return ((data ?? []) as MergeableActivityRow[]).map((row) => ({
+        id: row.id,
+        activityType: row.activity_type,
+        elapsedS: row.elapsed_s ?? 0,
+        movingS: row.moving_s ?? null,
+        distanceM: row.distance_m ?? null,
+        elevationGainM: row.elevation_gain_m ?? null,
+        avgHr: row.avg_hr ?? null,
+        totalCalories: row.total_calories ?? null,
+        startedAt: row.started_at ?? null,
+        endedAt: row.ended_at ?? null,
+      }));
+    },
+
+    /**
+     * Integra o treino no post (post recebe source_activity_id): o post passa
+     * a mostrar as estatísticas e o treino some do feed (sem duplicar). O RPC
+     * valida dono + mesma data.
+     */
+    async mergeIntoPost(postId: string, activityId: string): Promise<void> {
+      const { error } = await (client as unknown as SupabaseClient).rpc("merge_activity_into_post", {
+        p_post_id: postId,
+        p_activity_id: activityId,
+      });
+      if (error) throw error;
+    },
   };
 }
+
+type MergeableActivityRow = {
+  id: string;
+  activity_type: string;
+  elapsed_s: number | null;
+  moving_s: number | null;
+  distance_m: number | null;
+  elevation_gain_m: number | null;
+  avg_hr: number | null;
+  total_calories: number | null;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
+/** Treino candidato a integrar num post (mesmo dia, ainda livre). */
+export type MergeableActivity = {
+  id: string;
+  activityType: string;
+  elapsedS: number;
+  movingS: number | null;
+  distanceM: number | null;
+  elevationGainM: number | null;
+  avgHr: number | null;
+  totalCalories: number | null;
+  startedAt: string | null;
+  endedAt: string | null;
+};

@@ -12,6 +12,7 @@ import {
 } from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
 import { ToastFeedback, WorkoutDetailOverlay } from "./design-system";
+import { IntegrateWorkoutSheet } from "./IntegrateWorkoutSheet";
 import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CreateHubSheet } from "./CreateHubSheet";
@@ -51,6 +52,7 @@ import type {
   EnrichedCheckin,
   EnrichedPost,
   EnrichedUser,
+  MergeableActivity,
   SocialBundle,
   WorkoutDetail,
 } from "./social/types";
@@ -226,6 +228,11 @@ export function GymCirclePreview({
   // Detalhes do treino (estilo Apple Atividades) — tocar nos stats da entrada
   // OU no header de um post promovido de treino (ambos viram WorkoutDetail).
   const [detailWorkout, setDetailWorkout] = useState<WorkoutDetail | null>(null);
+  // "Integrar treino": juntar um treino do mesmo dia ao post do menu.
+  const [integratePostId, setIntegratePostId] = useState<string | null>(null);
+  const [mergeableActivities, setMergeableActivities] = useState<MergeableActivity[]>([]);
+  const [mergeableLoading, setMergeableLoading] = useState(false);
+  const [integratingId, setIntegratingId] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -778,6 +785,42 @@ export function GymCirclePreview({
     if (!postMenuId) return null;
     return (social.profilePosts ?? social.feedPosts).find((p) => p.id === postMenuId) ?? null;
   }, [postMenuId, social.feedPosts, social.profilePosts]);
+
+  // "Integrar treino": abre o picker com os treinos do dia do post.
+  const openIntegrateWorkout = useCallback(() => {
+    const target = postMenuTarget;
+    setPostMenuId(null);
+    if (!target) return;
+    setIntegratePostId(target.id);
+    setMergeableActivities([]);
+    setMergeableLoading(true);
+    void (async () => {
+      try {
+        const list =
+          (await social.actions.fetchMergeableActivities?.(target.workoutDate)) ?? [];
+        setMergeableActivities(list);
+      } finally {
+        setMergeableLoading(false);
+      }
+    })();
+  }, [postMenuTarget, social.actions]);
+
+  const handleIntegrateSelect = useCallback(
+    (activityId: string) => {
+      const postId = integratePostId;
+      if (!postId) return;
+      setIntegratingId(activityId);
+      void (async () => {
+        try {
+          await social.actions.integrateWorkoutIntoPost?.(postId, activityId);
+          setIntegratePostId(null);
+        } finally {
+          setIntegratingId(null);
+        }
+      })();
+    },
+    [integratePostId, social.actions],
+  );
   const entryMenuCheckin: EnrichedCheckin | null = useMemo(() => {
     if (entryMenuTarget?.kind !== "checkin") return null;
     return (
@@ -2547,6 +2590,14 @@ export function GymCirclePreview({
               setPostMenuId(null);
               if (target) void social.actions.reportPost?.(target.id, target.userId);
             }}
+            onIntegrateWorkout={
+              canManageOwnPost &&
+              postMenuTarget?.userId === social.currentUser.id &&
+              !postMenuTarget?.workout &&
+              social.actions.integrateWorkoutIntoPost
+                ? openIntegrateWorkout
+                : undefined
+            }
             open={postMenuId !== null}
           />
           <PostMenuSheet
@@ -2572,6 +2623,14 @@ export function GymCirclePreview({
               onClose={() => setDetailWorkout(null)}
             />
           ) : null}
+          <IntegrateWorkoutSheet
+            activities={mergeableActivities}
+            integratingId={integratingId}
+            loading={mergeableLoading}
+            onClose={() => setIntegratePostId(null)}
+            onSelect={handleIntegrateSelect}
+            open={integratePostId !== null}
+          />
           {editPost ? (
             <EditPostSheet
               checkin={editCheckinTarget}

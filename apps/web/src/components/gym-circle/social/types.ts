@@ -1,8 +1,11 @@
+import type { MergeableActivity } from "@gym-circle/core";
 import type {
   CircleRankingRow,
   RankingPeriod,
   RankingScope,
 } from "./supabaseSocialTypes";
+
+export type { MergeableActivity };
 
 export type FollowStatus = "none" | "pending" | "accepted";
 export type FollowActionResult = { followStatus: FollowStatus };
@@ -529,6 +532,15 @@ export type SocialActions = {
   saveActivityEntry?: (
     activityId: string,
     input: ActivityEntryInput,
+  ) => Promise<void>;
+  /** "Integrar treino": treinos do dia do post disponíveis pra juntar. */
+  fetchMergeableActivities?: (
+    workoutDate: string,
+  ) => Promise<MergeableActivity[]>;
+  /** Vincula o treino ao post (source_activity_id); some do feed. */
+  integrateWorkoutIntoPost?: (
+    postId: string,
+    activityId: string,
   ) => Promise<void>;
   checkIn: (gymName: string) => void | Promise<void>;
   createCheckin?: (gymId: string, workoutDate?: string) => Promise<void>;

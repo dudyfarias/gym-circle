@@ -8,6 +8,7 @@ import {
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   CheckinRow,
+  MergeableActivity,
   ConversationParticipantRow,
   ConversationRow,
   DirectMessageRow,
@@ -154,6 +155,15 @@ export type SupabaseSocialActions = {
   saveActivityEntry: (
     activityId: string,
     input: ActivityEntryInput,
+  ) => Promise<void>;
+  /** "Integrar treino": treinos do dia do post disponíveis pra juntar. */
+  fetchMergeableActivities: (
+    workoutDate: string,
+  ) => Promise<MergeableActivity[]>;
+  /** Vincula o treino ao post (source_activity_id); some do feed. */
+  integrateWorkoutIntoPost: (
+    postId: string,
+    activityId: string,
   ) => Promise<void>;
   checkIn: (gymName: string) => Promise<void>;
   createCheckin: (gymId: string, workoutDate?: string) => Promise<void>;

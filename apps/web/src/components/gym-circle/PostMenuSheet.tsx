@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Ban, Flag, Pencil, Trash2, VolumeX } from "lucide-react";
+import { Ban, Dumbbell, Flag, Pencil, Trash2, VolumeX } from "lucide-react";
 
 type PostMenuSheetProps = {
   open: boolean;
@@ -14,6 +14,8 @@ type PostMenuSheetProps = {
   onBlock?: () => void;
   /** Silencia posts desse autor sem deixar de seguir nem bloquear. */
   onMute?: () => void;
+  /** "Integrar treino": junta um treino do mesmo dia ao post (dono, sem treino ainda). */
+  onIntegrateWorkout?: () => void;
   editLabel?: string;
   deleteLabel?: string;
 };
@@ -31,6 +33,7 @@ export function PostMenuSheet({
   onReport,
   onBlock,
   onMute,
+  onIntegrateWorkout,
   editLabel,
   deleteLabel,
 }: PostMenuSheetProps) {
@@ -66,6 +69,16 @@ export function PostMenuSheet({
                 <Pencil size={17} strokeWidth={2.6} />
                 {editLabel ?? t("postMenu.editCaption")}
               </button>
+              {onIntegrateWorkout ? (
+                <button
+                  className="gc-pressable flex h-14 w-full items-center justify-center gap-2 border-b border-white/[0.06] text-[15px] font-black text-[var(--gc-blue)]"
+                  onClick={onIntegrateWorkout}
+                  type="button"
+                >
+                  <Dumbbell size={17} strokeWidth={2.6} />
+                  {t("postMenu.integrateWorkout")}
+                </button>
+              ) : null}
               <button
                 className="gc-pressable flex h-14 w-full items-center justify-center gap-2 text-[15px] font-black text-[var(--gc-pink)]"
                 onClick={onDelete}
