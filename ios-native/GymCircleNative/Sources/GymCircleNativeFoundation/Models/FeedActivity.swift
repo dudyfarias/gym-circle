@@ -126,6 +126,88 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
         if let date = withFraction.date(from: value) { return date }
         return ISO8601DateFormatter().date(from: value)
     }
+
+    /// P0.1 — a entrada de atividade também alimenta o overlay de detalhes.
+    public var workoutDetail: WorkoutDetailData {
+        WorkoutDetailData(
+            activityType: activityType,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            elapsedS: elapsedS,
+            movingS: movingS,
+            distanceM: distanceM,
+            elevationGainM: elevationGainM,
+            avgHr: avgHr,
+            activeCalories: activeCalories,
+            totalCalories: totalCalories,
+            route: route,
+            gymName: gymName,
+            locationName: locationName,
+            caption: caption
+        )
+    }
+}
+
+/// Métricas de treino pro overlay de detalhes (Apple Atividades). Fonte comum:
+/// a ENTRADA de atividade e o POST promovido de treino (P0.1).
+public struct WorkoutDetailData: Identifiable, Equatable, Sendable {
+    public let id = UUID()
+    public let activityType: String
+    public let startedAt: String?
+    public let endedAt: String?
+    public let elapsedS: Int
+    public let movingS: Int?
+    public let distanceM: Double?
+    public let elevationGainM: Double?
+    public let avgHr: Int?
+    public let activeCalories: Double?
+    public let totalCalories: Double?
+    public let route: [[Double]]?
+    public let gymName: String?
+    public let locationName: String?
+    public let caption: String?
+
+    public var kind: WorkoutActivityKind {
+        WorkoutActivityKind(rawValue: activityType) ?? .other
+    }
+
+    public var locationLabel: String? { gymName ?? locationName }
+
+    /// "14:59 – 15:59" (SP) a partir de started_at/ended_at.
+    public var timeRangeLabel: String {
+        guard let start = Self.parseISO(startedAt) else { return "" }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.dateFormat = "HH:mm"
+        let startLabel = formatter.string(from: start)
+        guard let end = Self.parseISO(endedAt) else { return startLabel }
+        return "\(startLabel) – \(formatter.string(from: end))"
+    }
+
+    /// "sex., 3 de jul." (SP).
+    public var longDateLabel: String {
+        guard let base = Self.parseISO(startedAt) ?? Self.parseISO(endedAt) else { return "" }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.dateFormat = "EEE, d 'de' MMM"
+        return formatter.string(from: base)
+    }
+
+    private static func parseISO(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFraction.date(from: value) { return date }
+        return ISO8601DateFormatter().date(from: value)
+    }
+
+    public static func == (lhs: WorkoutDetailData, rhs: WorkoutDetailData) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 /// Tipos de treino do rastreio (check constraint activities_type_chk) —

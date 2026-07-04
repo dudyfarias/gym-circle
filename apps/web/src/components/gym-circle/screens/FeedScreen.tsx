@@ -31,6 +31,7 @@ import type {
   EnrichedPost,
   EnrichedUser,
   StoryGroup,
+  WorkoutDetail,
 } from "../social/types";
 import {
   shouldShowViewerLocationPrompt,
@@ -66,6 +67,7 @@ type FeedScreenProps = {
   /** Dono da atividade: adicionar foto → composer promove a entrada a post. */
   onAddActivityPhoto?: (activity: EnrichedActivity) => void;
   onOpenActivityDetails?: (activity: EnrichedActivity) => void;
+  onOpenPostWorkoutDetail?: (workout: WorkoutDetail) => void;
   onOpenLikes?: (postId: string) => void;
   postShareTargets?: EnrichedUser[];
   viewerLocationError?: string | null;
@@ -103,6 +105,7 @@ export function FeedScreen({
   onEditCheckin,
   onAddActivityPhoto,
   onOpenActivityDetails,
+  onOpenPostWorkoutDetail,
   onOpenLikes,
   postShareTargets = [],
   viewerLocationError,
@@ -252,6 +255,7 @@ export function FeedScreen({
                   onOpenLikes={onOpenLikes}
                   onOpenComments={onOpenPostDetails}
                   onOpenPostMenu={onOpenPostMenu}
+                  onOpenWorkoutDetail={onOpenPostWorkoutDetail}
                   onSelectGym={onSelectGym}
                   onSelectUser={onSelectUser}
                   onShareToChat={onSharePostToChat}

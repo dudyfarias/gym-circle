@@ -4,12 +4,15 @@ import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
+  ChevronRight,
   Heart,
   Loader2,
   MapPin,
   MessageCircle,
   MoreHorizontal,
+  Route,
   Send,
+  Timer,
   Video,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
@@ -21,7 +24,8 @@ import {
 } from "../social/caption";
 import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
-import type { EnrichedPost, EnrichedUser } from "../social/types";
+import type { EnrichedPost, EnrichedUser, WorkoutDetail } from "../social/types";
+import { formatElapsed, formatKm } from "../workout/workoutElapsed";
 import { MediaCarousel } from "./MediaCarousel";
 import { PinchZoomImage } from "./PinchZoomImage";
 import { StreakBadge } from "./StreakBadge";
@@ -46,6 +50,8 @@ type SocialPostCardProps = {
   /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
   onOpenPostMenu?: (postId: string) => void;
   onOpenLikes?: (postId: string) => void;
+  /** P0.1 — post promovido de treino: abre o overlay de detalhes (Apple). */
+  onOpenWorkoutDetail?: (workout: WorkoutDetail) => void;
   /**
    * Sprint 5 — quando true, o card é renderizado embebido dentro do
    * `CommentsBottomSheet` (profile post-open ou tap "Comentar" no feed).
@@ -74,6 +80,7 @@ function SocialPostCardComponent({
   shareTargets = [],
   onOpenPostMenu,
   onOpenLikes,
+  onOpenWorkoutDetail,
   inCommentsSheet = false,
 }: SocialPostCardProps) {
   const { t } = useTranslation();
@@ -345,6 +352,33 @@ function SocialPostCardComponent({
           ) : null}
         </div>
       </div>
+
+      {/* P0.1 — post promovido de treino: faixa tocável (área sem botões do
+          header) → overlay de detalhes estilo Apple. Só quando há métricas. */}
+      {post.workout && onOpenWorkoutDetail ? (
+        <button
+          className="gc-pressable mx-4 mb-3 flex w-[calc(100%_-_2rem)] items-center gap-3 rounded-[18px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] px-3.5 py-2.5 text-left"
+          onClick={() => post.workout && onOpenWorkoutDetail(post.workout)}
+          type="button"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--gc-blue)] text-black">
+            {(post.workout.distanceM ?? 0) > 0 ? (
+              <Route size={16} strokeWidth={2.8} />
+            ) : (
+              <Timer size={16} strokeWidth={2.8} />
+            )}
+          </span>
+          <span className="min-w-0 flex-1 text-[12.5px] font-black text-white">
+            {(post.workout.distanceM ?? 0) > 0
+              ? formatKm(post.workout.distanceM ?? 0)
+              : formatElapsed(post.workout.elapsedS)}
+            <span className="ml-1.5 font-bold text-white/45">
+              {t("workoutDetail.detailsTitle")}
+            </span>
+          </span>
+          <ChevronRight className="shrink-0 text-white/40" size={16} strokeWidth={2.6} />
+        </button>
+      ) : null}
 
       {/* Double-tap-to-like (Instagram): wrapper em volta da mídia (carrossel
           OU single) detecta o duplo-toque e mostra o coração. Não bloqueia

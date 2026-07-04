@@ -5,11 +5,11 @@ import SwiftUI
 /// (grid de métricas coloridas + mini-mapa da rota); parciais/segmentos/
 /// gráfico de FC ficam de fora (não gravamos série temporal).
 public struct WorkoutDetailOverlay: View {
-    private let activity: FeedActivity
+    private let detail: WorkoutDetailData
     private let onClose: () -> Void
 
-    public init(activity: FeedActivity, onClose: @escaping () -> Void) {
-        self.activity = activity
+    public init(detail: WorkoutDetailData, onClose: @escaping () -> Void) {
+        self.detail = detail
         self.onClose = onClose
     }
 
@@ -24,12 +24,12 @@ public struct WorkoutDetailOverlay: View {
     }
 
     private var kind: WorkoutActivityKind {
-        WorkoutActivityKind(rawValue: activity.activityType) ?? .other
+        WorkoutActivityKind(rawValue: detail.activityType) ?? .other
     }
 
     private var paceSecPerKm: Int? {
-        guard let distance = activity.distanceM, distance > 50 else { return nil }
-        let seconds = Double(activity.movingS ?? activity.elapsedS)
+        guard let distance = detail.distanceM, distance > 50 else { return nil }
+        let seconds = Double(detail.movingS ?? detail.elapsedS)
         guard seconds > 0 else { return nil }
         return Int((seconds / (distance / 1000)).rounded())
     }
@@ -45,10 +45,10 @@ public struct WorkoutDetailOverlay: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
                     detailsSection
-                    if let route = activity.route, route.count >= 2 {
+                    if let route = detail.route, route.count >= 2 {
                         mapSection(route: route)
                     }
-                    if let caption = activity.caption, !caption.isEmpty {
+                    if let caption = detail.caption, !caption.isEmpty {
                         Text(caption)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(Color.white.opacity(0.8))
@@ -58,7 +58,7 @@ public struct WorkoutDetailOverlay: View {
                 .padding(20)
             }
             .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
-            .navigationTitle(activity.longDateLabel)
+            .navigationTitle(detail.longDateLabel)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -90,12 +90,12 @@ public struct WorkoutDetailOverlay: View {
                 Text(kind.label)
                     .font(.system(size: 22, weight: .black))
                     .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                if !activity.timeRangeLabel.isEmpty {
-                    Text(activity.timeRangeLabel)
+                if !detail.timeRangeLabel.isEmpty {
+                    Text(detail.timeRangeLabel)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.5))
                 }
-                if let location = activity.locationLabel {
+                if let location = detail.locationLabel {
                     HStack(spacing: 4) {
                         Image(systemName: "location.fill")
                             .font(.system(size: 10, weight: .bold))
@@ -120,21 +120,21 @@ public struct WorkoutDetailOverlay: View {
 
     private var stats: [Stat] {
         var out: [Stat] = []
-        if let moving = activity.movingS, moving > 0 {
+        if let moving = detail.movingS, moving > 0 {
             out.append(Stat(label: Loc.t("Workout Time", "Tempo de Exercício"),
                             value: gymCircleFormatElapsed(moving), color: Tone.time))
         }
         out.append(Stat(label: Loc.t("Duration", "Duração"),
-                        value: gymCircleFormatElapsed(activity.elapsedS), color: Tone.time))
-        if let distance = activity.distanceM, distance > 0 {
+                        value: gymCircleFormatElapsed(detail.elapsedS), color: Tone.time))
+        if let distance = detail.distanceM, distance > 0 {
             out.append(Stat(label: Loc.t("Distance", "Distância"),
                             value: gymCircleFormatKm(distance), color: Tone.distance))
         }
-        if let active = activity.activeCalories {
+        if let active = detail.activeCalories {
             out.append(Stat(label: Loc.t("Active Calories", "Calorias Ativas"),
                             value: "\(Int(active.rounded())) cal", color: Tone.calories))
         }
-        if let total = activity.totalCalories {
+        if let total = detail.totalCalories {
             out.append(Stat(label: Loc.t("Total Calories", "Total de Calorias"),
                             value: "\(Int(total.rounded())) cal", color: Tone.calories))
         }
@@ -142,11 +142,11 @@ public struct WorkoutDetailOverlay: View {
             out.append(Stat(label: Loc.t("Avg. Pace", "Ritmo Médio"),
                             value: appleePace(pace), color: Tone.pace))
         }
-        if let gain = activity.elevationGainM, gain >= 1 {
+        if let gain = detail.elevationGainM, gain >= 1 {
             out.append(Stat(label: Loc.t("Elevation Gain", "Ganho de Elevação"),
                             value: "\(Int(gain.rounded())) m", color: Tone.elevation))
         }
-        if let hr = activity.avgHr {
+        if let hr = detail.avgHr {
             out.append(Stat(label: Loc.t("Avg. Heart Rate", "Batimentos Médios"),
                             value: "\(hr) bpm", color: Tone.heart))
         }

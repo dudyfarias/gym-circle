@@ -179,6 +179,9 @@ export type GymPost = {
   commentsCount?: number;
   comments: GymComment[];
   participants?: GymParticipant[];
+  // P0.1 — post promovido de treino: métricas da activity de origem, pro
+  // overlay de detalhes abrir do header (get_home_feed via source_activity_id).
+  workout?: WorkoutDetail | null;
 };
 
 export type GymStory = {
@@ -281,6 +284,28 @@ export type EnrichedActivity = {
   locationLongitude: number | null;
   locationGoogleMapsUrl: string | null;
   author: EnrichedUser;
+};
+
+/**
+ * Métricas de treino pro overlay de detalhes (estilo Apple Atividades).
+ * Fonte comum: a ENTRADA de atividade (EnrichedActivity satisfaz este shape)
+ * e o POST promovido de treino (get_home_feed via source_activity_id).
+ */
+export type WorkoutDetail = {
+  activityType: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  elapsedS: number;
+  movingS: number | null;
+  distanceM: number | null;
+  elevationGainM: number | null;
+  avgHr: number | null;
+  activeCalories?: number | null;
+  totalCalories: number | null;
+  route: number[][] | null;
+  gymName: string | null;
+  locationName: string | null;
+  caption: string | null;
 };
 
 /** Infos de post salvas na ENTRADA de atividade (treino sem foto). */

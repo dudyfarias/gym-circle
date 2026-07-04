@@ -52,6 +52,7 @@ import type {
   EnrichedPost,
   EnrichedUser,
   SocialBundle,
+  WorkoutDetail,
 } from "./social/types";
 import { getAdjacentStoryId } from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
@@ -222,8 +223,9 @@ export function GymCirclePreview({
     () => hasStoredWorkoutSession(),
   );
   const [composerActivity, setComposerActivity] = useState<ComposerActivityContext | null>(null);
-  // Detalhes do treino (estilo Apple Atividades) — tocar nos stats da entrada.
-  const [detailActivity, setDetailActivity] = useState<EnrichedActivity | null>(null);
+  // Detalhes do treino (estilo Apple Atividades) — tocar nos stats da entrada
+  // OU no header de um post promovido de treino (ambos viram WorkoutDetail).
+  const [detailWorkout, setDetailWorkout] = useState<WorkoutDetail | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -1901,7 +1903,8 @@ export function GymCirclePreview({
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             onAddActivityPhoto={openActivityComposer}
-            onOpenActivityDetails={setDetailActivity}
+            onOpenActivityDetails={(activity) => setDetailWorkout(activity)}
+            onOpenPostWorkoutDetail={setDetailWorkout}
             hasDistancePosts={hasDistancePosts}
             headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
@@ -2563,10 +2566,10 @@ export function GymCirclePreview({
             onEdit={handleStartEditEntry}
             open={entryMenuTarget !== null}
           />
-          {detailActivity ? (
+          {detailWorkout ? (
             <WorkoutDetailOverlay
-              activity={detailActivity}
-              onClose={() => setDetailActivity(null)}
+              workout={detailWorkout}
+              onClose={() => setDetailWorkout(null)}
             />
           ) : null}
           {editPost ? (

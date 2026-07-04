@@ -68,8 +68,9 @@ public struct FeedView: View {
     // Rastreio de treino: "Adicionar fotos" na entrada → composer com o
     // contexto da activity (promove a post via source_activity_id).
     @State private var composerActivity: ActivityComposerContext?
-    // Tocar nos stats do treino → overlay de detalhes (estilo Apple).
-    @State private var detailActivity: FeedActivity?
+    // Tocar nos stats do treino (entrada) OU no header de um post promovido
+    // de treino → overlay de detalhes (estilo Apple Atividades).
+    @State private var detailWorkout: WorkoutDetailData?
     @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
@@ -313,7 +314,10 @@ public struct FeedView: View {
                                     }
                                 },
                                 onOpenProfile: { openProfile(userId: $0) },
-                                onOpenMention: { openMention(username: $0) }
+                                onOpenMention: { openMention(username: $0) },
+                                onOpenWorkoutDetail: post.workoutDetail.map { detail in
+                                    { detailWorkout = detail }
+                                }
                             )
                             .onAppear {
                                 // Dispara o load more no penúltimo post (espelho
@@ -377,7 +381,7 @@ public struct FeedView: View {
                                     }
                                 },
                                 onOpenProfile: { openProfile(userId: $0) },
-                                onOpenDetails: { detailActivity = activity }
+                                onOpenDetails: { detailWorkout = activity.workoutDetail }
                             )
                         }
                     }
@@ -408,9 +412,9 @@ public struct FeedView: View {
                 )
             }
         }
-        // Tocar nos stats do treino → detalhes estilo Apple Atividades.
-        .sheet(item: $detailActivity) { activity in
-            WorkoutDetailOverlay(activity: activity) { detailActivity = nil }
+        // Tocar nos stats do treino (entrada ou post) → detalhes estilo Apple.
+        .sheet(item: $detailWorkout) { detail in
+            WorkoutDetailOverlay(detail: detail) { detailWorkout = nil }
         }
         // Re-tap na aba do feed (MainTabView) já estando no feed: sobe ao topo
         // + dá refresh (paridade web scrollFeedToTop + refresh).
@@ -1204,6 +1208,8 @@ public struct FeedPostCard: View {
     private let onOpenGym: (() -> Void)?
     private let onOpenProfile: ((String) -> Void)?
     private let onOpenMention: ((String) -> Void)?
+    /// P0.1 — post promovido de treino: abre o overlay de detalhes (Apple).
+    private let onOpenWorkoutDetail: (() -> Void)?
 
     @State private var confirmDelete = false
     // Double-tap-to-like (Instagram): coração estoura no centro da mídia.
@@ -1225,7 +1231,8 @@ public struct FeedPostCard: View {
         onShare: (() -> Void)? = nil,
         onOpenGym: (() -> Void)? = nil,
         onOpenProfile: ((String) -> Void)? = nil,
-        onOpenMention: ((String) -> Void)? = nil
+        onOpenMention: ((String) -> Void)? = nil,
+        onOpenWorkoutDetail: (() -> Void)? = nil
     ) {
         self.post = post
         self.currentUserId = currentUserId
@@ -1243,6 +1250,7 @@ public struct FeedPostCard: View {
         self.onOpenGym = onOpenGym
         self.onOpenProfile = onOpenProfile
         self.onOpenMention = onOpenMention
+        self.onOpenWorkoutDetail = onOpenWorkoutDetail
     }
 
     private var isOwnPost: Bool {
@@ -1271,6 +1279,50 @@ public struct FeedPostCard: View {
             header
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
+
+            // P0.1 — post promovido de treino: faixa tocável (área sem botões)
+            // → overlay de detalhes estilo Apple. Só quando há métricas.
+            if let detail = post.workoutDetail, let onOpenWorkoutDetail {
+                Button(action: onOpenWorkoutDetail) {
+                    HStack(spacing: 12) {
+                        Image(systemName: (detail.distanceM ?? 0) > 0 ? "map.fill" : "timer")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.black)
+                            .frame(width: 34, height: 34)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .fill(GymCircleTheme.ColorToken.cyan)
+                            )
+                        Text(
+                            (detail.distanceM ?? 0) > 0
+                                ? gymCircleFormatKm(detail.distanceM ?? 0)
+                                : gymCircleFormatElapsed(detail.elapsedS)
+                        )
+                        .font(.system(size: 13, weight: .black))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        Text(Loc.t("Workout Details", "Detalhes do Exercício"))
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundStyle(Color.white.opacity(0.45))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundStyle(Color.white.opacity(0.4))
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.cyan.opacity(0.06))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.12), lineWidth: 1)
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
+                }
+                .buttonStyle(.plain)
+            }
 
             // Double-tap-to-like (Instagram, paridade web): duplo toque na mídia
             // curte (só curte, nunca descurte) e estoura o coração electric blue.

@@ -461,6 +461,26 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
         likesCount,
         likedByCurrentUser: myLikedSet.has(row.id),
         commentsCount: row.comments_count ?? postComments.length,
+        // P0.1 — métricas do treino de origem (get_home_feed): habilitam o
+        // overlay de detalhes no header do post promovido.
+        workout: row.workout_activity_type
+          ? {
+              activityType: row.workout_activity_type,
+              startedAt: row.workout_started_at ?? null,
+              endedAt: row.workout_ended_at ?? null,
+              elapsedS: row.workout_elapsed_s ?? 0,
+              movingS: row.workout_moving_s ?? null,
+              distanceM: row.workout_distance_m ?? null,
+              elevationGainM: row.workout_elevation_gain_m ?? null,
+              avgHr: row.workout_avg_hr ?? null,
+              activeCalories: row.workout_active_calories ?? null,
+              totalCalories: row.workout_total_calories ?? null,
+              route: row.workout_route ?? null,
+              gymName: row.location_name ?? null,
+              locationName: row.location_name ?? null,
+              caption: row.caption ?? null,
+            }
+          : null,
         comments: postComments.map((c) => ({
           ...enrichComment(c, author),
         })),

@@ -112,6 +112,19 @@ export type FeedPostRow =
     media_height?: number | null;
     media_duration_seconds?: number | null;
     blur_data_url?: string | null;
+    // P0.1 — métricas da activity de origem (get_home_feed via
+    // source_activity_id); null em posts que não vieram de treino.
+    workout_activity_type?: string | null;
+    workout_elapsed_s?: number | null;
+    workout_moving_s?: number | null;
+    workout_distance_m?: number | null;
+    workout_elevation_gain_m?: number | null;
+    workout_avg_hr?: number | null;
+    workout_active_calories?: number | null;
+    workout_total_calories?: number | null;
+    workout_route?: number[][] | null;
+    workout_started_at?: string | null;
+    workout_ended_at?: string | null;
   };
 
 /**

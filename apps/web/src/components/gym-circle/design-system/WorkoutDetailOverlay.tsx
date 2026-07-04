@@ -3,7 +3,7 @@
 import { Bike, Dumbbell, Footprints, MapPin, Play, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { EnrichedActivity } from "../social/types";
+import type { WorkoutDetail } from "../social/types";
 import {
   formatApplePace,
   formatElapsed,
@@ -13,7 +13,7 @@ import {
 import { RouteSketch } from "./RouteSketch";
 
 type WorkoutDetailOverlayProps = {
-  activity: EnrichedActivity;
+  workout: WorkoutDetail;
   onClose: () => void;
 };
 
@@ -60,56 +60,63 @@ function spLongDate(iso: string | null): string {
 
 /**
  * Detalhe do treino estilo Apple Atividades — abre ao tocar nos stats de uma
- * entrada de atividade. Mostra o que temos (grid de métricas coloridas +
- * mini-mapa da rota). Parciais/segmentos/série de FC ficam de fora (não
- * gravamos série temporal).
+ * entrada de atividade OU no header de um post promovido de treino. Mostra o
+ * que temos (grid de métricas coloridas + mini-mapa da rota). Parciais/
+ * segmentos/série de FC ficam de fora (não gravamos série temporal).
  */
 export function WorkoutDetailOverlay({
-  activity,
+  workout,
   onClose,
 }: WorkoutDetailOverlayProps) {
   const { t } = useTranslation();
-  const meta = TYPE_META[activity.activityType] ?? TYPE_META.other;
+  const meta = TYPE_META[workout.activityType] ?? TYPE_META.other;
   const Icon = meta.icon;
   const typeLabel = t(meta.key);
-  const start = activity.startedAt ?? activity.endedAt;
-  const timeRange = [spTime(activity.startedAt), spTime(activity.endedAt)]
+  const start = workout.startedAt ?? workout.endedAt;
+  const timeRange = [spTime(workout.startedAt), spTime(workout.endedAt)]
     .filter(Boolean)
     .join(" – ");
-  const locationLabel = activity.gymName ?? activity.locationName;
+  const locationLabel = workout.gymName ?? workout.locationName;
 
   const pace =
-    (activity.distanceM ?? 0) > 0
+    (workout.distanceM ?? 0) > 0
       ? paceFromDistance(
-          activity.distanceM ?? 0,
-          activity.movingS ?? activity.elapsedS,
+          workout.distanceM ?? 0,
+          workout.movingS ?? workout.elapsedS,
         )
       : null;
 
   const stats: Array<{ label: string; value: string; color: string }> = [];
-  if (activity.movingS && activity.movingS > 0) {
+  if (workout.movingS && workout.movingS > 0) {
     stats.push({
       label: t("workoutDetail.workoutTime"),
-      value: formatElapsed(activity.movingS),
+      value: formatElapsed(workout.movingS),
       color: TONE.time,
     });
   }
   stats.push({
     label: t("workoutDetail.duration"),
-    value: formatElapsed(activity.elapsedS),
+    value: formatElapsed(workout.elapsedS),
     color: TONE.time,
   });
-  if ((activity.distanceM ?? 0) > 0) {
+  if ((workout.distanceM ?? 0) > 0) {
     stats.push({
       label: t("workoutDetail.distance"),
-      value: formatKm(activity.distanceM ?? 0),
+      value: formatKm(workout.distanceM ?? 0),
       color: TONE.distance,
     });
   }
-  if (activity.totalCalories != null) {
+  if (workout.activeCalories != null) {
+    stats.push({
+      label: t("workoutDetail.activeCalories"),
+      value: `${Math.round(workout.activeCalories)} cal`,
+      color: TONE.calories,
+    });
+  }
+  if (workout.totalCalories != null) {
     stats.push({
       label: t("workoutDetail.totalCalories"),
-      value: `${Math.round(activity.totalCalories)} cal`,
+      value: `${Math.round(workout.totalCalories)} cal`,
       color: TONE.calories,
     });
   }
@@ -120,17 +127,17 @@ export function WorkoutDetailOverlay({
       color: TONE.pace,
     });
   }
-  if ((activity.elevationGainM ?? 0) >= 1) {
+  if ((workout.elevationGainM ?? 0) >= 1) {
     stats.push({
       label: t("workoutDetail.elevation"),
-      value: `${Math.round(activity.elevationGainM ?? 0)} m`,
+      value: `${Math.round(workout.elevationGainM ?? 0)} m`,
       color: TONE.elevation,
     });
   }
-  if (activity.avgHr != null) {
+  if (workout.avgHr != null) {
     stats.push({
       label: t("workoutDetail.avgHeartRate"),
-      value: `${activity.avgHr} bpm`,
+      value: `${workout.avgHr} bpm`,
       color: TONE.heart,
     });
   }
@@ -201,20 +208,20 @@ export function WorkoutDetailOverlay({
         </div>
 
         {/* Mapa (sketch da rota) */}
-        {activity.route && activity.route.length >= 2 ? (
+        {workout.route && workout.route.length >= 2 ? (
           <>
             <h3 className="mb-3 mt-6 text-[19px] font-black text-white">
               {t("workoutDetail.mapTitle")}
             </h3>
             <div className="overflow-hidden rounded-[22px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.05]">
-              <RouteSketch route={activity.route} className="h-52 w-full" />
+              <RouteSketch route={workout.route} className="h-52 w-full" />
             </div>
           </>
         ) : null}
 
-        {activity.caption ? (
+        {workout.caption ? (
           <p className="mt-5 text-[14px] font-semibold leading-snug text-white/80">
-            {activity.caption}
+            {workout.caption}
           </p>
         ) : null}
       </div>

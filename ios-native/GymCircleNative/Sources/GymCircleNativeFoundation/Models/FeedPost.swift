@@ -207,6 +207,21 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public let isFollowingAuthor: Bool?
     public let visibility: String?
 
+    // P0.1 — métricas da activity de origem (get_home_feed via
+    // source_activity_id); nil em posts que não vieram de treino. Habilitam
+    // o overlay de detalhes (Apple Atividades) no header do post.
+    public var workoutActivityType: String? = nil
+    public var workoutElapsedS: Int? = nil
+    public var workoutMovingS: Int? = nil
+    public var workoutDistanceM: Double? = nil
+    public var workoutElevationGainM: Double? = nil
+    public var workoutAvgHr: Int? = nil
+    public var workoutActiveCalories: Double? = nil
+    public var workoutTotalCalories: Double? = nil
+    public var workoutRoute: [[Double]]? = nil
+    public var workoutStartedAt: String? = nil
+    public var workoutEndedAt: String? = nil
+
     /// Sprint 20.3a — mídias do carrossel, hidratadas pós-decode (o RPC
     /// get_home_feed não retorna post_media; o AppModel agrupa numa query
     /// separada). Nil/vazio = post de mídia única (usa a capa).
@@ -362,6 +377,38 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         case likedByMe = "liked_by_me"
         case isFollowingAuthor = "is_following_author"
         case visibility
+        case workoutActivityType = "workout_activity_type"
+        case workoutElapsedS = "workout_elapsed_s"
+        case workoutMovingS = "workout_moving_s"
+        case workoutDistanceM = "workout_distance_m"
+        case workoutElevationGainM = "workout_elevation_gain_m"
+        case workoutAvgHr = "workout_avg_hr"
+        case workoutActiveCalories = "workout_active_calories"
+        case workoutTotalCalories = "workout_total_calories"
+        case workoutRoute = "workout_route"
+        case workoutStartedAt = "workout_started_at"
+        case workoutEndedAt = "workout_ended_at"
+    }
+
+    /// P0.1 — dados pro overlay de detalhes quando o post veio de um treino.
+    public var workoutDetail: WorkoutDetailData? {
+        guard let activityType = workoutActivityType else { return nil }
+        return WorkoutDetailData(
+            activityType: activityType,
+            startedAt: workoutStartedAt,
+            endedAt: workoutEndedAt,
+            elapsedS: workoutElapsedS ?? 0,
+            movingS: workoutMovingS,
+            distanceM: workoutDistanceM,
+            elevationGainM: workoutElevationGainM,
+            avgHr: workoutAvgHr,
+            activeCalories: workoutActiveCalories,
+            totalCalories: workoutTotalCalories,
+            route: workoutRoute,
+            gymName: locationName,
+            locationName: locationName,
+            caption: caption
+        )
     }
 }
 
