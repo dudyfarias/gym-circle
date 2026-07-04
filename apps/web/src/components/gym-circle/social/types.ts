@@ -263,6 +263,11 @@ export type EnrichedActivity = {
   elapsedS: number;
   avgHr: number | null;
   totalCalories: number | null;
+  distanceM: number | null;
+  movingS: number | null;
+  elevationGainM: number | null;
+  /** Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa. */
+  route: number[][] | null;
   workoutDate: string;
   createdAt: string;
   caption: string | null;

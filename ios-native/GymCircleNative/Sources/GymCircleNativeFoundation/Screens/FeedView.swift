@@ -885,9 +885,29 @@ public struct FeedActivityCard: View {
         (WorkoutActivityKind(rawValue: activity.activityType) ?? .other).label
     }
 
-    /// "112 bpm · 320 kcal" quando o Saúde tiver amostras da sessão.
+    /// Fase 2: rota gravada → destaque vira distância (e o tempo desce
+    /// pra linha secundária junto de ritmo/elevação).
+    private var isRouteActivity: Bool {
+        (activity.distanceM ?? 0) > 0
+    }
+
+    /// Linha secundária: tempo/ritmo/elevação (rota) + bpm/kcal (Saúde).
     private var healthLine: String? {
         var parts: [String] = []
+        if isRouteActivity {
+            parts.append(gymCircleFormatElapsed(activity.elapsedS))
+            if let distance = activity.distanceM {
+                let seconds = activity.movingS ?? activity.elapsedS
+                if distance > 50, seconds > 0 {
+                    parts.append(
+                        gymCircleFormatPace(Int((Double(seconds) / (distance / 1000)).rounded()))
+                    )
+                }
+            }
+            if let gain = activity.elevationGainM, gain >= 1 {
+                parts.append("\(Int(gain.rounded())) m")
+            }
+        }
         if let avgHr = activity.avgHr { parts.append("\(avgHr) bpm") }
         if let kcal = activity.totalCalories ?? activity.activeCalories {
             parts.append("\(Int(kcal.rounded())) kcal")
@@ -950,6 +970,22 @@ public struct FeedActivityCard: View {
             }
 
             statsCard
+
+            // Mini-mapa (sketch da rota) — polyline, sem tiles: consistente
+            // com o web e sem dependência de mapa.
+            if let route = activity.route, route.count >= 2 {
+                RouteSketchView(points: route)
+                    .frame(height: 96)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.cyan.opacity(0.045))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.10), lineWidth: 1)
+                    )
+            }
 
             if let caption = activity.caption, !caption.isEmpty {
                 (
@@ -1020,7 +1056,11 @@ public struct FeedActivityCard: View {
                     .textCase(.uppercase)
                     .tracking(0.8)
                     .foregroundStyle(Color.white.opacity(0.42))
-                Text(gymCircleFormatElapsed(activity.elapsedS))
+                Text(
+                    isRouteActivity && activity.distanceM != nil
+                        ? gymCircleFormatKm(activity.distanceM ?? 0)
+                        : gymCircleFormatElapsed(activity.elapsedS)
+                )
                     .font(.system(size: 20, weight: .black, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
@@ -1066,6 +1106,65 @@ public struct FeedActivityCard: View {
         } else {
             content
         }
+    }
+}
+
+/// Sketch da rota (Fase 2): polyline normalizada, traço cyan + pontos de
+/// início/fim. Sem tiles de mapa de propósito — leve e igual ao web.
+struct RouteSketchView: View {
+    let points: [[Double]]
+
+    var body: some View {
+        Canvas { context, size in
+            let coords = points.compactMap { pair -> (lat: Double, lng: Double)? in
+                guard pair.count >= 2 else { return nil }
+                return (pair[0], pair[1])
+            }
+            guard coords.count >= 2,
+                  let minLat = coords.map(\.lat).min(),
+                  let maxLat = coords.map(\.lat).max(),
+                  let minLng = coords.map(\.lng).min(),
+                  let maxLng = coords.map(\.lng).max()
+            else { return }
+            let spanLat = max(maxLat - minLat, 0.0001)
+            let spanLng = max(maxLng - minLng, 0.0001)
+            let padding: CGFloat = 14
+            let drawW = size.width - padding * 2
+            let drawH = size.height - padding * 2
+            // Mantém a proporção da rota (sem esticar).
+            let scale = min(drawW / spanLng, drawH / spanLat)
+            let offsetX = padding + (drawW - spanLng * scale) / 2
+            let offsetY = padding + (drawH - spanLat * scale) / 2
+
+            func point(_ coord: (lat: Double, lng: Double)) -> CGPoint {
+                CGPoint(
+                    x: offsetX + (coord.lng - minLng) * scale,
+                    y: offsetY + (maxLat - coord.lat) * scale
+                )
+            }
+
+            var path = Path()
+            path.move(to: point(coords[0]))
+            for coord in coords.dropFirst() {
+                path.addLine(to: point(coord))
+            }
+            context.stroke(
+                path,
+                with: .color(GymCircleTheme.ColorToken.cyan),
+                style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+            )
+            let start = point(coords[0])
+            let end = point(coords[coords.count - 1])
+            context.fill(
+                Path(ellipseIn: CGRect(x: start.x - 3.5, y: start.y - 3.5, width: 7, height: 7)),
+                with: .color(GymCircleTheme.ColorToken.cyan)
+            )
+            context.fill(
+                Path(ellipseIn: CGRect(x: end.x - 3.5, y: end.y - 3.5, width: 7, height: 7)),
+                with: .color(.white)
+            )
+        }
+        .accessibilityLabel(Loc.t("Workout route", "Rota do treino"))
     }
 }
 

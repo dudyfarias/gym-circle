@@ -190,19 +190,24 @@ public struct NativeWorkoutFlowView: View {
     @State private var kind: WorkoutActivityKind = .strength
     @State private var startedAt: Date?
     @State private var elapsedS = 0
-    // Timer de descanso (presets iguais ao web REST_PRESETS_S).
+    @State private var pausedAt: Date?
+    @State private var pausedTotal: TimeInterval = 0
+    // Timer de descanso: 1:00 por padrão, ajustável em passos de 10 s.
     @State private var restPreset = 60
-    @State private var restRemaining = 0
+    @State private var restRemaining = 60
     @State private var restRunning = false
     @State private var restJustDone = false
     @State private var finishing = false
     @State private var finishError: String?
     @State private var discardConfirm = false
+    // Fase 2 — GPS outdoor (corrida/caminhada/bike): rota/ritmo/elevação.
+    @StateObject private var routeRecorder = WorkoutRouteRecorder()
 
-    private static let restPresets = [60, 90, 120]
     // Persistência anti-morte do app: o cronômetro deriva SEMPRE de startedAt.
     private static let storedStartKey = "gc.native.workout.startedAt"
     private static let storedKindKey = "gc.native.workout.kind"
+    private static let storedPausedAtKey = "gc.native.workout.pausedAt"
+    private static let storedPausedTotalKey = "gc.native.workout.pausedTotal"
 
     public init(
         model: GymCircleAppModel,
@@ -235,6 +240,7 @@ public struct NativeWorkoutFlowView: View {
             titleVisibility: .visible
         ) {
             Button(Loc.t("Discard workout", "Descartar treino"), role: .destructive) {
+                routeRecorder.stop()
                 clearStored()
                 onClose()
             }
@@ -320,7 +326,7 @@ public struct NativeWorkoutFlowView: View {
         }
     }
 
-    // MARK: - Treino ao vivo (data-first: tempo gigante + descanso)
+    // MARK: - Treino ao vivo (mesmo mostrador do web/Capacitor)
 
     private var liveStage: some View {
         VStack(spacing: 0) {
@@ -331,121 +337,322 @@ public struct NativeWorkoutFlowView: View {
                     Text(kind.label)
                         .font(.system(size: 13, weight: .black))
                 }
-                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 7)
-                .background(Capsule().fill(GymCircleTheme.ColorToken.cyan.opacity(0.10)))
+                .background(Capsule().fill(Color.white.opacity(0.08)))
 
                 Spacer()
 
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(GymCircleTheme.ColorToken.cyan)
-                        .frame(width: 7, height: 7)
-                    Text(Loc.t("Live", "Ao vivo"))
-                        .font(.system(size: 11, weight: .black))
-                        .textCase(.uppercase)
-                        .tracking(1.0)
-                        .foregroundStyle(Color.white.opacity(0.6))
-                }
+                Text(
+                    isPaused
+                        ? Loc.t("Paused", "Pausado")
+                        : Loc.t("Active", "Ativo")
+                )
+                .font(.system(size: 11, weight: .black))
+                .textCase(.uppercase)
+                .tracking(1.2)
+                .foregroundStyle(
+                    isPaused
+                        ? Color.yellow
+                        : GymCircleTheme.ColorToken.cyan
+                )
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
 
-            Spacer()
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 0) {
+                    VStack(spacing: 6) {
+                        Text(Loc.t("Workout time", "Tempo de treino"))
+                            .font(.system(size: 12, weight: .black))
+                            .textCase(.uppercase)
+                            .tracking(1.8)
+                            .foregroundStyle(Color.white.opacity(0.4))
+                        Text(gymCircleFormatElapsed(elapsedS))
+                            .font(.system(size: 72, weight: .black, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(
+                                isPaused
+                                    ? Color.yellow
+                                    : GymCircleTheme.ColorToken.cyan
+                            )
+                            .contentTransition(.numericText())
+                    }
+                    .padding(.top, 38)
 
-            VStack(spacing: 6) {
-                Text(Loc.t("Total time", "Tempo total"))
-                    .font(.system(size: 12, weight: .black))
-                    .textCase(.uppercase)
-                    .tracking(1.4)
-                    .foregroundStyle(Color.white.opacity(0.4))
-                Text(gymCircleFormatElapsed(elapsedS))
-                    .font(.system(size: 72, weight: .black, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-                    .contentTransition(.numericText())
-                Text(Loc.t(
-                    "Saved to Apple Health when you finish.",
-                    "Vai pro Apple Saúde quando você encerrar."
-                ))
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color.white.opacity(0.4))
+                    summaryMetricsRow
+                        .padding(.top, 30)
+
+                    if kind.usesRoute {
+                        routeMetricsRow
+                            .padding(.top, 20)
+                    }
+
+                    if kind == .strength {
+                        restSection
+                            .padding(.top, 20)
+                    }
+
+                    if let finishError {
+                        Text(finishError)
+                            .font(.system(size: 12.5, weight: .bold))
+                            .foregroundStyle(GymCircleTheme.ColorToken.pink)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 14)
+                    }
+                }
+                .padding(.horizontal, 20)
             }
 
-            Spacer()
-
-            restSection
-                .padding(.horizontal, 20)
-
-            VStack(spacing: 10) {
-                if let finishError {
-                    Text(finishError)
-                        .font(.system(size: 12.5, weight: .bold))
-                        .foregroundStyle(GymCircleTheme.ColorToken.pink)
-                        .multilineTextAlignment(.center)
-                }
-                Button {
-                    Task { await finish() }
-                } label: {
-                    HStack(spacing: 8) {
-                        if finishing {
-                            ProgressView().tint(.black)
-                        } else {
-                            Image(systemName: "flag.checkered")
-                                .font(.system(size: 15, weight: .black))
-                        }
-                        Text(Loc.t("Finish workout", "Encerrar treino"))
-                            .font(.system(size: 16, weight: .black))
+            VStack(spacing: 8) {
+                HStack(alignment: .top, spacing: 26) {
+                    workoutControl(
+                        icon: "stop.fill",
+                        label: Loc.t("Finish", "Encerrar"),
+                        color: GymCircleTheme.ColorToken.pink,
+                        disabled: finishing
+                    ) {
+                        Task { await finish() }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
-                    .foregroundStyle(.black)
+                    workoutControl(
+                        icon: isPaused ? "play.fill" : "pause.fill",
+                        label: isPaused
+                            ? Loc.t("Resume", "Retomar")
+                            : Loc.t("Pause", "Pausar"),
+                        color: GymCircleTheme.ColorToken.cyan,
+                        iconColor: .black
+                    ) {
+                        togglePause()
+                    }
+                    workoutControl(
+                        icon: "chevron.down",
+                        label: Loc.t("Close", "Fechar"),
+                        color: Color.white.opacity(0.09)
+                    ) {
+                        onClose()
+                    }
                 }
-                .buttonStyle(.plain)
-                .disabled(finishing)
 
                 Button {
                     discardConfirm = true
                 } label: {
-                    Text(Loc.t("Discard", "Descartar"))
-                        .font(.system(size: 13, weight: .black))
-                        .foregroundStyle(Color.white.opacity(0.46))
+                    Text(Loc.t("Discard workout", "Descartar treino"))
+                        .font(.system(size: 12.5, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.28))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
                 .disabled(finishing)
             }
             .padding(.horizontal, 20)
-            .padding(.top, 18)
-            .padding(.bottom, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 10)
         }
     }
 
+    private var summaryMetricsRow: some View {
+        HStack(spacing: 14) {
+            summaryMetric(
+                label: Loc.t("Started", "Início"),
+                value: startedClock
+            )
+            summaryMetric(
+                label: Loc.t("Paused", "Pausado"),
+                value: gymCircleFormatElapsed(pausedSeconds)
+            )
+            summaryMetric(
+                label: Loc.t("Total cal.", "Cal. totais"),
+                value: "—"
+            )
+        }
+        .padding(.vertical, 18)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.white.opacity(0.07))
+                .frame(height: 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.07))
+                .frame(height: 1)
+        }
+    }
+
+    private func summaryMetric(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label)
+                .font(.system(size: 10, weight: .black))
+                .textCase(.uppercase)
+                .tracking(1.1)
+                .foregroundStyle(Color.white.opacity(0.42))
+                .lineLimit(1)
+            Text(value)
+                .font(.system(size: 24, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func workoutControl(
+        icon: String,
+        label: String,
+        color: Color,
+        iconColor: Color = .white,
+        disabled: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            action()
+        } label: {
+            VStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 68, height: 68)
+                    if disabled {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 21, weight: .black))
+                            .foregroundStyle(iconColor)
+                    }
+                }
+                Text(label)
+                    .font(.system(size: 11.5, weight: .black))
+                    .foregroundStyle(Color.white.opacity(0.68))
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+    }
+
+    /// Distância / Ritmo / Elevação ao vivo (GPS). Aviso quando negado.
+    private var routeMetricsRow: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                routeMetric(
+                    label: Loc.t("Distance", "Distância"),
+                    value: gymCircleFormatKm(routeRecorder.distanceM)
+                )
+                routeMetric(
+                    label: Loc.t("Pace", "Ritmo"),
+                    value: routeRecorder.paceSecPerKm.map(gymCircleFormatPace) ?? "—"
+                )
+                routeMetric(
+                    label: Loc.t("Elevation", "Elevação"),
+                    value: "\(Int(routeRecorder.elevationGainM.rounded())) m"
+                )
+            }
+            if routeRecorder.authorizationDenied {
+                Text(Loc.t(
+                    "No location access — counting time only. Allow it in Settings.",
+                    "Sem acesso à localização — contando só o tempo. Libere nos Ajustes."
+                ))
+                .font(.system(size: 11.5, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.44))
+                .multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    private func routeMetric(label: String, value: String) -> some View {
+        VStack(spacing: 2) {
+            Text(label)
+                .font(.system(size: 10.5, weight: .black))
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .foregroundStyle(Color.white.opacity(0.4))
+            Text(value)
+                .font(.system(size: 17, weight: .black, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        )
+    }
+
     private var restSection: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: 16) {
             HStack {
-                Text(Loc.t("Rest", "Descanso"))
-                    .font(.system(size: 12, weight: .black))
-                    .textCase(.uppercase)
-                    .tracking(1.2)
-                    .foregroundStyle(Color.white.opacity(0.42))
+                Image(systemName: "timer")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(GymCircleTheme.ColorToken.cyan.opacity(0.12))
+                    )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(Loc.t("Rest", "Descanso"))
+                        .font(.system(size: 15, weight: .black))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    Text(Loc.t("Timer between sets", "Timer entre séries"))
+                        .font(.system(size: 11.5, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.38))
+                }
                 Spacer()
-                if restRunning || restRemaining > 0 {
-                    Text(gymCircleFormatElapsed(restRemaining))
-                        .font(.system(size: 22, weight: .black, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(
-                            restJustDone
-                                ? GymCircleTheme.ColorToken.cyan
-                                : GymCircleTheme.ColorToken.primaryText
-                        )
+                if restRunning {
+                    Text(Loc.t("In progress", "Em andamento"))
+                        .font(.system(size: 10, weight: .black))
+                        .textCase(.uppercase)
+                        .tracking(1.0)
+                        .foregroundStyle(GymCircleTheme.ColorToken.cyan)
                 }
             }
 
-            if restRunning || restRemaining > 0 {
+            HStack(spacing: 14) {
+                Button {
+                    adjustRest(by: -10)
+                } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 19, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                        .frame(width: 54, height: 54)
+                        .background(Circle().fill(Color.white.opacity(0.06)))
+                }
+                .buttonStyle(.plain)
+                .disabled(restPreset <= 10)
+                .accessibilityLabel(Loc.t("Remove 10 seconds", "Diminuir 10 segundos"))
+
+                Text(gymCircleFormatElapsed(restRemaining))
+                    .font(.system(size: 44, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(
+                        restJustDone
+                            ? GymCircleTheme.ColorToken.cyan
+                            : GymCircleTheme.ColorToken.primaryText
+                    )
+                    .frame(maxWidth: .infinity)
+
+                Button {
+                    adjustRest(by: 10)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 19, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                        .frame(width: 54, height: 54)
+                        .background(Circle().fill(Color.white.opacity(0.06)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Loc.t("Add 10 seconds", "Adicionar 10 segundos"))
+            }
+
+            if restRunning {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         Capsule().fill(Color.white.opacity(0.08))
@@ -461,71 +668,92 @@ public struct NativeWorkoutFlowView: View {
                 .frame(height: 6)
             }
 
-            HStack(spacing: 8) {
-                ForEach(Self.restPresets, id: \.self) { preset in
-                    Button {
-                        startRest(preset)
-                    } label: {
-                        Text("\(preset)s")
-                            .font(.system(size: 13, weight: .black))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 11)
-                            .background(
-                                Capsule().fill(
-                                    restRunning && restPreset == preset
-                                        ? GymCircleTheme.ColorToken.cyan.opacity(0.16)
-                                        : Color.white.opacity(0.05)
-                                )
-                            )
-                            .foregroundStyle(
-                                restRunning && restPreset == preset
-                                    ? GymCircleTheme.ColorToken.cyan
-                                    : Color.white.opacity(0.78)
-                            )
-                    }
-                    .buttonStyle(.plain)
+            Button {
+                if restRunning {
+                    restRunning = false
+                    restRemaining = restPreset
+                    restJustDone = false
+                } else {
+                    startRest()
                 }
-                if restRunning || restRemaining > 0 {
-                    Button {
-                        restRunning = false
-                        restRemaining = 0
-                        restJustDone = false
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 13, weight: .black))
-                            .foregroundStyle(Color.white.opacity(0.6))
-                            .frame(width: 40, height: 40)
-                            .background(Circle().fill(Color.white.opacity(0.05)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Loc.t("Cancel rest", "Cancelar descanso"))
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: restRunning ? "xmark" : "timer")
+                        .font(.system(size: 15, weight: .bold))
+                    Text(
+                        restRunning
+                            ? Loc.t("Cancel rest", "Cancelar descanso")
+                            : Loc.t("Start rest", "Iniciar descanso")
+                    )
+                    .font(.system(size: 13, weight: .black))
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .foregroundStyle(
+                    restRunning
+                        ? Color.white
+                        : Color.black
+                )
+                .background(
+                    Capsule().fill(
+                        restRunning
+                            ? Color.white.opacity(0.065)
+                            : GymCircleTheme.ColorToken.cyan
+                    )
+                )
             }
+            .buttonStyle(.plain)
+            .disabled(isPaused && !restRunning)
         }
-        .padding(16)
+        .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(Color.white.opacity(0.03))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.white.opacity(0.07), lineWidth: 1)
         )
     }
 
     // MARK: - Lógica
 
+    private var isPaused: Bool {
+        pausedAt != nil
+    }
+
+    private var pausedSeconds: Int {
+        let livePause = pausedAt.map { max(0, Date().timeIntervalSince($0)) } ?? 0
+        return max(0, Int((pausedTotal + livePause).rounded()))
+    }
+
+    private var startedClock: String {
+        guard let startedAt else { return "—" }
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: startedAt)
+    }
+
     private func resumeIfNeeded() {
         let defaults = UserDefaults.standard
         let storedStart = defaults.double(forKey: Self.storedStartKey)
         guard storedStart > 0 else { return }
         startedAt = Date(timeIntervalSince1970: storedStart)
+        pausedTotal = max(0, defaults.double(forKey: Self.storedPausedTotalKey))
+        let storedPausedAt = defaults.double(forKey: Self.storedPausedAtKey)
+        pausedAt = storedPausedAt > 0
+            ? Date(timeIntervalSince1970: storedPausedAt)
+            : nil
         if let raw = defaults.string(forKey: Self.storedKindKey),
            let storedKind = WorkoutActivityKind(rawValue: raw) {
             kind = storedKind
         }
         elapsedS = currentElapsed()
         stage = .live
+        // Retomada pós-kill: a rota anterior se perdeu com o processo —
+        // religa o GPS e grava o trecho restante (parcial > nada).
+        if kind.usesRoute, !isPaused { routeRecorder.start() }
     }
 
     private func start(_ option: WorkoutActivityKind) {
@@ -534,16 +762,26 @@ public struct NativeWorkoutFlowView: View {
         kind = option
         startedAt = now
         elapsedS = 0
+        pausedAt = nil
+        pausedTotal = 0
+        restPreset = 60
+        restRemaining = 60
+        restRunning = false
+        restJustDone = false
         finishError = nil
         stage = .live
         let defaults = UserDefaults.standard
         defaults.set(now.timeIntervalSince1970, forKey: Self.storedStartKey)
         defaults.set(option.rawValue, forKey: Self.storedKindKey)
+        defaults.removeObject(forKey: Self.storedPausedAtKey)
+        defaults.set(0, forKey: Self.storedPausedTotalKey)
+        if option.usesRoute { routeRecorder.start() }
     }
 
     private func tick() {
         guard stage == .live else { return }
         elapsedS = currentElapsed()
+        guard !isPaused else { return }
         guard restRunning else { return }
         restRemaining = max(0, restRemaining - 1)
         if restRemaining == 0 {
@@ -555,13 +793,46 @@ public struct NativeWorkoutFlowView: View {
 
     private func currentElapsed() -> Int {
         guard let startedAt else { return 0 }
-        return max(0, Int(Date().timeIntervalSince(startedAt).rounded()))
+        let referenceDate = pausedAt ?? Date()
+        let activeDuration = referenceDate.timeIntervalSince(startedAt) - pausedTotal
+        return max(0, Int(activeDuration.rounded()))
     }
 
-    private func startRest(_ preset: Int) {
+    private func togglePause() {
+        let now = Date()
+        let defaults = UserDefaults.standard
+        if let pausedAt {
+            pausedTotal += max(0, now.timeIntervalSince(pausedAt))
+            self.pausedAt = nil
+            defaults.removeObject(forKey: Self.storedPausedAtKey)
+            defaults.set(pausedTotal, forKey: Self.storedPausedTotalKey)
+            if kind.usesRoute { routeRecorder.resume() }
+        } else {
+            pausedAt = now
+            defaults.set(now.timeIntervalSince1970, forKey: Self.storedPausedAtKey)
+            defaults.set(pausedTotal, forKey: Self.storedPausedTotalKey)
+            if kind.usesRoute { routeRecorder.pause() }
+        }
+        elapsedS = currentElapsed()
         Haptics.impactLight()
-        restPreset = preset
-        restRemaining = preset
+    }
+
+    private func adjustRest(by delta: Int) {
+        let nextPreset = min(15 * 60, max(10, restPreset + delta))
+        let appliedDelta = nextPreset - restPreset
+        restPreset = nextPreset
+        if restRunning {
+            restRemaining = min(15 * 60, max(0, restRemaining + appliedDelta))
+        } else {
+            restRemaining = nextPreset
+            restJustDone = false
+        }
+        Haptics.impactLight()
+    }
+
+    private func startRest() {
+        Haptics.impactLight()
+        restRemaining = restPreset
         restRunning = true
         restJustDone = false
     }
@@ -570,10 +841,14 @@ public struct NativeWorkoutFlowView: View {
         guard let startedAt, !finishing else { return }
         finishing = true
         finishError = nil
+        // Rota primeiro (para o GPS); nil = sessão indoor/sem sinal.
+        let route = kind.usesRoute ? routeRecorder.stop() : nil
         let context = await model.finishNativeWorkout(
             kind: kind,
             startedAt: startedAt,
-            endedAt: Date()
+            endedAt: Date(),
+            elapsedS: currentElapsed(),
+            route: route
         )
         finishing = false
         if let context {
@@ -594,6 +869,8 @@ public struct NativeWorkoutFlowView: View {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: Self.storedStartKey)
         defaults.removeObject(forKey: Self.storedKindKey)
+        defaults.removeObject(forKey: Self.storedPausedAtKey)
+        defaults.removeObject(forKey: Self.storedPausedTotalKey)
     }
 }
 

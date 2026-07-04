@@ -17,6 +17,12 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
     public let maxHr: Int?
     public let activeCalories: Double?
     public let totalCalories: Double?
+    // Fase 2 (GPS outdoor) — presentes quando mode == "route".
+    public let distanceM: Double?
+    public let movingS: Int?
+    public let elevationGainM: Double?
+    /// Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa.
+    public let route: [[Double]]?
     public let workoutDate: String
     public let createdAt: String
     public let caption: String?
@@ -48,6 +54,10 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
         case maxHr = "max_hr"
         case activeCalories = "active_calories"
         case totalCalories = "total_calories"
+        case distanceM = "distance_m"
+        case movingS = "moving_s"
+        case elevationGainM = "elevation_gain_m"
+        case route
         case workoutDate = "workout_date"
         case createdAt = "created_at"
         case caption
@@ -116,6 +126,11 @@ public enum WorkoutActivityKind: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    /// Tipos outdoor gravam rota por GPS (Fase 2); musculação/outro = sessão.
+    public var usesRoute: Bool {
+        self == .run || self == .walk || self == .ride
+    }
+
     /// Tag preset do composer correspondente (mesmos valores PT-BR que o web
     /// persiste em workout_types). nil = sem pré-seleção.
     public var composerTag: String? {
@@ -155,6 +170,16 @@ public struct ActivityComposerContext: Identifiable, Equatable, Sendable {
         self.avgHr = avgHr
         self.activeCalories = activeCalories
     }
+}
+
+/// "5,02 km" (vírgula/ponto seguem o locale do aparelho).
+public func gymCircleFormatKm(_ meters: Double) -> String {
+    String(format: "%.2f km", meters / 1000)
+}
+
+/// "6:12 /km" a partir de segundos por km.
+public func gymCircleFormatPace(_ secPerKm: Int) -> String {
+    "\(secPerKm / 60):" + String(format: "%02d", secPerKm % 60) + " /km"
 }
 
 /// "45:12" ou "1:02:45" — mesmo formato do cronômetro e do card (web

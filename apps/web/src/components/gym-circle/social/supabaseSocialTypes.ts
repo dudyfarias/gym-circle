@@ -196,6 +196,11 @@ export type SurfaceActivityRow = {
   max_hr?: number | null;
   active_calories?: number | null;
   total_calories?: number | null;
+  distance_m?: number | null;
+  moving_s?: number | null;
+  elevation_gain_m?: number | null;
+  /** Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa. */
+  route?: number[][] | null;
   workout_date: string;
   created_at: string;
   caption?: string | null;

@@ -216,6 +216,7 @@ public final class GymCircleAppModel: ObservableObject {
             await loadProfile()
             await loadInitialSurfaces()
             await loadMyCircle()
+            await syncPushTokenIfAuthorized()
         }
     }
 
@@ -232,6 +233,7 @@ public final class GymCircleAppModel: ObservableObject {
         await loadProfile()
         await loadInitialSurfaces()
         await loadMyCircle()
+        await syncPushTokenIfAuthorized()
     }
 
     // MARK: - Sprint 8.11.1 — profile loader
@@ -257,6 +259,9 @@ public final class GymCircleAppModel: ObservableObject {
 
     public func signOut() async {
         await stopRealtime()
+        if let pushService, let userId = sessionStore?.currentUserId {
+            try? await pushService.revokeCurrentToken(userId: userId)
+        }
         await sessionStore?.signOut()
         // Limpa estado in-memory
         posts = []
@@ -1152,7 +1157,10 @@ public final class GymCircleAppModel: ObservableObject {
     public func finishNativeWorkout(
         kind: WorkoutActivityKind,
         startedAt: Date,
-        endedAt: Date
+        endedAt: Date,
+        elapsedS: Int? = nil,
+        // Fase 2 (GPS outdoor): rota gravada → mode "route" + métricas.
+        route: WorkoutRouteSummary? = nil
     ) async -> ActivityComposerContext? {
         guard let api, let userId = sessionStore?.currentUserId else {
             self.error = Loc.t(
@@ -1161,7 +1169,10 @@ public final class GymCircleAppModel: ObservableObject {
             )
             return nil
         }
-        let elapsed = max(0, Int(endedAt.timeIntervalSince(startedAt).rounded()))
+        let elapsed = max(
+            0,
+            elapsedS ?? Int(endedAt.timeIntervalSince(startedAt).rounded())
+        )
         var stats = WorkoutSessionHealthStats(averageHeartRate: nil, activeKilocalories: nil)
         if healthKitProvider.isAvailable {
             try? await healthKitProvider.requestWorkoutSessionAuthorization()
@@ -1183,7 +1194,12 @@ public final class GymCircleAppModel: ObservableObject {
                 elapsedS: elapsed,
                 workoutDate: workoutDate,
                 avgHr: stats.averageHeartRate,
-                activeCalories: stats.activeKilocalories
+                activeCalories: stats.activeKilocalories,
+                mode: route == nil ? "session" : "route",
+                distanceM: route?.distanceM,
+                movingS: route?.movingS,
+                elevationGainM: route?.elevationGainM,
+                routePoints: route?.points
             )
             await refreshFeed()
             await loadMyCircle()
@@ -1662,7 +1678,6 @@ public final class GymCircleAppModel: ObservableObject {
         guard let pushService, let userId = sessionStore?.currentUserId else { return false }
         do {
             try await pushService.requestPermissionAndRegisterWithAPNs()
-            try? await Task.sleep(nanoseconds: 900_000_000)
             try await pushService.upsertCurrentToken(userId: userId)
             Haptics.success()
             return true
@@ -1676,6 +1691,11 @@ public final class GymCircleAppModel: ObservableObject {
     public func disablePushNotifications() async {
         guard let pushService, let userId = sessionStore?.currentUserId else { return }
         try? await pushService.revokeCurrentToken(userId: userId)
+    }
+
+    private func syncPushTokenIfAuthorized() async {
+        guard let pushService, let userId = sessionStore?.currentUserId else { return }
+        _ = try? await pushService.syncIfAlreadyAuthorized(userId: userId)
     }
 
     public func requestHealthKitAccess() async -> Bool {

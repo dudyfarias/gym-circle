@@ -1,11 +1,17 @@
 "use client";
 
-import { ImagePlus, MapPin, MoreHorizontal, Timer } from "lucide-react";
+import { ImagePlus, MapPin, MoreHorizontal, Route, Timer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import type { EnrichedActivity } from "../social/types";
-import { formatElapsed } from "../workout/workoutElapsed";
+import {
+  formatElapsed,
+  formatKm,
+  formatPace,
+  paceFromDistance,
+} from "../workout/workoutElapsed";
+import { RouteSketch } from "./RouteSketch";
 
 type FeedActivityCardProps = {
   activity: EnrichedActivity;
@@ -41,6 +47,25 @@ export function FeedActivityCard({
   const { t } = useTranslation();
   const typeLabel = t(TYPE_LABEL_KEY[activity.activityType] ?? "workout.types.other");
   const locationLabel = activity.gymName ?? activity.locationName;
+
+  // Fase 2 (GPS outdoor): rota gravada → destaque vira distância; tempo,
+  // ritmo e elevação descem pra linha secundária.
+  const hasRoute = (activity.distanceM ?? 0) > 0;
+  const pace = hasRoute
+    ? paceFromDistance(
+        activity.distanceM ?? 0,
+        activity.movingS ?? activity.elapsedS,
+      )
+    : null;
+  const secondaryStats = [
+    hasRoute ? formatElapsed(activity.elapsedS) : null,
+    pace != null ? formatPace(pace) : null,
+    hasRoute && (activity.elevationGainM ?? 0) >= 1
+      ? `${Math.round(activity.elevationGainM ?? 0)} m`
+      : null,
+    activity.avgHr ? `${activity.avgHr} bpm` : null,
+    activity.totalCalories ? `${Math.round(activity.totalCalories)} kcal` : null,
+  ].filter(Boolean);
 
   return (
     <article className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-[radial-gradient(circle_at_top_right,rgba(48,213,255,0.1),transparent_48%),#0c0d0e] shadow-[0_18px_54px_rgba(0,0,0,0.28)]">
@@ -90,32 +115,38 @@ export function FeedActivityCard({
         </div>
       </div>
 
-      {/* Stats do treino (tipo + duração + extras quando existem) */}
+      {/* Stats do treino (tipo + duração/distância + extras quando existem) */}
       <div className="mx-4 mb-3 flex items-center gap-3 rounded-[20px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] p-4">
         <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--gc-blue)] text-black shadow-[0_0_28px_rgba(48,213,255,0.2)]">
-          <Timer size={21} strokeWidth={2.8} />
+          {hasRoute ? (
+            <Route size={21} strokeWidth={2.8} />
+          ) : (
+            <Timer size={21} strokeWidth={2.8} />
+          )}
         </div>
         <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-[0.08em] text-white/38">
             {typeLabel}
           </p>
           <p className="text-[20px] font-black leading-tight text-white">
-            {formatElapsed(activity.elapsedS)}
+            {hasRoute
+              ? formatKm(activity.distanceM ?? 0)
+              : formatElapsed(activity.elapsedS)}
           </p>
-          {activity.avgHr || activity.totalCalories ? (
+          {secondaryStats.length > 0 ? (
             <p className="mt-0.5 text-[11.5px] font-bold text-white/42">
-              {[
-                activity.avgHr ? `${activity.avgHr} bpm` : null,
-                activity.totalCalories
-                  ? `${Math.round(activity.totalCalories)} kcal`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+              {secondaryStats.join(" · ")}
             </p>
           ) : null}
         </div>
       </div>
+
+      {/* Mini-mapa da rota (sketch da polyline) */}
+      {activity.route && activity.route.length >= 2 ? (
+        <div className="mx-4 mb-3 overflow-hidden rounded-[20px] border border-[var(--gc-blue)]/10 bg-[var(--gc-blue)]/[0.045]">
+          <RouteSketch route={activity.route} className="h-24 w-full" />
+        </div>
+      ) : null}
 
       {/* Legenda + tags (mesmas infos de um post) */}
       {activity.caption ? (

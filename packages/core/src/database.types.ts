@@ -25,6 +25,7 @@ export type Database = {
           elapsed_s: number
           elevation_gain_m: number | null
           ended_at: string
+          external_id: string | null
           gym_id: string | null
           id: string
           location_google_maps_url: string | null
@@ -55,6 +56,7 @@ export type Database = {
           elapsed_s?: number
           elevation_gain_m?: number | null
           ended_at: string
+          external_id?: string | null
           gym_id?: string | null
           id?: string
           location_google_maps_url?: string | null
@@ -85,6 +87,7 @@ export type Database = {
           elapsed_s?: number
           elevation_gain_m?: number | null
           ended_at?: string
+          external_id?: string | null
           gym_id?: string | null
           id?: string
           location_google_maps_url?: string | null

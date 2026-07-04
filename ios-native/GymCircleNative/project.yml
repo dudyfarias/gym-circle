@@ -40,7 +40,7 @@ targets:
         # seguindo ao abrir o sheet + busca de pessoas. + fix perfil de terceiros
         # + double-tap-to-like + comentários = web.
         # Cada archive novo precisa de build number único (ASC rejeita repetido).
-        CFBundleVersion: "76"
+        CFBundleVersion: "77"
         # Conformidade de exportação: o app só usa HTTPS/TLS padrão + Keychain
         # (criptografia ISENTA, sem nada proprietário). NO limpa o "Faltam dados
         # de conformidade" automaticamente nos próximos builds.
@@ -61,7 +61,10 @@ targets:
         NSCameraUsageDescription: Use a câmera para postar treinos e stories no Gym Circle.
         NSPhotoLibraryUsageDescription: Escolha fotos e vídeos da galeria para posts, stories e mensagens.
         NSMicrophoneUsageDescription: Grave áudio ao publicar vídeos de treino.
-        NSLocationWhenInUseUsageDescription: Use sua localização para encontrar academias próximas e fazer check-in.
+        NSLocationWhenInUseUsageDescription: Use sua localização para encontrar academias próximas, fazer check-in e traçar a rota de treinos ao ar livre.
+        # Fase 2 (GPS outdoor): rota continua gravando com a tela apagada.
+        UIBackgroundModes:
+          - location
         NSHealthShareUsageDescription: O Gym Circle lê seus treinos do Apple Saúde para enriquecer resumos e estatísticas, somente com sua permissão.
         NSHealthUpdateUsageDescription: O Gym Circle pode preparar treinos para o Apple Saúde em versões futuras, sempre com sua permissão.
     settings:
@@ -80,6 +83,11 @@ targets:
         # Cutover: simulador/CI buildam sem signing (sem team); o DEVICE
         # (archive/TestFlight) assina normal com o Team setado no Xcode.
         "CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]": "NO"
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+        Release:
+          APS_ENVIRONMENT: production
 
   # Sprint 9.9.7 — unit-test target (P1 #6).
   GymCircleNativeTests:

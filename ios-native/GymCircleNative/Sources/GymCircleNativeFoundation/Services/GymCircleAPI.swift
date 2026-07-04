@@ -66,7 +66,14 @@ public actor GymCircleAPI {
         // Nike…) + UUID do HKWorkout (índice único barra duplicata).
         origin: String = "live",
         sourceApp: String? = "gym_circle_ios",
-        externalId: String? = nil
+        externalId: String? = nil,
+        // Fase 2 (GPS outdoor): mode "route" + métricas + polyline
+        // [[lat, lng], ...] pro mini-mapa dos cards.
+        mode: String = "session",
+        distanceM: Double? = nil,
+        movingS: Int? = nil,
+        elevationGainM: Double? = nil,
+        routePoints: [[Double]]? = nil
     ) async throws -> String {
         struct ActivityInsert: Encodable {
             let user_id: String
@@ -81,6 +88,10 @@ public actor GymCircleAPI {
             let avg_hr: Int?
             let active_calories: Double?
             let total_calories: Double?
+            let distance_m: Double?
+            let moving_s: Int?
+            let elevation_gain_m: Double?
+            let route: [[Double]]?
             let workout_date: String
         }
         struct InsertedActivity: Decodable { let id: String }
@@ -89,7 +100,7 @@ public actor GymCircleAPI {
             .insert(ActivityInsert(
                 user_id: userId,
                 activity_type: activityType,
-                mode: "session",
+                mode: mode,
                 origin: origin,
                 source_app: sourceApp,
                 external_id: externalId,
@@ -99,6 +110,10 @@ public actor GymCircleAPI {
                 avg_hr: avgHr,
                 active_calories: activeCalories,
                 total_calories: activeCalories,
+                distance_m: distanceM,
+                moving_s: movingS,
+                elevation_gain_m: elevationGainM,
+                route: routePoints,
                 workout_date: workoutDate
             ))
             .select("id")

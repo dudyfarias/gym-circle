@@ -18,3 +18,32 @@ export function formatElapsed(totalSeconds: number): string {
   const ss = String(seconds).padStart(2, "0");
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${minutes}:${ss}`;
 }
+
+/**
+ * Rastreio de treino (Fase 2 — GPS outdoor). Métricas de rota gravadas no
+ * app nativo; o web só exibe. 5023 → "5,02 km".
+ */
+export function formatKm(meters: number): string {
+  return `${(meters / 1000).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} km`;
+}
+
+/** Ritmo em s/km → "6:12 /km". */
+export function formatPace(secPerKm: number): string {
+  const s = Math.max(0, Math.round(secPerKm));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} /km`;
+}
+
+/**
+ * Ritmo médio (s/km) a partir de distância (m) e tempo (s). null com dados
+ * insuficientes (< 50 m) — evita ritmo maluco.
+ */
+export function paceFromDistance(
+  meters: number,
+  seconds: number,
+): number | null {
+  if (meters <= 50 || seconds <= 0) return null;
+  return Math.round(seconds / (meters / 1000));
+}

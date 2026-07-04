@@ -27,6 +27,7 @@
 		3FCE9C9BA90B675F9938CB7E /* GymCircleAppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96D3B83C89A2600A381D71E5 /* GymCircleAppModel.swift */; };
 		425F19777DF07AA72E43F4F2 /* AchievementsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF4632A9A6FABB1EB319100 /* AchievementsService.swift */; };
 		437FF8ED624FEBE121C0AE42 /* CommentsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1242B1DB1FF1D257EF8CFF0B /* CommentsSheet.swift */; };
+		449B94B54ADBC04E79274E16 /* WorkoutRouteRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FF1801D6133B3878C3D0A96 /* WorkoutRouteRecorder.swift */; };
 		49CF2F5BBC9A4BF7606C9F0B /* AppConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55AE3C88470738904E400FD /* AppConfiguration.swift */; };
 		4C3D78C6CD33A58BFC7BB027 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D92E793C72F1D68E9C1CFA21 /* Assets.xcassets */; };
 		4D8EDEF5E8C9A52F9BFB336C /* MyCircleService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 381506FB324FA418FAD1FEBF /* MyCircleService.swift */; };
@@ -128,6 +129,7 @@
 		12F8F115115AFEF400825DA3 /* AppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigurationTests.swift; sourceTree = "<group>"; };
 		15CF77117635F0D69B78BE8C /* StoryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoryModels.swift; sourceTree = "<group>"; };
 		1C9E2CE99166EA4C0415991E /* ActivityRingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivityRingsView.swift; sourceTree = "<group>"; };
+		1FF1801D6133B3878C3D0A96 /* WorkoutRouteRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutRouteRecorder.swift; sourceTree = "<group>"; };
 		25DEA818BBFA56B279EE0BBF /* NativeGymSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeGymSearchSheet.swift; sourceTree = "<group>"; };
 		2609487EA632835844895920 /* AvatarConsistencyRings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarConsistencyRings.swift; sourceTree = "<group>"; };
 		29F08F3783EAD0DC084E6E2F /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
@@ -393,6 +395,7 @@
 				46FCDA3F30345C295BB0257C /* SafetyService.swift */,
 				49F315E719C5717C0921BD96 /* StoriesService.swift */,
 				633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */,
+				1FF1801D6133B3878C3D0A96 /* WorkoutRouteRecorder.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -639,6 +642,7 @@
 				EB3259E2DF3200D364544F2E /* StreakBadgeView.swift in Sources */,
 				C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */,
 				70EB9C329DE1DA414347C6A3 /* UserProfile.swift in Sources */,
+				449B94B54ADBC04E79274E16 /* WorkoutRouteRecorder.swift in Sources */,
 				7419D191D9780E22F050588C /* WorkoutViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -755,6 +759,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */;
 			buildSettings = {
+				APS_ENVIRONMENT = development;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
@@ -781,6 +786,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 2E9890B45E5FF7A685FD9806 /* Shared.xcconfig */;
 			buildSettings = {
+				APS_ENVIRONMENT = production;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
 				"CODE_SIGNING_ALLOWED[sdk=iphonesimulator*]" = NO;
