@@ -11,6 +11,11 @@ public struct HealthWorkoutSummary: Identifiable, Hashable, Sendable {
     public let durationSeconds: TimeInterval
     public let activeEnergyKilocalories: Double?
     public let workoutActivityType: String
+    /// Tipo no vocabulário do produto (strength/run/walk/ride/other) —
+    /// vira activities.activity_type no import.
+    public let activityKind: String
+    /// App que gravou o treino (Strava, Nike Run Club, Apple Watch…).
+    public let sourceName: String?
 
     public init(
         id: String,
@@ -18,7 +23,9 @@ public struct HealthWorkoutSummary: Identifiable, Hashable, Sendable {
         endDate: Date,
         durationSeconds: TimeInterval,
         activeEnergyKilocalories: Double?,
-        workoutActivityType: String
+        workoutActivityType: String,
+        activityKind: String = "other",
+        sourceName: String? = nil
     ) {
         self.id = id
         self.startDate = startDate
@@ -26,6 +33,8 @@ public struct HealthWorkoutSummary: Identifiable, Hashable, Sendable {
         self.durationSeconds = durationSeconds
         self.activeEnergyKilocalories = activeEnergyKilocalories
         self.workoutActivityType = workoutActivityType
+        self.activityKind = activityKind
+        self.sourceName = sourceName
     }
 }
 
@@ -129,7 +138,9 @@ public final class AppleHealthKitProvider: HealthKitProviding {
                         durationSeconds: workout.duration,
                         activeEnergyKilocalories: workout.totalEnergyBurned?
                             .doubleValue(for: .kilocalorie()),
-                        workoutActivityType: Self.activityName(workout.workoutActivityType)
+                        workoutActivityType: Self.activityName(workout.workoutActivityType),
+                        activityKind: Self.activityKind(workout.workoutActivityType),
+                        sourceName: workout.sourceRevision.source.name
                     )
                 }
                 continuation.resume(returning: workouts)
@@ -232,6 +243,20 @@ public final class AppleHealthKitProvider: HealthKitProviding {
         case "walk": return .walking
         case "ride": return .cycling
         default: return .other
+        }
+    }
+
+    /// Inverso do hkActivityType: HK → vocabulário do produto (check
+    /// constraint activities_type_chk).
+    private static func activityKind(_ type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .traditionalStrengthTraining, .functionalStrengthTraining,
+             .highIntensityIntervalTraining:
+            return "strength"
+        case .running: return "run"
+        case .walking, .hiking: return "walk"
+        case .cycling: return "ride"
+        default: return "other"
         }
     }
 

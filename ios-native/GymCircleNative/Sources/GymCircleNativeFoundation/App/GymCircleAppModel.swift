@@ -1201,6 +1201,68 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Treinos recentes do Apple Saúde (Strava/Nike/Watch…) pro import.
+    /// Pede permissão de leitura primeiro; fail-soft: [] sem acesso/amostras.
+    public func recentHealthWorkouts(days: Int = 14) async -> [HealthWorkoutSummary] {
+        guard healthKitProvider.isAvailable else { return [] }
+        try? await healthKitProvider.requestReadAuthorization()
+        let end = Date()
+        let start = Calendar.current.date(byAdding: .day, value: -days, to: end) ?? end
+        return (try? await healthKitProvider.workouts(from: start, to: end)) ?? []
+    }
+
+    /// Importa um treino do Saúde como ENTRADA no feed (origin imported).
+    /// O UUID do HKWorkout em external_id barra duplicata (23505 → mensagem
+    /// amigável). Dia/streak marcados no workout_date REAL do treino.
+    public func importHealthWorkout(
+        _ workout: HealthWorkoutSummary
+    ) async -> ActivityComposerContext? {
+        guard let api, let userId = sessionStore?.currentUserId else {
+            self.error = Loc.t(
+                "Sign in to import workouts.",
+                "Entre na sua conta pra importar treinos."
+            )
+            return nil
+        }
+        let elapsed = max(0, Int(workout.durationSeconds.rounded()))
+        do {
+            let iso = ISO8601DateFormatter()
+            let workoutDate = Self.dateKey(for: workout.startDate)
+            let activityId = try await api.createActivity(
+                userId: userId,
+                activityType: workout.activityKind,
+                startedAt: iso.string(from: workout.startDate),
+                endedAt: iso.string(from: workout.endDate),
+                elapsedS: elapsed,
+                workoutDate: workoutDate,
+                activeCalories: workout.activeEnergyKilocalories,
+                origin: "imported",
+                sourceApp: workout.sourceName,
+                externalId: workout.id
+            )
+            await refreshFeed()
+            await loadMyCircle()
+            return ActivityComposerContext(
+                id: activityId,
+                kind: WorkoutActivityKind(rawValue: workout.activityKind) ?? .other,
+                elapsedS: elapsed,
+                workoutDate: workoutDate,
+                activeCalories: workout.activeEnergyKilocalories
+            )
+        } catch {
+            let description = "\(error)"
+            if description.contains("23505") || description.lowercased().contains("duplicate") {
+                self.error = Loc.t(
+                    "This workout was already imported.",
+                    "Esse treino já foi importado."
+                )
+            } else {
+                self.error = error.localizedDescription
+            }
+            return nil
+        }
+    }
+
     /// Salva legenda/tags/local NA ENTRADA (treino sem foto) — paridade web
     /// saveActivityEntry. O treino já está no feed; isso completa as infos.
     public func saveActivityEntry(

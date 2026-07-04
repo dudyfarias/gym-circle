@@ -61,7 +61,12 @@ public actor GymCircleAPI {
         elapsedS: Int,
         workoutDate: String,
         avgHr: Int? = nil,
-        activeCalories: Double? = nil
+        activeCalories: Double? = nil,
+        // Import do Apple Saúde: origin "imported" + app de origem (Strava,
+        // Nike…) + UUID do HKWorkout (índice único barra duplicata).
+        origin: String = "live",
+        sourceApp: String? = "gym_circle_ios",
+        externalId: String? = nil
     ) async throws -> String {
         struct ActivityInsert: Encodable {
             let user_id: String
@@ -69,6 +74,7 @@ public actor GymCircleAPI {
             let mode: String
             let origin: String
             let source_app: String?
+            let external_id: String?
             let started_at: String
             let ended_at: String
             let elapsed_s: Int
@@ -84,8 +90,9 @@ public actor GymCircleAPI {
                 user_id: userId,
                 activity_type: activityType,
                 mode: "session",
-                origin: "live",
-                source_app: "gym_circle_ios",
+                origin: origin,
+                source_app: sourceApp,
+                external_id: externalId,
                 started_at: startedAt,
                 ended_at: endedAt,
                 elapsed_s: elapsedS,

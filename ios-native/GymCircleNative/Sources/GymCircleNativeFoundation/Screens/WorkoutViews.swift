@@ -7,15 +7,18 @@ public struct CreateHubSheet: View {
     private let onStartWorkout: () -> Void
     private let onPostWorkout: () -> Void
     private let onCheckIn: () -> Void
+    private let onImportHealth: (() -> Void)?
 
     public init(
         onStartWorkout: @escaping () -> Void,
         onPostWorkout: @escaping () -> Void,
-        onCheckIn: @escaping () -> Void
+        onCheckIn: @escaping () -> Void,
+        onImportHealth: (() -> Void)? = nil
     ) {
         self.onStartWorkout = onStartWorkout
         self.onPostWorkout = onPostWorkout
         self.onCheckIn = onCheckIn
+        self.onImportHealth = onImportHealth
     }
 
     public var body: some View {
@@ -88,6 +91,41 @@ public struct CreateHubSheet: View {
                     detail: Loc.t("Mark today at your gym", "Marca o dia na academia"),
                     action: onCheckIn
                 )
+            }
+
+            // Treinos que já vivem no Saúde (Strava, Nike…) viram entrada.
+            if let onImportHealth {
+                Button {
+                    Haptics.impactLight()
+                    onImportHealth()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "heart.text.square.fill")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(GymCircleTheme.ColorToken.pink)
+                        Text(Loc.t(
+                            "Import from Apple Health",
+                            "Importar do Apple Saúde"
+                        ))
+                        .font(.system(size: 13.5, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.82))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundStyle(Color.white.opacity(0.4))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 13)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.white.opacity(0.03))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(20)
@@ -556,5 +594,216 @@ public struct NativeWorkoutFlowView: View {
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: Self.storedStartKey)
         defaults.removeObject(forKey: Self.storedKindKey)
+    }
+}
+
+/// Import do Apple Saúde (Slice 3): treinos gravados por outros apps
+/// (Strava, Nike Run Club, Apple Watch…) viram ENTRADA no feed (origin
+/// imported) — mesmas infos e mesma mutação a post do treino ao vivo.
+public struct HealthImportSheet: View {
+    @ObservedObject private var model: GymCircleAppModel
+    private let onImported: (ActivityComposerContext) -> Void
+    private let onClose: () -> Void
+
+    @State private var workouts: [HealthWorkoutSummary] = []
+    @State private var loading = true
+    @State private var importingId: String?
+    @State private var importedIds: Set<String> = []
+    @State private var errorMessage: String?
+
+    public init(
+        model: GymCircleAppModel,
+        onImported: @escaping (ActivityComposerContext) -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.model = model
+        self.onImported = onImported
+        self.onClose = onClose
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Loc.t("Import from Health", "Importar do Saúde"))
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    Text(Loc.t(
+                        "Last 14 days — Strava, Nike, Apple Watch and more.",
+                        "Últimos 14 dias — Strava, Nike, Apple Watch e mais."
+                    ))
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.46))
+                }
+                Spacer()
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.82))
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.white.opacity(0.055)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Loc.close)
+            }
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(GymCircleTheme.ColorToken.pink)
+            }
+
+            if loading {
+                HStack {
+                    Spacer()
+                    ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                    Spacer()
+                }
+                .padding(.vertical, 40)
+            } else if workouts.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "heart.text.square")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.3))
+                    Text(Loc.t(
+                        "No workouts found in Apple Health.",
+                        "Nenhum treino encontrado no Apple Saúde."
+                    ))
+                    .font(.system(size: 13.5, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                    Text(Loc.t(
+                        "Check the Health permission in Settings.",
+                        "Confira a permissão do Saúde nos Ajustes."
+                    ))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.36))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 36)
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(workouts) { workout in
+                            workoutRow(workout)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+        .task {
+            workouts = await model.recentHealthWorkouts()
+            loading = false
+        }
+    }
+
+    private func workoutRow(_ workout: HealthWorkoutSummary) -> some View {
+        let kind = WorkoutActivityKind(rawValue: workout.activityKind) ?? .other
+        let imported = importedIds.contains(workout.id)
+        return HStack(spacing: 12) {
+            Image(systemName: kind.icon)
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.cyan.opacity(0.10))
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(workout.workoutActivityType)
+                    .font(.system(size: 14.5, weight: .black))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                Text(
+                    [
+                        Self.dayLabel(workout.startDate),
+                        gymCircleFormatElapsed(Int(workout.durationSeconds.rounded())),
+                        workout.activeEnergyKilocalories.map { "\(Int($0.rounded())) kcal" },
+                        workout.sourceName,
+                    ]
+                    .compactMap { $0 }
+                    .joined(separator: " · ")
+                )
+                .font(.system(size: 11.5, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.46))
+                .lineLimit(1)
+            }
+            Spacer()
+            Button {
+                Task { await importWorkout(workout) }
+            } label: {
+                if importingId == workout.id {
+                    ProgressView().tint(.black)
+                        .frame(width: 76, height: 34)
+                        .background(Capsule().fill(GymCircleTheme.ColorToken.cyan))
+                } else {
+                    Text(
+                        imported
+                            ? Loc.t("Imported", "Importado")
+                            : Loc.t("Import", "Importar")
+                    )
+                    .font(.system(size: 12.5, weight: .black))
+                    .foregroundStyle(imported ? Color.white.opacity(0.4) : .black)
+                    .frame(width: 76, height: 34)
+                    .background(
+                        Capsule().fill(
+                            imported
+                                ? Color.white.opacity(0.06)
+                                : GymCircleTheme.ColorToken.cyan
+                        )
+                    )
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(imported || importingId != nil)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        )
+    }
+
+    private func importWorkout(_ workout: HealthWorkoutSummary) async {
+        importingId = workout.id
+        errorMessage = nil
+        let context = await model.importHealthWorkout(workout)
+        importingId = nil
+        if let context {
+            Haptics.success()
+            importedIds.insert(workout.id)
+            onImported(context)
+        } else {
+            Haptics.error()
+            errorMessage = model.error
+                ?? Loc.t("Couldn't import this workout.", "Não deu pra importar esse treino.")
+            // "Já importado" também marca a linha — evita repetir o toque.
+            if errorMessage == Loc.t(
+                "This workout was already imported.",
+                "Esse treino já foi importado."
+            ) {
+                importedIds.insert(workout.id)
+            }
+        }
+    }
+
+    /// "Hoje", "Ontem" ou dd/MM (SP).
+    private static func dayLabel(_ date: Date) -> String {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
+        if calendar.isDateInToday(date) { return Loc.t("Today", "Hoje") }
+        if calendar.isDateInYesterday(date) { return Loc.t("Yesterday", "Ontem") }
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "dd/MM"
+        return formatter.string(from: date)
     }
 }

@@ -34,6 +34,7 @@ public struct MainTabView: View {
     // treino / Check-in), paridade CreateHubSheet web.
     @State private var createHubPresented = false
     @State private var workoutPresented = false
+    @State private var healthImportPresented = false
     // Treino encerrado → composer com o contexto da activity (entrada no feed).
     @State private var composerActivity: ActivityComposerContext?
 
@@ -119,10 +120,25 @@ public struct MainTabView: View {
                 onCheckIn: {
                     createHubPresented = false
                     selection = .map
+                },
+                onImportHealth: {
+                    createHubPresented = false
+                    healthImportPresented = true
                 }
             )
-            .presentationDetents([.height(380), .medium])
+            .presentationDetents([.height(440), .medium])
             .presentationDragIndicator(.visible)
+        }
+        // Treinos de outros apps (Strava/Nike via Saúde) → entrada importada.
+        .sheet(isPresented: $healthImportPresented) {
+            HealthImportSheet(
+                model: model,
+                onImported: { context in
+                    healthImportPresented = false
+                    composerActivity = context
+                },
+                onClose: { healthImportPresented = false }
+            )
         }
         // Treino ao vivo (cronômetro + descanso + Apple Saúde).
         .fullScreenCover(isPresented: $workoutPresented) {
