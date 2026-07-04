@@ -71,6 +71,8 @@ public struct FeedView: View {
     // Tocar nos stats do treino (entrada) OU no header de um post promovido
     // de treino → overlay de detalhes (estilo Apple Atividades).
     @State private var detailWorkout: WorkoutDetailData?
+    // "Integrar treino": post cujo menu abriu o picker de treinos do dia.
+    @State private var integratePost: FeedPost?
     @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
@@ -317,7 +319,8 @@ public struct FeedView: View {
                                 onOpenMention: { openMention(username: $0) },
                                 onOpenWorkoutDetail: post.workoutDetail.map { detail in
                                     { detailWorkout = detail }
-                                }
+                                },
+                                onIntegrateWorkout: { integratePost = post }
                             )
                             .onAppear {
                                 // Dispara o load more no penúltimo post (espelho
@@ -415,6 +418,15 @@ public struct FeedView: View {
         // Tocar nos stats do treino (entrada ou post) → detalhes estilo Apple.
         .sheet(item: $detailWorkout) { detail in
             WorkoutDetailOverlay(detail: detail) { detailWorkout = nil }
+        }
+        // "Integrar treino" no menu do post → picker dos treinos do dia.
+        .sheet(item: $integratePost) { post in
+            IntegrateWorkoutSheet(
+                model: model,
+                post: post,
+                onIntegrated: { integratePost = nil },
+                onClose: { integratePost = nil }
+            )
         }
         // Re-tap na aba do feed (MainTabView) já estando no feed: sobe ao topo
         // + dá refresh (paridade web scrollFeedToTop + refresh).
@@ -1210,6 +1222,8 @@ public struct FeedPostCard: View {
     private let onOpenMention: ((String) -> Void)?
     /// P0.1 — post promovido de treino: abre o overlay de detalhes (Apple).
     private let onOpenWorkoutDetail: (() -> Void)?
+    /// "Integrar treino": junta um treino do mesmo dia ao post (dono, sem treino).
+    private let onIntegrateWorkout: (() -> Void)?
 
     @State private var confirmDelete = false
     // Double-tap-to-like (Instagram): coração estoura no centro da mídia.
@@ -1232,7 +1246,8 @@ public struct FeedPostCard: View {
         onOpenGym: (() -> Void)? = nil,
         onOpenProfile: ((String) -> Void)? = nil,
         onOpenMention: ((String) -> Void)? = nil,
-        onOpenWorkoutDetail: (() -> Void)? = nil
+        onOpenWorkoutDetail: (() -> Void)? = nil,
+        onIntegrateWorkout: (() -> Void)? = nil
     ) {
         self.post = post
         self.currentUserId = currentUserId
@@ -1251,6 +1266,7 @@ public struct FeedPostCard: View {
         self.onOpenProfile = onOpenProfile
         self.onOpenMention = onOpenMention
         self.onOpenWorkoutDetail = onOpenWorkoutDetail
+        self.onIntegrateWorkout = onIntegrateWorkout
     }
 
     private var isOwnPost: Bool {
@@ -1427,6 +1443,16 @@ public struct FeedPostCard: View {
                         onEdit?()
                     } label: {
                         Label(Loc.editPost, systemImage: "pencil")
+                    }
+                    if let onIntegrateWorkout, post.workoutDetail == nil {
+                        Button {
+                            onIntegrateWorkout()
+                        } label: {
+                            Label(
+                                Loc.t("Add workout", "Integrar treino"),
+                                systemImage: "figure.run"
+                            )
+                        }
                     }
                     Button(role: .destructive) {
                         confirmDelete = true

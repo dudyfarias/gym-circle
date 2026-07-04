@@ -921,6 +921,172 @@ public struct NativeWorkoutFlowView: View {
     }
 }
 
+/// "Integrar treino" — lista os treinos do mesmo dia do post que ainda podem
+/// ser juntados. Selecionar vincula o treino ao post (source_activity_id): o
+/// post passa a mostrar as estatísticas e o treino some do feed.
+public struct IntegrateWorkoutSheet: View {
+    @ObservedObject private var model: GymCircleAppModel
+    private let post: FeedPost
+    private let onIntegrated: () -> Void
+    private let onClose: () -> Void
+
+    @State private var activities: [MergeableActivity] = []
+    @State private var loading = true
+    @State private var integratingId: String?
+
+    public init(
+        model: GymCircleAppModel,
+        post: FeedPost,
+        onIntegrated: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
+        self.model = model
+        self.post = post
+        self.onIntegrated = onIntegrated
+        self.onClose = onClose
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(Loc.t("Add a workout", "Integrar treino"))
+                        .font(.system(size: 22, weight: .black))
+                        .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    Text(Loc.t(
+                        "Pick a workout from this day. Its stats show on the post and it leaves the feed.",
+                        "Escolha um treino deste dia. As estatísticas aparecem no post e o treino sai do feed."
+                    ))
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.46))
+                }
+                Spacer()
+                Button {
+                    onClose()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.82))
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.white.opacity(0.055)))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Loc.close)
+            }
+
+            if loading {
+                HStack {
+                    Spacer()
+                    ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+                    Spacer()
+                }
+                .padding(.vertical, 40)
+            } else if activities.isEmpty {
+                VStack(spacing: 6) {
+                    Image(systemName: "timer")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.3))
+                    Text(Loc.t(
+                        "No free workout on this day.",
+                        "Nenhum treino livre neste dia."
+                    ))
+                    .font(.system(size: 13.5, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.5))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 36)
+            } else {
+                ScrollView {
+                    VStack(spacing: 10) {
+                        ForEach(activities) { activity in
+                            workoutRow(activity)
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .background(GymCircleTheme.ColorToken.appBackground.ignoresSafeArea())
+        .task {
+            activities = await model.mergeableActivities(
+                workoutDate: post.workoutDate ?? ""
+            )
+            loading = false
+        }
+    }
+
+    private func workoutRow(_ activity: MergeableActivity) -> some View {
+        let hasRoute = (activity.distanceM ?? 0) > 0
+        return HStack(spacing: 12) {
+            Image(systemName: hasRoute ? "map.fill" : "timer")
+                .font(.system(size: 17, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 44, height: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.cyan)
+                )
+            VStack(alignment: .leading, spacing: 2) {
+                Text(activity.kind.label)
+                    .font(.system(size: 14.5, weight: .black))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                Text(
+                    [
+                        hasRoute
+                            ? gymCircleFormatKm(activity.distanceM ?? 0)
+                            : gymCircleFormatElapsed(activity.elapsedS),
+                        activity.avgHr.map { "\($0) bpm" },
+                        activity.totalCalories.map { "\(Int($0.rounded())) kcal" },
+                    ]
+                    .compactMap { $0 }
+                    .joined(separator: " · ")
+                )
+                .font(.system(size: 11.5, weight: .bold))
+                .foregroundStyle(Color.white.opacity(0.46))
+                .lineLimit(1)
+            }
+            Spacer()
+            if integratingId == activity.id {
+                ProgressView().tint(GymCircleTheme.ColorToken.cyan)
+            } else {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(Color.white.opacity(0.4))
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard integratingId == nil else { return }
+            Task { await integrate(activity) }
+        }
+    }
+
+    private func integrate(_ activity: MergeableActivity) async {
+        integratingId = activity.id
+        let ok = await model.integrateWorkoutIntoPost(
+            postId: post.id,
+            activityId: activity.id
+        )
+        integratingId = nil
+        if ok {
+            Haptics.success()
+            onIntegrated()
+        } else {
+            Haptics.error()
+        }
+    }
+}
+
 /// Import do Apple Saúde (Slice 3): treinos gravados por outros apps
 /// (Strava, Nike Run Club, Apple Watch…) viram ENTRADA no feed (origin
 /// imported) — mesmas infos e mesma mutação a post do treino ao vivo.

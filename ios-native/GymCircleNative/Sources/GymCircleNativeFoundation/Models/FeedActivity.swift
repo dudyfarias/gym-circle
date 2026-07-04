@@ -210,6 +210,38 @@ public struct WorkoutDetailData: Identifiable, Equatable, Sendable {
     }
 }
 
+/// "Integrar treino" — treino do mesmo dia do post disponível pra juntar
+/// (RPC get_mergeable_activities). Selecionar vincula via merge_activity_into_post.
+public struct MergeableActivity: Identifiable, Codable, Hashable, Sendable {
+    public let id: String
+    public let activityType: String
+    public let elapsedS: Int
+    public let movingS: Int?
+    public let distanceM: Double?
+    public let elevationGainM: Double?
+    public let avgHr: Int?
+    public let totalCalories: Double?
+    public let startedAt: String?
+    public let endedAt: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case activityType = "activity_type"
+        case elapsedS = "elapsed_s"
+        case movingS = "moving_s"
+        case distanceM = "distance_m"
+        case elevationGainM = "elevation_gain_m"
+        case avgHr = "avg_hr"
+        case totalCalories = "total_calories"
+        case startedAt = "started_at"
+        case endedAt = "ended_at"
+    }
+
+    public var kind: WorkoutActivityKind {
+        WorkoutActivityKind(rawValue: activityType) ?? .other
+    }
+}
+
 /// Tipos de treino do rastreio (check constraint activities_type_chk) —
 /// seletor estilo Apple Exercício, academia primeiro (público principal).
 public enum WorkoutActivityKind: String, CaseIterable, Identifiable, Sendable {

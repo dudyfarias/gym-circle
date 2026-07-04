@@ -50,6 +50,26 @@ public actor GymCircleAPI {
             .value
     }
 
+    /// "Integrar treino": treinos do próprio user num dia (mesma data do post),
+    /// ainda não vinculados a nenhum post. Alimenta o picker.
+    public func mergeableActivities(workoutDate: String) async throws -> [MergeableActivity] {
+        try await client
+            .rpc("get_mergeable_activities", params: MergeableActivitiesParams(p_workout_date: workoutDate))
+            .execute()
+            .value
+    }
+
+    /// Integra o treino no post (post recebe source_activity_id): o post mostra
+    /// as estatísticas e o treino some do feed. O RPC valida dono + mesma data.
+    public func mergeActivityIntoPost(postId: String, activityId: String) async throws {
+        try await client
+            .rpc(
+                "merge_activity_into_post",
+                params: MergeActivityParams(p_post_id: postId, p_activity_id: activityId)
+            )
+            .execute()
+    }
+
     /// Rastreio de treino — grava a sessão encerrada. A entrada nasce "crua"
     /// (sem legenda/local); o composer completa via updateActivityEntry.
     /// Triggers do DB marcam o dia + streak (user_activity_days).
@@ -677,6 +697,15 @@ private struct HomeCheckinsParams: Encodable {
 
 private struct HomeActivitiesParams: Encodable {
     let p_limit: Int
+}
+
+private struct MergeableActivitiesParams: Encodable {
+    let p_workout_date: String
+}
+
+private struct MergeActivityParams: Encodable {
+    let p_post_id: String
+    let p_activity_id: String
 }
 
 private struct StoryTrayParams: Encodable {

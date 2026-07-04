@@ -1279,6 +1279,26 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// "Integrar treino": treinos do dia do post ainda livres pra juntar.
+    public func mergeableActivities(workoutDate: String) async -> [MergeableActivity] {
+        guard let api else { return [] }
+        return (try? await api.mergeableActivities(workoutDate: workoutDate)) ?? []
+    }
+
+    /// Integra o treino no post — o post recebe as estatísticas e o treino
+    /// some do feed (sem duplicar). Refresh no sucesso.
+    public func integrateWorkoutIntoPost(postId: String, activityId: String) async -> Bool {
+        guard let api else { return false }
+        do {
+            try await api.mergeActivityIntoPost(postId: postId, activityId: activityId)
+            await refreshFeed()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
     /// Salva legenda/tags/local NA ENTRADA (treino sem foto) — paridade web
     /// saveActivityEntry. O treino já está no feed; isso completa as infos.
     public func saveActivityEntry(
