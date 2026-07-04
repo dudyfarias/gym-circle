@@ -11,7 +11,7 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
-import { ToastFeedback } from "./design-system";
+import { ToastFeedback, WorkoutDetailOverlay } from "./design-system";
 import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CreateHubSheet } from "./CreateHubSheet";
@@ -222,6 +222,8 @@ export function GymCirclePreview({
     () => hasStoredWorkoutSession(),
   );
   const [composerActivity, setComposerActivity] = useState<ComposerActivityContext | null>(null);
+  // Detalhes do treino (estilo Apple Atividades) — tocar nos stats da entrada.
+  const [detailActivity, setDetailActivity] = useState<EnrichedActivity | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -1899,6 +1901,7 @@ export function GymCirclePreview({
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             onAddActivityPhoto={openActivityComposer}
+            onOpenActivityDetails={setDetailActivity}
             hasDistancePosts={hasDistancePosts}
             headerHidden={scrollState === "down"}
             feedHasMore={social.feedHasMore}
@@ -2560,6 +2563,12 @@ export function GymCirclePreview({
             onEdit={handleStartEditEntry}
             open={entryMenuTarget !== null}
           />
+          {detailActivity ? (
+            <WorkoutDetailOverlay
+              activity={detailActivity}
+              onClose={() => setDetailActivity(null)}
+            />
+          ) : null}
           {editPost ? (
             <EditPostSheet
               checkin={editCheckinTarget}

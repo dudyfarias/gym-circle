@@ -11,6 +11,7 @@ export * from "./EmptyState";
 export * from "./FeaturedAchievementsRow";
 export * from "./FeedActivityCard";
 export * from "./FeedCheckinCard";
+export * from "./WorkoutDetailOverlay";
 export * from "./GCImage";
 export * from "./GymCheckInCard";
 export * from "./LatestPostPreview";

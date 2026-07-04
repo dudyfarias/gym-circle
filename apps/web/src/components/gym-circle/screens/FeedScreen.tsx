@@ -65,6 +65,7 @@ type FeedScreenProps = {
   onEditCheckin?: (checkinId: string) => void;
   /** Dono da atividade: adicionar foto → composer promove a entrada a post. */
   onAddActivityPhoto?: (activity: EnrichedActivity) => void;
+  onOpenActivityDetails?: (activity: EnrichedActivity) => void;
   onOpenLikes?: (postId: string) => void;
   postShareTargets?: EnrichedUser[];
   viewerLocationError?: string | null;
@@ -101,6 +102,7 @@ export function FeedScreen({
   onOpenActivityMenu,
   onEditCheckin,
   onAddActivityPhoto,
+  onOpenActivityDetails,
   onOpenLikes,
   postShareTargets = [],
   viewerLocationError,
@@ -289,6 +291,7 @@ export function FeedScreen({
                       ? onOpenActivityMenu
                       : undefined
                   }
+                  onOpenDetails={onOpenActivityDetails}
                   onSelectGym={onSelectGym}
                   onSelectUser={onSelectUser}
                 />

@@ -57,6 +57,7 @@
 		86723219D0B43C3D30165F50 /* NativeLocationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D24861F3677C444D1D316BD /* NativeLocationProvider.swift */; };
 		88263A3ED7D173C5FC3EC4B0 /* AchievementBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 317B289973FB095E8E09C514 /* AchievementBuilderTests.swift */; };
 		897C6E5A16A97D0E13730869 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CD5A151A6BF89D3869A206C /* ChatModels.swift */; };
+		8CAF352DBA7F14FF349AEF14 /* WorkoutDetailOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6232D20B028BC5915F7D2E8 /* WorkoutDetailOverlay.swift */; };
 		8E8058AA25C59C6654D0553B /* MentionText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DEC5BD33087F2A77D4B3780 /* MentionText.swift */; };
 		9A0112CB67B848AF6B3E67D1 /* GymCircleNativeAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92A6946799511E3778D09B6B /* GymCircleNativeAppDelegate.swift */; };
 		9AA615722E6B567FCEE47224 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46FCDA3F30345C295BB0257C /* SafetyService.swift */; };
@@ -189,6 +190,7 @@
 		B14F98EB725B1ECC00CDF3EC /* RecapCoverPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapCoverPickerSheet.swift; sourceTree = "<group>"; };
 		B4E16EB45801732D41433B39 /* PostDetailSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostDetailSheet.swift; sourceTree = "<group>"; };
 		B5A9D8BD1ECFB9BF3B1774F7 /* ProfilePostsGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePostsGridView.swift; sourceTree = "<group>"; };
+		B6232D20B028BC5915F7D2E8 /* WorkoutDetailOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDetailOverlay.swift; sourceTree = "<group>"; };
 		BA800C8BE19AD65D1A32CFC4 /* PeopleSearchSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeopleSearchSheet.swift; sourceTree = "<group>"; };
 		BB837287D72E60A143DA73B0 /* NativePlatformServicesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePlatformServicesTests.swift; sourceTree = "<group>"; };
 		BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecapPeriodPickerSheet.swift; sourceTree = "<group>"; };
@@ -319,6 +321,7 @@
 				BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */,
 				F892E8E46567D4BA8D201DD3 /* SettingsSheet.swift */,
 				F20940CB53959FF53CFF9C75 /* StoriesViews.swift */,
+				B6232D20B028BC5915F7D2E8 /* WorkoutDetailOverlay.swift */,
 				F36517109503AE7C7088A341 /* WorkoutViews.swift */,
 			);
 			path = Screens;
@@ -642,6 +645,7 @@
 				EB3259E2DF3200D364544F2E /* StreakBadgeView.swift in Sources */,
 				C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */,
 				70EB9C329DE1DA414347C6A3 /* UserProfile.swift in Sources */,
+				8CAF352DBA7F14FF349AEF14 /* WorkoutDetailOverlay.swift in Sources */,
 				449B94B54ADBC04E79274E16 /* WorkoutRouteRecorder.swift in Sources */,
 				7419D191D9780E22F050588C /* WorkoutViews.swift in Sources */,
 			);

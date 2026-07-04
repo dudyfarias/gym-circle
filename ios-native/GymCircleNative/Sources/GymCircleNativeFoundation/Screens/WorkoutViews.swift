@@ -200,6 +200,8 @@ public struct NativeWorkoutFlowView: View {
     @State private var finishing = false
     @State private var finishError: String?
     @State private var discardConfirm = false
+    // Importar treino do Apple Saúde direto do seletor (Strava/Nike/Watch).
+    @State private var healthImportPresented = false
     // Fase 2 — GPS outdoor (corrida/caminhada/bike): rota/ritmo/elevação.
     @StateObject private var routeRecorder = WorkoutRouteRecorder()
 
@@ -245,6 +247,17 @@ public struct NativeWorkoutFlowView: View {
                 onClose()
             }
             Button(Loc.t("Keep going", "Continuar treinando"), role: .cancel) {}
+        }
+        // Importar treino de outro app (Strava/Nike via Saúde) → entrada.
+        .sheet(isPresented: $healthImportPresented) {
+            HealthImportSheet(
+                model: model,
+                onImported: { context in
+                    healthImportPresented = false
+                    onCompose(context)
+                },
+                onClose: { healthImportPresented = false }
+            )
         }
     }
 
@@ -321,6 +334,40 @@ public struct NativeWorkoutFlowView: View {
                         .buttonStyle(.plain)
                     }
                 }
+
+                // Já treinou em outro app? Importa do Saúde sem cronometrar.
+                Button {
+                    Haptics.impactLight()
+                    healthImportPresented = true
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: "heart.text.square.fill")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(GymCircleTheme.ColorToken.pink)
+                        Text(Loc.t(
+                            "Import an existing workout",
+                            "Importar um treino já feito"
+                        ))
+                        .font(.system(size: 14, weight: .black))
+                        .foregroundStyle(Color.white.opacity(0.82))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .black))
+                            .foregroundStyle(Color.white.opacity(0.4))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(Color.white.opacity(0.03))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
             }
             .padding(20)
         }

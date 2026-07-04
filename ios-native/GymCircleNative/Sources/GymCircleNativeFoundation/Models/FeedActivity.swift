@@ -12,6 +12,8 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
     public let mode: String
     public let origin: String
     public let sourceApp: String?
+    public let startedAt: String?
+    public let endedAt: String?
     public let elapsedS: Int
     public let avgHr: Int?
     public let maxHr: Int?
@@ -49,6 +51,8 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
         case mode
         case origin
         case sourceApp = "source_app"
+        case startedAt = "started_at"
+        case endedAt = "ended_at"
         case elapsedS = "elapsed_s"
         case avgHr = "avg_hr"
         case maxHr = "max_hr"
@@ -86,6 +90,41 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
     /// Local exibido no card (academia cadastrada > local livre).
     public var locationLabel: String? {
         gymName ?? locationName
+    }
+
+    /// "14:59 – 15:59" (SP) a partir de started_at/ended_at — cabeçalho do
+    /// overlay de detalhes (estilo Apple Atividades). Vazio sem os horários.
+    public var timeRangeLabel: String {
+        guard let start = Self.parseISO(startedAt) else { return "" }
+        let end = Self.parseISO(endedAt)
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.dateFormat = "HH:mm"
+        let startLabel = formatter.string(from: start)
+        guard let end else { return startLabel }
+        return "\(startLabel) – \(formatter.string(from: end))"
+    }
+
+    /// Data longa "sex., 3 de jul." (SP) — título do overlay.
+    public var longDateLabel: String {
+        let base = Self.parseISO(startedAt) ?? Self.parseISO(endedAt)
+        guard let base else { return "" }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.dateFormat = "EEE, d 'de' MMM"
+        return formatter.string(from: base)
+    }
+
+    private static func parseISO(_ value: String?) -> Date? {
+        guard let value else { return nil }
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = withFraction.date(from: value) { return date }
+        return ISO8601DateFormatter().date(from: value)
     }
 }
 

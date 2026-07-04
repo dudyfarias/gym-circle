@@ -191,6 +191,8 @@ export type SurfaceActivityRow = {
   mode?: string | null;
   origin?: string | null;
   source_app?: string | null;
+  started_at?: string | null;
+  ended_at?: string | null;
   elapsed_s: number;
   avg_hr?: number | null;
   max_hr?: number | null;

@@ -19,6 +19,8 @@ type FeedActivityCardProps = {
   /** Dono: adicionar foto → o composer promove a entrada a post. */
   onAddPhoto?: (activity: EnrichedActivity) => void;
   onOpenMenu?: (activityId: string) => void;
+  /** Tocar nos stats (área sem botões) → overlay de detalhes (Apple). */
+  onOpenDetails?: (activity: EnrichedActivity) => void;
   onSelectGym?: (gymId: string) => void;
   onSelectUser?: (userId: string) => void;
 };
@@ -41,6 +43,7 @@ export function FeedActivityCard({
   formatTime,
   onAddPhoto,
   onOpenMenu,
+  onOpenDetails,
   onSelectGym,
   onSelectUser,
 }: FeedActivityCardProps) {
@@ -115,8 +118,14 @@ export function FeedActivityCard({
         </div>
       </div>
 
-      {/* Stats do treino (tipo + duração/distância + extras quando existem) */}
-      <div className="mx-4 mb-3 flex items-center gap-3 rounded-[20px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] p-4">
+      {/* Stats do treino (tipo + duração/distância + extras quando existem).
+          Tocar → overlay de detalhes estilo Apple (área sem botões). */}
+      <button
+        className="gc-pressable mx-4 mb-3 flex w-[calc(100%_-_2rem)] items-center gap-3 rounded-[20px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] p-4 text-left disabled:cursor-default"
+        disabled={!onOpenDetails}
+        onClick={() => onOpenDetails?.(activity)}
+        type="button"
+      >
         <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--gc-blue)] text-black shadow-[0_0_28px_rgba(48,213,255,0.2)]">
           {hasRoute ? (
             <Route size={21} strokeWidth={2.8} />
@@ -139,7 +148,7 @@ export function FeedActivityCard({
             </p>
           ) : null}
         </div>
-      </div>
+      </button>
 
       {/* Mini-mapa da rota (sketch da polyline) */}
       {activity.route && activity.route.length >= 2 ? (

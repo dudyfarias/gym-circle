@@ -139,6 +139,19 @@
       "saveWithoutPhoto": "Save without photo"
     }
   },
+  "workoutDetail": {
+    "title": "Workout details",
+    "detailsTitle": "Workout Details",
+    "workoutTime": "Workout Time",
+    "duration": "Duration",
+    "distance": "Distance",
+    "activeCalories": "Active Calories",
+    "totalCalories": "Total Calories",
+    "avgPace": "Avg. Pace",
+    "elevation": "Elevation Gain",
+    "avgHeartRate": "Avg. Heart Rate",
+    "mapTitle": "Map"
+  },
   "feed": {
     "title": "Gym Circle",
     "loading": "Loading feed...",

@@ -260,6 +260,8 @@ export type EnrichedActivity = {
   id: string;
   userId: string;
   activityType: string;
+  startedAt: string | null;
+  endedAt: string | null;
   elapsedS: number;
   avgHr: number | null;
   totalCalories: number | null;

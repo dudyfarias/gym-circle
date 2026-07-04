@@ -1875,6 +1875,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             id: row.id,
             userId: row.user_id,
             activityType: row.activity_type,
+            startedAt: row.started_at ?? null,
+            endedAt: row.ended_at ?? null,
             elapsedS: row.elapsed_s,
             avgHr: row.avg_hr ?? null,
             totalCalories: row.total_calories ?? null,

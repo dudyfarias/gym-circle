@@ -36,6 +36,12 @@ export function formatPace(secPerKm: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} /km`;
 }
 
+/** Ritmo estilo Apple Atividades → "38'10''/km". */
+export function formatApplePace(secPerKm: number): string {
+  const s = Math.max(0, Math.round(secPerKm));
+  return `${Math.floor(s / 60)}'${String(s % 60).padStart(2, "0")}''/km`;
+}
+
 /**
  * Ritmo médio (s/km) a partir de distância (m) e tempo (s). null com dados
  * insuficientes (< 50 m) — evita ritmo maluco.

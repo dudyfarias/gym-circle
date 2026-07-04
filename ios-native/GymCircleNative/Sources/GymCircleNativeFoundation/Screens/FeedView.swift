@@ -68,6 +68,8 @@ public struct FeedView: View {
     // Rastreio de treino: "Adicionar fotos" na entrada → composer com o
     // contexto da activity (promove a post via source_activity_id).
     @State private var composerActivity: ActivityComposerContext?
+    // Tocar nos stats do treino → overlay de detalhes (estilo Apple).
+    @State private var detailActivity: FeedActivity?
     @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
@@ -374,7 +376,8 @@ public struct FeedView: View {
                                         }
                                     }
                                 },
-                                onOpenProfile: { openProfile(userId: $0) }
+                                onOpenProfile: { openProfile(userId: $0) },
+                                onOpenDetails: { detailActivity = activity }
                             )
                         }
                     }
@@ -404,6 +407,10 @@ public struct FeedView: View {
                     onPublished: { composerActivity = nil }
                 )
             }
+        }
+        // Tocar nos stats do treino → detalhes estilo Apple Atividades.
+        .sheet(item: $detailActivity) { activity in
+            WorkoutDetailOverlay(activity: activity) { detailActivity = nil }
         }
         // Re-tap na aba do feed (MainTabView) já estando no feed: sobe ao topo
         // + dá refresh (paridade web scrollFeedToTop + refresh).
@@ -862,19 +869,23 @@ public struct FeedActivityCard: View {
     private let onAddPhotos: (() -> Void)?
     private let onOpenGym: (() -> Void)?
     private let onOpenProfile: ((String) -> Void)?
+    /// Tocar nos stats (área sem botões) → overlay de detalhes (Apple).
+    private let onOpenDetails: (() -> Void)?
 
     public init(
         activity: FeedActivity,
         currentUserId: String? = nil,
         onAddPhotos: (() -> Void)? = nil,
         onOpenGym: (() -> Void)? = nil,
-        onOpenProfile: ((String) -> Void)? = nil
+        onOpenProfile: ((String) -> Void)? = nil,
+        onOpenDetails: (() -> Void)? = nil
     ) {
         self.activity = activity
         self.currentUserId = currentUserId
         self.onAddPhotos = onAddPhotos
         self.onOpenGym = onOpenGym
         self.onOpenProfile = onOpenProfile
+        self.onOpenDetails = onOpenDetails
     }
 
     private var isOwnActivity: Bool {
@@ -969,7 +980,15 @@ public struct FeedActivityCard: View {
                     )
             }
 
-            statsCard
+            if let onOpenDetails {
+                Button(action: onOpenDetails) {
+                    statsCard
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Loc.t("Workout details", "Detalhes do treino"))
+            } else {
+                statsCard
+            }
 
             // Mini-mapa (sketch da rota) — polyline, sem tiles: consistente
             // com o web e sem dependência de mapa.
