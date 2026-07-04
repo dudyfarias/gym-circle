@@ -41,6 +41,103 @@ public actor GymCircleAPI {
             .value
     }
 
+    /// Entradas de atividade do feed (espelho de get_home_checkins): treinos
+    /// gravados ainda não promovidos a post (posts.source_activity_id).
+    public func homeActivities(limit: Int = 30) async throws -> [FeedActivity] {
+        try await client
+            .rpc("get_home_activities", params: HomeActivitiesParams(p_limit: limit))
+            .execute()
+            .value
+    }
+
+    /// Rastreio de treino — grava a sessão encerrada. A entrada nasce "crua"
+    /// (sem legenda/local); o composer completa via updateActivityEntry.
+    /// Triggers do DB marcam o dia + streak (user_activity_days).
+    public func createActivity(
+        userId: String,
+        activityType: String,
+        startedAt: String,
+        endedAt: String,
+        elapsedS: Int,
+        workoutDate: String,
+        avgHr: Int? = nil,
+        activeCalories: Double? = nil
+    ) async throws -> String {
+        struct ActivityInsert: Encodable {
+            let user_id: String
+            let activity_type: String
+            let mode: String
+            let origin: String
+            let source_app: String?
+            let started_at: String
+            let ended_at: String
+            let elapsed_s: Int
+            let avg_hr: Int?
+            let active_calories: Double?
+            let total_calories: Double?
+            let workout_date: String
+        }
+        struct InsertedActivity: Decodable { let id: String }
+        let inserted: InsertedActivity = try await client
+            .from("activities")
+            .insert(ActivityInsert(
+                user_id: userId,
+                activity_type: activityType,
+                mode: "session",
+                origin: "live",
+                source_app: "gym_circle_ios",
+                started_at: startedAt,
+                ended_at: endedAt,
+                elapsed_s: elapsedS,
+                avg_hr: avgHr,
+                active_calories: activeCalories,
+                total_calories: activeCalories,
+                workout_date: workoutDate
+            ))
+            .select("id")
+            .single()
+            .execute()
+            .value
+        return inserted.id
+    }
+
+    /// Completa a entrada com as infos de post (legenda/tags/local) — o treino
+    /// aparece no feed mesmo sem foto (modelo mutável check-in ↔ post ↔
+    /// carrossel). AnyJSON encoda null explícito (limpar campo funciona).
+    public func updateActivityEntry(
+        activityId: String,
+        caption: String?,
+        workoutTypes: [String],
+        gymId: String?,
+        locationName: String?,
+        locationLatitude: Double?,
+        locationLongitude: Double?,
+        locationGoogleMapsURL: String?
+    ) async throws {
+        let trimmed = caption?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let hasGym = gymId != nil
+        let patch: [String: AnyJSON] = [
+            "caption": trimmed.isEmpty ? .null : .string(trimmed),
+            "workout_types": workoutTypes.isEmpty
+                ? .null
+                : .array(workoutTypes.map { .string($0) }),
+            "gym_id": gymId.map { .string($0) } ?? .null,
+            "location_source": .string(hasGym ? "gym" : "none"),
+            "location_name": hasGym ? (locationName.map { .string($0) } ?? .null) : .null,
+            "location_latitude": hasGym
+                ? (locationLatitude.map { .double($0) } ?? .null) : .null,
+            "location_longitude": hasGym
+                ? (locationLongitude.map { .double($0) } ?? .null) : .null,
+            "location_google_maps_url": hasGym
+                ? (locationGoogleMapsURL.map { .string($0) } ?? .null) : .null,
+        ]
+        try await client
+            .from("activities")
+            .update(patch)
+            .eq("id", value: activityId)
+            .execute()
+    }
+
     public func storyTray(limit: Int = 40) async throws -> [StoryAuthorGroup] {
         let params = StoryTrayParams(p_limit: limit)
 
@@ -553,6 +650,10 @@ private struct HomeFeedParams: Encodable {
 }
 
 private struct HomeCheckinsParams: Encodable {
+    let p_limit: Int
+}
+
+private struct HomeActivitiesParams: Encodable {
     let p_limit: Int
 }
 

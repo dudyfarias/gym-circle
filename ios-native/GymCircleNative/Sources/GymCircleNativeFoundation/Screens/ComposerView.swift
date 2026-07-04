@@ -39,6 +39,11 @@ public struct ComposerView: View {
     /// retroativo: data travada, vai só pro feed (sem story) e o post cai naquele
     /// dia no calendário. nil = post normal de hoje.
     private let workoutDate: String?
+    /// Rastreio de treino — treino encerrado virando conteúdo. A ENTRADA já
+    /// está no feed: publicar sem foto salva legenda/tags/local nela; com foto
+    /// vira post ligado por source_activity_id (a entrada some e volta se o
+    /// post for apagado).
+    private let activityContext: ActivityComposerContext?
     /// Disparado após publicar com sucesso. Usado quando o composer é apresentado
     /// como sheet (registrar treino) pra fechar e voltar pro calendário.
     private let onPublished: (() -> Void)?
@@ -68,14 +73,34 @@ public struct ComposerView: View {
     public init(
         model: GymCircleAppModel,
         workoutDate: String? = nil,
+        activityContext: ActivityComposerContext? = nil,
         onPublished: (() -> Void)? = nil
     ) {
         self.model = model
         self.workoutDate = workoutDate
+        self.activityContext = activityContext
         self.onPublished = onPublished
+        // Treino encerrado: tag do tipo pré-selecionada + story desligado por
+        // padrão (a entrada já está no feed — paridade web).
+        if let activityContext {
+            if let tag = activityContext.kind.composerTag {
+                _selectedTags = State(initialValue: [tag])
+            }
+            _postToStory = State(initialValue: false)
+        }
     }
 
     private var isBackdated: Bool { workoutDate != nil }
+
+    /// YYYY-MM-DD de hoje em São Paulo (mesmo fuso do produto inteiro).
+    private static func todaySPKey() -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: .now)
+    }
 
     /// DD/MM/AAAA do dia travado (registrar treino).
     private var backdatedLabel: String {
@@ -91,13 +116,22 @@ public struct ComposerView: View {
             VStack(alignment: .leading, spacing: 18) {
                 composerHeader
                 if isBackdated { backdatedNotice }
+                if activityContext != nil { activityNotice }
                 if composerStep == .media {
                     mediaSection
                     continueButton
                 } else {
                     preparedMediaSummary
                     if preparedMedia.isEmpty {
-                        gymSection
+                        if activityContext != nil {
+                            // Entrada de atividade: mesmas infos de post
+                            // (legenda + tags + local), foto opcional.
+                            captionSection
+                            tagsSection
+                            gymSection
+                        } else {
+                            gymSection
+                        }
                     } else {
                         captionSection
                         moreOptions
@@ -167,6 +201,45 @@ public struct ComposerView: View {
                 style: .caption,
                 color: GymCircleTheme.ColorToken.secondaryText
             )
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.cyan.opacity(0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.24), lineWidth: 1)
+        )
+    }
+
+    /// Treino encerrado — a ENTRADA já está no feed; aqui completa legenda/
+    /// tags/local, e foto (opcional) promove a post.
+    private var activityNotice: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "timer")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+            VStack(alignment: .leading, spacing: 2) {
+                if let activityContext {
+                    Text(
+                        "\(activityContext.kind.label) · \(gymCircleFormatElapsed(activityContext.elapsedS))"
+                            + (activityContext.avgHr.map { " · \($0) bpm" } ?? "")
+                            + (activityContext.activeCalories.map { " · \(Int($0.rounded())) kcal" } ?? "")
+                    )
+                    .font(.system(size: 14, weight: .black))
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                }
+                GCText(
+                    Loc.t(
+                        "No photo? Your workout shows in the feed anyway — add photos later to turn it into a post.",
+                        "Sem foto, o treino aparece no feed do mesmo jeito — dá pra adicionar fotos depois e virar post."
+                    ),
+                    style: .caption,
+                    color: GymCircleTheme.ColorToken.secondaryText
+                )
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -757,7 +830,9 @@ public struct ComposerView: View {
                     }
                     Text(
                         totalMediaCount == 0
-                            ? Loc.t("Continue as check-in", "Continuar como check-in")
+                            ? (activityContext != nil
+                                ? Loc.t("Continue without photo", "Continuar sem foto")
+                                : Loc.t("Continue as check-in", "Continuar como check-in"))
                             : Loc.t("Continue", "Continuar")
                     )
                     .font(.system(size: 16, weight: .black))
@@ -780,10 +855,15 @@ public struct ComposerView: View {
 
             if totalMediaCount == 0 {
                 GCText(
-                    Loc.t(
-                        "Without media, choose a registered place on the next step.",
-                        "Sem mídia, escolha um local cadastrado na próxima etapa."
-                    ),
+                    activityContext != nil
+                        ? Loc.t(
+                            "Your workout shows in the feed even without a photo.",
+                            "Seu treino aparece no feed mesmo sem foto."
+                        )
+                        : Loc.t(
+                            "Without media, choose a registered place on the next step.",
+                            "Sem mídia, escolha um local cadastrado na próxima etapa."
+                        ),
                     style: .caption,
                     color: GymCircleTheme.ColorToken.secondaryText
                 )
@@ -795,9 +875,11 @@ public struct ComposerView: View {
         }
     }
 
-    // Com mídia: precisa de destino. Sem mídia: precisa de local e vira check-in.
+    // Com mídia: precisa de destino. Sem mídia: entrada de atividade publica
+    // direto (o treino já está no feed); senão precisa de local (check-in).
     private var canPublish: Bool {
         if preparedMedia.isEmpty {
+            if activityContext != nil { return !isPublishing }
             return selectedGym != nil && !isPublishing
         }
         return (isBackdated || postToFeed || postToStory) && !isPublishing
@@ -810,7 +892,11 @@ public struct ComposerView: View {
     // CTA muda conforme o destino (paridade web ctaBoth/ctaFeed/ctaStory).
     private var publishCTA: String {
         if isLoadingMedia { return Loc.t("Loading media…", "Carregando mídias…") }
-        if preparedMedia.isEmpty { return Loc.t("Check in", "Fazer check-in") }
+        if preparedMedia.isEmpty {
+            return activityContext != nil
+                ? Loc.t("Save workout to feed", "Salvar treino no feed")
+                : Loc.t("Check in", "Fazer check-in")
+        }
         if isBackdated { return Loc.t("Log workout", "Registrar treino") }
         if postToFeed && postToStory { return Loc.t("Publish", "Publicar") }
         if postToStory && !postToFeed { return Loc.t("Publish story", "Publicar story") }
@@ -819,6 +905,12 @@ public struct ComposerView: View {
 
     // Dica do destino abaixo do botão (paridade web destinationHint).
     private var destinationHint: String {
+        if activityContext != nil && preparedMedia.isEmpty {
+            return Loc.t(
+                "Saves caption, tags and place on your workout entry.",
+                "Salva legenda, tags e local na entrada do seu treino."
+            )
+        }
         if isBackdated {
             return Loc.t(
                 "Goes only to your calendar/profile on \(backdatedLabel).",
@@ -1020,7 +1112,16 @@ public struct ComposerView: View {
         defer { isPublishing = false; publishProgress = nil }
 
         let ok: Bool
-        if preparedMedia.isEmpty {
+        if preparedMedia.isEmpty, let activityContext {
+            // Sem foto: salva legenda/tags/local NA ENTRADA — o treino já está
+            // no feed (modelo mutável check-in(treino) ↔ post ↔ carrossel).
+            ok = await model.saveActivityEntry(
+                activityId: activityContext.id,
+                caption: caption,
+                workoutTypes: selectedTags,
+                gym: selectedGym
+            )
+        } else if preparedMedia.isEmpty {
             guard let selectedGym else {
                 errorMessage = Loc.t(
                     "Choose a registered place for your check-in.",
@@ -1033,6 +1134,12 @@ public struct ComposerView: View {
                 workoutDate: workoutDate
             )
         } else {
+            // Post promovido de atividade antiga cai no DIA da atividade
+            // (trigger valida posts.workout_date == activities.workout_date);
+            // atividade de hoje segue como post normal.
+            let promotedDate: String? = activityContext.flatMap { context in
+                context.workoutDate == Self.todaySPKey() ? nil : context.workoutDate
+            }
             ok = await model.publishPreparedPost(
                 media: preparedMedia,
                 caption: caption,
@@ -1041,7 +1148,8 @@ public struct ComposerView: View {
                 taggedUserIds: Array(taggedUserIds),
                 postToFeed: postToFeed,
                 postToStory: postToStory,
-                workoutDate: workoutDate
+                workoutDate: workoutDate ?? promotedDate,
+                sourceActivityId: activityContext?.id
             )
         }
         if ok {

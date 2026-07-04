@@ -1,0 +1,171 @@
+import Foundation
+
+/// Entrada de atividade no feed (RPC get_home_activities) — espelho do
+/// FeedCheckin. Treino gravado sem foto, com as MESMAS infos de post
+/// (legenda, local, tags): modelo mutável check-in(treino) ↔ post ↔
+/// carrossel. "Adicionar fotos" promove a post via posts.source_activity_id
+/// (a entrada some do feed e volta se o post for apagado).
+public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
+    public let id: String
+    public let userId: String
+    public let activityType: String
+    public let mode: String
+    public let origin: String
+    public let sourceApp: String?
+    public let elapsedS: Int
+    public let avgHr: Int?
+    public let maxHr: Int?
+    public let activeCalories: Double?
+    public let totalCalories: Double?
+    public let workoutDate: String
+    public let createdAt: String
+    public let caption: String?
+    public let workoutTypes: [String]?
+    public let gymId: String?
+    public let gymName: String?
+    public let locationName: String?
+    public let locationLatitude: Double?
+    public let locationLongitude: Double?
+    public let locationGoogleMapsUrl: String?
+    public let username: String
+    public let displayName: String?
+    public let avatarURL: String?
+    public let authorCurrentStreak: Int?
+    public let authorBestStreak: Int?
+    public let authorBadgeActive: Bool?
+    public let isFollowingAuthor: Bool?
+    public let visibility: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case activityType = "activity_type"
+        case mode
+        case origin
+        case sourceApp = "source_app"
+        case elapsedS = "elapsed_s"
+        case avgHr = "avg_hr"
+        case maxHr = "max_hr"
+        case activeCalories = "active_calories"
+        case totalCalories = "total_calories"
+        case workoutDate = "workout_date"
+        case createdAt = "created_at"
+        case caption
+        case workoutTypes = "workout_types"
+        case gymId = "gym_id"
+        case gymName = "gym_name"
+        case locationName = "location_name"
+        case locationLatitude = "location_latitude"
+        case locationLongitude = "location_longitude"
+        case locationGoogleMapsUrl = "location_google_maps_url"
+        case username
+        case displayName = "display_name"
+        case avatarURL = "avatar_url"
+        case authorCurrentStreak = "author_current_streak"
+        case authorBestStreak = "author_best_streak"
+        case authorBadgeActive = "author_badge_active"
+        case isFollowingAuthor = "is_following_author"
+        case visibility
+    }
+
+    public var displayAuthorName: String {
+        let name = displayName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return name.isEmpty ? username : name
+    }
+
+    /// Local exibido no card (academia cadastrada > local livre).
+    public var locationLabel: String? {
+        gymName ?? locationName
+    }
+}
+
+/// Tipos de treino do rastreio (check constraint activities_type_chk) —
+/// seletor estilo Apple Exercício, academia primeiro (público principal).
+public enum WorkoutActivityKind: String, CaseIterable, Identifiable, Sendable {
+    case strength, run, walk, ride, other
+
+    public var id: String { rawValue }
+
+    public var label: String {
+        switch self {
+        case .strength: return Loc.t("Strength", "Musculação")
+        case .run: return Loc.t("Run", "Corrida")
+        case .walk: return Loc.t("Walk", "Caminhada")
+        case .ride: return Loc.t("Ride", "Bike")
+        case .other: return Loc.t("Other", "Outro")
+        }
+    }
+
+    public var hint: String {
+        switch self {
+        case .strength: return Loc.t("Weights and machines", "Pesos e máquinas")
+        case .run: return Loc.t("Outdoor or treadmill", "Rua ou esteira")
+        case .walk: return Loc.t("Light pace counts too", "Ritmo leve também conta")
+        case .ride: return Loc.t("Road or indoor bike", "Rua ou bike indoor")
+        case .other: return Loc.t("Any other workout", "Qualquer outro treino")
+        }
+    }
+
+    public var icon: String {
+        switch self {
+        case .strength: return "dumbbell.fill"
+        case .run: return "figure.run"
+        case .walk: return "figure.walk"
+        case .ride: return "bicycle"
+        case .other: return "bolt.heart.fill"
+        }
+    }
+
+    /// Tag preset do composer correspondente (mesmos valores PT-BR que o web
+    /// persiste em workout_types). nil = sem pré-seleção.
+    public var composerTag: String? {
+        switch self {
+        case .strength: return "Musculação"
+        case .run: return "Corrida"
+        case .ride: return "Bike"
+        case .walk: return "Cardio"
+        case .other: return nil
+        }
+    }
+}
+
+/// Contexto do treino encerrado dentro do composer: o publish sem foto salva
+/// legenda/tags/local NA ENTRADA; com foto vira post ligado por
+/// source_activity_id.
+public struct ActivityComposerContext: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let kind: WorkoutActivityKind
+    public let elapsedS: Int
+    public let workoutDate: String
+    public let avgHr: Int?
+    public let activeCalories: Double?
+
+    public init(
+        id: String,
+        kind: WorkoutActivityKind,
+        elapsedS: Int,
+        workoutDate: String,
+        avgHr: Int? = nil,
+        activeCalories: Double? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.elapsedS = elapsedS
+        self.workoutDate = workoutDate
+        self.avgHr = avgHr
+        self.activeCalories = activeCalories
+    }
+}
+
+/// "45:12" ou "1:02:45" — mesmo formato do cronômetro e do card (web
+/// formatElapsed).
+public func gymCircleFormatElapsed(_ seconds: Int) -> String {
+    let total = max(0, seconds)
+    let hours = total / 3600
+    let minutes = (total % 3600) / 60
+    let secs = total % 60
+    if hours > 0 {
+        return String(format: "%d:%02d:%02d", hours, minutes, secs)
+    }
+    return String(format: "%02d:%02d", minutes, secs)
+}

@@ -29,10 +29,43 @@ public struct HealthWorkoutSummary: Identifiable, Hashable, Sendable {
     }
 }
 
+/// FC média + calorias ativas registradas na janela da sessão (ex.: Apple
+/// Watch gravando em paralelo). nil = sem amostras no período.
+public struct WorkoutSessionHealthStats: Sendable {
+    public let averageHeartRate: Int?
+    public let activeKilocalories: Double?
+
+    public init(averageHeartRate: Int?, activeKilocalories: Double?) {
+        self.averageHeartRate = averageHeartRate
+        self.activeKilocalories = activeKilocalories
+    }
+}
+
 public protocol HealthKitProviding {
     var isAvailable: Bool { get }
     func requestReadAuthorization() async throws
     func workouts(from startDate: Date, to endDate: Date) async throws -> [HealthWorkoutSummary]
+    /// Rastreio de treino: escrita do HKWorkout + leitura de FC/energia.
+    func requestWorkoutSessionAuthorization() async throws
+    /// Salva a sessão encerrada como treino no Apple Saúde.
+    func saveWorkout(activityKind: String, start: Date, end: Date) async throws
+    /// Estatísticas da janela da sessão (fail-soft: nil sem amostras/permissão).
+    func sessionStats(from startDate: Date, to endDate: Date) async -> WorkoutSessionHealthStats
+}
+
+// Defaults: conformances existentes (mocks/testes) seguem compilando.
+public extension HealthKitProviding {
+    func requestWorkoutSessionAuthorization() async throws {
+        throw HealthKitServiceError.unavailable
+    }
+
+    func saveWorkout(activityKind: String, start: Date, end: Date) async throws {
+        throw HealthKitServiceError.unavailable
+    }
+
+    func sessionStats(from startDate: Date, to endDate: Date) async -> WorkoutSessionHealthStats {
+        WorkoutSessionHealthStats(averageHeartRate: nil, activeKilocalories: nil)
+    }
 }
 
 public enum HealthKitServiceError: Error, LocalizedError {
@@ -102,6 +135,103 @@ public final class AppleHealthKitProvider: HealthKitProviding {
                 continuation.resume(returning: workouts)
             }
             store.execute(query)
+        }
+    }
+
+    public func requestWorkoutSessionAuthorization() async throws {
+        guard isAvailable else { throw HealthKitServiceError.unavailable }
+        var readTypes: Set<HKObjectType> = [HKObjectType.workoutType()]
+        if let heartRate = HKObjectType.quantityType(forIdentifier: .heartRate) {
+            readTypes.insert(heartRate)
+        }
+        if let activeEnergy = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned) {
+            readTypes.insert(activeEnergy)
+        }
+        try await store.requestAuthorization(
+            toShare: [HKObjectType.workoutType()],
+            read: readTypes
+        )
+    }
+
+    public func saveWorkout(activityKind: String, start: Date, end: Date) async throws {
+        guard isAvailable else { throw HealthKitServiceError.unavailable }
+        let configuration = HKWorkoutConfiguration()
+        configuration.activityType = Self.hkActivityType(for: activityKind)
+        let builder = HKWorkoutBuilder(
+            healthStore: store,
+            configuration: configuration,
+            device: .local()
+        )
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            builder.beginCollection(withStart: start) { _, error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            builder.endCollection(withEnd: end) { _, error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            builder.finishWorkout { _, error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
+            }
+        }
+    }
+
+    public func sessionStats(from startDate: Date, to endDate: Date) async -> WorkoutSessionHealthStats {
+        guard isAvailable else {
+            return WorkoutSessionHealthStats(averageHeartRate: nil, activeKilocalories: nil)
+        }
+        let heartRateStats = await quantityStatistics(
+            for: .heartRate,
+            options: .discreteAverage,
+            start: startDate,
+            end: endDate
+        )
+        let energyStats = await quantityStatistics(
+            for: .activeEnergyBurned,
+            options: .cumulativeSum,
+            start: startDate,
+            end: endDate
+        )
+        let bpm = heartRateStats?.averageQuantity()?
+            .doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+        let kilocalories = energyStats?.sumQuantity()?
+            .doubleValue(for: .kilocalorie())
+        return WorkoutSessionHealthStats(
+            averageHeartRate: bpm.map { Int($0.rounded()) },
+            activeKilocalories: kilocalories
+        )
+    }
+
+    private func quantityStatistics(
+        for identifier: HKQuantityTypeIdentifier,
+        options: HKStatisticsOptions,
+        start: Date,
+        end: Date
+    ) async -> HKStatistics? {
+        guard let type = HKObjectType.quantityType(forIdentifier: identifier) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: type,
+                quantitySamplePredicate: predicate,
+                options: options
+            ) { _, statistics, _ in
+                continuation.resume(returning: statistics)
+            }
+            store.execute(query)
+        }
+    }
+
+    private static func hkActivityType(for kind: String) -> HKWorkoutActivityType {
+        switch kind {
+        case "strength": return .traditionalStrengthTraining
+        case "run": return .running
+        case "walk": return .walking
+        case "ride": return .cycling
+        default: return .other
         }
     }
 

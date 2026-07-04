@@ -30,6 +30,12 @@ public struct MainTabView: View {
     // Incrementa ao tocar na aba do feed JÁ estando no feed → FeedView sobe ao
     // topo + dá refresh (paridade web: tap no ícone ativo).
     @State private var feedReselectTick = 0
+    // Rastreio de treino — o "+" central abre o hub (Iniciar treino / Postar
+    // treino / Check-in), paridade CreateHubSheet web.
+    @State private var createHubPresented = false
+    @State private var workoutPresented = false
+    // Treino encerrado → composer com o contexto da activity (entrada no feed).
+    @State private var composerActivity: ActivityComposerContext?
 
     enum Tab: Int, CaseIterable, Identifiable {
         case feed, chats, post, map, profile
@@ -39,7 +45,7 @@ public struct MainTabView: View {
             switch self {
             case .feed: return "house.fill"
             case .chats: return "bubble.left.and.bubble.right.fill"
-            case .post: return "camera.fill"
+            case .post: return "plus"
             case .map: return "mappin.and.ellipse"
             case .profile: return "person.crop.circle.fill"
             }
@@ -49,7 +55,7 @@ public struct MainTabView: View {
             switch self {
             case .feed: return Loc.t("Home", "Início")
             case .chats: return Loc.t("Chats", "Conversas")
-            case .post: return Loc.t("Post", "Postar")
+            case .post: return Loc.t("Create", "Criar")
             case .map: return Loc.t("Map", "Mapa")
             case .profile: return Loc.profile
             }
@@ -99,6 +105,47 @@ public struct MainTabView: View {
         .safeAreaInset(edge: .bottom) {
             floatingTabBar
         }
+        // Hub do "+": iniciar treino / postar treino / check-in.
+        .sheet(isPresented: $createHubPresented) {
+            CreateHubSheet(
+                onStartWorkout: {
+                    createHubPresented = false
+                    workoutPresented = true
+                },
+                onPostWorkout: {
+                    createHubPresented = false
+                    selection = .post
+                },
+                onCheckIn: {
+                    createHubPresented = false
+                    selection = .map
+                }
+            )
+            .presentationDetents([.height(380), .medium])
+            .presentationDragIndicator(.visible)
+        }
+        // Treino ao vivo (cronômetro + descanso + Apple Saúde).
+        .fullScreenCover(isPresented: $workoutPresented) {
+            NativeWorkoutFlowView(
+                model: model,
+                onCompose: { context in
+                    workoutPresented = false
+                    composerActivity = context
+                },
+                onClose: { workoutPresented = false }
+            )
+        }
+        // Encerrado → composer completa a ENTRADA (legenda/tags/local) ou
+        // promove a post com foto.
+        .sheet(item: $composerActivity) { context in
+            NavigationStack {
+                ComposerView(
+                    model: model,
+                    activityContext: context,
+                    onPublished: { composerActivity = nil }
+                )
+            }
+        }
     }
 
     private var floatingTabBar: some View {
@@ -106,6 +153,11 @@ public struct MainTabView: View {
             ForEach(Tab.allCases) { tab in
                 Button {
                     Haptics.impactLight()
+                    // O "+" central abre o hub de criação (não troca de tab).
+                    if tab == .post {
+                        createHubPresented = true
+                        return
+                    }
                     // Tocar na aba do feed já estando no feed → subir + refresh.
                     if tab == .feed && selection == .feed {
                         feedReselectTick += 1

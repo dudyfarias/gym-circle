@@ -176,6 +176,7 @@ public actor PostComposerService {
     private struct PostInsert: Encodable {
         let user_id: String
         let source_checkin_id: String?
+        let source_activity_id: String?
         let image_url: String
         let media_type: String
         let thumbnail_url: String?
@@ -221,6 +222,7 @@ public actor PostComposerService {
         workoutDate: String,
         createdAt: String? = nil,
         sourceCheckinId: String? = nil,
+        sourceActivityId: String? = nil,
         gymId: String? = nil,
         locationName: String? = nil,
         locationLatitude: Double? = nil,
@@ -236,6 +238,7 @@ public actor PostComposerService {
             .insert(PostInsert(
                 user_id: userId,
                 source_checkin_id: sourceCheckinId,
+                source_activity_id: sourceActivityId,
                 image_url: cover.imageURL,
                 media_type: cover.mediaType,
                 thumbnail_url: cover.thumbnailURL,

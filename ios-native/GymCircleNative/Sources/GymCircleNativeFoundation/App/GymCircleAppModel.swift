@@ -30,6 +30,8 @@ public final class GymCircleAppModel: ObservableObject {
     @Published public private(set) var error: String?
     @Published public private(set) var posts: [FeedPost] = []
     @Published public private(set) var checkins: [FeedCheckin] = []
+    // Rastreio de treino — entradas de atividade do feed (get_home_activities).
+    @Published public private(set) var activities: [FeedActivity] = []
     // Sprint 20.3a — paginação infinita do feed.
     @Published public private(set) var isLoadingMoreFeed = false
     @Published public private(set) var feedHasMore = true
@@ -259,6 +261,7 @@ public final class GymCircleAppModel: ObservableObject {
         // Limpa estado in-memory
         posts = []
         checkins = []
+        activities = []
         stories = []
         profile = nil
         profilePosts = []
@@ -293,7 +296,7 @@ public final class GymCircleAppModel: ObservableObject {
     /// qualquer uma agenda um refresh debounced de feed + badges.
     private static let realtimeTables = [
         "posts", "post_likes", "post_comments", "post_participants",
-        "stories", "story_likes", "follows", "checkins", "user_stats",
+        "stories", "story_likes", "follows", "checkins", "activities", "user_stats",
         "direct_messages", "conversations", "notifications",
     ]
 
@@ -357,9 +360,11 @@ public final class GymCircleAppModel: ObservableObject {
         do {
             async let feed = api.homeFeed()
             async let checkinFeed = api.homeCheckins()
+            async let activityFeed = api.homeActivities()
             async let tray = api.storyTray()
             let feedPosts = try await feed
             checkins = (try? await checkinFeed) ?? []
+            activities = (try? await activityFeed) ?? []
             stories = try await tray
             feedHasMore = feedPosts.count >= Self.feedPageSize
             posts = await hydrateCarouselMedia(feedPosts)
@@ -432,9 +437,11 @@ public final class GymCircleAppModel: ObservableObject {
         do {
             async let feed = api.homeFeed()
             async let checkinFeed = api.homeCheckins()
+            async let activityFeed = api.homeActivities()
             async let tray = api.storyTray()
             let feedPosts = try await feed
             checkins = (try? await checkinFeed) ?? checkins
+            activities = (try? await activityFeed) ?? activities
             stories = (try? await tray) ?? stories
             feedHasMore = feedPosts.count >= Self.feedPageSize
             posts = await hydrateCarouselMedia(feedPosts)
@@ -915,7 +922,10 @@ public final class GymCircleAppModel: ObservableObject {
         // "Registrar treino" (post retroativo): YYYY-MM-DD de um dia já treinado
         // sem mídia. Quando setado, vai SÓ pro feed com created_at backdatado
         // (não sobe no topo do feed; preenche calendário/perfil).
-        workoutDate: String? = nil
+        workoutDate: String? = nil,
+        // Rastreio de treino: post nascido de uma activity gravada — a entrada
+        // some do feed (promovida) e volta se o post for apagado.
+        sourceActivityId: String? = nil
     ) async -> Bool {
         let isBackdated = workoutDate != nil
         let wantsFeed = isBackdated ? true : postToFeed
@@ -934,6 +944,7 @@ public final class GymCircleAppModel: ObservableObject {
                     workoutDate: workoutDate ?? Self.todayKey(),
                     // Backdata o created_at ao meio-dia (SP) do dia treinado.
                     createdAt: workoutDate.map { "\($0)T12:00:00-03:00" },
+                    sourceActivityId: sourceActivityId,
                     gymId: gym?.id,
                     locationName: gym?.name,
                     locationLatitude: gym?.latitude,
@@ -1125,6 +1136,92 @@ public final class GymCircleAppModel: ObservableObject {
             )
             await refreshFeed()
             await loadMyCircle()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    // MARK: - Rastreio de treino (Fase 1 — sessão de academia)
+
+    /// Encerra a sessão: salva o treino no Apple Saúde (best-effort), lê
+    /// FC média/kcal da janela (ex.: Apple Watch gravando junto) e grava a
+    /// activity no Supabase — a ENTRADA aparece no feed via get_home_activities
+    /// e os triggers marcam dia + streak. Retorna o contexto pro composer.
+    public func finishNativeWorkout(
+        kind: WorkoutActivityKind,
+        startedAt: Date,
+        endedAt: Date
+    ) async -> ActivityComposerContext? {
+        guard let api, let userId = sessionStore?.currentUserId else {
+            self.error = Loc.t(
+                "Sign in to save your workout.",
+                "Entre na sua conta pra salvar o treino."
+            )
+            return nil
+        }
+        let elapsed = max(0, Int(endedAt.timeIntervalSince(startedAt).rounded()))
+        var stats = WorkoutSessionHealthStats(averageHeartRate: nil, activeKilocalories: nil)
+        if healthKitProvider.isAvailable {
+            try? await healthKitProvider.requestWorkoutSessionAuthorization()
+            try? await healthKitProvider.saveWorkout(
+                activityKind: kind.rawValue,
+                start: startedAt,
+                end: endedAt
+            )
+            stats = await healthKitProvider.sessionStats(from: startedAt, to: endedAt)
+        }
+        do {
+            let iso = ISO8601DateFormatter()
+            let workoutDate = Self.dateKey(for: startedAt)
+            let activityId = try await api.createActivity(
+                userId: userId,
+                activityType: kind.rawValue,
+                startedAt: iso.string(from: startedAt),
+                endedAt: iso.string(from: endedAt),
+                elapsedS: elapsed,
+                workoutDate: workoutDate,
+                avgHr: stats.averageHeartRate,
+                activeCalories: stats.activeKilocalories
+            )
+            await refreshFeed()
+            await loadMyCircle()
+            return ActivityComposerContext(
+                id: activityId,
+                kind: kind,
+                elapsedS: elapsed,
+                workoutDate: workoutDate,
+                avgHr: stats.averageHeartRate,
+                activeCalories: stats.activeKilocalories
+            )
+        } catch {
+            self.error = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Salva legenda/tags/local NA ENTRADA (treino sem foto) — paridade web
+    /// saveActivityEntry. O treino já está no feed; isso completa as infos.
+    public func saveActivityEntry(
+        activityId: String,
+        caption: String,
+        workoutTypes: [String],
+        gym: GymOption?
+    ) async -> Bool {
+        guard let api else { return false }
+        do {
+            try await api.updateActivityEntry(
+                activityId: activityId,
+                caption: caption,
+                workoutTypes: workoutTypes,
+                gymId: gym?.id,
+                locationName: gym?.name,
+                locationLatitude: gym?.latitude,
+                locationLongitude: gym?.longitude,
+                locationGoogleMapsURL: Self.googleMapsURL(for: gym)
+            )
+            await refreshFeed()
             return true
         } catch {
             self.error = error.localizedDescription
@@ -1989,12 +2086,19 @@ public final class GymCircleAppModel: ObservableObject {
     // MARK: - Helpers
 
     private static func todayKey() -> String {
+        dateKey(for: .now)
+    }
+
+    /// YYYY-MM-DD em São Paulo (mesmo fuso do resto do produto). O dia do
+    /// treino é o dia em que ele COMEÇOU (sessão virando a madrugada conta
+    /// no dia de início — paridade web getGymCircleDateKey).
+    private static func dateKey(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = TimeZone(identifier: "America/Sao_Paulo") ?? .current
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd"
-        return formatter.string(from: .now)
+        return formatter.string(from: date)
     }
 
     private static func googleMapsURL(for gym: GymOption?) -> String? {

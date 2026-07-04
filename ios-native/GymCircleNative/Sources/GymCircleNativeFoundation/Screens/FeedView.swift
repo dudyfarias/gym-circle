@@ -4,11 +4,13 @@ import AVKit
 private enum HomeFeedItem: Identifiable {
     case post(FeedPost)
     case checkin(FeedCheckin)
+    case activity(FeedActivity)
 
     var id: String {
         switch self {
         case .post(let post): return "post:\(post.id)"
         case .checkin(let checkin): return "checkin:\(checkin.id)"
+        case .activity(let activity): return "activity:\(activity.id)"
         }
     }
 
@@ -16,6 +18,7 @@ private enum HomeFeedItem: Identifiable {
         switch self {
         case .post(let post): return post.createdAt
         case .checkin(let checkin): return checkin.createdAt
+        case .activity(let activity): return activity.createdAt
         }
     }
 }
@@ -62,6 +65,9 @@ public struct FeedView: View {
     @State private var likesPost: FeedPost?
     @State private var editingPost: FeedPost?
     @State private var editingCheckin: FeedCheckin?
+    // Rastreio de treino: "Adicionar fotos" na entrada → composer com o
+    // contexto da activity (promove a post via source_activity_id).
+    @State private var composerActivity: ActivityComposerContext?
     @State private var sharingPost: FeedPost?
     @State private var searchPresented = false
     @State private var notificationsPresented = false
@@ -91,6 +97,7 @@ public struct FeedView: View {
         (
             model.posts.map(HomeFeedItem.post)
                 + model.checkins.map(HomeFeedItem.checkin)
+                + model.activities.map(HomeFeedItem.activity)
         )
         .sorted { $0.createdAt > $1.createdAt }
     }
@@ -337,6 +344,38 @@ public struct FeedView: View {
                                 },
                                 onOpenProfile: { openProfile(userId: $0) }
                             )
+                        case .activity(let activity):
+                            FeedActivityCard(
+                                activity: activity,
+                                currentUserId: model.currentUserId,
+                                onAddPhotos: {
+                                    composerActivity = ActivityComposerContext(
+                                        id: activity.id,
+                                        kind: WorkoutActivityKind(
+                                            rawValue: activity.activityType
+                                        ) ?? .other,
+                                        elapsedS: activity.elapsedS,
+                                        workoutDate: activity.workoutDate,
+                                        avgHr: activity.avgHr,
+                                        activeCalories: activity.activeCalories
+                                    )
+                                },
+                                onOpenGym: activity.gymId == nil ? nil : {
+                                    Task {
+                                        openedGym = await model.fetchGym(
+                                            id: activity.gymId ?? ""
+                                        ) ?? activity.gymId.map {
+                                            GymOption(
+                                                id: $0,
+                                                name: activity.gymName ?? "Academia",
+                                                latitude: activity.locationLatitude,
+                                                longitude: activity.locationLongitude
+                                            )
+                                        }
+                                    }
+                                },
+                                onOpenProfile: { openProfile(userId: $0) }
+                            )
                         }
                     }
 
@@ -355,6 +394,16 @@ public struct FeedView: View {
         // inferior (MainTabView · Tab.post) é a entrada do composer.
         .refreshable {
             await model.refreshFeed()
+        }
+        // "Adicionar fotos" na entrada de atividade → composer promove a post.
+        .sheet(item: $composerActivity) { context in
+            NavigationStack {
+                ComposerView(
+                    model: model,
+                    activityContext: context,
+                    onPublished: { composerActivity = nil }
+                )
+            }
         }
         // Re-tap na aba do feed (MainTabView) já estando no feed: sobe ao topo
         // + dá refresh (paridade web scrollFeedToTop + refresh).
@@ -797,6 +846,222 @@ public struct FeedCheckinCard: View {
                         "Open \(checkin.gymName) in Maps",
                         "Abrir \(checkin.gymName) no mapa"
                     )
+                )
+        } else {
+            content
+        }
+    }
+}
+
+/// Entrada de atividade no feed (espelho do FeedCheckinCard): treino gravado
+/// sem foto, com as mesmas infos de post — legenda, local, tags. "Adicionar
+/// fotos" promove a post/carrossel (source_activity_id).
+public struct FeedActivityCard: View {
+    private let activity: FeedActivity
+    private let currentUserId: String?
+    private let onAddPhotos: (() -> Void)?
+    private let onOpenGym: (() -> Void)?
+    private let onOpenProfile: ((String) -> Void)?
+
+    public init(
+        activity: FeedActivity,
+        currentUserId: String? = nil,
+        onAddPhotos: (() -> Void)? = nil,
+        onOpenGym: (() -> Void)? = nil,
+        onOpenProfile: ((String) -> Void)? = nil
+    ) {
+        self.activity = activity
+        self.currentUserId = currentUserId
+        self.onAddPhotos = onAddPhotos
+        self.onOpenGym = onOpenGym
+        self.onOpenProfile = onOpenProfile
+    }
+
+    private var isOwnActivity: Bool {
+        currentUserId != nil && activity.userId == currentUserId
+    }
+
+    private var kindLabel: String {
+        (WorkoutActivityKind(rawValue: activity.activityType) ?? .other).label
+    }
+
+    /// "112 bpm · 320 kcal" quando o Saúde tiver amostras da sessão.
+    private var healthLine: String? {
+        var parts: [String] = []
+        if let avgHr = activity.avgHr { parts.append("\(avgHr) bpm") }
+        if let kcal = activity.totalCalories ?? activity.activeCalories {
+            parts.append("\(Int(kcal.rounded())) kcal")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
+                Button {
+                    onOpenProfile?(activity.userId)
+                } label: {
+                    GCAvatar(
+                        url: activity.avatarURL,
+                        fallback: activity.username
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(onOpenProfile == nil)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Button {
+                        onOpenProfile?(activity.userId)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text(activity.displayAuthorName)
+                                .font(.system(size: 15, weight: .black))
+                                .foregroundStyle(
+                                    GymCircleTheme.ColorToken.primaryText
+                                )
+                                .lineLimit(1)
+                            if let streak = activity.authorCurrentStreak,
+                               streak > 0 {
+                                StreakBadgeView(streak: streak, size: .sm)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onOpenProfile == nil)
+
+                    Text("@\(activity.username) · \(gymCircleFeedTimeLabel(activity.createdAt))")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.46))
+                }
+
+                Spacer()
+
+                Text(Loc.t("Workout", "Treino"))
+                    .font(.system(size: 10, weight: .black))
+                    .tracking(0.8)
+                    .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(
+                            GymCircleTheme.ColorToken.cyan.opacity(0.10)
+                        )
+                    )
+            }
+
+            statsCard
+
+            if let caption = activity.caption, !caption.isEmpty {
+                (
+                    Text(activity.username)
+                        .font(.system(size: 13.5, weight: .black))
+                    + Text(" \(caption)")
+                        .font(.system(size: 13.5, weight: .semibold))
+                )
+                .foregroundStyle(Color.white.opacity(0.86))
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let locationLabel = activity.locationLabel {
+                locationRow(locationLabel)
+            }
+
+            if isOwnActivity, let onAddPhotos {
+                Button {
+                    onAddPhotos()
+                } label: {
+                    Label(
+                        Loc.t("Add photos", "Adicionar fotos"),
+                        systemImage: "photo.badge.plus"
+                    )
+                    .font(.system(size: 13, weight: .black))
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(
+                        Capsule().fill(GymCircleTheme.ColorToken.cyan)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .background(GymCircleTheme.ColorToken.postCard)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: GymCircleTheme.Radius.postCard,
+                style: .continuous
+            )
+        )
+        .overlay(
+            RoundedRectangle(
+                cornerRadius: GymCircleTheme.Radius.postCard,
+                style: .continuous
+            )
+            .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.48), radius: 24, x: 0, y: 16)
+    }
+
+    private var statsCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "timer")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundStyle(.black)
+                .frame(width: 48, height: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(GymCircleTheme.ColorToken.cyan)
+                )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(kindLabel)
+                    .font(.system(size: 11, weight: .black))
+                    .textCase(.uppercase)
+                    .tracking(0.8)
+                    .foregroundStyle(Color.white.opacity(0.42))
+                Text(gymCircleFormatElapsed(activity.elapsedS))
+                    .font(.system(size: 20, weight: .black, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                if let healthLine {
+                    Text(healthLine)
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color.white.opacity(0.46))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(GymCircleTheme.ColorToken.cyan.opacity(0.055))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(
+                    GymCircleTheme.ColorToken.cyan.opacity(0.12),
+                    lineWidth: 1
+                )
+        )
+    }
+
+    @ViewBuilder
+    private func locationRow(_ label: String) -> some View {
+        let content = HStack(spacing: 6) {
+            Image(systemName: "mappin.and.ellipse")
+                .font(.system(size: 12, weight: .bold))
+            Text(label)
+                .font(.system(size: 12, weight: .bold))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color.white.opacity(0.48))
+
+        if let onOpenGym {
+            Button(action: onOpenGym) { content }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    Loc.t("Open \(label) details", "Abrir detalhes de \(label)")
                 )
         } else {
             content
