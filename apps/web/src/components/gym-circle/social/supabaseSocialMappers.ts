@@ -485,6 +485,17 @@ export function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
     author_current_streak: row.author_current_streak ?? 0,
     author_best_streak: row.author_best_streak ?? 0,
     author_badge_active: row.author_badge_active ?? false,
+    workout_activity_type: row.workout_activity_type ?? null,
+    workout_elapsed_s: row.workout_elapsed_s ?? null,
+    workout_moving_s: row.workout_moving_s ?? null,
+    workout_distance_m: row.workout_distance_m ?? null,
+    workout_elevation_gain_m: row.workout_elevation_gain_m ?? null,
+    workout_avg_hr: row.workout_avg_hr ?? null,
+    workout_active_calories: row.workout_active_calories ?? null,
+    workout_total_calories: row.workout_total_calories ?? null,
+    workout_route: row.workout_route ?? null,
+    workout_started_at: row.workout_started_at ?? null,
+    workout_ended_at: row.workout_ended_at ?? null,
   };
 }
 
