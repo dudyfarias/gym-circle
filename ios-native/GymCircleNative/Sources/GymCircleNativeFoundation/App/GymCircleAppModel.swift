@@ -1608,6 +1608,40 @@ public final class GymCircleAppModel: ObservableObject {
         }
     }
 
+    /// Apaga a própria story (paridade web `deleteStory`). O viewer fecha na UI.
+    @discardableResult
+    public func deleteStory(storyId: String) async -> Bool {
+        guard let storiesService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await storiesService.remove(storyId: storyId, userId: userId)
+            Haptics.success()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            Haptics.error()
+            return false
+        }
+    }
+
+    /// Denuncia a story de outro user (paridade web `reportStory`).
+    @discardableResult
+    public func reportStory(storyId: String, authorId: String) async -> Bool {
+        guard let storiesService, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await storiesService.report(
+                storyId: storyId,
+                reportedUserId: authorId,
+                reporterId: userId
+            )
+            Haptics.success()
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            Haptics.error()
+            return false
+        }
+    }
+
     // MARK: - Sprint 20.2 — Settings (privacidade + conta)
 
     /// Toggle de perfil privado (profiles.is_private).

@@ -40,7 +40,9 @@ targets:
         # seguindo ao abrir o sheet + busca de pessoas. + fix perfil de terceiros
         # + double-tap-to-like + comentários = web.
         # Cada archive novo precisa de build number único (ASC rejeita repetido).
-        CFBundleVersion: "80"
+        # build 81 (05/jul): stories — dono apaga a própria + outro denuncia
+        # (paridade web deleteStory/reportStory).
+        CFBundleVersion: "81"
         # Conformidade de exportação: o app só usa HTTPS/TLS padrão + Keychain
         # (criptografia ISENTA, sem nada proprietário). NO limpa o "Faltam dados
         # de conformidade" automaticamente nos próximos builds.

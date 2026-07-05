@@ -66,6 +66,17 @@ public actor StoriesService {
         let workout_type: String?
     }
 
+    /// Denúncia — paridade web `services.safety.report` (tabela reports;
+    /// story_id preenchido, post_id nulo).
+    private struct ReportInsert: Encodable {
+        let reporter_id: String
+        let reported_user_id: String?
+        let post_id: String?
+        let story_id: String?
+        let reason: String
+        let details: String?
+    }
+
     /// Marca o story como visto (idempotente) — alimenta o ring da tray.
     public func markSeen(storyId: String, userId: String) async throws {
         try await client
@@ -163,6 +174,37 @@ public actor StoriesService {
                 media_duration_seconds: media.durationSeconds,
                 gym_id: gymId,
                 workout_type: workoutType
+            ))
+            .execute()
+    }
+
+    /// Apaga a própria story (paridade web `services.stories.remove`). O RLS
+    /// garante o dono; o `eq(user_id)` é cinto de segurança, igual deletePost.
+    public func remove(storyId: String, userId: String) async throws {
+        try await client
+            .from("stories")
+            .delete()
+            .eq("id", value: storyId)
+            .eq("user_id", value: userId)
+            .execute()
+    }
+
+    /// Denuncia a story de outro user (paridade web `services.safety.report`).
+    public func report(
+        storyId: String,
+        reportedUserId: String,
+        reporterId: String,
+        reason: String = "other"
+    ) async throws {
+        try await client
+            .from("reports")
+            .insert(ReportInsert(
+                reporter_id: reporterId,
+                reported_user_id: reportedUserId,
+                post_id: nil,
+                story_id: storyId,
+                reason: reason,
+                details: nil
             ))
             .execute()
     }

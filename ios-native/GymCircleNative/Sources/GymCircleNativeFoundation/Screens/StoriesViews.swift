@@ -126,6 +126,9 @@ public struct StoryViewerScreen: View {
     // Sprint 20.6 — reply por DM.
     @State private var replyDraft = ""
     @State private var confirmMute = false
+    // Sprint 21 P1 — paridade web: dono apaga a própria story; outro denuncia.
+    @State private var confirmDelete = false
+    @State private var confirmReport = false
     // Perfil aberto ao tocar no header do autor (pausa o story enquanto aberto).
     @State private var openedProfile: OtherProfileSummary?
     @FocusState private var replyFocused: Bool
@@ -307,10 +310,23 @@ public struct StoryViewerScreen: View {
                         : Loc.t("Mute", "Silenciar"))
                 }
                 Menu {
-                    Button(role: .destructive) {
-                        confirmMute = true
-                    } label: {
-                        Label("Silenciar stories", systemImage: "speaker.slash")
+                    if isOwnStory {
+                        Button(role: .destructive) {
+                            confirmDelete = true
+                        } label: {
+                            Label(Loc.t("Delete story", "Apagar story"), systemImage: "trash")
+                        }
+                    } else {
+                        Button(role: .destructive) {
+                            confirmReport = true
+                        } label: {
+                            Label(Loc.t("Report story", "Denunciar story"), systemImage: "flag")
+                        }
+                        Button(role: .destructive) {
+                            confirmMute = true
+                        } label: {
+                            Label(Loc.t("Mute stories", "Silenciar stories"), systemImage: "speaker.slash")
+                        }
                     }
                 } label: {
                     Image(systemName: "ellipsis")
@@ -335,6 +351,26 @@ public struct StoryViewerScreen: View {
             ) {
                 Button(Loc.mute, role: .destructive) {
                     Task { await muteCurrentAuthor() }
+                }
+                Button(Loc.cancel, role: .cancel) {}
+            }
+            .confirmationDialog(
+                Loc.t("Delete this story?", "Apagar esta story?"),
+                isPresented: $confirmDelete,
+                titleVisibility: .visible
+            ) {
+                Button(Loc.t("Delete", "Apagar"), role: .destructive) {
+                    Task { await deleteCurrentStory() }
+                }
+                Button(Loc.cancel, role: .cancel) {}
+            }
+            .confirmationDialog(
+                Loc.t("Report this story?", "Denunciar esta story?"),
+                isPresented: $confirmReport,
+                titleVisibility: .visible
+            ) {
+                Button(Loc.t("Report", "Denunciar"), role: .destructive) {
+                    Task { await reportCurrentStory() }
                 }
                 Button(Loc.cancel, role: .cancel) {}
             }
@@ -580,6 +616,20 @@ public struct StoryViewerScreen: View {
                 dismiss()
             }
         }
+    }
+
+    /// Dono apaga a própria story — fecha o viewer (paridade web deleteStory,
+    /// que zera o selectedStoryId).
+    private func deleteCurrentStory() async {
+        guard let item = currentItem else { return }
+        let ok = await model.deleteStory(storyId: item.storyId)
+        if ok { dismiss() }
+    }
+
+    /// Denúncia da story do autor atual (paridade web reportStory).
+    private func reportCurrentStory() async {
+        guard let item = currentItem, let group = currentGroup else { return }
+        _ = await model.reportStory(storyId: item.storyId, authorId: group.authorId)
     }
 }
 
