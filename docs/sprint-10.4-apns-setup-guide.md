@@ -11,8 +11,8 @@ Endpoint: `https://qajjpjmybmqqwflytcpr.functions.supabase.co/send-push`
 
 Pra disparar push real, basta TestFlight liberar o app em iPhone:
 `NativePushController` registra o token, próxima chamada `send-push`
-envia. Pra promover pra App Store prod: trocar `APNS_ENVIRONMENT` pra
-`production`.
+envia. Builds TestFlight e App Store usam o ambiente APNs `production`.
+Somente builds assinadas com perfil de desenvolvimento usam `sandbox`.
 
 Este guia abaixo fica como **referência histórica + steps caso precise
 trocar chave** (ex: rotação de credencial Apple) ou setar do zero em
@@ -52,8 +52,8 @@ Verifique em `ios/App/App.xcodeproj/project.pbxproj` → procure `PRODUCT_BUNDLE
 | `APNS_KEY_P8` | Conteúdo inteiro do `.p8` (incluir as linhas `-----BEGIN PRIVATE KEY-----` / `-----END PRIVATE KEY-----`) | Multi-linha, paste como está |
 | `APNS_KEY_ID` | 10 chars (ex: `ABC1234DEF`) | Apple Portal |
 | `APNS_TEAM_ID` | 10 chars (ex: `XYZ9876UVW`) | Apple Portal (Membership) |
-| `APNS_BUNDLE_ID` | `com.gymcircle.app.dev` (TestFlight) ou `com.gymcircle.app` (prod) | Bate com Info.plist |
-| `APNS_ENVIRONMENT` | `sandbox` (TestFlight) ou `production` (App Store) | Sandbox usa `api.sandbox.push.apple.com` |
+| `APNS_BUNDLE_ID` | `com.gymcircle.app` | Precisa bater com o bundle assinado |
+| `APNS_ENVIRONMENT` | `production` (TestFlight/App Store) ou `sandbox` (Debug) | A função tenta o ambiente alternativo quando recebe `BadDeviceToken` |
 
 ## 4. Testar via curl
 

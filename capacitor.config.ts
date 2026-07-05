@@ -67,7 +67,7 @@ const config: CapacitorConfig = {
       resizeOnFullScreen: true,
     },
     PushNotifications: {
-      presentationOptions: ["badge", "sound", "alert"],
+      presentationOptions: ["badge", "sound", "banner", "list"],
     },
     // Sprint 4.1: trava em portrait. Combinação:
     //   - iOS: redundante com Info.plist UISupportedInterfaceOrientations

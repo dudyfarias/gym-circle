@@ -3,7 +3,7 @@
 import { ChevronLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { SocialPostCard } from "./design-system";
-import type { EnrichedPost, EnrichedUser } from "./social/types";
+import type { EnrichedPost, EnrichedUser, WorkoutDetail } from "./social/types";
 
 /**
  * PostDetailOverlay — Sprint 5.11.
@@ -47,6 +47,7 @@ type PostDetailOverlayProps = {
   onOpenComments: (postId: string) => void;
   onOpenLikes: (postId: string) => void;
   onOpenPostMenu: (postId: string) => void;
+  onOpenWorkoutDetail: (workout: WorkoutDetail) => void;
   onSelectUser: (userId: string) => void;
   onSharePostToChat?: (postId: string, receiverId: string) => Promise<void> | void;
   onToggleFollow: (userId: string) => void;
@@ -64,6 +65,7 @@ export function PostDetailOverlay({
   onOpenComments,
   onOpenLikes,
   onOpenPostMenu,
+  onOpenWorkoutDetail,
   onSelectUser,
   onSharePostToChat,
   onToggleFollow,
@@ -113,6 +115,7 @@ export function PostDetailOverlay({
             onOpenComments={onOpenComments}
             onOpenLikes={onOpenLikes}
             onOpenPostMenu={onOpenPostMenu}
+            onOpenWorkoutDetail={onOpenWorkoutDetail}
             onSelectUser={onSelectUser}
             onShareToChat={onSharePostToChat}
             onToggleFollow={onToggleFollow}

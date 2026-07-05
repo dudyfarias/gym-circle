@@ -48,9 +48,11 @@ const PERMISSIONS = {
   NSMicrophoneUsageDescription:
     "Necessária para gravar o áudio dos vídeos do seu treino, igual nos stories e posts em vídeo.",
   NSLocationWhenInUseUsageDescription:
-    "Para mostrar onde foi o treino e descobrir gente que treina na sua região. Você sempre escolhe se vai compartilhar a localização.",
+    "Para registrar a distância e o mapa do seu treino enquanto ele estiver ativo.",
+  NSLocationAlwaysAndWhenInUseUsageDescription:
+    "Para continuar registrando a distância e o mapa enquanto o treino estiver ativo e o app estiver em segundo plano.",
   NSUserNotificationsUsageDescription:
-    "Para te avisar quando alguém curtir, comentar ou seguir você no Gym Circle.",
+    "Para te avisar quando alguém enviar uma mensagem, curtir ou comentar seu treino no Gym Circle.",
 };
 
 /**
@@ -102,6 +104,21 @@ function upsertBoolKey(plist, key, value) {
   );
 }
 
+function upsertArrayKey(plist, key, values) {
+  const array = `<key>${key}</key>\n\t<array>\n${values
+    .map((value) => `\t\t<string>${value}</string>`)
+    .join("\n")}\n\t</array>`;
+  const existing = new RegExp(
+    `<key>${key}</key>\\s*<array>[\\s\\S]*?</array>`,
+    "g",
+  );
+  if (existing.test(plist)) return plist.replace(existing, array);
+  return plist.replace(
+    /(\s*)<\/dict>(\s*<\/plist>)/,
+    `$1\t${array}\n</dict>$2`,
+  );
+}
+
 async function fileExists(path) {
   try {
     await access(path);
@@ -128,6 +145,10 @@ async function main() {
   // Export compliance — declarar que só usamos encryption padrão (TLS).
   // Sem isso, App Store Connect pede formulário a cada release.
   plist = upsertBoolKey(plist, "ITSAppUsesNonExemptEncryption", false);
+  plist = upsertArrayKey(plist, "UIBackgroundModes", [
+    "location",
+    "remote-notification",
+  ]);
 
   await writeFile(INFO_PLIST, plist, "utf8");
   console.log(

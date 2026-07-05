@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import {
@@ -38,8 +39,8 @@ import {
 } from "../workout/restTimer";
 import { formatElapsed } from "../workout/workoutElapsed";
 import {
+  appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
-  distanceBetweenRoutePoints,
   formatAveragePace,
   formatAverageSpeed,
   formatDistance,
@@ -50,11 +51,14 @@ import {
   type WorkoutRoutePoint,
   workoutElapsedSeconds,
   workoutPausedSeconds,
+  workoutRouteCoordinates,
   writeStoredWorkoutSession,
 } from "../workout/workoutSession";
 
 type WorkoutType = WebActivityInput["activityType"];
+type RouteWorkoutType = Extract<WorkoutType, "run" | "walk" | "ride">;
 type GpsStatus = "off" | "requesting" | "strong" | "weak" | "denied";
+type GpsEngine = "checking" | "native" | "web";
 
 type WebWorkoutScreenProps = {
   open: boolean;
@@ -75,7 +79,7 @@ const TYPE_CARDS: Array<{
   { type: "other", icon: Play },
 ];
 
-function isRouteWorkout(type: WorkoutType) {
+function isRouteWorkout(type: WorkoutType): type is RouteWorkoutType {
   return type === "run" || type === "walk" || type === "ride";
 }
 
@@ -118,12 +122,14 @@ export function WebWorkoutScreen({
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, dispatchRest] = useReducer(restTimerReducer, REST_TIMER_INITIAL);
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("off");
+  const [gpsEngine, setGpsEngine] = useState<GpsEngine>("checking");
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
+  const nativeSessionAttachedRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -165,6 +171,7 @@ export function WebWorkoutScreen({
       setSession((current) => {
         if (!current) return current;
         const next = updater(current);
+        if (next === current) return current;
         writeStoredWorkoutSession(next);
         return next;
       });
@@ -172,11 +179,92 @@ export function WebWorkoutScreen({
     [],
   );
 
+  const applyNativeSnapshot = useCallback(
+    (snapshot: {
+      distanceM: number;
+      movingS: number;
+      elevationGainM: number;
+    }) => {
+      setGpsStatus("strong");
+      persistSession((current) => ({
+        ...current,
+        distanceM: snapshot.distanceM,
+        movingS: snapshot.movingS,
+        elevationGainM: snapshot.elevationGainM,
+      }));
+    },
+    [persistSession],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    let removeListener: (() => Promise<void>) | undefined;
+    void import("../native/WorkoutLocationBridge").then(
+      async ({ WorkoutLocationBridge }) => {
+        const available = await WorkoutLocationBridge.isAvailable();
+        if (cancelled) return;
+        if (!available) {
+          setGpsEngine("web");
+          return;
+        }
+        setGpsEngine("native");
+        const handle = await WorkoutLocationBridge.addUpdateListener(
+          applyNativeSnapshot,
+        );
+        if (cancelled) {
+          await handle.remove();
+          return;
+        }
+        removeListener = handle.remove;
+      },
+    );
+    return () => {
+      cancelled = true;
+      if (removeListener) void removeListener();
+    };
+  }, [applyNativeSnapshot]);
+
+  useEffect(() => {
+    const routeActivityType =
+      session && isRouteWorkout(session.activityType)
+        ? session.activityType
+        : null;
+    if (
+      gpsEngine !== "native" ||
+      stage !== "live" ||
+      !session ||
+      !routeActivityType ||
+      nativeSessionAttachedRef.current
+    ) {
+      return;
+    }
+    nativeSessionAttachedRef.current = true;
+    void import("../native/WorkoutLocationBridge").then(
+      async ({ WorkoutLocationBridge }) => {
+        try {
+          const snapshot = await WorkoutLocationBridge.snapshot();
+          applyNativeSnapshot(snapshot);
+          if (
+            (!snapshot.hasSession || !snapshot.isRecording) &&
+            session.pausedAtMs === null
+          ) {
+            applyNativeSnapshot(
+              await WorkoutLocationBridge.resume(routeActivityType),
+            );
+          }
+        } catch {
+          nativeSessionAttachedRef.current = false;
+          setGpsEngine("web");
+        }
+      },
+    );
+  }, [applyNativeSnapshot, gpsEngine, session, stage]);
+
   useEffect(() => {
     const routeActivityType = session?.activityType;
     const pausedAtMs = session?.pausedAtMs;
     if (
-      !open ||
+      gpsEngine !== "web" ||
       stage !== "live" ||
       !routeActivityType ||
       !isRouteWorkout(routeActivityType)
@@ -203,44 +291,15 @@ export function WebWorkoutScreen({
             typeof position.coords.altitude === "number"
               ? position.coords.altitude
               : null,
+          accuracyM: position.coords.accuracy,
+          altitudeAccuracyM:
+            typeof position.coords.altitudeAccuracy === "number"
+              ? position.coords.altitudeAccuracy
+              : null,
           timestampMs: position.timestamp || Date.now(),
         };
 
-        persistSession((current) => {
-          const previous = current.lastRoutePoint;
-          if (!previous) return { ...current, lastRoutePoint: point };
-          const secondsBetween = Math.max(
-            0.1,
-            (point.timestampMs - previous.timestampMs) / 1_000,
-          );
-          const segmentM = distanceBetweenRoutePoints(previous, point);
-          const maxMetersPerSecond =
-            current.activityType === "ride"
-              ? 45
-              : current.activityType === "run"
-                ? 12
-                : 8;
-          if (
-            segmentM < 2 ||
-            segmentM / secondsBetween > maxMetersPerSecond
-          ) {
-            return { ...current, lastRoutePoint: point };
-          }
-          const elevationDelta =
-            point.altitude !== null && previous.altitude !== null
-              ? point.altitude - previous.altitude
-              : 0;
-          return {
-            ...current,
-            distanceM: current.distanceM + segmentM,
-            elevationGainM:
-              current.elevationGainM +
-              (elevationDelta > 2 && elevationDelta < 50
-                ? elevationDelta
-                : 0),
-            lastRoutePoint: point,
-          };
-        });
+        persistSession((current) => appendWorkoutRoutePoint(current, point));
       },
       (error) => {
         setGpsStatus(error.code === error.PERMISSION_DENIED ? "denied" : "weak");
@@ -255,19 +314,27 @@ export function WebWorkoutScreen({
       window.clearTimeout(statusId);
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [open, persistSession, session?.activityType, session?.pausedAtMs, stage]);
+  }, [
+    gpsEngine,
+    persistSession,
+    session?.activityType,
+    session?.pausedAtMs,
+    stage,
+  ]);
 
   const startWorkout = useCallback(
     (activityType: WorkoutType) => {
       const next: StoredWorkoutSession = {
-        version: 2,
+        version: 3,
         startedAtMs: Date.now(),
         activityType,
         pausedAtMs: null,
         pausedTotalMs: 0,
         distanceM: 0,
+        movingS: 0,
         elevationGainM: 0,
         restCount: 0,
+        routePoints: [],
         lastRoutePoint: null,
       };
       writeStoredWorkoutSession(next);
@@ -277,23 +344,51 @@ export function WebWorkoutScreen({
       dispatchRest({ type: "reset" });
       onSessionChange?.(true);
       navigator.vibrate?.(60);
+      nativeSessionAttachedRef.current = false;
+      if (isRouteWorkout(activityType) && gpsEngine === "native") {
+        nativeSessionAttachedRef.current = true;
+        void import("../native/WorkoutLocationBridge").then(
+          async ({ WorkoutLocationBridge }) => {
+            try {
+              applyNativeSnapshot(await WorkoutLocationBridge.start(activityType));
+            } catch {
+              nativeSessionAttachedRef.current = false;
+              setGpsEngine("web");
+            }
+          },
+        );
+      }
     },
-    [onSessionChange],
+    [applyNativeSnapshot, gpsEngine, onSessionChange],
   );
 
   const togglePause = useCallback(() => {
     if (!session) return;
+    const routeActivityType = isRouteWorkout(session.activityType)
+      ? session.activityType
+      : null;
     const actionNow = Date.now();
     if (session.pausedAtMs === null) {
       persistSession((current) => pauseWorkoutSession(current, actionNow));
+      if (routeActivityType && gpsEngine === "native") {
+        void import("../native/WorkoutLocationBridge").then(
+          ({ WorkoutLocationBridge }) => WorkoutLocationBridge.pause(),
+        );
+      }
       if (rest.status === "running") dispatchRest({ type: "pause" });
     } else {
       persistSession((current) => resumeWorkoutSession(current, actionNow));
+      if (routeActivityType && gpsEngine === "native") {
+        void import("../native/WorkoutLocationBridge").then(
+          ({ WorkoutLocationBridge }) =>
+            WorkoutLocationBridge.resume(routeActivityType),
+        );
+      }
       if (rest.status === "paused") dispatchRest({ type: "resume" });
     }
     setNowMs(actionNow);
     navigator.vibrate?.(45);
-  }, [persistSession, rest.status, session]);
+  }, [gpsEngine, persistSession, rest.status, session]);
 
   const handleFinish = useCallback(async () => {
     if (!session || finishing) return;
@@ -303,22 +398,42 @@ export function WebWorkoutScreen({
     try {
       const endedMs = Date.now();
       const elapsedS = workoutElapsedSeconds(session, endedMs);
+      let nativeSummary:
+        | {
+            distanceM: number;
+            movingS: number;
+            elevationGainM: number;
+            route: number[][];
+          }
+        | undefined;
+      if (isRouteWorkout(session.activityType) && gpsEngine === "native") {
+        const { WorkoutLocationBridge } = await import(
+          "../native/WorkoutLocationBridge"
+        );
+        nativeSummary = await WorkoutLocationBridge.stop();
+      }
       const activity = await onFinish({
         activityType: session.activityType,
         startedAt: new Date(session.startedAtMs).toISOString(),
         endedAt: new Date(endedMs).toISOString(),
         elapsedS,
-        movingS: elapsedS,
+        movingS: isRouteWorkout(session.activityType)
+          ? Math.round(nativeSummary?.movingS ?? session.movingS)
+          : elapsedS,
         distanceM: isRouteWorkout(session.activityType)
-          ? session.distanceM
+          ? (nativeSummary?.distanceM ?? session.distanceM)
           : null,
         elevationGainM: isRouteWorkout(session.activityType)
-          ? session.elevationGainM
+          ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
+          : null,
+        route: isRouteWorkout(session.activityType)
+          ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
           : null,
       });
       clearStoredWorkoutSession();
       dispatchRest({ type: "reset" });
       onSessionChange?.(false);
+      nativeSessionAttachedRef.current = false;
       onCompose({
         id: activity.id,
         activityType: session.activityType,
@@ -332,7 +447,15 @@ export function WebWorkoutScreen({
     } finally {
       setFinishing(false);
     }
-  }, [finishing, onCompose, onFinish, onSessionChange, session, t]);
+  }, [
+    finishing,
+    gpsEngine,
+    onCompose,
+    onFinish,
+    onSessionChange,
+    session,
+    t,
+  ]);
 
   const handleDiscard = useCallback(() => {
     clearStoredWorkoutSession();
@@ -340,8 +463,18 @@ export function WebWorkoutScreen({
     setSession(null);
     setDiscardConfirmOpen(false);
     onSessionChange?.(false);
+    nativeSessionAttachedRef.current = false;
+    if (
+      session &&
+      isRouteWorkout(session.activityType) &&
+      gpsEngine === "native"
+    ) {
+      void import("../native/WorkoutLocationBridge").then(
+        ({ WorkoutLocationBridge }) => WorkoutLocationBridge.stop(),
+      );
+    }
     onClose();
-  }, [onClose, onSessionChange]);
+  }, [gpsEngine, onClose, onSessionChange, session]);
 
   const startRest = useCallback(() => {
     if (!session || session.pausedAtMs !== null) return;
@@ -408,13 +541,11 @@ export function WebWorkoutScreen({
             : formatElapsed(pausedS),
       },
       {
-        label: t("workout.metrics.status"),
-        value: isPaused
-          ? t("workout.paused")
-          : t("workout.active"),
+        label: t("workout.metrics.totalCalories"),
+        value: "—",
       },
     ];
-  }, [elapsedS, isPaused, pausedS, session, startedTime, t]);
+  }, [elapsedS, pausedS, session, startedTime, t]);
 
   if (!open) return null;
 
@@ -498,28 +629,29 @@ export function WebWorkoutScreen({
                   {t(`workout.types.${session.activityType}`)}
                 </span>
               </span>
-              {isRouteWorkout(session.activityType) ? (
+              <div className="ml-auto flex min-w-0 flex-col items-end gap-1">
                 <span
                   className={[
-                    "ml-auto inline-flex items-center gap-1.5 text-[12px] font-black",
-                    gpsStatus === "strong"
-                      ? "text-[var(--gc-brand)]"
-                      : "text-white/50",
-                  ].join(" ")}
-                >
-                  <MapPinned size={15} />
-                  {gpsLabel}
-                </span>
-              ) : (
-                <span
-                  className={[
-                    "ml-auto text-[11px] font-black uppercase tracking-[0.12em]",
+                    "text-[11px] font-black uppercase tracking-[0.12em]",
                     isPaused ? "text-[#ffd60a]" : "text-[var(--gc-brand)]",
                   ].join(" ")}
                 >
                   {isPaused ? t("workout.paused") : t("workout.active")}
                 </span>
-              )}
+                {isRouteWorkout(session.activityType) ? (
+                  <span
+                    className={[
+                      "inline-flex items-center gap-1 text-[10px] font-black",
+                      gpsStatus === "strong"
+                        ? "text-[var(--gc-brand)]"
+                        : "text-white/42",
+                    ].join(" ")}
+                  >
+                    <MapPinned size={12} />
+                    {gpsLabel}
+                  </span>
+                ) : null}
+              </div>
             </header>
 
             <main className="flex flex-1 flex-col">
@@ -536,11 +668,6 @@ export function WebWorkoutScreen({
                 >
                   {formatElapsed(elapsedS)}
                 </p>
-                {isPaused ? (
-                  <p className="mt-3 text-[12px] font-black uppercase tracking-[0.18em] text-[#ffd60a]">
-                    {t("workout.paused")}
-                  </p>
-                ) : null}
               </section>
 
               <section className="mt-8 grid grid-cols-3 gap-x-5 border-y border-white/[0.07] py-5">

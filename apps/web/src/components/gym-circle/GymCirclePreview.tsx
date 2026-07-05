@@ -922,14 +922,22 @@ export function GymCirclePreview({
   );
   const postDetailTarget: EnrichedPost | null = useMemo(() => {
     if (!postDetailId) return null;
-    return profilePosts.find((p) => p.id === postDetailId) ?? null;
-  }, [postDetailId, profilePosts]);
+    return (
+      feedPosts.find((post) => post.id === postDetailId) ??
+      profilePosts.find((post) => post.id === postDetailId) ??
+      null
+    );
+  }, [feedPosts, postDetailId, profilePosts]);
   // Sprint 5.11 — resolve o post pro PostDetailOverlay. Mesma estratégia
   // do postDetailTarget mas com state separado.
   const postDetailFullTarget: EnrichedPost | null = useMemo(() => {
     if (!postDetailFullId) return null;
-    return profilePosts.find((p) => p.id === postDetailFullId) ?? null;
-  }, [postDetailFullId, profilePosts]);
+    return (
+      feedPosts.find((post) => post.id === postDetailFullId) ??
+      profilePosts.find((post) => post.id === postDetailFullId) ??
+      null
+    );
+  }, [feedPosts, postDetailFullId, profilePosts]);
   const likesTarget: EnrichedPost | null = useMemo(() => {
     if (!likesPostId) return null;
     return profilePosts.find((post) => post.id === likesPostId) ?? null;
@@ -2290,6 +2298,7 @@ export function GymCirclePreview({
             onOpenComments={openPostDetail}
             onOpenLikes={openLikes}
             onOpenPostMenu={openPostMenu}
+            onOpenWorkoutDetail={setDetailWorkout}
             onSelectUser={(userId) => {
               closePostDetailFull();
               openProfile(userId);

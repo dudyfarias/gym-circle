@@ -120,7 +120,7 @@
       "started": "Started",
       "rests": "Rests",
       "paused": "Paused",
-      "status": "Status",
+      "totalCalories": "Total cal.",
       "moving": "Moving"
     },
     "discard": "Discard workout",

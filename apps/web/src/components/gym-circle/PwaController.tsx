@@ -47,7 +47,9 @@ export function PwaController({ userId }: PwaControllerProps) {
   const [notificationState, setNotificationState] = useState<NotificationPermission | "unsupported">(() =>
     typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported",
   );
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const [vapidPublicKey, setVapidPublicKey] = useState<string | null>(
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? null,
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -94,6 +96,94 @@ export function PwaController({ userId }: PwaControllerProps) {
     };
   }, []);
 
+  useEffect(() => {
+    if (vapidPublicKey) return;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !anonKey) return;
+
+    const controller = new AbortController();
+    void fetch(`${supabaseUrl}/functions/v1/send-push`, {
+      headers: {
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+      },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        const payload = (await response.json()) as { publicKey?: unknown };
+        return typeof payload.publicKey === "string" ? payload.publicKey : null;
+      })
+      .then((publicKey) => {
+        if (publicKey) setVapidPublicKey(publicKey);
+      })
+      .catch(() => {
+        // O app continua utilizável; a opção volta quando o provider responder.
+      });
+
+    return () => controller.abort();
+  }, [vapidPublicKey]);
+
+  const saveCurrentSubscription = useCallback(
+    async (options: { createIfMissing: boolean }) => {
+      if (
+        !vapidPublicKey ||
+        !userId ||
+        !("serviceWorker" in navigator) ||
+        !("PushManager" in window)
+      ) {
+        return false;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const existing = await registration.pushManager.getSubscription();
+      const subscription =
+        existing ??
+        (options.createIfMissing
+          ? await registration.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+            })
+          : null);
+      if (!subscription) return false;
+
+      const keys = getPushKeys(subscription);
+      if (!keys.endpoint || !keys.p256dh || !keys.auth) return false;
+      await services.push.save(userId, {
+        endpoint: keys.endpoint,
+        p256dh: keys.p256dh,
+        auth: keys.auth,
+        userAgent: navigator.userAgent,
+      });
+      return true;
+    },
+    [services.push, userId, vapidPublicKey],
+  );
+
+  // Reassocia a inscrição ao usuário após login/reabertura. Isso também
+  // recupera o caso em que o browser concedeu permissão, mas a gravação no
+  // Supabase falhou por rede na primeira tentativa.
+  useEffect(() => {
+    if (
+      notificationState !== "granted" ||
+      !isInstalled ||
+      !userId ||
+      !vapidPublicKey
+    ) {
+      return;
+    }
+    void saveCurrentSubscription({ createIfMissing: true }).catch(() => {
+      // Best effort; o próximo boot/retorno tenta novamente.
+    });
+  }, [
+    isInstalled,
+    notificationState,
+    saveCurrentSubscription,
+    userId,
+    vapidPublicKey,
+  ]);
+
   const canAskNotifications = useMemo(
     () => notificationState === "default" && Boolean(vapidPublicKey),
     [notificationState, vapidPublicKey],
@@ -117,26 +207,10 @@ export function PwaController({ userId }: PwaControllerProps) {
     const permission = await Notification.requestPermission();
     setNotificationState(permission);
     if (permission !== "granted") return;
-
-    const registration = await navigator.serviceWorker.ready;
-    const existing = await registration.pushManager.getSubscription();
-    const subscription =
-      existing ??
-      (await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-      }));
-    const keys = getPushKeys(subscription);
-    if (!keys.endpoint || !keys.p256dh || !keys.auth) return;
-    if (!userId) return;
-    await services.push.save(userId, {
-      endpoint: keys.endpoint,
-      p256dh: keys.p256dh,
-      auth: keys.auth,
-      userAgent: navigator.userAgent,
-    });
-    setDismissed(true);
-  }, [services.push, userId, vapidPublicKey]);
+    if (await saveCurrentSubscription({ createIfMissing: true })) {
+      setDismissed(true);
+    }
+  }, [saveCurrentSubscription, vapidPublicKey]);
 
   if (!showPrompt && !showNotifications && !showOffline) return null;
 

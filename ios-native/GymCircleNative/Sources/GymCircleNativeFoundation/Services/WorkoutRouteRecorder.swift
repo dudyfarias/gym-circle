@@ -31,8 +31,8 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
     override public init() {
         super.init()
         manager.delegate = self
-        manager.desiredAccuracy = kCLLocationAccuracyBest
-        manager.distanceFilter = 5
+        manager.desiredAccuracy = kCLLocationAccuracyBestForNavigation
+        manager.distanceFilter = 3
         manager.activityType = .fitness
     }
 
@@ -139,30 +139,52 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
     private func accept(_ location: CLLocation) {
         let accuracy = location.horizontalAccuracy
         guard accuracy > 0, accuracy <= 50 else { return }
+        guard abs(location.timestamp.timeIntervalSinceNow) < 30 else { return }
 
-        defer { lastAccepted = location }
         guard let previous = lastAccepted else {
+            lastAccepted = location
             keepPointIfNeeded(location)
             lastAltitude = location.verticalAccuracy <= 12 ? location.altitude : nil
             return
         }
 
         let dt = location.timestamp.timeIntervalSince(previous.timestamp)
-        guard dt > 0, dt < 30 else { return }
+        guard dt > 0 else { return }
+        if dt >= 45 {
+            lastAccepted = location
+            keepPointIfNeeded(location)
+            lastAltitude = location.verticalAccuracy <= 12 ? location.altitude : nil
+            return
+        }
         let segment = location.distance(from: previous)
-        // Salto de GPS (teleporte) — descarta o segmento, mantém a âncora.
-        guard segment < 100, segment / dt < 15 else { return }
+        let minimumSegment = max(
+            2,
+            min(6, ((previous.horizontalAccuracy + location.horizontalAccuracy) / 2) * 0.25)
+        )
+        // Mantém a âncora: movimentos pequenos se acumulam até superar o
+        // limiar, em vez de desaparecerem em leituras muito frequentes.
+        guard segment >= minimumSegment else { return }
+        // Salto de GPS (teleporte) — descarta o segmento e cria nova âncora.
+        guard segment < 100, segment / dt < 15 else {
+            lastAccepted = location
+            return
+        }
 
         distanceM += segment
         if segment / dt > 0.5 {
             movingS += dt
         }
         if location.verticalAccuracy > 0, location.verticalAccuracy <= 12 {
-            if let lastAltitude, location.altitude - lastAltitude > 1.0 {
-                elevationGainM += location.altitude - lastAltitude
+            if let lastAltitude {
+                let delta = location.altitude - lastAltitude
+                let noiseFloor = max(3, location.verticalAccuracy)
+                if delta > noiseFloor, delta < 30 {
+                    elevationGainM += delta
+                }
             }
             lastAltitude = location.altitude
         }
+        lastAccepted = location
         keepPointIfNeeded(location)
     }
 

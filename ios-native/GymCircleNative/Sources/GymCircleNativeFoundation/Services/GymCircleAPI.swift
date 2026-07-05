@@ -344,6 +344,23 @@ public actor GymCircleAPI {
             let created_at: String
             let location_source: String?
             let location_name: String?
+            let location_latitude: Double?
+            let location_longitude: Double?
+            let location_google_maps_url: String?
+            let source_activity_id: String?
+        }
+        struct ActivityRow: Decodable {
+            let activity_type: String
+            let started_at: String?
+            let ended_at: String?
+            let elapsed_s: Int
+            let moving_s: Int?
+            let distance_m: Double?
+            let elevation_gain_m: Double?
+            let avg_hr: Int?
+            let active_calories: Double?
+            let total_calories: Double?
+            let route: [[Double]]?
         }
         struct AuthorRow: Decodable {
             let username: String
@@ -357,7 +374,8 @@ public actor GymCircleAPI {
             .select(
                 "id,user_id,image_url,thumbnail_url,poster_url,media_width,media_height," +
                     "media_duration_seconds,blur_data_url,media_type,caption,gym_id," +
-                    "workout_type,workout_date,created_at,location_source,location_name"
+                    "workout_type,workout_date,created_at,location_source,location_name," +
+                    "location_latitude,location_longitude,location_google_maps_url,source_activity_id"
             )
             .eq("id", value: postId)
             .limit(1)
@@ -385,7 +403,7 @@ public actor GymCircleAPI {
             .eq("post_id", value: postId)
             .execute()
 
-        return FeedPost(
+        var post = FeedPost(
             id: row.id,
             userId: row.user_id,
             imageURL: row.image_url,
@@ -403,6 +421,8 @@ public actor GymCircleAPI {
             createdAt: row.created_at,
             locationSource: row.location_source,
             locationName: row.location_name,
+            locationLatitude: row.location_latitude,
+            locationLongitude: row.location_longitude,
             likesCount: likes.count,
             commentsCount: commentsResponse?.count ?? 0,
             username: author?.username ?? "user",
@@ -415,6 +435,34 @@ public actor GymCircleAPI {
             isFollowingAuthor: nil,
             visibility: nil
         )
+        post.locationGoogleMapsUrl = row.location_google_maps_url
+
+        if let activityId = row.source_activity_id {
+            let activities: [ActivityRow] = (try? await client
+                .from("activities")
+                .select(
+                    "activity_type,started_at,ended_at,elapsed_s,moving_s,distance_m," +
+                        "elevation_gain_m,avg_hr,active_calories,total_calories,route"
+                )
+                .eq("id", value: activityId)
+                .limit(1)
+                .execute()
+                .value) ?? []
+            if let activity = activities.first {
+                post.workoutActivityType = activity.activity_type
+                post.workoutStartedAt = activity.started_at
+                post.workoutEndedAt = activity.ended_at
+                post.workoutElapsedS = activity.elapsed_s
+                post.workoutMovingS = activity.moving_s
+                post.workoutDistanceM = activity.distance_m
+                post.workoutElevationGainM = activity.elevation_gain_m
+                post.workoutAvgHr = activity.avg_hr
+                post.workoutActiveCalories = activity.active_calories
+                post.workoutTotalCalories = activity.total_calories
+                post.workoutRoute = activity.route
+            }
+        }
+        return post
     }
 
     /// Sprint 20.4b — busca de academias pro composer (gyms por nome).

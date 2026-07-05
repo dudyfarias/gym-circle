@@ -10,7 +10,7 @@ import {
   formatKm,
   paceFromDistance,
 } from "../workout/workoutElapsed";
-import { RouteSketch } from "./RouteSketch";
+import { WorkoutRouteMap } from "./WorkoutRouteMap";
 
 type WorkoutDetailOverlayProps = {
   workout: WorkoutDetail;
@@ -207,14 +207,18 @@ export function WorkoutDetailOverlay({
           ))}
         </div>
 
-        {/* Mapa (sketch da rota) */}
+        {/* Mapa geográfico da rota */}
         {workout.route && workout.route.length >= 2 ? (
           <>
             <h3 className="mb-3 mt-6 text-[19px] font-black text-white">
               {t("workoutDetail.mapTitle")}
             </h3>
             <div className="overflow-hidden rounded-[22px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.05]">
-              <RouteSketch route={workout.route} className="h-52 w-full" />
+              <WorkoutRouteMap
+                className="h-52 w-full"
+                label={t("workoutDetail.mapTitle")}
+                route={workout.route}
+              />
             </div>
           </>
         ) : null}

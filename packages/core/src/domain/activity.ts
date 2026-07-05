@@ -24,6 +24,7 @@ export type Activity = {
   movingS: number | null;
   distanceM: number | null;
   elevationGainM: number | null;
+  route: number[][] | null;
   avgHr: number | null;
   maxHr: number | null;
   activeCalories: number | null;
@@ -43,6 +44,8 @@ export type ActivityInput = {
   movingS?: number | null;
   distanceM?: number | null;
   elevationGainM?: number | null;
+  /** Polyline reduzida no formato [[latitude, longitude], ...]. */
+  route?: number[][] | null;
   avgHr?: number | null;
   maxHr?: number | null;
   activeCalories?: number | null;
@@ -64,6 +67,7 @@ export type ActivityRow = {
   moving_s: number | null;
   distance_m: number | null;
   elevation_gain_m: number | null;
+  route: number[][] | null;
   avg_hr: number | null;
   max_hr: number | null;
   active_calories: number | null;
@@ -86,6 +90,7 @@ export function activityRowToDomain(row: ActivityRow): Activity {
     movingS: row.moving_s,
     distanceM: row.distance_m,
     elevationGainM: row.elevation_gain_m,
+    route: row.route,
     avgHr: row.avg_hr,
     maxHr: row.max_hr,
     activeCalories: row.active_calories,
@@ -108,6 +113,7 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     moving_s: input.movingS ?? null,
     distance_m: input.distanceM ?? null,
     elevation_gain_m: input.elevationGainM ?? null,
+    route: input.route ?? null,
     avg_hr: input.avgHr ?? null,
     max_hr: input.maxHr ?? null,
     active_calories: input.activeCalories ?? null,

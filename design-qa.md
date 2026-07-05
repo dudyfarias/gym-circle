@@ -1,24 +1,37 @@
-# Design QA — treino ao vivo
+# Design QA — status e calorias do treino
 
 final result: passed
 
-## Referência e comparação
+## Evidências
 
-- Referência: captura do Apple Fitness fornecida em 03/07/2026.
-- Implementação: viewport móvel de 390 × 844 px, capturado no Chrome local.
-- Comparação lado a lado: [Apple Fitness × Gym Circle](docs/design-qa/workout-apple-comparison.png).
-- Estados adicionais: [musculação com descanso](docs/design-qa/workout-strength.png) e [corrida com métricas de rota](docs/design-qa/workout-route.png).
+- Fonte visual: `/Users/eduardofariascappia/Downloads/Captura de Tela 2026-07-04 à(s) 11.05.44.png`
+- Implementação web/Capacitor: [estado pausado](docs/design-qa/workout-status-calories-web.png)
+- Comparação normalizada: [antes × depois](docs/design-qa/workout-status-calories-comparison.png)
+- Viewport: 390 × 844 px
+- Estado: treino “Outro”, 24 segundos ativos, sessão pausada
+- Comparação focada: não foi necessária; tipografia, rótulos e controles estão legíveis na comparação integral.
 
-## Critérios verificados
+## Findings
 
-- Hierarquia de leitura rápida: modalidade, tempo dominante, métricas e controles.
-- Pausar e retomar preservam o tempo ativo e contabilizam o tempo pausado.
-- Fechar minimiza a tela sem encerrar; o botão central passa a exibir “Retomar treino”.
-- Descanso aparece somente em musculação, inicia em 1:00 e aceita ajustes de −10/+10 segundos.
-- Corrida, caminhada e bike exibem distância, ritmo/velocidade e subida calculados por GPS.
-- Controles principais têm áreas de toque grandes e rótulos acessíveis.
-- Não foram inventados batimentos ou calorias quando o dispositivo não fornece esses dados.
+Nenhum P0, P1 ou P2 restante.
 
-## Resultado visual
+- Tipografia: o status mantém caixa-alta e cor semântica no canto superior direito; não há mais repetição abaixo do cronômetro.
+- Espaçamento: a remoção do status duplicado recupera espaço vertical e preserva a hierarquia tempo → métricas → controles.
+- Cores: amarelo continua reservado ao estado pausado; ciano permanece nos controles primários.
+- Imagens e ícones: não há ativos rasterizados nesta superfície; os ícones continuam vindo das bibliotecas do produto.
+- Conteúdo: “Status” foi substituído por “Cal. totais”, com “—” quando não existe medição ao vivo.
 
-A implementação preserva a identidade preto/ciano do Gym Circle e replica da referência a prioridade do tempo, a leitura por blocos de métricas e o conjunto de ações circulares. A tela de musculação adapta o espaço de rota para o timer de descanso, mantendo a mesma linguagem visual.
+## Patches desde a rodada anterior
+
+- Status ativo/pausado centralizado em um único ponto no topo.
+- Removido o “Pausado” textual abaixo do tempo.
+- Terceira métrica alterada de “Status” para “Cal. totais”.
+- SwiftUI nativo alinhado ao mesmo mostrador e com pausa/retomada persistente.
+- GPS nativo pausa sem apagar o trajeto acumulado.
+- Descanso nativo limitado à musculação e ajustável em −10/+10 segundos.
+
+## Verificação
+
+- Web: TypeScript, ESLint e testes de cronômetro aprovados.
+- iOS nativo: build Debug para iPhone Simulator aprovado.
+- O simulador não estava inicializado; a paridade nativa foi validada por compilação, estrutura e tokens compartilhados, sem captura de runtime nesta rodada.

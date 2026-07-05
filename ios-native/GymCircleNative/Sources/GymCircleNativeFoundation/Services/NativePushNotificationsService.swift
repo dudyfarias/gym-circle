@@ -52,15 +52,45 @@ public actor NativePushNotificationsService {
         }
     }
 
-    public func upsertCurrentToken(userId: String, appVersion: String? = nil) async throws {
-        guard let token = await NativePushTokenStore.shared.token else {
-            throw PushError.tokenUnavailable
+    private func waitForCurrentToken(timeoutSeconds: Double = 15) async throws -> String {
+        let intervalNanoseconds: UInt64 = 150_000_000
+        let attempts = max(1, Int((timeoutSeconds * 1_000_000_000) / Double(intervalNanoseconds)))
+
+        for _ in 0..<attempts {
+            if let token = await NativePushTokenStore.shared.token, !token.isEmpty {
+                return token
+            }
+            try await Task.sleep(nanoseconds: intervalNanoseconds)
         }
+
+        throw PushError.tokenUnavailable
+    }
+
+    public func upsertCurrentToken(userId: String, appVersion: String? = nil) async throws {
+        let token = try await waitForCurrentToken()
         try await upsertToken(
             userId: userId,
             token: token,
             appVersion: appVersion ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
         )
+    }
+
+    /// Renova o token no boot/login sem exibir prompt. Se o usuário ainda não
+    /// decidiu, a tela de Ajustes continua sendo o único lugar que pede acesso.
+    public func syncIfAlreadyAuthorized(userId: String) async throws -> Bool {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            await MainActor.run {
+                UIApplication.shared.registerForRemoteNotifications()
+            }
+            try await upsertCurrentToken(userId: userId)
+            return true
+        case .notDetermined, .denied:
+            return false
+        @unknown default:
+            return false
+        }
     }
 
     public func upsertToken(userId: String, token: String, appVersion: String?) async throws {

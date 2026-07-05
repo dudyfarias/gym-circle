@@ -1,4 +1,5 @@
 import SwiftUI
+import MapKit
 
 /// Detalhe do treino (estilo Apple Atividades) — aberto ao tocar no
 /// cabeçalho/stats de uma entrada de atividade no feed. Mostra o que temos
@@ -204,14 +205,14 @@ public struct WorkoutDetailOverlay: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    // MARK: - Mapa (sketch da rota)
+    // MARK: - Mapa geográfico da rota
 
     private func mapSection(route: [[Double]]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(Loc.t("Map", "Mapa"))
                 .font(.system(size: 20, weight: .black))
                 .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
-            RouteSketchView(points: route)
+            WorkoutRouteMapView(points: route)
                 .frame(height: 200)
                 .frame(maxWidth: .infinity)
                 .background(
@@ -222,6 +223,87 @@ public struct WorkoutDetailOverlay: View {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .stroke(GymCircleTheme.ColorToken.cyan.opacity(0.12), lineWidth: 1)
                 )
+        }
+    }
+}
+
+private struct WorkoutRouteMapView: UIViewRepresentable {
+    let points: [[Double]]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIView(context: Context) -> MKMapView {
+        let map = MKMapView(frame: .zero)
+        map.delegate = context.coordinator
+        map.overrideUserInterfaceStyle = .dark
+        map.isRotateEnabled = false
+        map.pointOfInterestFilter = .excludingAll
+        return map
+    }
+
+    func updateUIView(_ map: MKMapView, context: Context) {
+        let coordinates = points.compactMap { point -> CLLocationCoordinate2D? in
+            guard point.count >= 2,
+                  (-90...90).contains(point[0]),
+                  (-180...180).contains(point[1]) else { return nil }
+            return CLLocationCoordinate2D(latitude: point[0], longitude: point[1])
+        }
+        guard coordinates.count >= 2 else { return }
+
+        map.removeOverlays(map.overlays)
+        map.removeAnnotations(map.annotations)
+
+        let polyline = MKPolyline(coordinates: coordinates, count: coordinates.count)
+        map.addOverlay(polyline)
+
+        let start = MKPointAnnotation()
+        start.coordinate = coordinates[0]
+        start.title = "start"
+        let end = MKPointAnnotation()
+        end.coordinate = coordinates[coordinates.count - 1]
+        end.title = "end"
+        map.addAnnotations([start, end])
+
+        map.setVisibleMapRect(
+            polyline.boundingMapRect,
+            edgePadding: UIEdgeInsets(top: 34, left: 34, bottom: 34, right: 34),
+            animated: false
+        )
+    }
+
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            guard let polyline = overlay as? MKPolyline else {
+                return MKOverlayRenderer(overlay: overlay)
+            }
+            let renderer = MKPolylineRenderer(polyline: polyline)
+            renderer.strokeColor = UIColor(
+                red: 0.20,
+                green: 0.78,
+                blue: 1.0,
+                alpha: 1
+            )
+            renderer.lineWidth = 5
+            renderer.lineCap = .round
+            renderer.lineJoin = .round
+            return renderer
+        }
+
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            let identifier = "WorkoutRouteEndpoint"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: identifier)
+                ?? MKMarkerAnnotationView(annotation: annotation, reuseIdentifier: identifier)
+            view.annotation = annotation
+            guard let marker = view as? MKMarkerAnnotationView else { return view }
+            marker.glyphImage = UIImage(systemName: annotation.title == "start" ? "figure.walk" : "flag.fill")
+            marker.markerTintColor = annotation.title == "start"
+                ? UIColor(red: 0.20, green: 0.78, blue: 1.0, alpha: 1)
+                : .white
+            marker.glyphTintColor = .black
+            marker.displayPriority = .required
+            return marker
         }
     }
 }

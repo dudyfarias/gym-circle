@@ -442,6 +442,8 @@ export type WebActivityInput = {
   movingS?: number | null;
   distanceM?: number | null;
   elevationGainM?: number | null;
+  /** Polyline reduzida no formato persistido em activities.route. */
+  route?: number[][] | null;
 };
 
 export type FinishedWebActivity = {

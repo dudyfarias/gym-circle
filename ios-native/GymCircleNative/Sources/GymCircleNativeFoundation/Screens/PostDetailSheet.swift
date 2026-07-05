@@ -23,6 +23,7 @@ public struct PostDetailSheet: View {
     @State private var editingPost: FeedPost?
     @State private var playingVideo: PlayableVideo?
     @State private var openedProfile: OtherProfileSummary?
+    @State private var detailWorkout: WorkoutDetailData?
 
     public init(model: GymCircleAppModel, post: FeedPost) {
         self.model = model
@@ -65,7 +66,10 @@ public struct PostDetailSheet: View {
                     onPlayVideo: { url in playingVideo = PlayableVideo(url: url) },
                     onShare: { sharingPost = post },
                     onOpenProfile: { openProfile(userId: $0) },
-                    onOpenMention: { openMention(username: $0) }
+                    onOpenMention: { openMention(username: $0) },
+                    onOpenWorkoutDetail: {
+                        detailWorkout = post.workoutDetail
+                    }
                 )
                 .padding(20)
             }
@@ -116,6 +120,11 @@ public struct PostDetailSheet: View {
             }
             .fullScreenCover(item: $playingVideo) { video in
                 VideoPlayerScreen(url: video.url)
+            }
+            .fullScreenCover(item: $detailWorkout) { detail in
+                WorkoutDetailOverlay(detail: detail) {
+                    detailWorkout = nil
+                }
             }
         }
         .preferredColorScheme(.dark)

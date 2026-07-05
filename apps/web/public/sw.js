@@ -1,4 +1,4 @@
-const GC_CACHE = "gym-circle-pwa-v4";
+const GC_CACHE = "gym-circle-pwa-v5";
 const GC_STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/icons/icon-192.png",
@@ -93,10 +93,13 @@ self.addEventListener("push", (event) => {
     badge: "/icons/icon-96.png",
     image: data.image,
     data: {
-      url: data.url || "/"
+      url: data.url || data.data?.url || "/",
+      kind: data.kind,
+      payload: data.data || {}
     },
     vibrate: [18, 42, 18],
-    tag: data.tag || "gym-circle"
+    tag: data.tag || "gym-circle",
+    renotify: true
   };
 
   event.waitUntil(self.registration.showNotification(title, options));

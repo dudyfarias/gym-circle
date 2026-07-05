@@ -31,12 +31,29 @@ export function NativePushController({ userId }: NativePushControllerProps) {
   const services = useGymCircleServices();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void PushNotificationsService.registerPushToken(userId, services.push).catch(
-        () => undefined,
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const syncToken = async (attempt: number) => {
+      const result = await PushNotificationsService.registerPushToken(
+        userId,
+        services.push,
       );
-    }, 4500);
-    return () => window.clearTimeout(timer);
+      if (cancelled || result.status !== "failed" || attempt >= 2) return;
+
+      // APNs pode demorar no primeiro boot/rede móvel. Repetimos com backoff
+      // sem abrir novamente o prompt de permissão.
+      timer = window.setTimeout(
+        () => void syncToken(attempt + 1),
+        attempt === 0 ? 15_000 : 45_000,
+      );
+    };
+
+    timer = window.setTimeout(() => void syncToken(0), 2_500);
+    return () => {
+      cancelled = true;
+      if (timer !== null) window.clearTimeout(timer);
+    };
   }, [services.push, userId]);
 
   // Sprint 10.3 — runtime listeners (push received + action tap).
