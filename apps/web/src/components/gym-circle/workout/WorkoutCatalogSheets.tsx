@@ -207,11 +207,14 @@ export function WorkoutExercisePicker({
           </button>
         </header>
 
-        <div className="-mx-5 mt-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.14em] text-white/38">
+          {t("workoutCatalog.muscleGroup")}
+        </p>
+        <div className="gc-scrollbar -mx-5 mt-2 flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto px-5 py-1">
           {muscleGroups.map((item) => (
             <button
               className={[
-                "gc-pressable shrink-0 rounded-full px-3.5 py-2 text-[12px] font-black",
+                "gc-pressable inline-flex h-9 shrink-0 items-center justify-center rounded-full px-3.5 text-[12px] font-black leading-none",
                 item.slug === group
                   ? "bg-[var(--gc-brand)] text-black"
                   : "bg-white/[0.06] text-white/55",
@@ -225,7 +228,7 @@ export function WorkoutExercisePicker({
           ))}
         </div>
 
-        <label className="mt-4 flex items-center gap-2 rounded-[15px] bg-white/[0.06] px-3.5">
+        <label className="mt-4 flex shrink-0 items-center gap-2 rounded-[15px] bg-white/[0.06] px-3.5">
           <Search className="text-white/35" size={17} />
           <input
             className="min-w-0 flex-1 bg-transparent py-3 text-[14px] font-semibold text-white outline-none placeholder:text-white/30"
