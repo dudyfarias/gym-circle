@@ -20,6 +20,7 @@
     "@gym-circle/core": "*",
     "@supabase/supabase-js": "^2.105.3",
     "@types/canvas-confetti": "^1.9.0",
+    "@vercel/speed-insights": "^2.0.0",
     "canvas-confetti": "^1.9.4",
     "i18next": "^26.2.0",
     "i18next-browser-languagedetector": "^8.2.1",
