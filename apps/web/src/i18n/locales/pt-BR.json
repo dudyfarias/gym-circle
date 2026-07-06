@@ -273,6 +273,8 @@
       "unlike": "Descurtir",
       "openProfile": "Ver perfil de {{name}}",
       "videoBadge": "Vídeo",
+      "enableSound": "Ativar som",
+      "disableSound": "Silenciar",
       "viewComments_one": "Ver 1 comentário",
       "viewComments_other": "Ver todos os {{count}} comentários",
       "likedBy": "Curtido por {{name}}",

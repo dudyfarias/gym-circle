@@ -273,6 +273,8 @@
       "unlike": "Unlike",
       "openProfile": "View {{name}}'s profile",
       "videoBadge": "Video",
+      "enableSound": "Turn sound on",
+      "disableSound": "Mute",
       "viewComments_one": "View 1 comment",
       "viewComments_other": "View all {{count}} comments",
       "likedBy": "Liked by {{name}}",

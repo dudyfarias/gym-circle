@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useTranslation } from "react-i18next";
 import type { PostMediaItem } from "../social/types";
 import { PinchZoomImage } from "./PinchZoomImage";
 
@@ -130,7 +131,7 @@ type MediaSlideProps = {
 
 function MediaSlide({ item, isActive, inCarousel, altText, priority }: MediaSlideProps) {
   if (item.mediaType === "video") {
-    return <VideoSlide inCarousel={inCarousel} isActive={isActive} item={item} />;
+    return <VideoSlide isActive={isActive} item={item} />;
   }
 
   const previewSrc = item.thumbnailUrl ?? item.imageUrl;
@@ -182,17 +183,16 @@ function MediaSlide({ item, isActive, inCarousel, altText, priority }: MediaSlid
 function VideoSlide({
   item,
   isActive,
-  inCarousel,
 }: {
   item: PostMediaItem;
   isActive: boolean;
-  inCarousel: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [inView, setInView] = useState(false);
   const [muted, setMuted] = useFeedMuted(); // som GLOBAL (sessão)
   const [paused, setPaused] = useState(false);
+  const { t } = useTranslation();
 
   function syncMuted(nextMuted: boolean) {
     const node = videoRef.current;
@@ -264,15 +264,6 @@ function VideoSlide({
         src={item.imageUrl}
       />
 
-      {!inCarousel ? (
-        <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/56 px-2.5 py-1 text-[10px] font-black text-white/86 shadow-lg backdrop-blur-md">
-          <svg className="size-3" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M17 10.5V7.2c0-.75-.81-1.21-1.45-.82L12 8.5V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2v-1.5l3.55 2.13c.64.39 1.45-.07 1.45-.82v-3.3l2.6 2.08A1.5 1.5 0 0 0 22 13.92V10.08a1.5 1.5 0 0 0-2.4-1.2L17 10.5z" />
-          </svg>
-          Vídeo
-        </div>
-      ) : null}
-
       {paused ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <svg className="size-14 text-white/90 drop-shadow-lg" fill="currentColor" viewBox="0 0 24 24">
@@ -281,17 +272,9 @@ function VideoSlide({
         </div>
       ) : null}
 
-      {muted ? (
-        <div className="pointer-events-none absolute inset-x-3 bottom-14 flex justify-end">
-          <span className="rounded-full bg-black/56 px-3 py-1.5 text-[11px] font-black text-white shadow-lg backdrop-blur-md">
-            Toque para ativar som
-          </span>
-        </div>
-      ) : null}
-
       <button
-        aria-label={muted ? "Ativar som" : "Silenciar"}
-        className="absolute bottom-3 right-3 z-10 inline-flex h-10 items-center gap-1.5 rounded-full bg-black/65 px-3 text-[11px] font-black text-white shadow-lg backdrop-blur-md transition-transform active:scale-90"
+        aria-label={muted ? t("feed.post.enableSound") : t("feed.post.disableSound")}
+        className="absolute bottom-3 right-3 z-10 grid size-9 place-items-center rounded-full bg-black/45 text-white shadow-lg backdrop-blur-md transition-transform active:scale-90"
         onClick={(e) => {
           e.stopPropagation();
           syncMuted(!muted);
@@ -307,7 +290,6 @@ function VideoSlide({
             <path d="M3 10v4a1 1 0 0 0 1 1h3l3.29 3.29c.63.63 1.71.18 1.71-.71V6.41c0-.89-1.08-1.34-1.71-.71L7 9H4a1 1 0 0 0-1 1zm13.5 2A4.5 4.5 0 0 0 14 7.97v8.05A4.5 4.5 0 0 0 16.5 12zM14 3.23v.06a1 1 0 0 0 .67 1.31A6.99 6.99 0 0 1 19 12a6.99 6.99 0 0 1-4.33 6.4 1 1 0 0 0-.67 1.31v.06a1 1 0 0 0 1.3.95A8.99 8.99 0 0 0 21 12a8.99 8.99 0 0 0-5.7-8.72 1 1 0 0 0-1.3.95z" />
           </svg>
         )}
-        <span>{muted ? "Ativar som" : "Som ligado"}</span>
       </button>
     </div>
   );

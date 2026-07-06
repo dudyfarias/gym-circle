@@ -27,6 +27,37 @@ export type WorkoutCatalogInfo = {
   videoSearchQuery: string | null;
 };
 
+const EQUIPMENT_LABELS: Record<string, { pt: string; en: string }> = {
+  "assisted pull-up machine": {
+    pt: "máquina assistida",
+    en: "assisted machine",
+  },
+  barbell: { pt: "barra", en: "barbell" },
+  bench: { pt: "banco", en: "bench" },
+  bodyweight: { pt: "peso corporal", en: "bodyweight" },
+  cable: { pt: "polia", en: "cable" },
+  "decline bench": { pt: "banco declinado", en: "decline bench" },
+  dumbbell: { pt: "halter", en: "dumbbell" },
+  dumbbells: { pt: "halteres", en: "dumbbells" },
+  "ez bar": { pt: "barra W", en: "EZ bar" },
+  "free weight": { pt: "peso livre", en: "free weight" },
+  "incline bench": { pt: "banco inclinado", en: "incline bench" },
+  "leg press": { pt: "leg press", en: "leg press" },
+  machine: { pt: "máquina", en: "machine" },
+  plate: { pt: "anilha", en: "plate" },
+  "pull-up bar": { pt: "barra fixa", en: "pull-up bar" },
+  rack: { pt: "rack", en: "rack" },
+  rope: { pt: "corda", en: "rope" },
+  smith: { pt: "smith", en: "smith" },
+};
+
+function equipmentLabel(equipment: string, english: boolean): string {
+  const key = equipment.trim().toLowerCase();
+  const label = EQUIPMENT_LABELS[key];
+  if (label) return english ? label.en : label.pt;
+  return equipment.replace(/[-_]+/g, " ");
+}
+
 export function exerciseCatalogInfo(
   exercise: WorkoutExerciseCatalogItem,
   language: string,
@@ -172,18 +203,25 @@ export function WorkoutExercisePicker({
   const english = i18n.language.toLowerCase().startsWith("en");
   const visible = useMemo(() => {
     const normalizedQuery = normalizeWorkoutCatalogText(query);
-    return exercises.filter((exercise) => {
-      const inGroup =
-        exercise.primaryMuscleGroupSlug === group ||
-        exercise.secondaryMuscleGroupSlugs.includes(group);
-      if (!inGroup) return false;
-      if (!normalizedQuery) return true;
-      return [exercise.namePt, exercise.nameEn, ...exercise.aliases].some(
-        (value) =>
-          normalizeWorkoutCatalogText(value).includes(normalizedQuery),
+    return exercises
+      .filter((exercise) => {
+        const inGroup =
+          exercise.primaryMuscleGroupSlug === group ||
+          exercise.secondaryMuscleGroupSlugs.includes(group);
+        if (!inGroup) return false;
+        if (!normalizedQuery) return true;
+        return [exercise.namePt, exercise.nameEn, ...exercise.aliases].some(
+          (value) =>
+            normalizeWorkoutCatalogText(value).includes(normalizedQuery),
+        );
+      })
+      .sort((left, right) =>
+        (english ? left.nameEn : left.namePt).localeCompare(
+          english ? right.nameEn : right.namePt,
+          english ? "en" : "pt-BR",
+        ),
       );
-    });
-  }, [exercises, group, query]);
+  }, [english, exercises, group, query]);
 
   return (
     <div className="fixed inset-0 z-[108] flex justify-center overflow-y-auto bg-black/94 backdrop-blur-md">
@@ -239,44 +277,45 @@ export function WorkoutExercisePicker({
         </label>
 
         <div className="mt-4 grid gap-2">
-          {visible.map((exercise) => (
-            <button
-              className="gc-pressable flex items-center gap-3 rounded-[18px] bg-white/[0.045] px-4 py-3.5 text-left"
-              key={exercise.id}
-              onClick={() => onSelect(exercise)}
-              type="button"
-            >
-              <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[#97ff00]/10 text-[#97ff00]">
-                <Dumbbell size={17} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-black text-white">
-                  {english ? exercise.nameEn : exercise.namePt}
+          {visible.map((exercise) => {
+            const name = english ? exercise.nameEn : exercise.namePt;
+            const description = english
+              ? exercise.descriptionEn
+              : exercise.descriptionPt;
+            return (
+              <button
+                className="gc-pressable flex items-center gap-3 rounded-[18px] bg-white/[0.045] px-4 py-3.5 text-left"
+                key={exercise.id}
+                onClick={() => onSelect(exercise)}
+                type="button"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[#97ff00]/10 text-[#97ff00]">
+                  <Dumbbell size={17} />
                 </span>
-                {!english ? (
-                  <span className="mt-0.5 block text-[10.5px] font-black text-[var(--gc-brand)]/80">
-                    {exercise.nameEn}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-black text-white">
+                    {name}
                   </span>
-                ) : null}
-                <span className="mt-0.5 line-clamp-1 block text-[10.5px] font-semibold text-white/38">
-                  {english ? exercise.descriptionEn : exercise.descriptionPt}
+                  <span className="mt-0.5 line-clamp-1 block text-[10.5px] font-semibold text-white/38">
+                    {description}
+                  </span>
+                  {exercise.equipment.length > 0 ? (
+                    <span className="mt-2 flex flex-wrap gap-1.5">
+                      {exercise.equipment.slice(0, 3).map((equipment) => (
+                        <span
+                          className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9.5px] font-black uppercase tracking-[0.04em] text-white/42"
+                          key={equipment}
+                        >
+                          {equipmentLabel(equipment, english)}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
                 </span>
-                {exercise.equipment.length > 0 ? (
-                  <span className="mt-2 flex flex-wrap gap-1.5">
-                    {exercise.equipment.slice(0, 3).map((equipment) => (
-                      <span
-                        className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9.5px] font-black uppercase tracking-[0.04em] text-white/42"
-                        key={equipment}
-                      >
-                        {equipment}
-                      </span>
-                    ))}
-                  </span>
-                ) : null}
-              </span>
-              <Plus className="text-[var(--gc-brand)]" size={18} />
-            </button>
-          ))}
+                <Plus className="text-[var(--gc-brand)]" size={18} />
+              </button>
+            );
+          })}
           {visible.length === 0 ? (
             <p className="py-12 text-center text-[13px] font-semibold text-white/42">
               {t("workoutCatalog.emptyGroup")}
