@@ -33,12 +33,14 @@ import type {
   FinishedWebActivity,
   StrengthSet,
   WebActivityInput,
+  WorkoutPlan,
 } from "../social/types";
 import {
   REST_TIMER_INITIAL,
   restTimerReducer,
 } from "../workout/restTimer";
 import { formatElapsed } from "../workout/workoutElapsed";
+import { WorkoutPlansFab } from "../workout/WorkoutPlansFab";
 import {
   appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
@@ -128,10 +130,9 @@ export function WebWorkoutScreen({
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
-  // Séries de musculação da sessão atual (só treino de força).
+  // Séries de musculação da sessão atual (só treino de força). Linhas
+  // editáveis (reps × carga); planilha pré-carrega com exercício + reps alvo.
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([]);
-  const [setRepsDraft, setSetRepsDraft] = useState("");
-  const [setWeightDraft, setSetWeightDraft] = useState("");
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
@@ -627,6 +628,22 @@ export function WebWorkoutScreen({
                 </button>
               ))}
             </div>
+            <WorkoutPlansFab
+              onStartPlan={(plan: WorkoutPlan) => {
+                // Cada exercício vira N linhas (séries alvo) já rotuladas; a
+                // pessoa preenche reps × carga durante a sessão.
+                const seeded: StrengthSet[] = plan.exercises.flatMap((ex) => {
+                  const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
+                  return Array.from({ length: count }, () => ({
+                    reps: ex.reps ?? 0,
+                    weightKg: null as number | null,
+                    exercise: ex.name,
+                  }));
+                });
+                setStrengthSets(seeded);
+                startWorkout("strength");
+              }}
+            />
           </>
         ) : session ? (
           <>
@@ -803,26 +820,67 @@ export function WebWorkoutScreen({
                   <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/40">
                     {t("workout.sets.title")}
                   </p>
-                  {strengthSets.length > 0 ? (
-                    <ul className="mt-3 grid gap-1.5">
-                      {strengthSets.map((set, index) => (
-                        <li
-                          key={`${index}-${set.reps}-${set.weightKg ?? "bw"}`}
-                          className="flex items-center justify-between rounded-xl bg-white/[0.04] px-3.5 py-2.5"
-                        >
-                          <span className="text-[13px] font-bold text-white/62">
-                            {t("workoutDetail.setNumber", { number: index + 1 })}
-                          </span>
-                          <span className="flex items-center gap-3">
-                            <span className="text-[14px] font-black tabular-nums text-white">
-                              {t("workoutDetail.setReps", { reps: set.reps })}
-                              {set.weightKg != null
-                                ? ` · ${set.weightKg} kg`
-                                : ""}
+                  <div className="mt-3 grid gap-2">
+                    {strengthSets.map((set, index) => {
+                      const showExercise =
+                        set.exercise != null &&
+                        set.exercise !==
+                          (strengthSets[index - 1]?.exercise ?? null);
+                      return (
+                        <div key={index}>
+                          {showExercise ? (
+                            <p className="mb-1 mt-1 text-[13.5px] font-black text-white/82">
+                              {set.exercise}
+                            </p>
+                          ) : null}
+                          <div className="flex items-center gap-2">
+                            <span className="w-4 shrink-0 text-[12px] font-black tabular-nums text-white/35">
+                              {index + 1}
                             </span>
+                            <input
+                              aria-label={t("workout.sets.reps")}
+                              className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                              inputMode="numeric"
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9]/g, "");
+                                setStrengthSets((prev) =>
+                                  prev.map((s, i) =>
+                                    i === index
+                                      ? { ...s, reps: Number.parseInt(v, 10) || 0 }
+                                      : s,
+                                  ),
+                                );
+                              }}
+                              placeholder={t("workout.sets.reps")}
+                              value={set.reps ? String(set.reps) : ""}
+                            />
+                            <span className="shrink-0 text-[13px] font-black text-white/30">
+                              ×
+                            </span>
+                            <input
+                              aria-label={t("workout.sets.weight")}
+                              className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                              inputMode="decimal"
+                              onChange={(e) => {
+                                const v = e.target.value.replace(/[^0-9.,]/g, "");
+                                const w = Number.parseFloat(v.replace(",", "."));
+                                setStrengthSets((prev) =>
+                                  prev.map((s, i) =>
+                                    i === index
+                                      ? {
+                                          ...s,
+                                          weightKg: Number.isFinite(w) ? w : null,
+                                        }
+                                      : s,
+                                  ),
+                                );
+                              }}
+                              placeholder={`${t("workout.sets.weight")} (kg)`}
+                              value={set.weightKg != null ? String(set.weightKg) : ""}
+                            />
                             <button
                               aria-label={t("workout.sets.remove")}
-                              className="gc-pressable text-white/40"
+                              className="gc-pressable shrink-0 text-white/35"
                               onClick={() =>
                                 setStrengthSets((prev) =>
                                   prev.filter((_, i) => i !== index),
@@ -830,69 +888,30 @@ export function WebWorkoutScreen({
                               }
                               type="button"
                             >
-                              <X size={15} strokeWidth={2.6} />
+                              <X size={16} strokeWidth={2.6} />
                             </button>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                  <div className="mt-3 flex items-end gap-2">
-                    <label className="flex-1">
-                      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
-                        {t("workout.sets.reps")}
-                      </span>
-                      <input
-                        className="mt-1 w-full rounded-xl bg-white/[0.06] px-3 py-2.5 text-[15px] font-black tabular-nums text-white outline-none"
-                        inputMode="numeric"
-                        onChange={(e) =>
-                          setSetRepsDraft(e.target.value.replace(/[^0-9]/g, ""))
-                        }
-                        placeholder="12"
-                        value={setRepsDraft}
-                      />
-                    </label>
-                    <label className="flex-1">
-                      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
-                        {t("workout.sets.weight")}
-                      </span>
-                      <input
-                        className="mt-1 w-full rounded-xl bg-white/[0.06] px-3 py-2.5 text-[15px] font-black tabular-nums text-white outline-none"
-                        inputMode="decimal"
-                        onChange={(e) =>
-                          setSetWeightDraft(
-                            e.target.value.replace(/[^0-9.,]/g, ""),
-                          )
-                        }
-                        placeholder="20"
-                        value={setWeightDraft}
-                      />
-                    </label>
-                    <button
-                      aria-label={t("workout.sets.add")}
-                      className="gc-pressable grid size-11 place-items-center rounded-xl bg-[var(--gc-blue)] text-black disabled:opacity-40"
-                      disabled={!Number.parseInt(setRepsDraft, 10)}
-                      onClick={() => {
-                        const reps = Number.parseInt(setRepsDraft, 10);
-                        if (!reps || reps <= 0) return;
-                        const weight = Number.parseFloat(
-                          setWeightDraft.replace(",", "."),
-                        );
-                        setStrengthSets((prev) => [
-                          ...prev,
-                          {
-                            reps,
-                            weightKg: Number.isFinite(weight) ? weight : null,
-                          },
-                        ]);
-                        setSetRepsDraft("");
-                        setSetWeightDraft("");
-                      }}
-                      type="button"
-                    >
-                      <Plus size={20} strokeWidth={2.8} />
-                    </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                  <button
+                    className="gc-pressable mt-3 flex items-center gap-1.5 text-[13px] font-black text-[var(--gc-blue)]"
+                    onClick={() =>
+                      setStrengthSets((prev) => [
+                        ...prev,
+                        {
+                          reps: 0,
+                          weightKg: null,
+                          exercise: prev[prev.length - 1]?.exercise ?? null,
+                        },
+                      ])
+                    }
+                    type="button"
+                  >
+                    <Plus size={16} strokeWidth={2.8} />
+                    {t("workout.sets.add")}
+                  </button>
                 </section>
               ) : null}
 

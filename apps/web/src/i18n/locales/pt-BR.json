@@ -163,6 +163,28 @@
     "setReps": "{{reps}} reps",
     "bodyweight": "peso do corpo"
   },
+  "workoutPlans": {
+    "fab": "Mais opções de treino",
+    "import": "Importar treino",
+    "open": "Abrir planilha",
+    "create": "Cadastrar planilha",
+    "createTitle": "Nova planilha",
+    "editTitle": "Editar planilha",
+    "namePlaceholder": "Nome da planilha (ex.: Peito & Tríceps)",
+    "exercises": "Exercícios",
+    "exerciseName": "Exercício",
+    "setsShort": "Séries",
+    "repsShort": "Reps",
+    "removeExercise": "Remover exercício",
+    "addExercise": "Adicionar exercício",
+    "save": "Salvar planilha",
+    "saving": "Salvando…",
+    "start": "Iniciar treino",
+    "edit": "Editar",
+    "delete": "Apagar",
+    "empty": "Você ainda não tem planilhas. Crie uma pra começar.",
+    "noExercises": "Sem exercícios"
+  },
   "integrateWorkout": {
     "title": "Integrar treino",
     "subtitle": "Escolha um treino deste dia para juntar ao post. As estatísticas aparecem no post e o treino sai do feed.",

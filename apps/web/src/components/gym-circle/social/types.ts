@@ -299,6 +299,23 @@ export type EnrichedActivity = {
 export type StrengthSet = {
   reps: number;
   weightKg: number | null;
+  /** Exercício da série (quando o treino veio de uma planilha). */
+  exercise?: string | null;
+};
+
+/** Um exercício dentro de uma planilha: nome + séries/reps alvo. */
+export type WorkoutPlanExercise = {
+  name: string;
+  sets: number | null;
+  reps: number | null;
+};
+
+/** Planilha/rotina de treino salva pelo usuário (workout_plans). */
+export type WorkoutPlan = {
+  id: string;
+  name: string;
+  exercises: WorkoutPlanExercise[];
+  updatedAt: string;
 };
 
 export type WorkoutDetail = {

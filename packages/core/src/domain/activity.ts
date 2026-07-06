@@ -15,12 +15,15 @@ export type ActivityOrigin = "live" | "web_timer" | "imported";
 export type StrengthSet = {
   reps: number;
   weightKg: number | null;
+  /** Exercício da série (quando o treino veio de uma planilha). */
+  exercise?: string | null;
 };
 
 /** Shape persistido em activities.strength_sets (snake_case). */
 export type StrengthSetRow = {
   reps: number;
   weight_kg: number | null;
+  exercise?: string | null;
 };
 
 export function strengthSetsFromRow(
@@ -33,6 +36,7 @@ export function strengthSetsFromRow(
       reps: Math.round(r.reps),
       weightKg:
         r.weight_kg != null && Number.isFinite(r.weight_kg) ? r.weight_kg : null,
+      exercise: r.exercise?.trim() || null,
     }));
 }
 
@@ -46,6 +50,7 @@ export function strengthSetsToRow(
       reps: Math.round(s.reps),
       weight_kg:
         s.weightKg != null && Number.isFinite(s.weightKg) ? s.weightKg : null,
+      exercise: s.exercise?.trim() || null,
     }));
 }
 

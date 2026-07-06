@@ -204,7 +204,9 @@ export type SurfaceActivityRow = {
   /** Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa. */
   route?: number[][] | null;
   /** Séries de musculação (só treino de força). */
-  strength_sets?: { reps: number; weight_kg: number | null }[] | null;
+  strength_sets?:
+    | { reps: number; weight_kg: number | null; exercise?: string | null }[]
+    | null;
   workout_date: string;
   created_at: string;
   caption?: string | null;

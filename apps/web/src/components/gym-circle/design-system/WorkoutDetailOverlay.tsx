@@ -214,28 +214,44 @@ export function WorkoutDetailOverlay({
               {t("workoutDetail.setsTitle")}
             </h3>
             <div className="overflow-hidden rounded-[22px] bg-white/[0.04]">
-              {workout.strengthSets.map((set, index) => (
-                <div
-                  key={`${index}-${set.reps}-${set.weightKg ?? "bw"}`}
-                  className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5 last:border-b-0"
-                >
-                  <span className="text-[14px] font-bold text-white/62">
-                    {t("workoutDetail.setNumber", { number: index + 1 })}
-                  </span>
-                  <span className="text-[15px] font-black text-white">
-                    {t("workoutDetail.setReps", { reps: set.reps })}
-                    {set.weightKg != null ? (
-                      <span className="text-[var(--gc-blue)]">
-                        {` · ${set.weightKg} kg`}
+              {workout.strengthSets.map((set, index) => {
+                const sets = workout.strengthSets ?? [];
+                const showExercise =
+                  set.exercise != null &&
+                  set.exercise !== (sets[index - 1]?.exercise ?? null);
+                // Numeração por exercício quando há planilha; global senão.
+                const setNum = set.exercise
+                  ? sets
+                      .slice(0, index + 1)
+                      .filter((s) => s.exercise === set.exercise).length
+                  : index + 1;
+                return (
+                  <div key={`${index}-${set.reps}-${set.weightKg ?? "bw"}`}>
+                    {showExercise ? (
+                      <p className="border-b border-white/[0.06] px-5 pb-1.5 pt-3.5 text-[13.5px] font-black text-white">
+                        {set.exercise}
+                      </p>
+                    ) : null}
+                    <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3 last:border-b-0">
+                      <span className="text-[14px] font-bold text-white/62">
+                        {t("workoutDetail.setNumber", { number: setNum })}
                       </span>
-                    ) : (
-                      <span className="text-white/50">
-                        {` · ${t("workoutDetail.bodyweight")}`}
+                      <span className="text-[15px] font-black text-white">
+                        {t("workoutDetail.setReps", { reps: set.reps })}
+                        {set.weightKg != null ? (
+                          <span className="text-[var(--gc-blue)]">
+                            {` · ${set.weightKg} kg`}
+                          </span>
+                        ) : (
+                          <span className="text-white/50">
+                            {` · ${t("workoutDetail.bodyweight")}`}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                </div>
-              ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </>
         ) : null}

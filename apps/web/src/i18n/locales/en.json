@@ -163,6 +163,28 @@
     "setReps": "{{reps}} reps",
     "bodyweight": "bodyweight"
   },
+  "workoutPlans": {
+    "fab": "More workout options",
+    "import": "Import workout",
+    "open": "Open plan",
+    "create": "New plan",
+    "createTitle": "New plan",
+    "editTitle": "Edit plan",
+    "namePlaceholder": "Plan name (e.g. Chest & Triceps)",
+    "exercises": "Exercises",
+    "exerciseName": "Exercise",
+    "setsShort": "Sets",
+    "repsShort": "Reps",
+    "removeExercise": "Remove exercise",
+    "addExercise": "Add exercise",
+    "save": "Save plan",
+    "saving": "Saving…",
+    "start": "Start workout",
+    "edit": "Edit",
+    "delete": "Delete",
+    "empty": "You don't have any plans yet. Create one to get started.",
+    "noExercises": "No exercises"
+  },
   "integrateWorkout": {
     "title": "Add a workout",
     "subtitle": "Pick a workout from this day to merge into the post. The stats show on the post and the workout leaves the feed.",

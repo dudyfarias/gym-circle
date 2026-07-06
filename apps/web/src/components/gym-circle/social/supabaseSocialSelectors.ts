@@ -480,6 +480,7 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
                 row.workout_strength_sets?.map((s) => ({
                   reps: s.reps,
                   weightKg: s.weight_kg ?? null,
+                  exercise: s.exercise ?? null,
                 })) ?? null,
               gymName: row.location_name ?? null,
               locationName: row.location_name ?? null,

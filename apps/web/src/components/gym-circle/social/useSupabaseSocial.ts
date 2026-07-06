@@ -48,6 +48,7 @@ import type {
   EditPostInput,
   ActivityEntryInput,
   EnrichedActivity,
+  StrengthSet,
   EnrichedCheckin,
   EnrichedPost,
   EnrichedStory,
@@ -1897,11 +1898,20 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             strengthSets:
               (
                 row.strength_sets as
-                  | { reps: number; weight_kg: number | null }[]
+                  | {
+                      reps: number;
+                      weight_kg: number | null;
+                      exercise?: string | null;
+                    }[]
                   | null
                   | undefined
-              )?.map((s) => ({ reps: s.reps, weightKg: s.weight_kg ?? null })) ??
-              null,
+              )?.map(
+                (s): StrengthSet => ({
+                  reps: s.reps,
+                  weightKg: s.weight_kg ?? null,
+                  exercise: s.exercise ?? null,
+                }),
+              ) ?? null,
             workoutDate: row.workout_date,
             createdAt: row.created_at,
             caption: row.caption ?? null,
