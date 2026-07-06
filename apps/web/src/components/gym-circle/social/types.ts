@@ -301,6 +301,12 @@ export type StrengthSet = {
   weightKg: number | null;
   /** Exercício da série (quando o treino veio de uma planilha). */
   exercise?: string | null;
+  exerciseId?: string | null;
+  targetKind?: "reps" | "failure" | "duration" | null;
+  durationSeconds?: number | null;
+  techniqueId?: string | null;
+  techniqueName?: string | null;
+  techniqueNotes?: string | null;
 };
 
 /** Um exercício dentro de uma planilha: nome + séries/reps alvo. */
@@ -308,6 +314,13 @@ export type WorkoutPlanExercise = {
   name: string;
   sets: number | null;
   reps: number | null;
+  exerciseId?: string | null;
+  muscleGroupSlug?: string | null;
+  targetKind?: "reps" | "failure" | "duration";
+  durationSeconds?: number | null;
+  techniqueId?: string | null;
+  techniqueName?: string | null;
+  techniqueNotes?: string | null;
 };
 
 /** Planilha/rotina de treino salva pelo usuário (workout_plans). */
@@ -316,6 +329,47 @@ export type WorkoutPlan = {
   name: string;
   exercises: WorkoutPlanExercise[];
   updatedAt: string;
+};
+
+export type WorkoutMuscleGroup = {
+  slug: string;
+  namePt: string;
+  nameEn: string;
+  iconKey: string;
+  sortOrder: number;
+};
+
+export type WorkoutExerciseCatalogItem = {
+  id: string;
+  slug: string;
+  namePt: string;
+  nameEn: string;
+  aliases: string[];
+  primaryMuscleGroupSlug: string;
+  secondaryMuscleGroupSlugs: string[];
+  equipment: string[];
+  descriptionPt: string;
+  descriptionEn: string;
+  instructionsPt: string[];
+  instructionsEn: string[];
+  videoUrl: string | null;
+  videoSearchQuery: string | null;
+  status: "approved" | "community";
+};
+
+export type WorkoutTechniqueCatalogItem = {
+  id: string;
+  slug: string;
+  namePt: string;
+  nameEn: string;
+  aliases: string[];
+  summaryPt: string;
+  summaryEn: string;
+  instructionsPt: string[];
+  instructionsEn: string[];
+  videoUrl: string | null;
+  videoSearchQuery: string | null;
+  status: "approved" | "community";
 };
 
 export type WorkoutDetail = {

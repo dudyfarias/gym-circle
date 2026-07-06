@@ -15,6 +15,7 @@ import {
   Dumbbell,
   Footprints,
   Gauge,
+  Info,
   MapPinned,
   Minus,
   MoveRight,
@@ -41,6 +42,13 @@ import {
 } from "../workout/restTimer";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { WorkoutPlansFab } from "../workout/WorkoutPlansFab";
+import {
+  exerciseCatalogInfo,
+  techniqueCatalogInfo,
+  WorkoutCatalogInfoSheet,
+  type WorkoutCatalogInfo,
+} from "../workout/WorkoutCatalogSheets";
+import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
 import {
   appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
@@ -133,6 +141,13 @@ export function WebWorkoutScreen({
   // Séries de musculação da sessão atual (só treino de força). Linhas
   // editáveis (reps × carga); planilha pré-carrega com exercício + reps alvo.
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([]);
+  const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(null);
+  const workoutCatalog = useWorkoutCatalog();
+  const {
+    exercises: catalogExercises,
+    techniques,
+    muscleGroups,
+  } = workoutCatalog;
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
@@ -507,6 +522,12 @@ export function WebWorkoutScreen({
         reps: 0,
         weightKg: null,
         exercise: prev[prev.length - 1]?.exercise ?? null,
+        exerciseId: prev[prev.length - 1]?.exerciseId ?? null,
+        targetKind: prev[prev.length - 1]?.targetKind ?? null,
+        durationSeconds: prev[prev.length - 1]?.durationSeconds ?? null,
+        techniqueId: prev[prev.length - 1]?.techniqueId ?? null,
+        techniqueName: prev[prev.length - 1]?.techniqueName ?? null,
+        techniqueNotes: prev[prev.length - 1]?.techniqueNotes ?? null,
       },
     ]);
     // O dock de pausar/encerrar é fixo. Leva a nova linha ao centro para que
@@ -596,12 +617,19 @@ export function WebWorkoutScreen({
           : t("workout.gps.searching");
 
   return (
-    <div
-      aria-label={t("workout.inProgress")}
-      aria-modal="true"
-      className="fixed inset-0 z-[95] flex justify-center overflow-y-auto bg-black"
-      role="dialog"
-    >
+    <>
+      {catalogInfo ? (
+        <WorkoutCatalogInfoSheet
+          info={catalogInfo}
+          onClose={() => setCatalogInfo(null)}
+        />
+      ) : null}
+      <div
+        aria-label={t("workout.inProgress")}
+        aria-modal="true"
+        className="fixed inset-0 z-[95] flex justify-center overflow-y-auto bg-black"
+        role="dialog"
+      >
       <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+18px)] pt-[calc(var(--gc-safe-top)+16px)]">
         {stage === "pick" ? (
           <>
@@ -649,6 +677,7 @@ export function WebWorkoutScreen({
               ))}
             </div>
             <WorkoutPlansFab
+              catalog={workoutCatalog}
               onStartPlan={(plan: WorkoutPlan) => {
                 // Cada exercício vira N linhas (séries alvo) já rotuladas; a
                 // pessoa preenche reps × carga durante a sessão.
@@ -658,6 +687,12 @@ export function WebWorkoutScreen({
                     reps: ex.reps ?? 0,
                     weightKg: null as number | null,
                     exercise: ex.name,
+                    exerciseId: ex.exerciseId ?? null,
+                    targetKind: ex.targetKind ?? "reps",
+                    durationSeconds: ex.durationSeconds ?? null,
+                    techniqueId: ex.techniqueId ?? null,
+                    techniqueName: ex.techniqueName ?? null,
+                    techniqueNotes: ex.techniqueNotes ?? null,
                   }));
                 });
                 setStrengthSets(seeded);
@@ -864,9 +899,79 @@ export function WebWorkoutScreen({
                       return (
                         <div key={index}>
                           {showExercise ? (
-                            <p className="mb-1 mt-1 text-[13.5px] font-black text-white/82">
-                              {set.exercise}
-                            </p>
+                            <div className="mb-2 mt-2 rounded-[14px] bg-white/[0.04] px-3 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <p className="min-w-0 flex-1 text-[13.5px] font-black text-white/82">
+                                  {set.exercise}
+                                </p>
+                                {set.exerciseId ? (
+                                  <button
+                                    aria-label={t(
+                                      "workoutCatalog.aboutExercise",
+                                    )}
+                                    className="gc-pressable grid size-7 place-items-center rounded-full bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
+                                    onClick={() => {
+                                      const exercise = catalogExercises.find(
+                                        (item) => item.id === set.exerciseId,
+                                      );
+                                      if (!exercise) return;
+                                      const group = muscleGroups.find(
+                                        (item) =>
+                                          item.slug ===
+                                          exercise.primaryMuscleGroupSlug,
+                                      );
+                                      setCatalogInfo(
+                                        exerciseCatalogInfo(
+                                          exercise,
+                                          i18n.language,
+                                          i18n.language.startsWith("en")
+                                            ? group?.nameEn
+                                            : group?.namePt,
+                                        ),
+                                      );
+                                    }}
+                                    type="button"
+                                  >
+                                    <Info size={14} />
+                                  </button>
+                                ) : null}
+                              </div>
+                              {set.techniqueName ? (
+                                <div className="mt-1.5 flex items-center gap-1.5">
+                                  <p className="min-w-0 flex-1 text-[10.5px] font-bold text-[var(--gc-blue)]">
+                                    {set.techniqueName}
+                                    {set.techniqueNotes
+                                      ? ` · ${set.techniqueNotes}`
+                                      : ""}
+                                  </p>
+                                  {set.techniqueId ? (
+                                    <button
+                                      aria-label={t(
+                                        "workoutCatalog.aboutTechnique",
+                                      )}
+                                      className="gc-pressable text-white/50"
+                                      onClick={() => {
+                                        const technique = techniques.find(
+                                          (item) =>
+                                            item.id === set.techniqueId,
+                                        );
+                                        if (technique) {
+                                          setCatalogInfo(
+                                            techniqueCatalogInfo(
+                                              technique,
+                                              i18n.language,
+                                            ),
+                                          );
+                                        }
+                                      }}
+                                      type="button"
+                                    >
+                                      <Info size={13} />
+                                    </button>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
                           ) : null}
                           <div className="grid grid-cols-[20px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2">
                             <span className="w-4 shrink-0 text-[12px] font-black tabular-nums text-white/35">
@@ -1029,6 +1134,7 @@ export function WebWorkoutScreen({
           </>
         ) : null}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

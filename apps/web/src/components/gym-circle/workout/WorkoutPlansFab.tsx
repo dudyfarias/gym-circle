@@ -4,8 +4,10 @@ import { useRef, useState } from "react";
 import {
   ClipboardList,
   Download,
+  Dumbbell,
   FileScan,
   FolderOpen,
+  Info,
   Pencil,
   Play,
   Plus,
@@ -16,6 +18,14 @@ import {
 import { useTranslation } from "react-i18next";
 import type { WorkoutPlan, WorkoutPlanExercise } from "../social/types";
 import { PersonalRecordsSheet } from "./PersonalRecordsSheet";
+import {
+  exerciseCatalogInfo,
+  techniqueCatalogInfo,
+  WorkoutCatalogInfoSheet,
+  WorkoutExercisePicker,
+  type WorkoutCatalogInfo,
+} from "./WorkoutCatalogSheets";
+import { useWorkoutCatalog } from "./useWorkoutCatalog";
 import { useWorkoutPlans } from "./useWorkoutPlans";
 import {
   importWorkoutPlanFile,
@@ -28,15 +38,36 @@ type WorkoutPlansFabProps = {
   onStartPlan: (plan: WorkoutPlan) => void;
   /** Importar treino (Apple Saúde) — só onde há suporte (app iOS). */
   onImport?: () => void;
+  catalog: ReturnType<typeof useWorkoutCatalog>;
 };
 
-type DraftExercise = { id: string; name: string; sets: string; reps: string };
+type DraftExercise = {
+  id: string;
+  name: string;
+  sets: string;
+  target: string;
+  exerciseId: string | null;
+  muscleGroupSlug: string;
+  techniqueId: string | null;
+  techniqueName: string;
+  techniqueNotes: string;
+};
 
 let draftSequence = 0;
 
 function emptyExercise(): DraftExercise {
   draftSequence += 1;
-  return { id: `draft-exercise-${draftSequence}`, name: "", sets: "", reps: "" };
+  return {
+    id: `draft-exercise-${draftSequence}`,
+    name: "",
+    sets: "",
+    target: "",
+    exerciseId: null,
+    muscleGroupSlug: "other",
+    techniqueId: null,
+    techniqueName: "",
+    techniqueNotes: "",
+  };
 }
 
 function toDraft(exercises: WorkoutPlanExercise[]): DraftExercise[] {
@@ -45,12 +76,59 @@ function toDraft(exercises: WorkoutPlanExercise[]): DraftExercise[] {
     id: emptyExercise().id,
     name: e.name,
     sets: e.sets != null ? String(e.sets) : "",
-    reps: e.reps != null ? String(e.reps) : "",
+    target:
+      e.targetKind === "failure"
+        ? "F"
+        : e.targetKind === "duration" && e.durationSeconds
+          ? `${e.durationSeconds}s`
+          : e.reps != null
+            ? String(e.reps)
+            : "",
+    exerciseId: e.exerciseId ?? null,
+    muscleGroupSlug: e.muscleGroupSlug ?? "other",
+    techniqueId: e.techniqueId ?? null,
+    techniqueName: e.techniqueName ?? "",
+    techniqueNotes: e.techniqueNotes ?? "",
   }));
 }
 
-export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps) {
-  const { t } = useTranslation();
+function targetFromDraft(target: string): Pick<
+  WorkoutPlanExercise,
+  "reps" | "targetKind" | "durationSeconds"
+> {
+  const normalized = target.trim().toLocaleLowerCase("pt-BR");
+  if (/^(f|falha)$/.test(normalized)) {
+    return { reps: null, targetKind: "failure", durationSeconds: null };
+  }
+  const duration = normalized.match(/^(\d{1,4})\s*s$/);
+  if (duration) {
+    return {
+      reps: null,
+      targetKind: "duration",
+      durationSeconds: Number.parseInt(duration[1], 10) || null,
+    };
+  }
+  return {
+    reps: Number.parseInt(normalized, 10) || null,
+    targetKind: "reps",
+    durationSeconds: null,
+  };
+}
+
+function planExerciseTarget(exercise: WorkoutPlanExercise): string {
+  if (exercise.targetKind === "failure") return "F";
+  if (exercise.targetKind === "duration" && exercise.durationSeconds) {
+    return `${exercise.durationSeconds}s`;
+  }
+  return exercise.reps != null ? String(exercise.reps) : "—";
+}
+
+export function WorkoutPlansFab({
+  onStartPlan,
+  onImport,
+  catalog,
+}: WorkoutPlansFabProps) {
+  const { i18n, t } = useTranslation();
   const {
     plans,
     loading,
@@ -59,6 +137,15 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
     savePlan,
     deletePlan,
   } = useWorkoutPlans();
+  const {
+    muscleGroups,
+    exercises: catalogExercises,
+    techniques,
+    findExercise,
+    findTechnique,
+    submitExercise,
+    submitTechnique,
+  } = catalog;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -78,6 +165,8 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
   const [importedCount, setImportedCount] = useState<number | null>(null);
   const [operationError, setOperationError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);
+  const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
+  const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(null);
 
   function openNewEditor() {
     setImportedCount(null);
@@ -104,9 +193,24 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
     setImportProgress({ phase: "reading", progress: 0 });
     try {
       const parsed = await importWorkoutPlanFile(file, setImportProgress);
+      const importedExercises = toDraft(parsed.exercises).map((draft) => {
+        const catalogExercise = findExercise(draft.name);
+        const catalogTechnique = draft.techniqueName
+          ? findTechnique(draft.techniqueName)
+          : null;
+        return {
+          ...draft,
+          exerciseId: catalogExercise?.id ?? null,
+          muscleGroupSlug:
+            catalogExercise?.primaryMuscleGroupSlug ?? draft.muscleGroupSlug,
+          techniqueId: catalogTechnique?.id ?? null,
+          techniqueName:
+            catalogTechnique?.namePt ?? draft.techniqueName,
+        };
+      });
       setEditing({
         name: parsed.name,
-        exercises: toDraft(parsed.exercises),
+        exercises: importedExercises,
       });
       setImportedCount(parsed.exercises.length);
     } catch (error) {
@@ -129,14 +233,47 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
     setSaving(true);
     setOperationError(null);
     try {
+      const exercises = await Promise.all(
+        editing.exercises
+          .filter((exercise) => exercise.name.trim())
+          .map(async (exercise) => {
+            const catalogExercise =
+              catalogExercises.find((item) => item.id === exercise.exerciseId) ??
+              findExercise(exercise.name) ??
+              (await submitExercise({
+                name: exercise.name,
+                primaryMuscleGroupSlug: exercise.muscleGroupSlug,
+              }));
+            const target = targetFromDraft(exercise.target);
+            const techniqueName =
+              exercise.techniqueName.trim() ||
+              (target.targetKind === "failure"
+                ? "Até a falha"
+                : target.targetKind === "duration"
+                  ? "Por tempo"
+                  : "");
+            const catalogTechnique = techniqueName
+              ? techniques.find((item) => item.id === exercise.techniqueId) ??
+                findTechnique(techniqueName) ??
+                (await submitTechnique({ name: techniqueName }))
+              : null;
+            return {
+              name: catalogExercise.namePt,
+              sets: Number.parseInt(exercise.sets, 10) || null,
+              ...target,
+              exerciseId: catalogExercise.id,
+              muscleGroupSlug: catalogExercise.primaryMuscleGroupSlug,
+              techniqueId: catalogTechnique?.id ?? null,
+              techniqueName:
+                (catalogTechnique?.namePt ?? techniqueName) || null,
+              techniqueNotes: exercise.techniqueNotes.trim() || null,
+            } satisfies WorkoutPlanExercise;
+          }),
+      );
       await savePlan({
         id: editing.id,
         name: editing.name,
-        exercises: editing.exercises.map((e) => ({
-          name: e.name,
-          sets: Number.parseInt(e.sets, 10) || null,
-          reps: Number.parseInt(e.reps, 10) || null,
-        })),
+        exercises,
       });
       setEditing(null);
     } catch {
@@ -170,6 +307,42 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
         ref={fileInputRef}
         type="file"
       />
+
+      {catalogPickerOpen ? (
+        <WorkoutExercisePicker
+          exercises={catalogExercises}
+          muscleGroups={muscleGroups}
+          onClose={() => setCatalogPickerOpen(false)}
+          onSelect={(exercise) => {
+            const draft: DraftExercise = {
+              ...emptyExercise(),
+              name: exercise.namePt,
+              exerciseId: exercise.id,
+              muscleGroupSlug: exercise.primaryMuscleGroupSlug,
+            };
+            setEditing((current) => {
+              if (!current) return current;
+              const onlyBlank =
+                current.exercises.length === 1 &&
+                !current.exercises[0]?.name.trim();
+              return {
+                ...current,
+                exercises: onlyBlank
+                  ? [draft]
+                  : [...current.exercises, draft],
+              };
+            });
+            setCatalogPickerOpen(false);
+          }}
+        />
+      ) : null}
+
+      {catalogInfo ? (
+        <WorkoutCatalogInfoSheet
+          info={catalogInfo}
+          onClose={() => setCatalogInfo(null)}
+        />
+      ) : null}
 
       {/* Ação persistente com rótulo: mais fácil de descobrir que um "+" solto. */}
       <button
@@ -372,8 +545,10 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
                   <p className="mt-1 truncate text-[12.5px] font-semibold text-white/45">
                     {plan.exercises
                       .map((e) =>
-                        e.sets && e.reps
-                          ? `${e.name} ${e.sets}×${e.reps}`
+                        e.sets
+                          ? `${e.name} ${e.sets}×${planExerciseTarget(e)}${
+                              e.techniqueName ? ` · ${e.techniqueName}` : ""
+                            }`
                           : e.name,
                       )
                       .join(" · ") || t("workoutPlans.noExercises")}
@@ -462,97 +637,281 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
           <p className="mt-5 mb-2 text-[11px] font-black uppercase tracking-[0.14em] text-white/40">
             {t("workoutPlans.exercises")}
           </p>
-          <div className="grid gap-2">
-            {editing.exercises.map((ex, index) => (
-              <div
-                className="grid grid-cols-[minmax(0,1fr)_52px_12px_52px_32px] items-center gap-1.5"
-                key={ex.id}
-              >
-                <input
-                  className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
-                  onChange={(e) =>
-                    setEditing((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            exercises: prev.exercises.map((x, i) =>
-                              i === index ? { ...x, name: e.target.value } : x,
-                            ),
-                          }
-                        : prev,
-                    )
-                  }
-                  placeholder={t("workoutPlans.exerciseName")}
-                  value={ex.name}
-                />
-                <input
-                  aria-label={t("workoutPlans.setsShort")}
-                  className="w-full rounded-xl bg-white/[0.06] px-1 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
-                  inputMode="numeric"
-                  onChange={(e) =>
-                    setEditing((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            exercises: prev.exercises.map((x, i) =>
-                              i === index
-                                ? { ...x, sets: e.target.value.replace(/[^0-9]/g, "") }
-                                : x,
-                            ),
-                          }
-                        : prev,
-                    )
-                  }
-                  placeholder={t("workoutPlans.setsShort")}
-                  value={ex.sets}
-                />
-                <span className="text-[13px] font-black text-white/30">×</span>
-                <input
-                  aria-label={t("workoutPlans.repsShort")}
-                  className="w-full rounded-xl bg-white/[0.06] px-1 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
-                  inputMode="numeric"
-                  onChange={(e) =>
-                    setEditing((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            exercises: prev.exercises.map((x, i) =>
-                              i === index
-                                ? { ...x, reps: e.target.value.replace(/[^0-9]/g, "") }
-                                : x,
-                            ),
-                          }
-                        : prev,
-                    )
-                  }
-                  placeholder={t("workoutPlans.repsShort")}
-                  value={ex.reps}
-                />
-                <button
-                  aria-label={t("workoutPlans.removeExercise")}
-                  className="gc-pressable text-white/35"
-                  onClick={() =>
-                    setEditing((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            exercises:
-                              prev.exercises.length > 1
-                                ? prev.exercises.filter((_, i) => i !== index)
-                                : [emptyExercise()],
-                          }
-                        : prev,
-                    )
-                  }
-                  type="button"
-                >
-                  <X size={16} strokeWidth={2.6} />
-                </button>
-              </div>
-            ))}
-          </div>
           <button
-            className="gc-pressable mt-2 flex items-center gap-1.5 text-[13px] font-black text-[var(--gc-blue)]"
+            className="gc-pressable mb-3 flex w-full items-center justify-center gap-2 rounded-[16px] border border-[var(--gc-blue)]/20 bg-[var(--gc-blue)]/10 py-3 text-[13px] font-black text-[var(--gc-blue)]"
+            onClick={() => setCatalogPickerOpen(true)}
+            type="button"
+          >
+            <Dumbbell size={17} />
+            {t("workoutCatalog.addFromCatalog")}
+          </button>
+
+          <div className="grid gap-3">
+            {editing.exercises.map((ex, index) => {
+              const catalogExercise =
+                catalogExercises.find((item) => item.id === ex.exerciseId) ??
+                findExercise(ex.name);
+              const catalogTechnique =
+                techniques.find((item) => item.id === ex.techniqueId) ??
+                findTechnique(ex.techniqueName);
+              return (
+                <div
+                  className="rounded-[18px] border border-white/[0.06] bg-white/[0.035] p-3"
+                  key={ex.id}
+                >
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
+                      onChange={(event) =>
+                        setEditing((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                exercises: prev.exercises.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        name: event.target.value,
+                                        exerciseId: null,
+                                      }
+                                    : item,
+                                ),
+                              }
+                            : prev,
+                        )
+                      }
+                      placeholder={t("workoutPlans.exerciseName")}
+                      value={ex.name}
+                    />
+                    {catalogExercise ? (
+                      <button
+                        aria-label={t("workoutCatalog.aboutExercise")}
+                        className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
+                        onClick={() => {
+                          const group = muscleGroups.find(
+                            (item) =>
+                              item.slug ===
+                              catalogExercise.primaryMuscleGroupSlug,
+                          );
+                          setCatalogInfo(
+                            exerciseCatalogInfo(
+                              catalogExercise,
+                              i18n.language,
+                              i18n.language.startsWith("en")
+                                ? group?.nameEn
+                                : group?.namePt,
+                            ),
+                          );
+                        }}
+                        type="button"
+                      >
+                        <Info size={16} />
+                      </button>
+                    ) : null}
+                    <button
+                      aria-label={t("workoutPlans.removeExercise")}
+                      className="gc-pressable grid size-9 shrink-0 place-items-center text-white/35"
+                      onClick={() =>
+                        setEditing((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                exercises:
+                                  prev.exercises.length > 1
+                                    ? prev.exercises.filter((_, i) => i !== index)
+                                    : [emptyExercise()],
+                              }
+                            : prev,
+                        )
+                      }
+                      type="button"
+                    >
+                      <X size={16} strokeWidth={2.6} />
+                    </button>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_74px_12px_90px] items-end gap-1.5">
+                    <label className="min-w-0">
+                      <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.1em] text-white/30">
+                        {t("workoutCatalog.muscleGroup")}
+                      </span>
+                      <select
+                        className="h-[39px] w-full rounded-xl bg-white/[0.06] px-2 text-[11px] font-bold text-white outline-none"
+                        onChange={(event) =>
+                          setEditing((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  exercises: prev.exercises.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          muscleGroupSlug: event.target.value,
+                                        }
+                                      : item,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        value={ex.muscleGroupSlug}
+                      >
+                        {muscleGroups.map((group) => (
+                          <option key={group.slug} value={group.slug}>
+                            {i18n.language.startsWith("en")
+                              ? group.nameEn
+                              : group.namePt}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-center text-[9px] font-black uppercase tracking-[0.1em] text-white/30">
+                        {t("workoutPlans.setsShort")}
+                      </span>
+                      <input
+                        aria-label={t("workoutPlans.setsShort")}
+                        className="w-full rounded-xl bg-white/[0.06] px-1 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                        inputMode="numeric"
+                        onChange={(event) =>
+                          setEditing((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  exercises: prev.exercises.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          sets: event.target.value.replace(
+                                            /[^0-9]/g,
+                                            "",
+                                          ),
+                                        }
+                                      : item,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="4"
+                        value={ex.sets}
+                      />
+                    </label>
+                    <span className="pb-2.5 text-center text-[13px] font-black text-white/30">
+                      ×
+                    </span>
+                    <label>
+                      <span className="mb-1 block text-center text-[9px] font-black uppercase tracking-[0.1em] text-white/30">
+                        {t("workoutCatalog.target")}
+                      </span>
+                      <input
+                        aria-label={t("workoutCatalog.target")}
+                        className="w-full rounded-xl bg-white/[0.06] px-1 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                        inputMode="text"
+                        onChange={(event) =>
+                          setEditing((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  exercises: prev.exercises.map((item, i) =>
+                                    i === index
+                                      ? {
+                                          ...item,
+                                          target: event.target.value
+                                            .replace(/[^0-9fFsS]/g, "")
+                                            .slice(0, 5),
+                                        }
+                                      : item,
+                                  ),
+                                }
+                              : prev,
+                          )
+                        }
+                        placeholder="10 / F / 30s"
+                        value={ex.target}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-[12px] font-bold text-white outline-none placeholder:text-white/30"
+                      list="workout-techniques"
+                      onChange={(event) => {
+                        const found = findTechnique(event.target.value);
+                        setEditing((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                exercises: prev.exercises.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        techniqueId: found?.id ?? null,
+                                        techniqueName: event.target.value,
+                                      }
+                                    : item,
+                                ),
+                              }
+                            : prev,
+                        );
+                      }}
+                      placeholder={t("workoutCatalog.techniqueOptional")}
+                      value={ex.techniqueName}
+                    />
+                    {catalogTechnique ? (
+                      <button
+                        aria-label={t("workoutCatalog.aboutTechnique")}
+                        className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full bg-white/[0.07] text-white/65"
+                        onClick={() =>
+                          setCatalogInfo(
+                            techniqueCatalogInfo(
+                              catalogTechnique,
+                              i18n.language,
+                            ),
+                          )
+                        }
+                        type="button"
+                      >
+                        <Info size={16} />
+                      </button>
+                    ) : null}
+                  </div>
+                  {ex.techniqueName ? (
+                    <input
+                      className="mt-2 w-full rounded-xl bg-white/[0.045] px-3 py-2.5 text-[11.5px] font-semibold text-white/75 outline-none placeholder:text-white/25"
+                      onChange={(event) =>
+                        setEditing((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                exercises: prev.exercises.map((item, i) =>
+                                  i === index
+                                    ? {
+                                        ...item,
+                                        techniqueNotes: event.target.value,
+                                      }
+                                    : item,
+                                ),
+                              }
+                            : prev,
+                        )
+                      }
+                      placeholder={t("workoutCatalog.techniqueNotes")}
+                      value={ex.techniqueNotes}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          <datalist id="workout-techniques">
+            {techniques.map((technique) => (
+              <option key={technique.id} value={technique.namePt} />
+            ))}
+          </datalist>
+          <button
+            className="gc-pressable mt-3 flex items-center gap-1.5 text-[13px] font-black text-white/55"
             onClick={() =>
               setEditing((prev) =>
                 prev
@@ -563,7 +922,7 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
             type="button"
           >
             <Plus size={16} strokeWidth={2.8} />
-            {t("workoutPlans.addExercise")}
+            {t("workoutCatalog.addManual")}
           </button>
 
           <button

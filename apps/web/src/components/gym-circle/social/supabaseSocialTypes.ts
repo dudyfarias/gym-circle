@@ -205,7 +205,17 @@ export type SurfaceActivityRow = {
   route?: number[][] | null;
   /** Séries de musculação (só treino de força). */
   strength_sets?:
-    | { reps: number; weight_kg: number | null; exercise?: string | null }[]
+    | {
+        reps: number;
+        weight_kg: number | null;
+        exercise?: string | null;
+        exercise_id?: string | null;
+        target_kind?: "reps" | "failure" | "duration" | null;
+        duration_seconds?: number | null;
+        technique_id?: string | null;
+        technique_name?: string | null;
+        technique_notes?: string | null;
+      }[]
     | null;
   workout_date: string;
   created_at: string;

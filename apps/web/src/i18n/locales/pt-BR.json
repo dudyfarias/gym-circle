@@ -208,6 +208,22 @@
       "delete": "Não foi possível apagar a planilha. Tente novamente."
     }
   },
+  "workoutCatalog": {
+    "chooseExercise": "Escolher exercício",
+    "chooseMuscle": "Selecione o grupo muscular e adicione ao treino.",
+    "search": "Buscar exercício",
+    "emptyGroup": "Nenhum exercício encontrado neste grupo.",
+    "addFromCatalog": "Adicionar do catálogo",
+    "addManual": "Cadastrar outro exercício",
+    "muscleGroup": "Grupo muscular",
+    "target": "Reps / falha / tempo",
+    "techniqueOptional": "Técnica (opcional)",
+    "techniqueNotes": "Detalhes: ex. 3 drops na última série",
+    "aboutExercise": "Ver explicação do exercício",
+    "aboutTechnique": "Ver explicação da técnica",
+    "watchVideo": "Ver vídeo de demonstração",
+    "videoSearchNotice": "Abriremos resultados de demonstração; confirme o exercício antes de executar."
+  },
   "personalRecords": {
     "title": "Meus recordes",
     "subtitle": "Suas melhores marcas, atualizadas pelos treinos.",

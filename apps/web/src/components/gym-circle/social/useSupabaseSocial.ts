@@ -1902,6 +1902,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
                       reps: number;
                       weight_kg: number | null;
                       exercise?: string | null;
+                      exercise_id?: string | null;
+                      target_kind?: "reps" | "failure" | "duration" | null;
+                      duration_seconds?: number | null;
+                      technique_id?: string | null;
+                      technique_name?: string | null;
+                      technique_notes?: string | null;
                     }[]
                   | null
                   | undefined
@@ -1910,6 +1916,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
                   reps: s.reps,
                   weightKg: s.weight_kg ?? null,
                   exercise: s.exercise ?? null,
+                  exerciseId: s.exercise_id ?? null,
+                  targetKind: s.target_kind ?? null,
+                  durationSeconds: s.duration_seconds ?? null,
+                  techniqueId: s.technique_id ?? null,
+                  techniqueName: s.technique_name ?? null,
+                  techniqueNotes: s.technique_notes ?? null,
                 }),
               ) ?? null,
             workoutDate: row.workout_date,

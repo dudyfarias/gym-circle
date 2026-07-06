@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   activityInputToRow,
   activityRowToDomain,
+  strengthSetsFromRow,
+  strengthSetsToRow,
   type ActivityRow,
 } from "./activity";
 
@@ -112,5 +114,25 @@ describe("activityRowToDomain", () => {
       workoutDate: "2026-07-02",
       createdAt: "2026-07-02T21:58:01Z",
     });
+  });
+});
+
+describe("strength set catalog metadata", () => {
+  it("preserva exercício, alvo e técnica no JSONB da atividade", () => {
+    const sets = [
+      {
+        reps: 8,
+        weightKg: 40,
+        exercise: "Mergulho",
+        exerciseId: "exercise-1",
+        targetKind: "failure" as const,
+        durationSeconds: null,
+        techniqueId: "technique-1",
+        techniqueName: "Até a falha",
+        techniqueNotes: "Pare ao perder a técnica",
+      },
+    ];
+
+    expect(strengthSetsFromRow(strengthSetsToRow(sets))).toEqual(sets);
   });
 });

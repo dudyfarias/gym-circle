@@ -17,6 +17,12 @@ export type StrengthSet = {
   weightKg: number | null;
   /** Exercício da série (quando o treino veio de uma planilha). */
   exercise?: string | null;
+  exerciseId?: string | null;
+  targetKind?: "reps" | "failure" | "duration" | null;
+  durationSeconds?: number | null;
+  techniqueId?: string | null;
+  techniqueName?: string | null;
+  techniqueNotes?: string | null;
 };
 
 /** Shape persistido em activities.strength_sets (snake_case). */
@@ -24,6 +30,12 @@ export type StrengthSetRow = {
   reps: number;
   weight_kg: number | null;
   exercise?: string | null;
+  exercise_id?: string | null;
+  target_kind?: "reps" | "failure" | "duration" | null;
+  duration_seconds?: number | null;
+  technique_id?: string | null;
+  technique_name?: string | null;
+  technique_notes?: string | null;
 };
 
 export function strengthSetsFromRow(
@@ -37,6 +49,15 @@ export function strengthSetsFromRow(
       weightKg:
         r.weight_kg != null && Number.isFinite(r.weight_kg) ? r.weight_kg : null,
       exercise: r.exercise?.trim() || null,
+      exerciseId: r.exercise_id?.trim() || null,
+      targetKind: r.target_kind ?? null,
+      durationSeconds:
+        r.duration_seconds != null && Number.isFinite(r.duration_seconds)
+          ? Math.max(1, Math.round(r.duration_seconds))
+          : null,
+      techniqueId: r.technique_id?.trim() || null,
+      techniqueName: r.technique_name?.trim() || null,
+      techniqueNotes: r.technique_notes?.trim() || null,
     }));
 }
 
@@ -51,6 +72,15 @@ export function strengthSetsToRow(
       weight_kg:
         s.weightKg != null && Number.isFinite(s.weightKg) ? s.weightKg : null,
       exercise: s.exercise?.trim() || null,
+      exercise_id: s.exerciseId?.trim() || null,
+      target_kind: s.targetKind ?? null,
+      duration_seconds:
+        s.durationSeconds != null && Number.isFinite(s.durationSeconds)
+          ? Math.max(1, Math.round(s.durationSeconds))
+          : null,
+      technique_id: s.techniqueId?.trim() || null,
+      technique_name: s.techniqueName?.trim() || null,
+      technique_notes: s.techniqueNotes?.trim() || null,
     }));
 }
 

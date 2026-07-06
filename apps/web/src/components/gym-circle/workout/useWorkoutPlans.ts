@@ -18,6 +18,10 @@ function toInt(value: unknown): number | null {
     : null;
 }
 
+function toStringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function rowToPlan(row: PlanRow): WorkoutPlan {
   const raw = Array.isArray(row.exercises)
     ? (row.exercises as Array<Record<string, unknown>>)
@@ -27,6 +31,20 @@ function rowToPlan(row: PlanRow): WorkoutPlan {
       name: String(e?.name ?? "").trim(),
       sets: toInt(e?.sets),
       reps: toInt(e?.reps),
+      exerciseId: toStringOrNull(e?.exercise_id ?? e?.exerciseId),
+      muscleGroupSlug: toStringOrNull(
+        e?.muscle_group_slug ?? e?.muscleGroupSlug,
+      ),
+      targetKind:
+        e?.target_kind === "failure" || e?.targetKind === "failure"
+          ? ("failure" as const)
+          : e?.target_kind === "duration" || e?.targetKind === "duration"
+            ? ("duration" as const)
+            : ("reps" as const),
+      durationSeconds: toInt(e?.duration_seconds ?? e?.durationSeconds),
+      techniqueId: toStringOrNull(e?.technique_id ?? e?.techniqueId),
+      techniqueName: toStringOrNull(e?.technique_name ?? e?.techniqueName),
+      techniqueNotes: toStringOrNull(e?.technique_notes ?? e?.techniqueNotes),
     }))
     .filter((e) => e.name.length > 0);
   return { id: row.id, name: row.name, exercises, updatedAt: row.updated_at };
@@ -89,6 +107,13 @@ export function useWorkoutPlans() {
             name: e.name.trim(),
             sets: e.sets ?? null,
             reps: e.reps ?? null,
+            exercise_id: e.exerciseId ?? null,
+            muscle_group_slug: e.muscleGroupSlug ?? null,
+            target_kind: e.targetKind ?? "reps",
+            duration_seconds: e.durationSeconds ?? null,
+            technique_id: e.techniqueId ?? null,
+            technique_name: e.techniqueName ?? null,
+            technique_notes: e.techniqueNotes ?? null,
           }))
           .filter((e) => e.name.length > 0),
       };

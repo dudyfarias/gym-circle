@@ -208,6 +208,22 @@
       "delete": "We couldn't delete this plan. Try again."
     }
   },
+  "workoutCatalog": {
+    "chooseExercise": "Choose exercise",
+    "chooseMuscle": "Pick a muscle group and add an exercise.",
+    "search": "Search exercises",
+    "emptyGroup": "No exercises found in this group.",
+    "addFromCatalog": "Add from catalog",
+    "addManual": "Add another exercise",
+    "muscleGroup": "Muscle group",
+    "target": "Reps / failure / time",
+    "techniqueOptional": "Technique (optional)",
+    "techniqueNotes": "Details: e.g. 3 drops on the last set",
+    "aboutExercise": "View exercise explanation",
+    "aboutTechnique": "View technique explanation",
+    "watchVideo": "Watch demonstration video",
+    "videoSearchNotice": "We'll open demonstration results; confirm the exercise before performing it."
+  },
   "personalRecords": {
     "title": "My records",
     "subtitle": "Your best marks, updated by your workouts.",

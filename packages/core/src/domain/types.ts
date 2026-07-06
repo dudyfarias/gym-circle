@@ -124,7 +124,17 @@ export type FeedPostRow =
     workout_total_calories?: number | null;
     workout_route?: number[][] | null;
     workout_strength_sets?:
-      | { reps: number; weight_kg: number | null; exercise?: string | null }[]
+      | {
+          reps: number;
+          weight_kg: number | null;
+          exercise?: string | null;
+          exercise_id?: string | null;
+          target_kind?: "reps" | "failure" | "duration" | null;
+          duration_seconds?: number | null;
+          technique_id?: string | null;
+          technique_name?: string | null;
+          technique_notes?: string | null;
+        }[]
       | null;
     workout_started_at?: string | null;
     workout_ended_at?: string | null;
