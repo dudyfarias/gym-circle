@@ -219,6 +219,7 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
     public var workoutActiveCalories: Double? = nil
     public var workoutTotalCalories: Double? = nil
     public var workoutRoute: [[Double]]? = nil
+    public var workoutStrengthSets: [WorkoutStrengthSet]? = nil
     public var workoutStartedAt: String? = nil
     public var workoutEndedAt: String? = nil
 
@@ -386,6 +387,7 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
         case workoutActiveCalories = "workout_active_calories"
         case workoutTotalCalories = "workout_total_calories"
         case workoutRoute = "workout_route"
+        case workoutStrengthSets = "workout_strength_sets"
         case workoutStartedAt = "workout_started_at"
         case workoutEndedAt = "workout_ended_at"
     }
@@ -405,6 +407,7 @@ public struct FeedPost: Identifiable, Codable, Hashable, Sendable {
             activeCalories: workoutActiveCalories,
             totalCalories: workoutTotalCalories,
             route: workoutRoute,
+            strengthSets: workoutStrengthSets,
             gymName: locationName,
             locationName: locationName,
             caption: caption

@@ -25,6 +25,8 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
     public let elevationGainM: Double?
     /// Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa.
     public let route: [[Double]]?
+    /// Séries de musculação (só treino de força).
+    public let strengthSets: [WorkoutStrengthSet]?
     public let workoutDate: String
     public let createdAt: String
     public let caption: String?
@@ -62,6 +64,7 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
         case movingS = "moving_s"
         case elevationGainM = "elevation_gain_m"
         case route
+        case strengthSets = "strength_sets"
         case workoutDate = "workout_date"
         case createdAt = "created_at"
         case caption
@@ -141,10 +144,27 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
             activeCalories: activeCalories,
             totalCalories: totalCalories,
             route: route,
+            strengthSets: strengthSets,
             gymName: gymName,
             locationName: locationName,
             caption: caption
         )
+    }
+}
+
+/// Uma série de musculação: repetições e carga (kg). weightKg nil = peso do corpo.
+public struct WorkoutStrengthSet: Codable, Equatable, Hashable, Sendable {
+    public let reps: Int
+    public let weightKg: Double?
+
+    public init(reps: Int, weightKg: Double?) {
+        self.reps = reps
+        self.weightKg = weightKg
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case reps
+        case weightKg = "weight_kg"
     }
 }
 
@@ -163,6 +183,7 @@ public struct WorkoutDetailData: Identifiable, Equatable, Sendable {
     public let activeCalories: Double?
     public let totalCalories: Double?
     public let route: [[Double]]?
+    public let strengthSets: [WorkoutStrengthSet]?
     public let gymName: String?
     public let locationName: String?
     public let caption: String?

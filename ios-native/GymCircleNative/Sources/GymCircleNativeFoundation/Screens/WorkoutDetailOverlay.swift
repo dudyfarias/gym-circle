@@ -46,6 +46,9 @@ public struct WorkoutDetailOverlay: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
                     detailsSection
+                    if let sets = detail.strengthSets, !sets.isEmpty {
+                        setsSection(sets: sets)
+                    }
                     if let route = detail.route, route.count >= 2 {
                         mapSection(route: route)
                     }
@@ -187,6 +190,51 @@ public struct WorkoutDetailOverlay: View {
                     .fill(Color.white.opacity(0.04))
             )
         }
+    }
+
+    // MARK: - Séries de musculação (só treino de força)
+
+    private func setsSection(sets: [WorkoutStrengthSet]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(Loc.t("Sets", "Séries"))
+                .font(.system(size: 20, weight: .black))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+            VStack(spacing: 0) {
+                ForEach(Array(sets.enumerated()), id: \.offset) { index, set in
+                    HStack {
+                        Text(Loc.t("Set \(index + 1)", "Série \(index + 1)"))
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.62))
+                        Spacer()
+                        Text(Self.setLabel(set))
+                            .font(.system(size: 15, weight: .heavy, design: .rounded))
+                            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    }
+                    .padding(.vertical, 12)
+                    if index < sets.count - 1 {
+                        Rectangle()
+                            .fill(Color.white.opacity(0.07))
+                            .frame(height: 1)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            )
+        }
+    }
+
+    static func setLabel(_ set: WorkoutStrengthSet) -> String {
+        let reps = "\(set.reps) reps"
+        guard let weight = set.weightKg else {
+            return "\(reps) · " + Loc.t("bodyweight", "peso do corpo")
+        }
+        let weightStr = weight == weight.rounded()
+            ? String(Int(weight))
+            : String(format: "%.1f", weight)
+        return "\(reps) · \(weightStr) kg"
     }
 
     private func statCell(_ stat: Stat) -> some View {

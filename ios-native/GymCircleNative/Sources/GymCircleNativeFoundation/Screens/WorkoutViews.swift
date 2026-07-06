@@ -200,6 +200,10 @@ public struct NativeWorkoutFlowView: View {
     @State private var finishing = false
     @State private var finishError: String?
     @State private var discardConfirm = false
+    // P2 — séries de musculação (só treino de força).
+    @State private var strengthSets: [WorkoutStrengthSet] = []
+    @State private var setRepsDraft = ""
+    @State private var setWeightDraft = ""
     // Importar treino do Apple Saúde direto do seletor (Strava/Nike/Watch).
     @State private var healthImportPresented = false
     // Fase 2 — GPS outdoor (corrida/caminhada/bike): rota/ritmo/elevação.
@@ -438,6 +442,8 @@ public struct NativeWorkoutFlowView: View {
 
                     if kind == .strength {
                         restSection
+                            .padding(.top, 20)
+                        strengthSetsSection
                             .padding(.top, 20)
                     }
 
@@ -803,6 +809,109 @@ public struct NativeWorkoutFlowView: View {
         if kind.usesRoute, !isPaused { routeRecorder.start() }
     }
 
+    // MARK: - Editor de séries (só treino de força)
+
+    private var strengthSetsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(Loc.t("Sets", "Séries"))
+                .font(.system(size: 11, weight: .black))
+                .kerning(1.6)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.white.opacity(0.4))
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if !strengthSets.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(Array(strengthSets.enumerated()), id: \.offset) { index, set in
+                        HStack {
+                            Text(Loc.t("Set \(index + 1)", "Série \(index + 1)"))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.62))
+                            Spacer()
+                            Text(WorkoutDetailOverlay.setLabel(set))
+                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                            Button {
+                                strengthSets.remove(at: index)
+                            } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(Color.white.opacity(0.4))
+                                    .padding(.leading, 10)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Loc.t("Remove set", "Remover série"))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.white.opacity(0.04))
+                        )
+                    }
+                }
+            }
+            HStack(spacing: 8) {
+                setField(Loc.t("Reps", "Reps"), text: $setRepsDraft, keyboard: .numberPad)
+                setField(Loc.t("Weight (kg)", "Carga (kg)"), text: $setWeightDraft, keyboard: .decimalPad)
+                Button {
+                    addStrengthSet()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .heavy))
+                        .foregroundStyle(.black)
+                        .frame(width: 44, height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(GymCircleTheme.ColorToken.cyan)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Loc.t("Add set", "Adicionar série"))
+                .disabled((Int(setRepsDraft) ?? 0) <= 0)
+                .opacity((Int(setRepsDraft) ?? 0) <= 0 ? 0.4 : 1)
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color(red: 0.043, green: 0.051, blue: 0.055))
+        )
+    }
+
+    private func setField(
+        _ label: String,
+        text: Binding<String>,
+        keyboard: UIKeyboardType
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: .black))
+                .kerning(1.2)
+                .textCase(.uppercase)
+                .foregroundStyle(Color.white.opacity(0.35))
+            TextField("", text: text)
+                .keyboardType(keyboard)
+                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                )
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func addStrengthSet() {
+        guard let reps = Int(setRepsDraft), reps > 0 else { return }
+        let weight = Double(setWeightDraft.replacingOccurrences(of: ",", with: "."))
+        strengthSets.append(WorkoutStrengthSet(reps: reps, weightKg: weight))
+        setRepsDraft = ""
+        setWeightDraft = ""
+        Haptics.selection()
+    }
+
     private func start(_ option: WorkoutActivityKind) {
         Haptics.impactLight()
         let now = Date()
@@ -895,7 +1004,8 @@ public struct NativeWorkoutFlowView: View {
             startedAt: startedAt,
             endedAt: Date(),
             elapsedS: currentElapsed(),
-            route: route
+            route: route,
+            strengthSets: kind == .strength ? strengthSets : nil
         )
         finishing = false
         if let context {
@@ -918,6 +1028,9 @@ public struct NativeWorkoutFlowView: View {
         defaults.removeObject(forKey: Self.storedKindKey)
         defaults.removeObject(forKey: Self.storedPausedAtKey)
         defaults.removeObject(forKey: Self.storedPausedTotalKey)
+        strengthSets = []
+        setRepsDraft = ""
+        setWeightDraft = ""
     }
 }
 

@@ -93,7 +93,9 @@ public actor GymCircleAPI {
         distanceM: Double? = nil,
         movingS: Int? = nil,
         elevationGainM: Double? = nil,
-        routePoints: [[Double]]? = nil
+        routePoints: [[Double]]? = nil,
+        // P2 — séries de musculação (só treino de força).
+        strengthSets: [WorkoutStrengthSet]? = nil
     ) async throws -> String {
         struct ActivityInsert: Encodable {
             let user_id: String
@@ -112,6 +114,7 @@ public actor GymCircleAPI {
             let moving_s: Int?
             let elevation_gain_m: Double?
             let route: [[Double]]?
+            let strength_sets: [WorkoutStrengthSet]?
             let workout_date: String
         }
         struct InsertedActivity: Decodable { let id: String }
@@ -134,6 +137,7 @@ public actor GymCircleAPI {
                 moving_s: movingS,
                 elevation_gain_m: elevationGainM,
                 route: routePoints,
+                strength_sets: strengthSets,
                 workout_date: workoutDate
             ))
             .select("id")

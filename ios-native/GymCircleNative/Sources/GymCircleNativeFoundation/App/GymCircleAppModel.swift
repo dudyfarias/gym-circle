@@ -1160,7 +1160,9 @@ public final class GymCircleAppModel: ObservableObject {
         endedAt: Date,
         elapsedS: Int? = nil,
         // Fase 2 (GPS outdoor): rota gravada → mode "route" + métricas.
-        route: WorkoutRouteSummary? = nil
+        route: WorkoutRouteSummary? = nil,
+        // P2: séries de musculação (só treino de força).
+        strengthSets: [WorkoutStrengthSet]? = nil
     ) async -> ActivityComposerContext? {
         guard let api, let userId = sessionStore?.currentUserId else {
             self.error = Loc.t(
@@ -1199,7 +1201,8 @@ public final class GymCircleAppModel: ObservableObject {
                 distanceM: route?.distanceM,
                 movingS: route?.movingS,
                 elevationGainM: route?.elevationGainM,
-                routePoints: route?.points
+                routePoints: route?.points,
+                strengthSets: (strengthSets?.isEmpty ?? true) ? nil : strengthSets
             )
             await refreshFeed()
             await loadMyCircle()
