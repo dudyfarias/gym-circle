@@ -201,14 +201,24 @@ public struct WorkoutDetailOverlay: View {
                 .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
             VStack(spacing: 0) {
                 ForEach(Array(sets.enumerated()), id: \.offset) { index, set in
-                    HStack {
-                        Text(Loc.t("Set \(index + 1)", "Série \(index + 1)"))
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.62))
-                        Spacer()
-                        Text(Self.setLabel(set))
-                            .font(.system(size: 15, weight: .heavy, design: .rounded))
-                            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                    VStack(alignment: .leading, spacing: 5) {
+                        if let exercise = set.exercise,
+                           index == 0 || sets[index - 1].exercise != exercise {
+                            Text(exercise)
+                                .font(.system(size: 14.5, weight: .black))
+                                .foregroundStyle(GymCircleTheme.ColorToken.cyan)
+                                .padding(.top, index == 0 ? 0 : 8)
+                        }
+                        HStack {
+                            let number = Self.setNumber(at: index, in: sets)
+                            Text(Loc.t("Set \(number)", "Série \(number)"))
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.white.opacity(0.62))
+                            Spacer()
+                            Text(Self.setLabel(set))
+                                .font(.system(size: 15, weight: .heavy, design: .rounded))
+                                .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+                        }
                     }
                     .padding(.vertical, 12)
                     if index < sets.count - 1 {
@@ -235,6 +245,21 @@ public struct WorkoutDetailOverlay: View {
             ? String(Int(weight))
             : String(format: "%.1f", weight)
         return "\(reps) · \(weightStr) kg"
+    }
+
+    private static func setNumber(
+        at index: Int,
+        in sets: [WorkoutStrengthSet]
+    ) -> Int {
+        guard index > 0 else { return 1 }
+        let exercise = sets[index].exercise
+        var count = 1
+        var cursor = index - 1
+        while cursor >= 0, sets[cursor].exercise == exercise {
+            count += 1
+            cursor -= 1
+        }
+        return count
     }
 
     private func statCell(_ stat: Stat) -> some View {

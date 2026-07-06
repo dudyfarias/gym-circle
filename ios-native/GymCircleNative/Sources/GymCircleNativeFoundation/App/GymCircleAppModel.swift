@@ -1230,6 +1230,73 @@ public final class GymCircleAppModel: ObservableObject {
         return (try? await healthKitProvider.workouts(from: start, to: end)) ?? []
     }
 
+    public func workoutPlans() async -> [WorkoutPlan] {
+        guard let api else { return [] }
+        do {
+            return try await api.workoutPlans()
+        } catch {
+            self.error = error.localizedDescription
+            return []
+        }
+    }
+
+    public func saveWorkoutPlan(
+        id: UUID?,
+        name: String,
+        exercises: [WorkoutPlanExercise]
+    ) async -> Bool {
+        guard let api, let userId = sessionStore?.currentUserId else { return false }
+        do {
+            try await api.saveWorkoutPlan(
+                userId: userId,
+                id: id,
+                name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+                exercises: exercises
+            )
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func deleteWorkoutPlan(id: UUID) async -> Bool {
+        guard let api else { return false }
+        do {
+            try await api.deleteWorkoutPlan(id: id)
+            return true
+        } catch {
+            self.error = error.localizedDescription
+            return false
+        }
+    }
+
+    public func personalRecords() async -> [PersonalRecord] {
+        guard let api else { return [] }
+        do {
+            return try await api.personalRecords()
+        } catch {
+            self.error = error.localizedDescription
+            return []
+        }
+    }
+
+    public func personalRecordLeaderboard(
+        metric: PersonalRecordMetric,
+        exerciseKey: String
+    ) async -> [PersonalRecordLeaderboardRow] {
+        guard let api else { return [] }
+        do {
+            return try await api.personalRecordLeaderboard(
+                metric: metric,
+                exerciseKey: exerciseKey
+            )
+        } catch {
+            self.error = error.localizedDescription
+            return []
+        }
+    }
+
     /// Importa um treino do Saúde como ENTRADA no feed (origin imported).
     /// O UUID do HKWorkout em external_id barra duplicata (23505 → mensagem
     /// amigável). Dia/streak marcados no workout_date REAL do treino.

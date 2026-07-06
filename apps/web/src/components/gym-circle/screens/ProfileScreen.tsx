@@ -32,6 +32,7 @@ import {
 } from "../social/profile";
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { TopBar } from "../TopBar";
+import { PersonalRecordsLauncher } from "../workout/PersonalRecordsLauncher";
 
 type ProfileScreenProps = {
   currentUser: EnrichedUser;
@@ -226,6 +227,8 @@ export function ProfileScreen({
         onOpenDetail={onOpenAchievementDetail}
         onOpenHall={onOpenAchievements}
       />
+
+      <PersonalRecordsLauncher />
 
       {/* Sprint 7C.2 — Substitui o banner grande por chips inline
           ContextualHint. Cada chip = 1 missing item, dismissable individual.

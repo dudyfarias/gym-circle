@@ -1,19 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ClipboardList,
   Download,
+  FileScan,
   FolderOpen,
   Pencil,
   Play,
   Plus,
+  Trophy,
   Trash2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { WorkoutPlan, WorkoutPlanExercise } from "../social/types";
+import { PersonalRecordsSheet } from "./PersonalRecordsSheet";
 import { useWorkoutPlans } from "./useWorkoutPlans";
+import {
+  importWorkoutPlanFile,
+  WorkoutPlanImportError,
+  type WorkoutPlanImportProgress,
+} from "./workoutPlanImport";
 
 type WorkoutPlansFabProps = {
   /** Iniciar um treino de força com a planilha carregada. */
@@ -22,13 +30,19 @@ type WorkoutPlansFabProps = {
   onImport?: () => void;
 };
 
-type DraftExercise = { name: string; sets: string; reps: string };
+type DraftExercise = { id: string; name: string; sets: string; reps: string };
 
-const EMPTY_EXERCISE: DraftExercise = { name: "", sets: "", reps: "" };
+let draftSequence = 0;
+
+function emptyExercise(): DraftExercise {
+  draftSequence += 1;
+  return { id: `draft-exercise-${draftSequence}`, name: "", sets: "", reps: "" };
+}
 
 function toDraft(exercises: WorkoutPlanExercise[]): DraftExercise[] {
-  if (exercises.length === 0) return [{ ...EMPTY_EXERCISE }];
+  if (exercises.length === 0) return [emptyExercise()];
   return exercises.map((e) => ({
+    id: emptyExercise().id,
     name: e.name,
     sets: e.sets != null ? String(e.sets) : "",
     reps: e.reps != null ? String(e.reps) : "",
@@ -37,10 +51,19 @@ function toDraft(exercises: WorkoutPlanExercise[]): DraftExercise[] {
 
 export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps) {
   const { t } = useTranslation();
-  const { plans, loading, savePlan, deletePlan } = useWorkoutPlans();
+  const {
+    plans,
+    loading,
+    error: plansError,
+    refresh,
+    savePlan,
+    deletePlan,
+  } = useWorkoutPlans();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  const [recordsOpen, setRecordsOpen] = useState(false);
   // null = editor fechado; objeto = editando (id undefined = nova planilha).
   const [editing, setEditing] = useState<{
     id?: string;
@@ -48,18 +71,63 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
     exercises: DraftExercise[];
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importProgress, setImportProgress] =
+    useState<WorkoutPlanImportProgress | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importedCount, setImportedCount] = useState<number | null>(null);
+  const [operationError, setOperationError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);
 
   function openNewEditor() {
-    setEditing({ name: "", exercises: [{ ...EMPTY_EXERCISE }] });
+    setImportedCount(null);
+    setImportError(null);
+    setEditing({ name: "", exercises: [emptyExercise()] });
   }
 
   function openEditEditor(plan: WorkoutPlan) {
+    setImportedCount(null);
+    setImportError(null);
     setEditing({ id: plan.id, name: plan.name, exercises: toDraft(plan.exercises) });
+  }
+
+  function openFilePicker() {
+    setMenuOpen(false);
+    setImportError(null);
+    fileInputRef.current?.click();
+  }
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return;
+    setImporting(true);
+    setImportError(null);
+    setImportProgress({ phase: "reading", progress: 0 });
+    try {
+      const parsed = await importWorkoutPlanFile(file, setImportProgress);
+      setEditing({
+        name: parsed.name,
+        exercises: toDraft(parsed.exercises),
+      });
+      setImportedCount(parsed.exercises.length);
+    } catch (error) {
+      const code =
+        error instanceof WorkoutPlanImportError ? error.code : "unreadable";
+      setEditing((current) => current ?? {
+        name: "",
+        exercises: [emptyExercise()],
+      });
+      setImportError(t(`workoutPlans.importErrors.${code}`));
+    } finally {
+      setImporting(false);
+      setImportProgress(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   }
 
   async function handleSave() {
     if (!editing) return;
     setSaving(true);
+    setOperationError(null);
     try {
       await savePlan({
         id: editing.id,
@@ -71,8 +139,21 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
         })),
       });
       setEditing(null);
+    } catch {
+      setOperationError(t("workoutPlans.errors.save"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setOperationError(null);
+    try {
+      await deletePlan(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      setOperationError(t("workoutPlans.errors.delete"));
     }
   }
 
@@ -82,14 +163,23 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
 
   return (
     <>
-      {/* FAB "+" no canto inferior direito */}
+      <input
+        accept="application/pdf,image/png,image/jpeg,image/webp,image/heic,image/heif"
+        className="hidden"
+        onChange={(event) => void handleFile(event.target.files?.[0])}
+        ref={fileInputRef}
+        type="file"
+      />
+
+      {/* Ação persistente com rótulo: mais fácil de descobrir que um "+" solto. */}
       <button
         aria-label={t("workoutPlans.fab")}
-        className="gc-pressable absolute bottom-[calc(var(--gc-safe-bottom)+22px)] right-5 z-[70] grid size-14 place-items-center rounded-full bg-[var(--gc-blue)] text-black shadow-[0_10px_30px_rgba(48,213,255,0.35)]"
+        className="gc-pressable absolute bottom-[calc(var(--gc-safe-bottom)+22px)] right-5 z-[70] flex h-14 items-center gap-2 rounded-full bg-[var(--gc-blue)] px-5 text-[13px] font-black text-black shadow-[0_10px_30px_rgba(48,213,255,0.35)]"
         onClick={() => setMenuOpen(true)}
         type="button"
       >
-        <Plus size={26} strokeWidth={2.8} />
+        <Plus size={20} strokeWidth={2.8} />
+        {t("workoutPlans.tools")}
       </button>
 
       {/* Menu de ações */}
@@ -104,6 +194,11 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
             <div className="grid gap-2">
+              <MenuRow
+                icon={<FileScan size={19} />}
+                label={t("workoutPlans.importFile")}
+                onClick={openFilePicker}
+              />
               {onImport ? (
                 <MenuRow
                   icon={<Download size={19} />}
@@ -130,6 +225,83 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
                   openNewEditor();
                 }}
               />
+              <MenuRow
+                icon={<Trophy size={19} />}
+                label={t("personalRecords.title")}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setRecordsOpen(true);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {importing ? (
+        <div
+          aria-live="polite"
+          className="fixed inset-0 z-[98] grid place-items-center bg-black/88 px-8 backdrop-blur-md"
+        >
+          <div className="w-full max-w-sm rounded-[24px] border border-white/[0.08] bg-[#0b0d0e] p-5 text-center">
+            <span className="mx-auto block size-8 animate-spin rounded-full border-2 border-white/15 border-t-[var(--gc-brand)]" />
+            <p className="mt-4 text-[15px] font-black text-white">
+              {t(`workoutPlans.importPhases.${importProgress?.phase ?? "reading"}`)}
+            </p>
+            <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+              <div
+                className="h-full rounded-full bg-[var(--gc-brand)] transition-[width] duration-300"
+                style={{ width: `${(importProgress?.progress ?? 0) * 100}%` }}
+              />
+            </div>
+            <p className="mt-3 text-[11.5px] font-bold text-white/42">
+              {t("workoutPlans.importPrivacy")}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      {recordsOpen ? (
+        <PersonalRecordsSheet onClose={() => setRecordsOpen(false)} />
+      ) : null}
+
+      {deleteTarget ? (
+        <div
+          aria-label={t("workoutPlans.deleteConfirm")}
+          aria-modal="true"
+          className="fixed inset-0 z-[98] flex items-end justify-center bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-sm"
+          role="alertdialog"
+        >
+          <div className="w-full max-w-[448px] rounded-[24px] border border-white/[0.08] bg-[#101214] p-5">
+            <p className="text-[17px] font-black text-white">
+              {t("workoutPlans.deleteConfirm")}
+            </p>
+            <p className="mt-1 text-[12.5px] font-bold text-white/45">
+              {deleteTarget.name}
+            </p>
+            {operationError ? (
+              <p
+                aria-live="assertive"
+                className="mt-3 rounded-[12px] bg-[var(--gc-pink)]/10 px-3 py-2 text-[11.5px] font-bold text-[var(--gc-pink)]"
+              >
+                {operationError}
+              </p>
+            ) : null}
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                className="gc-pressable rounded-full bg-white/[0.07] py-3 text-[13px] font-black text-white"
+                onClick={() => setDeleteTarget(null)}
+                type="button"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="gc-pressable rounded-full bg-[var(--gc-pink)] py-3 text-[13px] font-black text-white"
+                onClick={() => void confirmDelete()}
+                type="button"
+              >
+                {t("common.delete")}
+              </button>
             </div>
           </div>
         </div>
@@ -142,6 +314,14 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
             <p className="py-10 text-center text-[13px] font-semibold text-white/45">
               {t("common.loading")}
             </p>
+          ) : plansError ? (
+            <button
+              className="gc-pressable mx-auto my-10 rounded-full bg-white/[0.07] px-4 py-3 text-[13px] font-black text-white"
+              onClick={() => void refresh()}
+              type="button"
+            >
+              {t("common.retry")}
+            </button>
           ) : plans.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-[14px] font-semibold text-white/55">
@@ -183,7 +363,7 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
                     <button
                       aria-label={t("workoutPlans.delete")}
                       className="gc-pressable text-white/40"
-                      onClick={() => void deletePlan(plan.id)}
+                      onClick={() => setDeleteTarget(plan)}
                       type="button"
                     >
                       <Trash2 size={16} />
@@ -225,6 +405,51 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
           }
           onClose={() => setEditing(null)}
         >
+          <button
+            className="gc-pressable mb-4 flex w-full items-center gap-3 rounded-[18px] border border-[var(--gc-brand)]/18 bg-[var(--gc-brand)]/[0.07] px-4 py-3 text-left"
+            onClick={openFilePicker}
+            type="button"
+          >
+            <span className="grid size-10 place-items-center rounded-[13px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+              <FileScan size={18} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13.5px] font-black text-white">
+                {t("workoutPlans.importFile")}
+              </span>
+              <span className="mt-0.5 block text-[11px] font-bold text-white/42">
+                {t("workoutPlans.importHint")}
+              </span>
+            </span>
+          </button>
+
+          {importedCount != null ? (
+            <p
+              aria-live="polite"
+              className="mb-4 rounded-[14px] bg-[#97ff00]/10 px-3 py-2.5 text-[11.5px] font-bold text-[#b9ff65]"
+            >
+              {t("workoutPlans.imported", { count: importedCount })}
+            </p>
+          ) : null}
+
+          {importError ? (
+            <p
+              aria-live="assertive"
+              className="mb-4 rounded-[14px] bg-[var(--gc-pink)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-pink)]"
+            >
+              {importError}
+            </p>
+          ) : null}
+
+          {operationError ? (
+            <p
+              aria-live="assertive"
+              className="mb-4 rounded-[14px] bg-[var(--gc-pink)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-pink)]"
+            >
+              {operationError}
+            </p>
+          ) : null}
+
           <input
             className="w-full rounded-xl bg-white/[0.06] px-4 py-3 text-[16px] font-black text-white outline-none placeholder:text-white/30"
             onChange={(e) =>
@@ -239,7 +464,10 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
           </p>
           <div className="grid gap-2">
             {editing.exercises.map((ex, index) => (
-              <div key={index} className="flex items-center gap-2">
+              <div
+                className="grid grid-cols-[minmax(0,1fr)_52px_12px_52px_32px] items-center gap-1.5"
+                key={ex.id}
+              >
                 <input
                   className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
                   onChange={(e) =>
@@ -259,7 +487,7 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
                 />
                 <input
                   aria-label={t("workoutPlans.setsShort")}
-                  className="w-12 rounded-xl bg-white/[0.06] px-2 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                  className="w-full rounded-xl bg-white/[0.06] px-1 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
                   inputMode="numeric"
                   onChange={(e) =>
                     setEditing((prev) =>
@@ -281,7 +509,7 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
                 <span className="text-[13px] font-black text-white/30">×</span>
                 <input
                   aria-label={t("workoutPlans.repsShort")}
-                  className="w-12 rounded-xl bg-white/[0.06] px-2 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                  className="w-full rounded-xl bg-white/[0.06] px-1 py-2.5 text-center text-[14px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
                   inputMode="numeric"
                   onChange={(e) =>
                     setEditing((prev) =>
@@ -311,7 +539,7 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
                             exercises:
                               prev.exercises.length > 1
                                 ? prev.exercises.filter((_, i) => i !== index)
-                                : [{ ...EMPTY_EXERCISE }],
+                                : [emptyExercise()],
                           }
                         : prev,
                     )
@@ -328,7 +556,7 @@ export function WorkoutPlansFab({ onStartPlan, onImport }: WorkoutPlansFabProps)
             onClick={() =>
               setEditing((prev) =>
                 prev
-                  ? { ...prev, exercises: [...prev.exercises, { ...EMPTY_EXERCISE }] }
+                  ? { ...prev, exercises: [...prev.exercises, emptyExercise()] }
                   : prev,
               )
             }

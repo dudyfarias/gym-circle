@@ -136,6 +136,7 @@ export function WebWorkoutScreen({
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
+  const setsSectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -499,6 +500,25 @@ export function WebWorkoutScreen({
     navigator.vibrate?.(40);
   }, [persistSession, session]);
 
+  const addStrengthSet = useCallback(() => {
+    setStrengthSets((prev) => [
+      ...prev,
+      {
+        reps: 0,
+        weightKg: null,
+        exercise: prev[prev.length - 1]?.exercise ?? null,
+      },
+    ]);
+    // O dock de pausar/encerrar é fixo. Leva a nova linha ao centro para que
+    // ela nunca nasça escondida atrás dos controles em telas estreitas.
+    window.requestAnimationFrame(() => {
+      setsSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
+  }, []);
+
   const elapsedS = session ? workoutElapsedSeconds(session, nowMs) : 0;
   const pausedS = session ? workoutPausedSeconds(session, nowMs) : 0;
   const isPaused = Boolean(session && session.pausedAtMs !== null);
@@ -683,7 +703,7 @@ export function WebWorkoutScreen({
               </div>
             </header>
 
-            <main className="flex flex-1 flex-col">
+            <main className="flex flex-1 flex-col pb-[170px]">
               <section className="pt-10 text-center">
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/42">
                   {t("workout.elapsed")}
@@ -816,10 +836,25 @@ export function WebWorkoutScreen({
               )}
 
               {session.activityType === "strength" ? (
-                <section className="mt-7 rounded-[22px] bg-[#0b0d0e] p-5">
+                <section
+                  className="mt-7 rounded-[22px] bg-[#0b0d0e] p-5"
+                  ref={setsSectionRef}
+                >
                   <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/40">
                     {t("workout.sets.title")}
                   </p>
+                  {strengthSets.length > 0 ? (
+                    <div
+                      aria-hidden="true"
+                      className="mt-3 grid grid-cols-[20px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/30"
+                    >
+                      <span />
+                      <span>{t("workout.sets.reps")}</span>
+                      <span />
+                      <span>kg</span>
+                      <span />
+                    </div>
+                  ) : null}
                   <div className="mt-3 grid gap-2">
                     {strengthSets.map((set, index) => {
                       const showExercise =
@@ -833,7 +868,7 @@ export function WebWorkoutScreen({
                               {set.exercise}
                             </p>
                           ) : null}
-                          <div className="flex items-center gap-2">
+                          <div className="grid grid-cols-[20px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2">
                             <span className="w-4 shrink-0 text-[12px] font-black tabular-nums text-white/35">
                               {index + 1}
                             </span>
@@ -875,7 +910,7 @@ export function WebWorkoutScreen({
                                   ),
                                 );
                               }}
-                              placeholder={`${t("workout.sets.weight")} (kg)`}
+                              placeholder="0"
                               value={set.weightKg != null ? String(set.weightKg) : ""}
                             />
                             <button
@@ -897,16 +932,7 @@ export function WebWorkoutScreen({
                   </div>
                   <button
                     className="gc-pressable mt-3 flex items-center gap-1.5 text-[13px] font-black text-[var(--gc-blue)]"
-                    onClick={() =>
-                      setStrengthSets((prev) => [
-                        ...prev,
-                        {
-                          reps: 0,
-                          weightKg: null,
-                          exercise: prev[prev.length - 1]?.exercise ?? null,
-                        },
-                      ])
-                    }
+                    onClick={addStrengthSet}
                     type="button"
                   >
                     <Plus size={16} strokeWidth={2.8} />
@@ -921,7 +947,7 @@ export function WebWorkoutScreen({
                 </p>
               ) : null}
 
-              <footer className="mt-auto pt-8">
+              <footer className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-white/[0.06] bg-black/94 px-5 pb-[calc(var(--gc-safe-bottom)+10px)] pt-3 backdrop-blur-xl">
                 <div className="grid grid-cols-3 items-end gap-4">
                   <button
                     aria-label={t("workout.finish")}

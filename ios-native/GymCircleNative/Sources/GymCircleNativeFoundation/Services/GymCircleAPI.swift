@@ -147,6 +147,93 @@ public actor GymCircleAPI {
         return inserted.id
     }
 
+    // MARK: - Planilhas e recordes pessoais
+
+    public func workoutPlans() async throws -> [WorkoutPlan] {
+        try await client
+            .from("workout_plans")
+            .select("id,name,exercises,updated_at")
+            .order("updated_at", ascending: false)
+            .execute()
+            .value
+    }
+
+    public func saveWorkoutPlan(
+        userId: String,
+        id: UUID?,
+        name: String,
+        exercises: [WorkoutPlanExercise]
+    ) async throws {
+        struct InsertPayload: Encodable {
+            let user_id: String
+            let name: String
+            let exercises: [WorkoutPlanExercise]
+        }
+        struct UpdatePayload: Encodable {
+            let name: String
+            let exercises: [WorkoutPlanExercise]
+            let updated_at: String
+        }
+
+        if let id {
+            try await client
+                .from("workout_plans")
+                .update(UpdatePayload(
+                    name: name,
+                    exercises: exercises,
+                    updated_at: ISO8601DateFormatter().string(from: Date())
+                ))
+                .eq("id", value: id.uuidString)
+                .execute()
+        } else {
+            try await client
+                .from("workout_plans")
+                .insert(InsertPayload(
+                    user_id: userId,
+                    name: name,
+                    exercises: exercises
+                ))
+                .execute()
+        }
+    }
+
+    public func deleteWorkoutPlan(id: UUID) async throws {
+        try await client
+            .from("workout_plans")
+            .delete()
+            .eq("id", value: id.uuidString)
+            .execute()
+    }
+
+    public func personalRecords() async throws -> [PersonalRecord] {
+        try await client
+            .rpc("get_personal_records")
+            .execute()
+            .value
+    }
+
+    public func personalRecordLeaderboard(
+        metric: PersonalRecordMetric,
+        exerciseKey: String
+    ) async throws -> [PersonalRecordLeaderboardRow] {
+        struct Params: Encodable {
+            let p_metric_key: String
+            let p_exercise_key: String
+            let p_limit: Int
+        }
+        return try await client
+            .rpc(
+                "get_personal_record_leaderboard",
+                params: Params(
+                    p_metric_key: metric.rawValue,
+                    p_exercise_key: exerciseKey,
+                    p_limit: 20
+                )
+            )
+            .execute()
+            .value
+    }
+
     /// Completa a entrada com as infos de post (legenda/tags/local) — o treino
     /// aparece no feed mesmo sem foto (modelo mutável check-in ↔ post ↔
     /// carrossel). AnyJSON encoda null explícito (limpar campo funciona).

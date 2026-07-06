@@ -24,6 +24,7 @@ public struct ProfileView: View {
     // "Registrar treino": dia treinado sem mídia → composer travado nessa data.
     @State private var registerTarget: RegisterWorkoutTarget?
     @State private var hallPresented = false
+    @State private var trainingLibraryPresented = false
     @State private var hallDetailAchievement: Achievement?
     @State private var openedPost: FeedPost?
     @State private var editPresented = false
@@ -66,6 +67,7 @@ public struct ProfileView: View {
                         onOpenDetail: { hallDetailAchievement = $0 },
                         onOpenHall: { hallPresented = true }
                     )
+                    personalRecordsCard
                     completionSection(profile)
                     if let restore = streakRestore, restore.canRestore {
                         streakRestoreCard(restore)
@@ -214,11 +216,61 @@ public struct ProfileView: View {
                 )
             }
         }
+        .sheet(isPresented: $trainingLibraryPresented) {
+            TrainingLibraryView(
+                model: model,
+                showRecordsInitially: true,
+                onStartPlan: { _ in }
+            )
+        }
         .sheet(item: $openedPost) { post in
             // Post completo do grid/calendário com TODAS as ações (paridade web
             // PostDetailOverlay): curtir, comentar, curtidas, menu, share, vídeo.
             PostDetailSheet(model: model, post: post)
         }
+    }
+
+    private var personalRecordsCard: some View {
+        Button {
+            trainingLibraryPresented = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "trophy.fill")
+                    .font(.system(size: 17, weight: .bold))
+                    .foregroundStyle(Color(red: 0.59, green: 1, blue: 0))
+                    .frame(width: 42, height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color(red: 0.59, green: 1, blue: 0).opacity(0.11))
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Loc.t("Personal records", "Recordes pessoais"))
+                        .font(.system(size: 14.5, weight: .black))
+                    Text(Loc.t(
+                        "Best weights, 5K/10K and circle ranking",
+                        "Melhores cargas, 5 km/10 km e ranking do circle"
+                    ))
+                    .font(.system(size: 11.5, weight: .bold))
+                    .foregroundStyle(Color.white.opacity(0.42))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(Color.white.opacity(0.35))
+            }
+            .foregroundStyle(GymCircleTheme.ColorToken.primaryText)
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color.white.opacity(0.035))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .stroke(Color.white.opacity(0.075), lineWidth: 1)
+                    )
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Loc.t("Open personal records", "Abrir recordes pessoais"))
     }
 
     // Header paridade web (ProfileIdentity): anéis de consistência com a foto

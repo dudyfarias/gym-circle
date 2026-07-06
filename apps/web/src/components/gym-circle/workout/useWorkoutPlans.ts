@@ -42,16 +42,28 @@ export function useWorkoutPlans() {
   const db = client as unknown as SupabaseClient;
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setPlans([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+    setError(null);
     try {
-      const { data } = await db
+      const { data, error: queryError } = await db
         .from("workout_plans")
         .select("id, name, exercises, updated_at")
         .order("updated_at", { ascending: false });
+      if (queryError) throw queryError;
       setPlans(((data ?? []) as PlanRow[]).map(rowToPlan));
+    } catch (queryError) {
+      setError(
+        queryError instanceof Error ? queryError.message : "plans_load_failed",
+      );
     } finally {
       setLoading(false);
     }
@@ -69,7 +81,7 @@ export function useWorkoutPlans() {
       name: string;
       exercises: WorkoutPlanExercise[];
     }) => {
-      if (!user) return;
+      if (!user) throw new Error("auth_required");
       const payload = {
         name: input.name.trim() || "Planilha",
         exercises: input.exercises
@@ -81,12 +93,16 @@ export function useWorkoutPlans() {
           .filter((e) => e.name.length > 0),
       };
       if (input.id) {
-        await db
+        const { error: updateError } = await db
           .from("workout_plans")
           .update({ ...payload, updated_at: new Date().toISOString() })
           .eq("id", input.id);
+        if (updateError) throw updateError;
       } else {
-        await db.from("workout_plans").insert({ user_id: user.id, ...payload });
+        const { error: insertError } = await db
+          .from("workout_plans")
+          .insert({ user_id: user.id, ...payload });
+        if (insertError) throw insertError;
       }
       await refresh();
     },
@@ -95,11 +111,16 @@ export function useWorkoutPlans() {
 
   const deletePlan = useCallback(
     async (id: string) => {
-      await db.from("workout_plans").delete().eq("id", id);
+      if (!user) throw new Error("auth_required");
+      const { error: deleteError } = await db
+        .from("workout_plans")
+        .delete()
+        .eq("id", id);
+      if (deleteError) throw deleteError;
       await refresh();
     },
-    [db, refresh],
+    [db, user, refresh],
   );
 
-  return { plans, loading, refresh, savePlan, deletePlan };
+  return { plans, loading, error, refresh, savePlan, deletePlan };
 }

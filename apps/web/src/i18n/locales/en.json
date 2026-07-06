@@ -165,7 +165,25 @@
   },
   "workoutPlans": {
     "fab": "More workout options",
+    "tools": "Plans & records",
     "import": "Import workout",
+    "importFile": "Import photo or PDF",
+    "importHint": "We read it on your device and you review it before saving.",
+    "importPrivacy": "The file never leaves your device.",
+    "imported_one": "1 exercise found. Review it before saving.",
+    "imported_other": "{{count}} exercises found. Review them before saving.",
+    "importPhases": {
+      "reading": "Preparing the file…",
+      "extracting": "Reading the PDF…",
+      "recognizing": "Recognizing text…",
+      "parsing": "Building your plan…"
+    },
+    "importErrors": {
+      "unsupported": "Use a JPG, PNG, WebP, HEIC image or a PDF.",
+      "too_large": "The file must be up to 25 MB so it won't freeze your phone.",
+      "empty": "We couldn't find text in this file.",
+      "unreadable": "We couldn't recognize the exercises. Try a sharper photo."
+    },
     "open": "Open plan",
     "create": "New plan",
     "createTitle": "New plan",
@@ -182,8 +200,29 @@
     "start": "Start workout",
     "edit": "Edit",
     "delete": "Delete",
+    "deleteConfirm": "Delete this plan?",
     "empty": "You don't have any plans yet. Create one to get started.",
-    "noExercises": "No exercises"
+    "noExercises": "No exercises",
+    "errors": {
+      "save": "We couldn't save this plan. Try again.",
+      "delete": "We couldn't delete this plan. Try again."
+    }
+  },
+  "personalRecords": {
+    "title": "My records",
+    "subtitle": "Your best marks, updated by your workouts.",
+    "emptyTitle": "Your first record starts with your next workout",
+    "emptyBody": "Log weighted exercises or complete a 5K or 10K run.",
+    "estimated": "Time estimated from the workout's average pace.",
+    "openRanking": "Compare with friends",
+    "rankingTitle": "Circle ranking",
+    "rankingSubtitle": "You and the people you follow.",
+    "rankingEmpty": "There are no other marks to compare yet.",
+    "metrics": {
+      "strength_weight": "Heaviest weight",
+      "run_5k_time": "Best 5K",
+      "run_10k_time": "Best 10K"
+    }
   },
   "integrateWorkout": {
     "title": "Add a workout",

@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		0354468C7B0BC903D046010B /* AppLocalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 904A51CF546A088EF47E87BD /* AppLocalization.swift */; };
+		A1F001000000000000000001 /* WorkoutTrainingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F001000000000000000001 /* WorkoutTrainingModels.swift */; };
+		A1F001000000000000000002 /* WorkoutPlanDocumentImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F001000000000000000002 /* WorkoutPlanDocumentImporter.swift */; };
+		A1F001000000000000000003 /* TrainingLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1F001000000000000000003 /* TrainingLibraryView.swift */; };
 		04A7838A3EBCE934D0FD52EB /* AvatarConsistencyRings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2609487EA632835844895920 /* AvatarConsistencyRings.swift */; };
 		079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15CF77117635F0D69B78BE8C /* StoryModels.swift */; };
 		12816EF8CCF3450B4AD7E4E3 /* GymCircleTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5245FB76CF59A2ACFEF8ED9 /* GymCircleTheme.swift */; };
@@ -118,6 +121,9 @@
 
 /* Begin PBXFileReference section */
 		02BBAAE9105A431DC140AFE9 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
+		B1F001000000000000000001 /* WorkoutTrainingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutTrainingModels.swift; sourceTree = "<group>"; };
+		B1F001000000000000000002 /* WorkoutPlanDocumentImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutPlanDocumentImporter.swift; sourceTree = "<group>"; };
+		B1F001000000000000000003 /* TrainingLibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingLibraryView.swift; sourceTree = "<group>"; };
 		03CDD21B0D4FDE6BBE28118E /* GymCircleNative.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = GymCircleNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		069AF1E053D24164413598B0 /* BaseComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BaseComponents.swift; sourceTree = "<group>"; };
 		0973110CDA21450BFC9B8CB6 /* CommentsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommentsService.swift; sourceTree = "<group>"; };
@@ -321,6 +327,7 @@
 				BBE9A3BD8DE7A7D612B1DDD8 /* RecapPeriodPickerSheet.swift */,
 				F892E8E46567D4BA8D201DD3 /* SettingsSheet.swift */,
 				F20940CB53959FF53CFF9C75 /* StoriesViews.swift */,
+				B1F001000000000000000003 /* TrainingLibraryView.swift */,
 				B6232D20B028BC5915F7D2E8 /* WorkoutDetailOverlay.swift */,
 				F36517109503AE7C7088A341 /* WorkoutViews.swift */,
 			);
@@ -352,6 +359,7 @@
 				6C1A4E0E663643D7BF57928D /* RankingModels.swift */,
 				15CF77117635F0D69B78BE8C /* StoryModels.swift */,
 				4BCB298BFFBA6E51F67FEC05 /* UserProfile.swift */,
+				B1F001000000000000000001 /* WorkoutTrainingModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -398,6 +406,7 @@
 				46FCDA3F30345C295BB0257C /* SafetyService.swift */,
 				49F315E719C5717C0921BD96 /* StoriesService.swift */,
 				633A3638BEC16BBA4085C06C /* SupabaseClientProvider.swift */,
+				B1F001000000000000000002 /* WorkoutPlanDocumentImporter.swift */,
 				1FF1801D6133B3878C3D0A96 /* WorkoutRouteRecorder.swift */,
 			);
 			path = Services;
@@ -644,9 +653,12 @@
 				079A067B9F3C2CF0CE17B310 /* StoryModels.swift in Sources */,
 				EB3259E2DF3200D364544F2E /* StreakBadgeView.swift in Sources */,
 				C2A796BB917C495444F60BAA /* SupabaseClientProvider.swift in Sources */,
+				A1F001000000000000000003 /* TrainingLibraryView.swift in Sources */,
 				70EB9C329DE1DA414347C6A3 /* UserProfile.swift in Sources */,
 				8CAF352DBA7F14FF349AEF14 /* WorkoutDetailOverlay.swift in Sources */,
+				A1F001000000000000000002 /* WorkoutPlanDocumentImporter.swift in Sources */,
 				449B94B54ADBC04E79274E16 /* WorkoutRouteRecorder.swift in Sources */,
+				A1F001000000000000000001 /* WorkoutTrainingModels.swift in Sources */,
 				7419D191D9780E22F050588C /* WorkoutViews.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

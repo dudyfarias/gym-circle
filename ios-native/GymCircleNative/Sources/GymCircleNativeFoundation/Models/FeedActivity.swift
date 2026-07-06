@@ -156,15 +156,18 @@ public struct FeedActivity: Identifiable, Codable, Hashable, Sendable {
 public struct WorkoutStrengthSet: Codable, Equatable, Hashable, Sendable {
     public let reps: Int
     public let weightKg: Double?
+    public let exercise: String?
 
-    public init(reps: Int, weightKg: Double?) {
+    public init(reps: Int, weightKg: Double?, exercise: String? = nil) {
         self.reps = reps
         self.weightKg = weightKg
+        self.exercise = exercise
     }
 
     enum CodingKeys: String, CodingKey {
         case reps
         case weightKg = "weight_kg"
+        case exercise
     }
 }
 

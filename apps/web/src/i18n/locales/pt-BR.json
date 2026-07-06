@@ -165,7 +165,25 @@
   },
   "workoutPlans": {
     "fab": "Mais opções de treino",
+    "tools": "Planilhas e recordes",
     "import": "Importar treino",
+    "importFile": "Importar foto ou PDF",
+    "importHint": "Lemos o arquivo no aparelho e você revisa antes de salvar.",
+    "importPrivacy": "O arquivo não sai do seu aparelho.",
+    "imported_one": "1 exercício encontrado. Revise antes de salvar.",
+    "imported_other": "{{count}} exercícios encontrados. Revise antes de salvar.",
+    "importPhases": {
+      "reading": "Preparando o arquivo…",
+      "extracting": "Lendo o PDF…",
+      "recognizing": "Reconhecendo o texto…",
+      "parsing": "Montando a planilha…"
+    },
+    "importErrors": {
+      "unsupported": "Use uma imagem JPG, PNG, WebP, HEIC ou um PDF.",
+      "too_large": "O arquivo precisa ter até 25 MB para não travar o celular.",
+      "empty": "Não encontramos texto nesse arquivo.",
+      "unreadable": "Não conseguimos reconhecer os exercícios. Tente uma foto mais nítida."
+    },
     "open": "Abrir planilha",
     "create": "Cadastrar planilha",
     "createTitle": "Nova planilha",
@@ -182,8 +200,29 @@
     "start": "Iniciar treino",
     "edit": "Editar",
     "delete": "Apagar",
+    "deleteConfirm": "Apagar esta planilha?",
     "empty": "Você ainda não tem planilhas. Crie uma pra começar.",
-    "noExercises": "Sem exercícios"
+    "noExercises": "Sem exercícios",
+    "errors": {
+      "save": "Não foi possível salvar a planilha. Tente novamente.",
+      "delete": "Não foi possível apagar a planilha. Tente novamente."
+    }
+  },
+  "personalRecords": {
+    "title": "Meus recordes",
+    "subtitle": "Suas melhores marcas, atualizadas pelos treinos.",
+    "emptyTitle": "Seu primeiro recorde vem no próximo treino",
+    "emptyBody": "Registre exercícios com carga ou complete uma corrida de 5 km ou 10 km.",
+    "estimated": "Tempo estimado pelo ritmo médio do treino.",
+    "openRanking": "Comparar com amigos",
+    "rankingTitle": "Ranking do circle",
+    "rankingSubtitle": "Você e as pessoas que você segue.",
+    "rankingEmpty": "Ainda não há outras marcas para comparar.",
+    "metrics": {
+      "strength_weight": "Maior carga",
+      "run_5k_time": "Melhor 5 km",
+      "run_10k_time": "Melhor 10 km"
+    }
   },
   "integrateWorkout": {
     "title": "Integrar treino",
