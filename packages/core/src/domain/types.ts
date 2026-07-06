@@ -123,6 +123,7 @@ export type FeedPostRow =
     workout_active_calories?: number | null;
     workout_total_calories?: number | null;
     workout_route?: number[][] | null;
+    workout_strength_sets?: { reps: number; weight_kg: number | null }[] | null;
     workout_started_at?: string | null;
     workout_ended_at?: string | null;
   };

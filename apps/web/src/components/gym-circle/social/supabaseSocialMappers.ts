@@ -494,6 +494,7 @@ export function feedPostRowFromSurface(row: SurfacePostRow): FeedPostRow {
     workout_active_calories: row.workout_active_calories ?? null,
     workout_total_calories: row.workout_total_calories ?? null,
     workout_route: row.workout_route ?? null,
+    workout_strength_sets: row.workout_strength_sets ?? null,
     workout_started_at: row.workout_started_at ?? null,
     workout_ended_at: row.workout_ended_at ?? null,
   };

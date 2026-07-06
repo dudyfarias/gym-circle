@@ -207,6 +207,39 @@ export function WorkoutDetailOverlay({
           ))}
         </div>
 
+        {/* Séries de musculação (só treino de força) */}
+        {workout.strengthSets && workout.strengthSets.length > 0 ? (
+          <>
+            <h3 className="mb-3 mt-6 text-[19px] font-black text-white">
+              {t("workoutDetail.setsTitle")}
+            </h3>
+            <div className="overflow-hidden rounded-[22px] bg-white/[0.04]">
+              {workout.strengthSets.map((set, index) => (
+                <div
+                  key={`${index}-${set.reps}-${set.weightKg ?? "bw"}`}
+                  className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5 last:border-b-0"
+                >
+                  <span className="text-[14px] font-bold text-white/62">
+                    {t("workoutDetail.setNumber", { number: index + 1 })}
+                  </span>
+                  <span className="text-[15px] font-black text-white">
+                    {t("workoutDetail.setReps", { reps: set.reps })}
+                    {set.weightKg != null ? (
+                      <span className="text-[var(--gc-blue)]">
+                        {` · ${set.weightKg} kg`}
+                      </span>
+                    ) : (
+                      <span className="text-white/50">
+                        {` · ${t("workoutDetail.bodyweight")}`}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : null}
+
         {/* Mapa geográfico da rota */}
         {workout.route && workout.route.length >= 2 ? (
           <>

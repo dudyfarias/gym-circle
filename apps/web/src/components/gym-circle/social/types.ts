@@ -276,6 +276,7 @@ export type EnrichedActivity = {
   elevationGainM: number | null;
   /** Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa. */
   route: number[][] | null;
+  strengthSets: StrengthSet[] | null;
   workoutDate: string;
   createdAt: string;
   caption: string | null;
@@ -294,6 +295,12 @@ export type EnrichedActivity = {
  * Fonte comum: a ENTRADA de atividade (EnrichedActivity satisfaz este shape)
  * e o POST promovido de treino (get_home_feed via source_activity_id).
  */
+/** Uma série de musculação: repetições e carga (kg). weightKg null = peso do corpo. */
+export type StrengthSet = {
+  reps: number;
+  weightKg: number | null;
+};
+
 export type WorkoutDetail = {
   activityType: string;
   startedAt: string | null;
@@ -306,6 +313,7 @@ export type WorkoutDetail = {
   activeCalories?: number | null;
   totalCalories: number | null;
   route: number[][] | null;
+  strengthSets: StrengthSet[] | null;
   gymName: string | null;
   locationName: string | null;
   caption: string | null;
@@ -444,6 +452,8 @@ export type WebActivityInput = {
   elevationGainM?: number | null;
   /** Polyline reduzida no formato persistido em activities.route. */
   route?: number[][] | null;
+  /** Séries de musculação (só treino de força). */
+  strengthSets?: StrengthSet[] | null;
 };
 
 export type FinishedWebActivity = {

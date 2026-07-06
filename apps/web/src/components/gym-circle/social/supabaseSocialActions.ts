@@ -687,6 +687,7 @@ export function createSocialActions(
           distanceM: input.distanceM ?? null,
           elevationGainM: input.elevationGainM ?? null,
           route: input.route ?? null,
+          strengthSets: input.strengthSets ?? null,
         });
         await services.stats.refreshMine();
         await refresh();

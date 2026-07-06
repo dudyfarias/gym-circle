@@ -99,6 +99,13 @@
       "decrease": "Diminuir 10 segundos",
       "inProgress": "Em andamento"
     },
+    "sets": {
+      "title": "Séries",
+      "reps": "Reps",
+      "weight": "Carga (kg)",
+      "add": "Adicionar série",
+      "remove": "Remover série"
+    },
     "finish": "Concluir treino",
     "finishShort": "Encerrar",
     "finishing": "Salvando…",
@@ -150,7 +157,11 @@
     "avgPace": "Ritmo Médio",
     "elevation": "Ganho de Elevação",
     "avgHeartRate": "Batimentos Médios",
-    "mapTitle": "Mapa"
+    "mapTitle": "Mapa",
+    "setsTitle": "Séries",
+    "setNumber": "Série {{number}}",
+    "setReps": "{{reps}} reps",
+    "bodyweight": "peso do corpo"
   },
   "integrateWorkout": {
     "title": "Integrar treino",

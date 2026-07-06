@@ -99,6 +99,13 @@
       "decrease": "Remove 10 seconds",
       "inProgress": "In progress"
     },
+    "sets": {
+      "title": "Sets",
+      "reps": "Reps",
+      "weight": "Weight (kg)",
+      "add": "Add set",
+      "remove": "Remove set"
+    },
     "finish": "Complete workout",
     "finishShort": "Finish",
     "finishing": "Saving…",
@@ -150,7 +157,11 @@
     "avgPace": "Avg. Pace",
     "elevation": "Elevation Gain",
     "avgHeartRate": "Avg. Heart Rate",
-    "mapTitle": "Map"
+    "mapTitle": "Map",
+    "setsTitle": "Sets",
+    "setNumber": "Set {{number}}",
+    "setReps": "{{reps}} reps",
+    "bodyweight": "bodyweight"
   },
   "integrateWorkout": {
     "title": "Add a workout",

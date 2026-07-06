@@ -41,6 +41,7 @@ export type Database = {
           source_app: string | null
           splits: Json | null
           started_at: string
+          strength_sets: Json | null
           total_calories: number | null
           user_id: string
           workout_date: string
@@ -72,6 +73,7 @@ export type Database = {
           source_app?: string | null
           splits?: Json | null
           started_at: string
+          strength_sets?: Json | null
           total_calories?: number | null
           user_id: string
           workout_date: string
@@ -103,6 +105,7 @@ export type Database = {
           source_app?: string | null
           splits?: Json | null
           started_at?: string
+          strength_sets?: Json | null
           total_calories?: number | null
           user_id?: string
           workout_date?: string

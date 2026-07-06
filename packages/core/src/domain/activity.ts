@@ -11,6 +11,44 @@ export type ActivityType = "strength" | "run" | "walk" | "ride" | "other";
 export type ActivityMode = "session" | "route";
 export type ActivityOrigin = "live" | "web_timer" | "imported";
 
+/** Uma série de musculação: repetições e carga (kg). weightKg null = peso do corpo. */
+export type StrengthSet = {
+  reps: number;
+  weightKg: number | null;
+};
+
+/** Shape persistido em activities.strength_sets (snake_case). */
+export type StrengthSetRow = {
+  reps: number;
+  weight_kg: number | null;
+};
+
+export function strengthSetsFromRow(
+  rows: StrengthSetRow[] | null | undefined,
+): StrengthSet[] | null {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return rows
+    .filter((r) => Number.isFinite(r?.reps) && r.reps > 0)
+    .map((r) => ({
+      reps: Math.round(r.reps),
+      weightKg:
+        r.weight_kg != null && Number.isFinite(r.weight_kg) ? r.weight_kg : null,
+    }));
+}
+
+export function strengthSetsToRow(
+  sets: StrengthSet[] | null | undefined,
+): StrengthSetRow[] | null {
+  if (!Array.isArray(sets) || sets.length === 0) return null;
+  return sets
+    .filter((s) => Number.isFinite(s?.reps) && s.reps > 0)
+    .map((s) => ({
+      reps: Math.round(s.reps),
+      weight_kg:
+        s.weightKg != null && Number.isFinite(s.weightKg) ? s.weightKg : null,
+    }));
+}
+
 export type Activity = {
   id: string;
   userId: string;
@@ -25,6 +63,7 @@ export type Activity = {
   distanceM: number | null;
   elevationGainM: number | null;
   route: number[][] | null;
+  strengthSets: StrengthSet[] | null;
   avgHr: number | null;
   maxHr: number | null;
   activeCalories: number | null;
@@ -46,6 +85,8 @@ export type ActivityInput = {
   elevationGainM?: number | null;
   /** Polyline reduzida no formato [[latitude, longitude], ...]. */
   route?: number[][] | null;
+  /** Séries de musculação (só treino de força). */
+  strengthSets?: StrengthSet[] | null;
   avgHr?: number | null;
   maxHr?: number | null;
   activeCalories?: number | null;
@@ -68,6 +109,7 @@ export type ActivityRow = {
   distance_m: number | null;
   elevation_gain_m: number | null;
   route: number[][] | null;
+  strength_sets: StrengthSetRow[] | null;
   avg_hr: number | null;
   max_hr: number | null;
   active_calories: number | null;
@@ -91,6 +133,7 @@ export function activityRowToDomain(row: ActivityRow): Activity {
     distanceM: row.distance_m,
     elevationGainM: row.elevation_gain_m,
     route: row.route,
+    strengthSets: strengthSetsFromRow(row.strength_sets),
     avgHr: row.avg_hr,
     maxHr: row.max_hr,
     activeCalories: row.active_calories,
@@ -114,6 +157,7 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     distance_m: input.distanceM ?? null,
     elevation_gain_m: input.elevationGainM ?? null,
     route: input.route ?? null,
+    strength_sets: strengthSetsToRow(input.strengthSets),
     avg_hr: input.avgHr ?? null,
     max_hr: input.maxHr ?? null,
     active_calories: input.activeCalories ?? null,

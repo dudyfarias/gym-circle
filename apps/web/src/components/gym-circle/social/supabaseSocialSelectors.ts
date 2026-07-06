@@ -476,6 +476,11 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
               activeCalories: row.workout_active_calories ?? null,
               totalCalories: row.workout_total_calories ?? null,
               route: row.workout_route ?? null,
+              strengthSets:
+                row.workout_strength_sets?.map((s) => ({
+                  reps: s.reps,
+                  weightKg: s.weight_kg ?? null,
+                })) ?? null,
               gymName: row.location_name ?? null,
               locationName: row.location_name ?? null,
               caption: row.caption ?? null,

@@ -17,6 +17,7 @@ const baseRow: ActivityRow = {
   distance_m: null,
   elevation_gain_m: null,
   route: null,
+  strength_sets: null,
   avg_hr: null,
   max_hr: null,
   active_calories: null,

@@ -1894,6 +1894,14 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             movingS: row.moving_s ?? null,
             elevationGainM: row.elevation_gain_m ?? null,
             route: row.route ?? null,
+            strengthSets:
+              (
+                row.strength_sets as
+                  | { reps: number; weight_kg: number | null }[]
+                  | null
+                  | undefined
+              )?.map((s) => ({ reps: s.reps, weightKg: s.weight_kg ?? null })) ??
+              null,
             workoutDate: row.workout_date,
             createdAt: row.created_at,
             caption: row.caption ?? null,

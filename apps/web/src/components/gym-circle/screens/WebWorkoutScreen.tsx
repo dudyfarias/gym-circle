@@ -31,6 +31,7 @@ import { ConfirmSheet } from "../ConfirmSheet";
 import type {
   ComposerActivityContext,
   FinishedWebActivity,
+  StrengthSet,
   WebActivityInput,
 } from "../social/types";
 import {
@@ -127,6 +128,10 @@ export function WebWorkoutScreen({
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  // Séries de musculação da sessão atual (só treino de força).
+  const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([]);
+  const [setRepsDraft, setSetRepsDraft] = useState("");
+  const [setWeightDraft, setSetWeightDraft] = useState("");
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
@@ -429,8 +434,13 @@ export function WebWorkoutScreen({
         route: isRouteWorkout(session.activityType)
           ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
           : null,
+        strengthSets:
+          session.activityType === "strength" && strengthSets.length > 0
+            ? strengthSets
+            : null,
       });
       clearStoredWorkoutSession();
+      setStrengthSets([]);
       dispatchRest({ type: "reset" });
       onSessionChange?.(false);
       nativeSessionAttachedRef.current = false;
@@ -454,6 +464,7 @@ export function WebWorkoutScreen({
     onFinish,
     onSessionChange,
     session,
+    strengthSets,
     t,
   ]);
 
@@ -461,6 +472,7 @@ export function WebWorkoutScreen({
     clearStoredWorkoutSession();
     dispatchRest({ type: "reset" });
     setSession(null);
+    setStrengthSets([]);
     setDiscardConfirmOpen(false);
     onSessionChange?.(false);
     nativeSessionAttachedRef.current = false;
@@ -785,6 +797,104 @@ export function WebWorkoutScreen({
                   </div>
                 </section>
               )}
+
+              {session.activityType === "strength" ? (
+                <section className="mt-7 rounded-[22px] bg-[#0b0d0e] p-5">
+                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/40">
+                    {t("workout.sets.title")}
+                  </p>
+                  {strengthSets.length > 0 ? (
+                    <ul className="mt-3 grid gap-1.5">
+                      {strengthSets.map((set, index) => (
+                        <li
+                          key={`${index}-${set.reps}-${set.weightKg ?? "bw"}`}
+                          className="flex items-center justify-between rounded-xl bg-white/[0.04] px-3.5 py-2.5"
+                        >
+                          <span className="text-[13px] font-bold text-white/62">
+                            {t("workoutDetail.setNumber", { number: index + 1 })}
+                          </span>
+                          <span className="flex items-center gap-3">
+                            <span className="text-[14px] font-black tabular-nums text-white">
+                              {t("workoutDetail.setReps", { reps: set.reps })}
+                              {set.weightKg != null
+                                ? ` · ${set.weightKg} kg`
+                                : ""}
+                            </span>
+                            <button
+                              aria-label={t("workout.sets.remove")}
+                              className="gc-pressable text-white/40"
+                              onClick={() =>
+                                setStrengthSets((prev) =>
+                                  prev.filter((_, i) => i !== index),
+                                )
+                              }
+                              type="button"
+                            >
+                              <X size={15} strokeWidth={2.6} />
+                            </button>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  <div className="mt-3 flex items-end gap-2">
+                    <label className="flex-1">
+                      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
+                        {t("workout.sets.reps")}
+                      </span>
+                      <input
+                        className="mt-1 w-full rounded-xl bg-white/[0.06] px-3 py-2.5 text-[15px] font-black tabular-nums text-white outline-none"
+                        inputMode="numeric"
+                        onChange={(e) =>
+                          setSetRepsDraft(e.target.value.replace(/[^0-9]/g, ""))
+                        }
+                        placeholder="12"
+                        value={setRepsDraft}
+                      />
+                    </label>
+                    <label className="flex-1">
+                      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
+                        {t("workout.sets.weight")}
+                      </span>
+                      <input
+                        className="mt-1 w-full rounded-xl bg-white/[0.06] px-3 py-2.5 text-[15px] font-black tabular-nums text-white outline-none"
+                        inputMode="decimal"
+                        onChange={(e) =>
+                          setSetWeightDraft(
+                            e.target.value.replace(/[^0-9.,]/g, ""),
+                          )
+                        }
+                        placeholder="20"
+                        value={setWeightDraft}
+                      />
+                    </label>
+                    <button
+                      aria-label={t("workout.sets.add")}
+                      className="gc-pressable grid size-11 place-items-center rounded-xl bg-[var(--gc-blue)] text-black disabled:opacity-40"
+                      disabled={!Number.parseInt(setRepsDraft, 10)}
+                      onClick={() => {
+                        const reps = Number.parseInt(setRepsDraft, 10);
+                        if (!reps || reps <= 0) return;
+                        const weight = Number.parseFloat(
+                          setWeightDraft.replace(",", "."),
+                        );
+                        setStrengthSets((prev) => [
+                          ...prev,
+                          {
+                            reps,
+                            weightKg: Number.isFinite(weight) ? weight : null,
+                          },
+                        ]);
+                        setSetRepsDraft("");
+                        setSetWeightDraft("");
+                      }}
+                      type="button"
+                    >
+                      <Plus size={20} strokeWidth={2.8} />
+                    </button>
+                  </div>
+                </section>
+              ) : null}
 
               {finishError ? (
                 <p className="mt-4 text-center text-[12.5px] font-bold text-[var(--gc-pink)]">
