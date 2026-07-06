@@ -389,6 +389,16 @@
       "emptyGlobal": "No one scored this period yet."
     }
   },
+  "pushPermission": {
+    "title": "Turn on notifications",
+    "body": "Get updates about likes, comments, messages, and progress from your Circle.",
+    "notNow": "Not now",
+    "activate": "Turn on",
+    "activating": "Turning on…",
+    "denied": "Permission was denied. You can enable Gym Circle in Settings > Notifications.",
+    "unsupported": "Notifications are not available in this installation.",
+    "failed": "We couldn't register this iPhone right now. Try again in Settings."
+  },
   "settings": {
     "title": "Settings",
     "openLabel": "Open settings",

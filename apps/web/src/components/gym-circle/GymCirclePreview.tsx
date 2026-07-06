@@ -2565,7 +2565,8 @@ export function GymCirclePreview({
                   setPushEnabled(false);
                 }
               } else {
-                await PushNotificationsService.unregisterPushToken(
+                await PushNotificationsService.unregisterDeviceToken(
+                  social.currentUser.id,
                   services.push,
                 );
                 setPushEnabled(false);

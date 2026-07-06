@@ -111,10 +111,26 @@ describe("Native Feel services", () => {
     await PushNotificationsService.unregisterPushToken(push);
 
     // Token foi mandado pro server pra revoke + storage local foi limpa.
-    // Mesmo que o revoke server falhe (catch silencioso), o storage local
-    // SEMPRE é limpo — garante que o próximo registro pega flow zero.
     expect(push.revokeDeviceToken).toHaveBeenCalledWith("apns-test-token");
     expect(storage.getItem("gym-circle.native-push-token.v1")).toBeNull();
+  });
+
+  it("keeps the local token when logout revocation fails so it can retry", async () => {
+    const storage = createStorage();
+    storage.setItem(
+      "gym-circle.native-push-token.v2",
+      JSON.stringify({ token: "apns-retry-token", userId: "user-1" }),
+    );
+    vi.stubGlobal("window", { localStorage: storage });
+    const push = {
+      saveDeviceToken: vi.fn(),
+      revokeDeviceToken: vi.fn().mockRejectedValue(new Error("offline")),
+    } as unknown as PushService;
+
+    await expect(
+      PushNotificationsService.revokeDeviceTokenOnLogout("user-1", push),
+    ).resolves.toBe(false);
+    expect(storage.getItem("gym-circle.native-push-token.v2")).not.toBeNull();
   });
 
   it("unregisterPushToken is a no-op when no token was stored", async () => {

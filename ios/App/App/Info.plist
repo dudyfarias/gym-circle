@@ -60,7 +60,7 @@
 		<string>remote-notification</string>
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
-	<string>Para te avisar quando alguém curtir, comentar ou seguir você no Gym Circle.</string>
+	<string>Para te avisar quando alguém enviar uma mensagem, curtir ou comentar seu treino no Gym Circle.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

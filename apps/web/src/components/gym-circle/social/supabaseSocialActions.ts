@@ -1235,7 +1235,10 @@ export function createSocialActions(
         return conversationId;
       },
       async signOut() {
-        await PushNotificationsService.unregisterPushToken(services.push);
+        await PushNotificationsService.revokeDeviceTokenOnLogout(
+          currentUserId,
+          services.push,
+        );
         clearNativeFeelCaches();
         // Sprint 2.1: limpa o Set de "imagens já carregadas" pra evitar
         // que avatares/posts do user A vazem visualmente no primeiro
