@@ -12,6 +12,10 @@ import {
   type ExportedVapidKeys,
   type PushSubscription as BrowserPushSubscription,
 } from "@negrel/webpush";
+import {
+  activityDateForReminder,
+  isActivityReminder,
+} from "./reminder-rules.ts";
 
 type PushData = Record<string, string>;
 
@@ -446,6 +450,40 @@ Deno.serve(async (request: Request) => {
       { error: "user_id, kind, title and body are required" },
       400,
     );
+  }
+
+  if (isActivityReminder(payload)) {
+    const activityDate = activityDateForReminder(payload);
+    const activityResult = await supabase
+      .from("user_activity_days")
+      .select("id")
+      .eq("user_id", payload.user_id)
+      .eq("activity_date", activityDate)
+      .limit(1);
+
+    if (activityResult.error) {
+      // Falha fechada: é melhor não enviar um lembrete do que incomodar quem
+      // pode já ter treinado ou publicado hoje.
+      return jsonResponse(
+        {
+          error: "activity_reminder_check_failed",
+          suppressed: true,
+        },
+        503,
+      );
+    }
+
+    if ((activityResult.data ?? []).length > 0) {
+      return jsonResponse({
+        sent: 0,
+        failed: 0,
+        total: 0,
+        noTargets: false,
+        suppressed: true,
+        reason: "active_today",
+        activity_date: activityDate,
+      });
+    }
   }
 
   const [tokensResult, subscriptionsResult] = await Promise.all([
