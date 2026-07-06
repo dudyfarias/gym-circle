@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
@@ -11,7 +11,6 @@ import {
   MessageCircle,
   MoreHorizontal,
   Send,
-  Video,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
@@ -24,7 +23,6 @@ import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
 import type { EnrichedPost, EnrichedUser, WorkoutDetail } from "../social/types";
 import { MediaCarousel } from "./MediaCarousel";
-import { PinchZoomImage } from "./PinchZoomImage";
 import { StreakBadge } from "./StreakBadge";
 
 type SocialPostCardProps = {
@@ -89,26 +87,25 @@ function SocialPostCardComponent({
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [sharingToUserId, setSharingToUserId] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [videoVisible, setVideoVisible] = useState(false);
   // Double-tap-to-like (gesto do Instagram): coração estoura no centro da mídia.
   const [heartBurst, setHeartBurst] = useState(false);
   const lastTapRef = useRef(0);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const mediaType = post.mediaType ?? "image";
-  // Sprint 3.6 bug fix (image quality):
-  // - `imagePreviewUrl` = thumbnail 640px → paint imediato no scroll
-  //   (combinado com blurDataUrl da Sprint 2.2 = transição super suave).
-  // - `imageHqUrl` = imageUrl 1920px → decode em background no
-  //   PinchZoomImage, troca quando pronto. Se não houver thumbnail (posts
-  //   antigos sem pipeline da 2.4), `imageUrl` já é exibido direto e
-  //   `hqSrc` fica `undefined` (no-op).
-  const imagePreviewUrl = post.thumbnailUrl ?? post.imageUrl;
-  const imageHqUrl =
-    post.thumbnailUrl && post.imageUrl !== post.thumbnailUrl
-      ? post.imageUrl
-      : undefined;
-  const videoPosterUrl = post.posterUrl ?? post.thumbnailUrl ?? undefined;
+  const mediaItems =
+    post.media && post.media.length > 0
+      ? post.media
+      : [
+          {
+            mediaType: post.mediaType ?? "image",
+            imageUrl: post.imageUrl,
+            thumbnailUrl: post.thumbnailUrl ?? null,
+            posterUrl: post.posterUrl ?? null,
+            blurDataUrl: post.blurDataUrl ?? null,
+            mediaWidth: post.mediaWidth ?? null,
+            mediaHeight: post.mediaHeight ?? null,
+            mediaDurationSeconds: post.mediaDurationSeconds ?? null,
+          },
+        ];
   const isPostOwner = post.userId === currentUserId;
   const acceptedParticipants = post.acceptedParticipants ?? [];
   const pendingParticipants = post.pendingParticipants ?? [];
@@ -196,30 +193,6 @@ function SocialPostCardComponent({
     simulateHaptic("comment");
     onOpenComments?.(post.id);
   }
-
-  useEffect(() => {
-    if (mediaType !== "video") return;
-    const node = videoRef.current;
-    if (!node || typeof IntersectionObserver === "undefined") return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        const active = Boolean(entry?.isIntersecting && entry.intersectionRatio >= 0.65);
-        setVideoVisible(active);
-        if (active) {
-          void node.play().catch(() => undefined);
-        } else {
-          node.pause();
-        }
-      },
-      { threshold: [0, 0.65, 1] },
-    );
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      node.pause();
-    };
-  }, [mediaType, post.id]);
 
   async function sharePost(receiverId: string) {
     if (!onShareToChat || sharingToUserId) return;
@@ -359,59 +332,14 @@ function SocialPostCardComponent({
         onTouchStart={handleMediaTouchStart}
         onTouchEnd={handleMediaTouchEnd}
       >
-      {/* Sprint 13 — carrossel só quando há >1 mídia. 1 mídia renderiza
-          EXATAMENTE como antes (zero mudança de comportamento). */}
-      {post.media && post.media.length > 1 ? (
+      {/* Sprint 13 — carrossel/mídia unificados.
+          Importante para vídeo único: antes ele caía num `<video muted>` antigo
+          sem controle de som; agora passa pelo mesmo player de carrossel. */}
         <MediaCarousel
           altText={t("feed.post.openProfile", { name: post.author.name })}
-          media={post.media}
+          media={mediaItems}
           priority={post.author.username === "edu.fit"}
         />
-      ) : (
-      <div
-        className={[
-          "relative overflow-hidden bg-black",
-          mediaType === "video" ? "aspect-[4/5]" : "",
-        ].join(" ")}
-      >
-        {mediaType === "video" ? (
-          <video
-            // Toca só quando está visível para não carregar vários vídeos no boot do iOS WebView.
-            autoPlay={videoVisible}
-            className="h-full w-full object-cover"
-            loop
-            muted
-            playsInline
-            poster={videoPosterUrl}
-            preload="metadata"
-            ref={videoRef}
-            src={post.imageUrl}
-          />
-        ) : (
-          <PinchZoomImage
-            alt={t("feed.post.openProfile", { name: post.author.name })}
-            blurDataUrl={post.blurDataUrl}
-            className="w-full"
-            hqSrc={imageHqUrl}
-            priority={post.author.username === "edu.fit"}
-            sizes="(max-width: 480px) 100vw, 480px"
-            src={imagePreviewUrl}
-          />
-        )}
-        {/* Sprint 5 — Streak overlay REMOVIDO. Antes tinha um gradient
-            full-width na imagem com o flame chip "X está há N dias treinando"
-            + Vídeo chip. Era o elemento mais "loud" do card. Movemos o
-            sinal de streak pro StreakBadge xs no header e o badge de vídeo
-            vira chip pequeno no canto. Resultado: imagem limpa, foco no
-            conteúdo (igual Instagram). */}
-        {mediaType === "video" ? (
-          <div className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/56 px-2 py-1 text-[10px] font-black text-white/86 backdrop-blur-md">
-            <Video size={11} strokeWidth={2.6} />
-            {t("feed.post.videoBadge")}
-          </div>
-        ) : null}
-      </div>
-      )}
 
         {/* Coração do duplo-toque — estoura no centro da mídia (~520ms). Mesmo
             visual do StoryViewer (azul + glow), pointer-events-none. */}
