@@ -138,6 +138,7 @@ export function WebWorkoutScreen({
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [setsInputFocused, setSetsInputFocused] = useState(false);
   // Séries de musculação da sessão atual (só treino de força). Linhas
   // editáveis (reps × carga); planilha pré-carrega com exercício + reps alvo.
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([]);
@@ -540,6 +541,26 @@ export function WebWorkoutScreen({
     });
   }, []);
 
+  const scrollToSets = useCallback(() => {
+    setsSectionRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, []);
+
+  const handleStrengthSetInputBlur = useCallback(() => {
+    window.setTimeout(() => {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLInputElement &&
+        active.dataset.workoutSetInput === "true"
+      ) {
+        return;
+      }
+      setSetsInputFocused(false);
+    }, 0);
+  }, []);
+
   const elapsedS = session ? workoutElapsedSeconds(session, nowMs) : 0;
   const pausedS = session ? workoutPausedSeconds(session, nowMs) : 0;
   const isPaused = Boolean(session && session.pausedAtMs !== null);
@@ -615,6 +636,18 @@ export function WebWorkoutScreen({
         : gpsStatus === "denied"
           ? t("workout.gps.off")
           : t("workout.gps.searching");
+  const strengthExerciseCount = new Set(
+    strengthSets
+      .map((set) => set.exercise)
+      .filter((exercise): exercise is string => Boolean(exercise)),
+  ).size;
+  const filledStrengthSetCount = strengthSets.filter(
+    (set) => set.weightKg !== null,
+  ).length;
+  const currentStrengthExercise =
+    strengthSets.find((set) => set.weightKg === null)?.exercise ??
+    strengthSets[0]?.exercise ??
+    null;
 
   return (
     <>
@@ -738,7 +771,7 @@ export function WebWorkoutScreen({
               </div>
             </header>
 
-            <main className="flex flex-1 flex-col pb-[170px]">
+            <main className="flex flex-1 flex-col pb-[150px]">
               <section className="pt-10 text-center">
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/42">
                   {t("workout.elapsed")}
@@ -764,6 +797,52 @@ export function WebWorkoutScreen({
                   />
                 ))}
               </section>
+
+              {session.activityType === "strength" ? (
+                <section className="mt-5 overflow-hidden rounded-[28px] border border-[var(--gc-brand)]/22 bg-[linear-gradient(135deg,rgba(92,232,255,0.16),rgba(151,255,0,0.07)_42%,rgba(11,13,14,0.97))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.32)]">
+                  <div className="flex items-start gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-[15px] bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
+                      <Dumbbell size={19} strokeWidth={2.5} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-black text-white">
+                        {t("workout.sets.guideTitle")}
+                      </p>
+                      <p className="mt-0.5 text-[11.5px] font-bold leading-snug text-white/55">
+                        {t("workout.sets.guideBody")}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-black/34 px-3 py-1.5 text-[10.5px] font-black text-white/72">
+                      {t("workout.sets.progress", {
+                        done: filledStrengthSetCount,
+                        total: strengthSets.length,
+                      })}
+                    </span>
+                    {strengthExerciseCount > 0 ? (
+                      <span className="rounded-full bg-black/34 px-3 py-1.5 text-[10.5px] font-black text-white/72">
+                        {t("workout.sets.exerciseCount", {
+                          count: strengthExerciseCount,
+                        })}
+                      </span>
+                    ) : null}
+                    {currentStrengthExercise ? (
+                      <span className="max-w-full truncate rounded-full bg-black/34 px-3 py-1.5 text-[10.5px] font-black text-[var(--gc-brand)]">
+                        {t("workout.sets.current")}: {currentStrengthExercise}
+                      </span>
+                    ) : null}
+                  </div>
+                  <button
+                    className="gc-pressable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[13px] font-black text-black"
+                    onClick={scrollToSets}
+                    type="button"
+                  >
+                    {t("workout.sets.jump")}
+                    <ChevronDown size={17} strokeWidth={2.7} />
+                  </button>
+                </section>
+              ) : null}
 
               {session.activityType === "strength" ? (
                 <section className="mt-6 rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-5">
@@ -872,16 +951,26 @@ export function WebWorkoutScreen({
 
               {session.activityType === "strength" ? (
                 <section
-                  className="mt-7 rounded-[22px] bg-[#0b0d0e] p-5"
+                  className="mt-7 scroll-mt-5 rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
                   ref={setsSectionRef}
                 >
-                  <p className="text-[11px] font-black uppercase tracking-[0.14em] text-white/40">
-                    {t("workout.sets.title")}
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--gc-brand)]">
+                        {t("workout.sets.title")}
+                      </p>
+                      <h3 className="mt-1 text-[21px] font-black leading-tight text-white">
+                        {t("workout.sets.subtitle")}
+                      </h3>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-black text-white/58">
+                      {filledStrengthSetCount}/{strengthSets.length}
+                    </span>
+                  </div>
                   {strengthSets.length > 0 ? (
                     <div
                       aria-hidden="true"
-                      className="mt-3 grid grid-cols-[20px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/30"
+                      className="mt-5 grid grid-cols-[22px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35"
                     >
                       <span />
                       <span>{t("workout.sets.reps")}</span>
@@ -889,6 +978,11 @@ export function WebWorkoutScreen({
                       <span>kg</span>
                       <span />
                     </div>
+                  ) : null}
+                  {strengthSets.length === 0 ? (
+                    <p className="mt-4 rounded-[18px] bg-white/[0.045] px-4 py-3 text-[12px] font-bold leading-snug text-white/50">
+                      {t("workout.sets.emptyHint")}
+                    </p>
                   ) : null}
                   <div className="mt-3 grid gap-2">
                     {strengthSets.map((set, index) => {
@@ -973,14 +1067,16 @@ export function WebWorkoutScreen({
                               ) : null}
                             </div>
                           ) : null}
-                          <div className="grid grid-cols-[20px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2">
-                            <span className="w-4 shrink-0 text-[12px] font-black tabular-nums text-white/35">
+                          <div className="grid grid-cols-[22px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2">
+                            <span className="w-5 shrink-0 text-[12px] font-black tabular-nums text-white/40">
                               {index + 1}
                             </span>
                             <input
                               aria-label={t("workout.sets.reps")}
-                              className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                              className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                              data-workout-set-input="true"
                               inputMode="numeric"
+                              onBlur={handleStrengthSetInputBlur}
                               onChange={(e) => {
                                 const v = e.target.value.replace(/[^0-9]/g, "");
                                 setStrengthSets((prev) =>
@@ -991,6 +1087,7 @@ export function WebWorkoutScreen({
                                   ),
                                 );
                               }}
+                              onFocus={() => setSetsInputFocused(true)}
                               placeholder={t("workout.sets.reps")}
                               value={set.reps ? String(set.reps) : ""}
                             />
@@ -999,8 +1096,10 @@ export function WebWorkoutScreen({
                             </span>
                             <input
                               aria-label={t("workout.sets.weight")}
-                              className="min-w-0 flex-1 rounded-xl bg-white/[0.06] px-3 py-2.5 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                              className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                              data-workout-set-input="true"
                               inputMode="decimal"
+                              onBlur={handleStrengthSetInputBlur}
                               onChange={(e) => {
                                 const v = e.target.value.replace(/[^0-9.,]/g, "");
                                 const w = Number.parseFloat(v.replace(",", "."));
@@ -1015,6 +1114,7 @@ export function WebWorkoutScreen({
                                   ),
                                 );
                               }}
+                              onFocus={() => setSetsInputFocused(true)}
                               placeholder="0"
                               value={set.weightKg != null ? String(set.weightKg) : ""}
                             />
@@ -1036,7 +1136,7 @@ export function WebWorkoutScreen({
                     })}
                   </div>
                   <button
-                    className="gc-pressable mt-3 flex items-center gap-1.5 text-[13px] font-black text-[var(--gc-blue)]"
+                    className="gc-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white/[0.075] text-[13px] font-black text-[var(--gc-brand)]"
                     onClick={addStrengthSet}
                     type="button"
                   >
@@ -1052,16 +1152,23 @@ export function WebWorkoutScreen({
                 </p>
               ) : null}
 
-              <footer className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-white/[0.06] bg-black/94 px-5 pb-[calc(var(--gc-safe-bottom)+10px)] pt-3 backdrop-blur-xl">
+              <footer
+                className={[
+                  "fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] bg-gradient-to-t from-black via-black/96 to-black/0 px-5 pb-[calc(var(--gc-safe-bottom)+10px)] pt-7 backdrop-blur-xl transition-all duration-200",
+                  setsInputFocused
+                    ? "pointer-events-none translate-y-12 opacity-0"
+                    : "translate-y-0 opacity-100",
+                ].join(" ")}
+              >
                 <div className="grid grid-cols-3 items-end gap-4">
                   <button
                     aria-label={t("workout.finish")}
-                    className="gc-pressable grid justify-items-center gap-2 text-[11px] font-black text-white/60"
+                    className="gc-pressable grid justify-items-center gap-1.5 text-[10.5px] font-black text-white/60"
                     disabled={finishing}
                     onClick={() => setFinishConfirmOpen(true)}
                     type="button"
                   >
-                    <span className="grid size-16 place-items-center rounded-full bg-[#ff2d55] text-white">
+                    <span className="grid size-14 place-items-center rounded-full bg-[#ff2d55] text-white">
                       {finishing ? (
                         <span className="size-5 animate-spin rounded-full border-2 border-white/35 border-t-white" />
                       ) : (
@@ -1074,11 +1181,11 @@ export function WebWorkoutScreen({
                     aria-label={
                       isPaused ? t("workout.resume") : t("workout.pause")
                     }
-                    className="gc-pressable grid justify-items-center gap-2 text-[11px] font-black text-white"
+                    className="gc-pressable grid justify-items-center gap-1.5 text-[10.5px] font-black text-white"
                     onClick={togglePause}
                     type="button"
                   >
-                    <span className="grid size-[76px] place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)] shadow-[0_0_28px_rgba(92,232,255,0.2)]">
+                    <span className="grid size-[66px] place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)] shadow-[0_0_28px_rgba(92,232,255,0.2)]">
                       {isPaused ? (
                         <Play fill="currentColor" size={25} />
                       ) : (
@@ -1089,18 +1196,18 @@ export function WebWorkoutScreen({
                   </button>
                   <button
                     aria-label={t("workout.minimize")}
-                    className="gc-pressable grid justify-items-center gap-2 text-[11px] font-black text-white/60"
+                    className="gc-pressable grid justify-items-center gap-1.5 text-[10.5px] font-black text-white/60"
                     onClick={onClose}
                     type="button"
                   >
-                    <span className="grid size-16 place-items-center rounded-full bg-[#17191b] text-white">
+                    <span className="grid size-14 place-items-center rounded-full bg-[#17191b] text-white">
                       <ChevronDown size={23} strokeWidth={2.5} />
                     </span>
                     {t("workout.minimizeShort")}
                   </button>
                 </div>
                 <button
-                  className="gc-pressable mt-5 w-full py-2 text-center text-[12px] font-black text-white/30"
+                  className="gc-pressable mt-2 w-full py-1.5 text-center text-[11px] font-black text-white/28"
                   onClick={() => setDiscardConfirmOpen(true)}
                   type="button"
                 >

@@ -253,9 +253,26 @@ export function WorkoutExercisePicker({
                 <span className="block text-[13.5px] font-black text-white">
                   {english ? exercise.nameEn : exercise.namePt}
                 </span>
+                {!english ? (
+                  <span className="mt-0.5 block text-[10.5px] font-black text-[var(--gc-brand)]/80">
+                    {exercise.nameEn}
+                  </span>
+                ) : null}
                 <span className="mt-0.5 line-clamp-1 block text-[10.5px] font-semibold text-white/38">
                   {english ? exercise.descriptionEn : exercise.descriptionPt}
                 </span>
+                {exercise.equipment.length > 0 ? (
+                  <span className="mt-2 flex flex-wrap gap-1.5">
+                    {exercise.equipment.slice(0, 3).map((equipment) => (
+                      <span
+                        className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9.5px] font-black uppercase tracking-[0.04em] text-white/42"
+                        key={equipment}
+                      >
+                        {equipment}
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
               </span>
               <Plus className="text-[var(--gc-brand)]" size={18} />
             </button>
