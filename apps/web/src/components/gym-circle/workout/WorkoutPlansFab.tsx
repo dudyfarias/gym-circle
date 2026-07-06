@@ -512,19 +512,19 @@ export function WorkoutPlansFab({
               </button>
             </div>
           ) : (
-            <div className="grid gap-2.5">
+            <div className="grid min-w-0 gap-2.5">
               {plans.map((plan) => (
                 <div
                   key={plan.id}
-                  className="rounded-[18px] bg-white/[0.04] p-4"
+                  className="min-w-0 overflow-hidden rounded-[18px] bg-white/[0.04] p-4"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center justify-between gap-2">
                     <p className="min-w-0 flex-1 truncate text-[15px] font-black text-white">
                       {plan.name}
                     </p>
                     <button
                       aria-label={t("workoutPlans.edit")}
-                      className="gc-pressable text-white/40"
+                      className="gc-pressable shrink-0 text-white/40"
                       onClick={() => {
                         setListOpen(false);
                         openEditEditor(plan);
@@ -535,14 +535,14 @@ export function WorkoutPlansFab({
                     </button>
                     <button
                       aria-label={t("workoutPlans.delete")}
-                      className="gc-pressable text-white/40"
+                      className="gc-pressable shrink-0 text-white/40"
                       onClick={() => setDeleteTarget(plan)}
                       type="button"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
-                  <p className="mt-1 truncate text-[12.5px] font-semibold text-white/45">
+                  <p className="mt-1 block w-full max-w-full truncate whitespace-nowrap text-[12.5px] font-semibold text-white/45">
                     {plan.exercises
                       .map((e) =>
                         e.sets
@@ -554,7 +554,7 @@ export function WorkoutPlansFab({
                       .join(" · ") || t("workoutPlans.noExercises")}
                   </p>
                   <button
-                    className="gc-pressable mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-[var(--gc-blue)] py-2.5 text-[13.5px] font-black text-black disabled:opacity-40"
+                    className="gc-pressable mt-3 flex w-full max-w-full items-center justify-center gap-1.5 rounded-full bg-[var(--gc-blue)] px-3 py-2.5 text-[13.5px] font-black text-black disabled:opacity-40"
                     disabled={plan.exercises.length === 0}
                     onClick={() => {
                       setListOpen(false);
@@ -562,8 +562,8 @@ export function WorkoutPlansFab({
                     }}
                     type="button"
                   >
-                    <Play fill="currentColor" size={14} />
-                    {t("workoutPlans.start")}
+                    <Play className="shrink-0" fill="currentColor" size={14} />
+                    <span className="min-w-0 truncate">{t("workoutPlans.start")}</span>
                   </button>
                 </div>
               ))}
@@ -974,12 +974,12 @@ function SheetShell({
   const { t } = useTranslation();
   return (
     <div className="fixed inset-0 z-[94] flex justify-center overflow-y-auto bg-black/92 backdrop-blur-md">
-      <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+14px)]">
-        <header className="mb-5 flex items-center justify-between">
-          <p className="text-[19px] font-black text-white">{title}</p>
+      <div className="flex min-h-full min-w-0 w-full max-w-[480px] flex-col overflow-x-hidden px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+14px)]">
+        <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
+          <p className="min-w-0 flex-1 truncate text-[19px] font-black text-white">{title}</p>
           <button
             aria-label={t("common.close")}
-            className="gc-pressable grid size-9 place-items-center rounded-full border border-white/[0.08] bg-white/[0.08] text-white/82"
+            className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-white/[0.08] text-white/82"
             onClick={onClose}
             type="button"
           >
