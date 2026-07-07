@@ -7,6 +7,7 @@ import { AppBootEffects } from "@/components/gym-circle/AppBootEffects";
 // Sprint 4.7 hotfix: provider de i18n no root (resolve bug de re-render
 // inconsistente em troca de idioma).
 import { I18nClientProvider } from "@/i18n";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://gym-circle-rust.vercel.app"),
@@ -67,6 +68,7 @@ export default function RootLayout({
             children
           )}
         </I18nClientProvider>
+        <Analytics />
       </body>
     </html>
   );
