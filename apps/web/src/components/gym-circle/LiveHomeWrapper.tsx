@@ -29,6 +29,8 @@ const POST_IMAGE_QUALITY = 0.88;
 const POST_THUMBNAIL_MAX_EDGE = 640;
 const POST_THUMBNAIL_QUALITY = 0.82;
 const POSTER_QUALITY = 0.88;
+const AVATAR_IMAGE_MAX_EDGE = 512;
+const AVATAR_IMAGE_QUALITY = 0.9;
 // Blur placeholder: 10x10px é o sweet spot — base64 ~500 bytes,
 // renderiza como "watercolor" suave que casa com qualquer foto.
 const BLUR_PLACEHOLDER_EDGE = 10;
@@ -212,6 +214,57 @@ async function prepareImageVariants(file: File) {
     return { feed, thumbnail, blurDataUrl };
   } finally {
     image.src = "";
+  }
+}
+
+async function prepareAvatarUploadFile(file: File) {
+  assertMediaFileCanUpload(file);
+  if (getMediaFileType(file) !== "image") {
+    throw new Error("Escolha uma imagem para o avatar.");
+  }
+  if (
+    !isResizableImage(file) ||
+    file.size > MAX_IMAGE_OPTIMIZATION_SOURCE_BYTES
+  ) {
+    return file;
+  }
+
+  try {
+    const image = await loadImageFile(file);
+    try {
+      const longestEdge = Math.max(image.naturalWidth, image.naturalHeight);
+      if (!longestEdge) return file;
+
+      const ratio = Math.min(1, AVATAR_IMAGE_MAX_EDGE / longestEdge);
+      const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+      const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+      const canvas = document.createElement("canvas");
+      try {
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) return file;
+        context.drawImage(image, 0, 0, width, height);
+        const blob = await new Promise<Blob | null>((resolve) => {
+          canvas.toBlob(resolve, "image/jpeg", AVATAR_IMAGE_QUALITY);
+        });
+        if (!blob) return file;
+        const baseName =
+          file.name.replace(/\.[^.]+$/, "") || "gym-circle-avatar";
+        return new File([blob], `${baseName}-avatar.jpg`, {
+          lastModified: file.lastModified,
+          type: "image/jpeg",
+        });
+      } finally {
+        canvas.width = 1;
+        canvas.height = 1;
+      }
+    } finally {
+      image.src = "";
+    }
+  } catch (error) {
+    console.warn("Otimização do avatar falhou; enviando original:", error);
+    return file;
   }
 }
 
@@ -477,7 +530,7 @@ function AuthenticatedShell({ userId }: { userId: string }) {
     [uploadTo],
   );
   const onUploadAvatar = useCallback(
-    (file: File) => uploadTo("avatars", file),
+    async (file: File) => uploadTo("avatars", await prepareAvatarUploadFile(file)),
     [uploadTo],
   );
   const onUploadChatImage = useCallback(

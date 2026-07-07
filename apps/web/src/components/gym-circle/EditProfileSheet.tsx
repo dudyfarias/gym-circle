@@ -102,6 +102,11 @@ export function EditProfileSheet({
     try {
       const url = await onUploadAvatar(file);
       setAvatarUrl(url);
+      // Avatar é uma ação independente do resto do formulário: se o usuário
+      // escolhe a foto e fecha a sheet sem tocar em "Salvar", a imagem não
+      // deve ficar perdida no Storage. Persistimos imediatamente e o botão
+      // final continua servindo para nome, bio, academia etc.
+      await onSave({ avatarUrl: url });
     } catch (err) {
       setError((err as Error).message ?? t("editProfile.avatar.uploadFailed"));
     } finally {
