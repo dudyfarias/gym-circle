@@ -79,6 +79,35 @@ type WebWorkoutScreenProps = {
   onSessionChange?: (active: boolean) => void;
 };
 
+type StrengthExerciseGroup = {
+  completed: boolean;
+  completedCount: number;
+  exerciseId: string | null;
+  key: string;
+  name: string;
+  sets: Array<{ index: number; set: StrengthSet }>;
+  techniqueId: string | null;
+  techniqueName: string | null;
+  techniqueNotes: string | null;
+  totalCount: number;
+};
+
+function newStrengthSetFromTemplate(
+  template?: StrengthSet | null,
+): StrengthSet {
+  return {
+    reps: template?.reps ?? 0,
+    weightKg: null,
+    exercise: template?.exercise ?? null,
+    exerciseId: template?.exerciseId ?? null,
+    targetKind: template?.targetKind ?? null,
+    durationSeconds: template?.durationSeconds ?? null,
+    techniqueId: template?.techniqueId ?? null,
+    techniqueName: template?.techniqueName ?? null,
+    techniqueNotes: template?.techniqueNotes ?? null,
+  };
+}
+
 const TYPE_CARDS: Array<{
   type: WorkoutType;
   icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
@@ -153,6 +182,11 @@ export function WebWorkoutScreen({
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
   const setsSectionRef = useRef<HTMLElement>(null);
+  const exerciseCarouselRef = useRef<HTMLDivElement>(null);
+  const exerciseCardRefs = useRef<Array<HTMLElement | null>>([]);
+  const lastAutoAdvancedExerciseKeyRef = useRef<string | null>(null);
+  const [activeStrengthExerciseIndex, setActiveStrengthExerciseIndex] =
+    useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -519,17 +553,7 @@ export function WebWorkoutScreen({
   const addStrengthSet = useCallback(() => {
     setStrengthSets((prev) => [
       ...prev,
-      {
-        reps: 0,
-        weightKg: null,
-        exercise: prev[prev.length - 1]?.exercise ?? null,
-        exerciseId: prev[prev.length - 1]?.exerciseId ?? null,
-        targetKind: prev[prev.length - 1]?.targetKind ?? null,
-        durationSeconds: prev[prev.length - 1]?.durationSeconds ?? null,
-        techniqueId: prev[prev.length - 1]?.techniqueId ?? null,
-        techniqueName: prev[prev.length - 1]?.techniqueName ?? null,
-        techniqueNotes: prev[prev.length - 1]?.techniqueNotes ?? null,
-      },
+      newStrengthSetFromTemplate(prev[prev.length - 1]),
     ]);
     // O dock de pausar/encerrar é fixo. Leva a nova linha ao centro para que
     // ela nunca nasça escondida atrás dos controles em telas estreitas.
@@ -541,11 +565,72 @@ export function WebWorkoutScreen({
     });
   }, []);
 
-  const scrollToSets = useCallback(() => {
-    setsSectionRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
+  const addStrengthSetForGroup = useCallback(
+    (group: StrengthExerciseGroup) => {
+      setStrengthSets((prev) => {
+        const lastEntry = group.sets[group.sets.length - 1];
+        const template = lastEntry ? prev[lastEntry.index] : null;
+        const insertAt =
+          group.sets.length > 0
+            ? Math.max(...group.sets.map((entry) => entry.index)) + 1
+            : prev.length;
+        const nextSet = newStrengthSetFromTemplate(template);
+        return [...prev.slice(0, insertAt), nextSet, ...prev.slice(insertAt)];
+      });
+      window.requestAnimationFrame(() => {
+        exerciseCardRefs.current[activeStrengthExerciseIndex]?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      });
+    },
+    [activeStrengthExerciseIndex],
+  );
+
+  const updateStrengthSetReps = useCallback((index: number, raw: string) => {
+    const value = raw.replace(/[^0-9]/g, "");
+    setStrengthSets((prev) =>
+      prev.map((set, i) =>
+        i === index
+          ? { ...set, reps: Number.parseInt(value, 10) || 0 }
+          : set,
+      ),
+    );
+  }, []);
+
+  const updateStrengthSetWeight = useCallback((index: number, raw: string) => {
+    const value = raw.replace(/[^0-9.,]/g, "");
+    const weight = Number.parseFloat(value.replace(",", "."));
+    setStrengthSets((prev) =>
+      prev.map((set, i) =>
+        i === index
+          ? { ...set, weightKg: Number.isFinite(weight) ? weight : null }
+          : set,
+      ),
+    );
+  }, []);
+
+  const removeStrengthSet = useCallback((index: number) => {
+    setStrengthSets((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const handleStrengthExerciseCarouselScroll = useCallback(() => {
+    const scroller = exerciseCarouselRef.current;
+    if (!scroller) return;
+    const center = scroller.scrollLeft + scroller.clientWidth / 2;
+    let nextIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+    exerciseCardRefs.current.forEach((card, index) => {
+      if (!card) return;
+      const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+      const distance = Math.abs(center - cardCenter);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        nextIndex = index;
+      }
     });
+    setActiveStrengthExerciseIndex(nextIndex);
   }, []);
 
   const handleStrengthSetInputBlur = useCallback(() => {
@@ -560,6 +645,36 @@ export function WebWorkoutScreen({
       setSetsInputFocused(false);
     }, 0);
   }, []);
+
+  const openExerciseInfo = useCallback(
+    (exerciseId: string | null) => {
+      if (!exerciseId) return;
+      const exercise = catalogExercises.find((item) => item.id === exerciseId);
+      if (!exercise) return;
+      const group = muscleGroups.find(
+        (item) => item.slug === exercise.primaryMuscleGroupSlug,
+      );
+      setCatalogInfo(
+        exerciseCatalogInfo(
+          exercise,
+          i18n.language,
+          i18n.language.startsWith("en") ? group?.nameEn : group?.namePt,
+        ),
+      );
+    },
+    [catalogExercises, i18n.language, muscleGroups],
+  );
+
+  const openTechniqueInfo = useCallback(
+    (techniqueId: string | null) => {
+      if (!techniqueId) return;
+      const technique = techniques.find((item) => item.id === techniqueId);
+      if (technique) {
+        setCatalogInfo(techniqueCatalogInfo(technique, i18n.language));
+      }
+    },
+    [i18n.language, techniques],
+  );
 
   const elapsedS = session ? workoutElapsedSeconds(session, nowMs) : 0;
   const pausedS = session ? workoutPausedSeconds(session, nowMs) : 0;
@@ -622,6 +737,85 @@ export function WebWorkoutScreen({
     ];
   }, [elapsedS, pausedS, session, startedTime, t]);
 
+  const strengthExerciseGroups = useMemo<StrengthExerciseGroup[]>(() => {
+    const groups: Array<
+      Omit<
+        StrengthExerciseGroup,
+        "completed" | "completedCount" | "totalCount"
+      >
+    > = [];
+
+    strengthSets.forEach((set, index) => {
+      const name = set.exercise?.trim() || t("workout.sets.untitledExercise");
+      const exerciseId = set.exerciseId ?? null;
+      const techniqueId = set.techniqueId ?? null;
+      const previous = groups[groups.length - 1];
+      if (
+        previous &&
+        previous.name === name &&
+        previous.exerciseId === exerciseId &&
+        previous.techniqueId === techniqueId
+      ) {
+        previous.sets.push({ index, set });
+        return;
+      }
+      groups.push({
+        exerciseId,
+        key: `${exerciseId ?? name}-${techniqueId ?? "plain"}-${index}`,
+        name,
+        sets: [{ index, set }],
+        techniqueId,
+        techniqueName: set.techniqueName ?? null,
+        techniqueNotes: set.techniqueNotes ?? null,
+      });
+    });
+
+    return groups.map((group) => {
+      const completedCount = group.sets.filter(
+        ({ set }) => set.weightKg !== null,
+      ).length;
+      return {
+        ...group,
+        completed: group.sets.length > 0 && completedCount === group.sets.length,
+        completedCount,
+        totalCount: group.sets.length,
+      };
+    });
+  }, [strengthSets, t]);
+
+  const safeActiveStrengthExerciseIndex =
+    strengthExerciseGroups.length > 0
+      ? Math.min(
+          activeStrengthExerciseIndex,
+          strengthExerciseGroups.length - 1,
+        )
+      : 0;
+
+  useEffect(() => {
+    if (session?.activityType !== "strength") return;
+    const currentGroup = strengthExerciseGroups[safeActiveStrengthExerciseIndex];
+    if (!currentGroup?.completed) return;
+    if (safeActiveStrengthExerciseIndex >= strengthExerciseGroups.length - 1) {
+      return;
+    }
+    if (lastAutoAdvancedExerciseKeyRef.current === currentGroup.key) return;
+    lastAutoAdvancedExerciseKeyRef.current = currentGroup.key;
+    const nextIndex = safeActiveStrengthExerciseIndex + 1;
+    const timeout = window.setTimeout(() => {
+      exerciseCardRefs.current[nextIndex]?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+      setActiveStrengthExerciseIndex(nextIndex);
+    }, 240);
+    return () => window.clearTimeout(timeout);
+  }, [
+    safeActiveStrengthExerciseIndex,
+    session?.activityType,
+    strengthExerciseGroups,
+  ]);
+
   if (!open) return null;
 
   const restProgress =
@@ -636,18 +830,9 @@ export function WebWorkoutScreen({
         : gpsStatus === "denied"
           ? t("workout.gps.off")
           : t("workout.gps.searching");
-  const strengthExerciseCount = new Set(
-    strengthSets
-      .map((set) => set.exercise)
-      .filter((exercise): exercise is string => Boolean(exercise)),
-  ).size;
   const filledStrengthSetCount = strengthSets.filter(
     (set) => set.weightKg !== null,
   ).length;
-  const currentStrengthExercise =
-    strengthSets.find((set) => set.weightKg === null)?.exercise ??
-    strengthSets[0]?.exercise ??
-    null;
 
   return (
     <>
@@ -799,48 +984,236 @@ export function WebWorkoutScreen({
               </section>
 
               {session.activityType === "strength" ? (
-                <section className="mt-5 overflow-hidden rounded-[28px] border border-[var(--gc-brand)]/22 bg-[linear-gradient(135deg,rgba(92,232,255,0.16),rgba(151,255,0,0.07)_42%,rgba(11,13,14,0.97))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.32)]">
-                  <div className="flex items-start gap-3">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-[15px] bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
-                      <Dumbbell size={19} strokeWidth={2.5} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-black text-white">
+                <section className="-mx-5 mt-5 scroll-mt-5" ref={setsSectionRef}>
+                  <div className="flex items-end justify-between gap-3 px-5">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--gc-brand)]">
+                        {t("workout.sets.title")}
+                      </p>
+                      <h3 className="mt-1 truncate text-[22px] font-black leading-tight text-white">
                         {t("workout.sets.guideTitle")}
-                      </p>
-                      <p className="mt-0.5 text-[11.5px] font-bold leading-snug text-white/55">
-                        {t("workout.sets.guideBody")}
-                      </p>
+                      </h3>
                     </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="rounded-full bg-black/34 px-3 py-1.5 text-[10.5px] font-black text-white/72">
+                    <span className="shrink-0 rounded-full bg-white/[0.075] px-3 py-1.5 text-[10.5px] font-black text-white/62">
                       {t("workout.sets.progress", {
                         done: filledStrengthSetCount,
                         total: strengthSets.length,
                       })}
                     </span>
-                    {strengthExerciseCount > 0 ? (
-                      <span className="rounded-full bg-black/34 px-3 py-1.5 text-[10.5px] font-black text-white/72">
-                        {t("workout.sets.exerciseCount", {
-                          count: strengthExerciseCount,
-                        })}
-                      </span>
-                    ) : null}
-                    {currentStrengthExercise ? (
-                      <span className="max-w-full truncate rounded-full bg-black/34 px-3 py-1.5 text-[10.5px] font-black text-[var(--gc-brand)]">
-                        {t("workout.sets.current")}: {currentStrengthExercise}
-                      </span>
-                    ) : null}
                   </div>
-                  <button
-                    className="gc-pressable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white text-[13px] font-black text-black"
-                    onClick={scrollToSets}
-                    type="button"
+
+                  <div
+                    className="gc-scrollbar mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain px-5 pb-2"
+                    data-gc-no-screen-swipe
+                    onScroll={handleStrengthExerciseCarouselScroll}
+                    ref={exerciseCarouselRef}
                   >
-                    {t("workout.sets.jump")}
-                    <ChevronDown size={17} strokeWidth={2.7} />
-                  </button>
+                    {strengthExerciseGroups.length === 0 ? (
+                      <article className="w-[88%] shrink-0 snap-center rounded-[28px] border border-[var(--gc-brand)]/22 bg-[linear-gradient(135deg,rgba(92,232,255,0.16),rgba(151,255,0,0.07)_42%,rgba(11,13,14,0.97))] p-4 shadow-[0_22px_70px_rgba(0,0,0,0.32)]">
+                        <div className="flex items-start gap-3">
+                          <span className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
+                            <Dumbbell size={19} strokeWidth={2.5} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[16px] font-black text-white">
+                              {t("workout.sets.emptyTitle")}
+                            </p>
+                            <p className="mt-1 text-[12px] font-bold leading-snug text-white/55">
+                              {t("workout.sets.emptyHint")}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          className="gc-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[13px] font-black text-black"
+                          onClick={addStrengthSet}
+                          type="button"
+                        >
+                          <Plus size={16} strokeWidth={2.8} />
+                          {t("workout.sets.add")}
+                        </button>
+                      </article>
+                    ) : (
+                      strengthExerciseGroups.map((group, groupIndex) => (
+                        <article
+                          className="w-[88%] shrink-0 snap-center overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
+                          key={group.key}
+                          ref={(node) => {
+                            exerciseCardRefs.current[groupIndex] = node;
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span
+                              className={[
+                                "grid size-11 shrink-0 place-items-center rounded-[16px]",
+                                group.completed
+                                  ? "bg-[#97ff00] text-black"
+                                  : "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]",
+                              ].join(" ")}
+                            >
+                              <Dumbbell size={19} strokeWidth={2.5} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
+                                {groupIndex + 1}/{strengthExerciseGroups.length}
+                              </p>
+                              <h4 className="mt-1 truncate text-[19px] font-black leading-tight text-white">
+                                {group.name}
+                              </h4>
+                              {group.techniqueName ? (
+                                <button
+                                  className="gc-pressable mt-1 flex max-w-full items-center gap-1.5 text-left text-[11px] font-black text-[var(--gc-blue)]"
+                                  onClick={() =>
+                                    openTechniqueInfo(group.techniqueId)
+                                  }
+                                  type="button"
+                                >
+                                  <span className="truncate">
+                                    {group.techniqueName}
+                                    {group.techniqueNotes
+                                      ? ` · ${group.techniqueNotes}`
+                                      : ""}
+                                  </span>
+                                  {group.techniqueId ? (
+                                    <Info
+                                      className="shrink-0 text-white/42"
+                                      size={13}
+                                    />
+                                  ) : null}
+                                </button>
+                              ) : null}
+                            </div>
+                            {group.exerciseId ? (
+                              <button
+                                aria-label={t("workoutCatalog.aboutExercise")}
+                                className="gc-pressable grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-[var(--gc-brand)]"
+                                onClick={() => openExerciseInfo(group.exerciseId)}
+                                type="button"
+                              >
+                                <Info size={15} />
+                              </button>
+                            ) : null}
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <span className="rounded-full bg-white/[0.055] px-3 py-1.5 text-[10.5px] font-black text-white/62">
+                              {t("workout.sets.exerciseProgress", {
+                                done: group.completedCount,
+                                total: group.totalCount,
+                              })}
+                            </span>
+                            {group.completed ? (
+                              <span className="rounded-full bg-[#97ff00]/14 px-3 py-1.5 text-[10.5px] font-black text-[#97ff00]">
+                                {t("workout.sets.completed")}
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-white/[0.055] px-3 py-1.5 text-[10.5px] font-black text-white/42">
+                                {t("workout.sets.swipeHint")}
+                              </span>
+                            )}
+                          </div>
+
+                          <div
+                            aria-hidden="true"
+                            className="mt-4 grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35"
+                          >
+                            <span />
+                            <span>{t("workout.sets.reps")}</span>
+                            <span />
+                            <span>kg</span>
+                            <span />
+                          </div>
+
+                          <div className="mt-2 grid gap-2">
+                            {group.sets.map(({ index, set }, setIndex) => (
+                              <div
+                                className="grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2"
+                                key={`${group.key}-${index}`}
+                              >
+                                <span className="w-6 shrink-0 text-[12px] font-black tabular-nums text-white/40">
+                                  {setIndex + 1}
+                                </span>
+                                <input
+                                  aria-label={t("workout.sets.reps")}
+                                  className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                                  data-workout-set-input="true"
+                                  inputMode="numeric"
+                                  onBlur={handleStrengthSetInputBlur}
+                                  onChange={(event) =>
+                                    updateStrengthSetReps(
+                                      index,
+                                      event.target.value,
+                                    )
+                                  }
+                                  onFocus={() => setSetsInputFocused(true)}
+                                  placeholder={t("workout.sets.reps")}
+                                  value={set.reps ? String(set.reps) : ""}
+                                />
+                                <span className="shrink-0 text-[13px] font-black text-white/30">
+                                  ×
+                                </span>
+                                <input
+                                  aria-label={t("workout.sets.weight")}
+                                  className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                                  data-workout-set-input="true"
+                                  inputMode="decimal"
+                                  onBlur={handleStrengthSetInputBlur}
+                                  onChange={(event) =>
+                                    updateStrengthSetWeight(
+                                      index,
+                                      event.target.value,
+                                    )
+                                  }
+                                  onFocus={() => setSetsInputFocused(true)}
+                                  placeholder="0"
+                                  value={
+                                    set.weightKg != null
+                                      ? String(set.weightKg)
+                                      : ""
+                                  }
+                                />
+                                <button
+                                  aria-label={t("workout.sets.remove")}
+                                  className="gc-pressable shrink-0 text-white/35"
+                                  onClick={() => removeStrengthSet(index)}
+                                  type="button"
+                                >
+                                  <X size={16} strokeWidth={2.6} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            className="gc-pressable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white/[0.075] text-[13px] font-black text-[var(--gc-brand)]"
+                            onClick={() => addStrengthSetForGroup(group)}
+                            type="button"
+                          >
+                            <Plus size={16} strokeWidth={2.8} />
+                            {t("workout.sets.addToExercise")}
+                          </button>
+                        </article>
+                      ))
+                    )}
+                  </div>
+
+                  {strengthExerciseGroups.length > 1 ? (
+                    <div className="mt-1 flex justify-center gap-1.5 px-5">
+                      {strengthExerciseGroups.map((group, index) => (
+                        <span
+                          aria-hidden="true"
+                          className={[
+                            "h-1.5 rounded-full transition-all",
+                            index === safeActiveStrengthExerciseIndex
+                              ? "w-6 bg-[var(--gc-brand)]"
+                              : group.completed
+                                ? "w-1.5 bg-[#97ff00]/75"
+                                : "w-1.5 bg-white/18",
+                          ].join(" ")}
+                          key={group.key}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </section>
               ) : null}
 
@@ -948,203 +1321,6 @@ export function WebWorkoutScreen({
                   </div>
                 </section>
               )}
-
-              {session.activityType === "strength" ? (
-                <section
-                  className="mt-7 scroll-mt-5 rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-5 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
-                  ref={setsSectionRef}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--gc-brand)]">
-                        {t("workout.sets.title")}
-                      </p>
-                      <h3 className="mt-1 text-[21px] font-black leading-tight text-white">
-                        {t("workout.sets.subtitle")}
-                      </h3>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-black text-white/58">
-                      {filledStrengthSetCount}/{strengthSets.length}
-                    </span>
-                  </div>
-                  {strengthSets.length > 0 ? (
-                    <div
-                      aria-hidden="true"
-                      className="mt-5 grid grid-cols-[22px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35"
-                    >
-                      <span />
-                      <span>{t("workout.sets.reps")}</span>
-                      <span />
-                      <span>kg</span>
-                      <span />
-                    </div>
-                  ) : null}
-                  {strengthSets.length === 0 ? (
-                    <p className="mt-4 rounded-[18px] bg-white/[0.045] px-4 py-3 text-[12px] font-bold leading-snug text-white/50">
-                      {t("workout.sets.emptyHint")}
-                    </p>
-                  ) : null}
-                  <div className="mt-3 grid gap-2">
-                    {strengthSets.map((set, index) => {
-                      const showExercise =
-                        set.exercise != null &&
-                        set.exercise !==
-                          (strengthSets[index - 1]?.exercise ?? null);
-                      return (
-                        <div key={index}>
-                          {showExercise ? (
-                            <div className="mb-2 mt-2 rounded-[14px] bg-white/[0.04] px-3 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <p className="min-w-0 flex-1 text-[13.5px] font-black text-white/82">
-                                  {set.exercise}
-                                </p>
-                                {set.exerciseId ? (
-                                  <button
-                                    aria-label={t(
-                                      "workoutCatalog.aboutExercise",
-                                    )}
-                                    className="gc-pressable grid size-7 place-items-center rounded-full bg-[var(--gc-brand)]/10 text-[var(--gc-brand)]"
-                                    onClick={() => {
-                                      const exercise = catalogExercises.find(
-                                        (item) => item.id === set.exerciseId,
-                                      );
-                                      if (!exercise) return;
-                                      const group = muscleGroups.find(
-                                        (item) =>
-                                          item.slug ===
-                                          exercise.primaryMuscleGroupSlug,
-                                      );
-                                      setCatalogInfo(
-                                        exerciseCatalogInfo(
-                                          exercise,
-                                          i18n.language,
-                                          i18n.language.startsWith("en")
-                                            ? group?.nameEn
-                                            : group?.namePt,
-                                        ),
-                                      );
-                                    }}
-                                    type="button"
-                                  >
-                                    <Info size={14} />
-                                  </button>
-                                ) : null}
-                              </div>
-                              {set.techniqueName ? (
-                                <div className="mt-1.5 flex items-center gap-1.5">
-                                  <p className="min-w-0 flex-1 text-[10.5px] font-bold text-[var(--gc-blue)]">
-                                    {set.techniqueName}
-                                    {set.techniqueNotes
-                                      ? ` · ${set.techniqueNotes}`
-                                      : ""}
-                                  </p>
-                                  {set.techniqueId ? (
-                                    <button
-                                      aria-label={t(
-                                        "workoutCatalog.aboutTechnique",
-                                      )}
-                                      className="gc-pressable text-white/50"
-                                      onClick={() => {
-                                        const technique = techniques.find(
-                                          (item) =>
-                                            item.id === set.techniqueId,
-                                        );
-                                        if (technique) {
-                                          setCatalogInfo(
-                                            techniqueCatalogInfo(
-                                              technique,
-                                              i18n.language,
-                                            ),
-                                          );
-                                        }
-                                      }}
-                                      type="button"
-                                    >
-                                      <Info size={13} />
-                                    </button>
-                                  ) : null}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                          <div className="grid grid-cols-[22px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2">
-                            <span className="w-5 shrink-0 text-[12px] font-black tabular-nums text-white/40">
-                              {index + 1}
-                            </span>
-                            <input
-                              aria-label={t("workout.sets.reps")}
-                              className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
-                              data-workout-set-input="true"
-                              inputMode="numeric"
-                              onBlur={handleStrengthSetInputBlur}
-                              onChange={(e) => {
-                                const v = e.target.value.replace(/[^0-9]/g, "");
-                                setStrengthSets((prev) =>
-                                  prev.map((s, i) =>
-                                    i === index
-                                      ? { ...s, reps: Number.parseInt(v, 10) || 0 }
-                                      : s,
-                                  ),
-                                );
-                              }}
-                              onFocus={() => setSetsInputFocused(true)}
-                              placeholder={t("workout.sets.reps")}
-                              value={set.reps ? String(set.reps) : ""}
-                            />
-                            <span className="shrink-0 text-[13px] font-black text-white/30">
-                              ×
-                            </span>
-                            <input
-                              aria-label={t("workout.sets.weight")}
-                              className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
-                              data-workout-set-input="true"
-                              inputMode="decimal"
-                              onBlur={handleStrengthSetInputBlur}
-                              onChange={(e) => {
-                                const v = e.target.value.replace(/[^0-9.,]/g, "");
-                                const w = Number.parseFloat(v.replace(",", "."));
-                                setStrengthSets((prev) =>
-                                  prev.map((s, i) =>
-                                    i === index
-                                      ? {
-                                          ...s,
-                                          weightKg: Number.isFinite(w) ? w : null,
-                                        }
-                                      : s,
-                                  ),
-                                );
-                              }}
-                              onFocus={() => setSetsInputFocused(true)}
-                              placeholder="0"
-                              value={set.weightKg != null ? String(set.weightKg) : ""}
-                            />
-                            <button
-                              aria-label={t("workout.sets.remove")}
-                              className="gc-pressable shrink-0 text-white/35"
-                              onClick={() =>
-                                setStrengthSets((prev) =>
-                                  prev.filter((_, i) => i !== index),
-                                )
-                              }
-                              type="button"
-                            >
-                              <X size={16} strokeWidth={2.6} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <button
-                    className="gc-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white/[0.075] text-[13px] font-black text-[var(--gc-brand)]"
-                    onClick={addStrengthSet}
-                    type="button"
-                  >
-                    <Plus size={16} strokeWidth={2.8} />
-                    {t("workout.sets.add")}
-                  </button>
-                </section>
-              ) : null}
 
               {finishError ? (
                 <p className="mt-4 text-center text-[12.5px] font-bold text-[var(--gc-pink)]">
