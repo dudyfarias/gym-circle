@@ -431,6 +431,8 @@
     "notNow": "Agora não",
     "activate": "Ativar",
     "activating": "Ativando…",
+    "foregroundTitle": "Nova notificação",
+    "foregroundBody": "Toque para abrir no Gym Circle.",
     "denied": "A permissão foi negada. Você pode reativar o Gym Circle em Ajustes > Notificações.",
     "unsupported": "As notificações não estão disponíveis nesta instalação.",
     "failed": "Não foi possível registrar este iPhone agora. Tente novamente em Configurações."

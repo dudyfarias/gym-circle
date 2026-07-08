@@ -431,6 +431,8 @@
     "notNow": "Not now",
     "activate": "Turn on",
     "activating": "Turning on…",
+    "foregroundTitle": "New notification",
+    "foregroundBody": "Tap to open in Gym Circle.",
     "denied": "Permission was denied. You can enable Gym Circle in Settings > Notifications.",
     "unsupported": "Notifications are not available in this installation.",
     "failed": "We couldn't register this iPhone right now. Try again in Settings."

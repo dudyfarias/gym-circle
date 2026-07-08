@@ -4,14 +4,26 @@ import { useEffect, useState } from "react";
 import { BellRing } from "lucide-react";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import { useTranslation } from "react-i18next";
+import {
+  extractPushNotificationData,
+  normalizePushNavigationTarget,
+} from "./native/pushDeepLinks";
 import { PushNotificationsService } from "./native/PushNotificationsService";
 
 type NativePushControllerProps = {
   userId: string;
 };
 
-const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v2";
+const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v3";
 const PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
+const FOREGROUND_TOAST_MS = 5_500;
+
+type ForegroundPushToast = {
+  id: number;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+};
 
 function promptStorageKey(userId: string) {
   return `${PROMPT_KEY_PREFIX}:${userId}`;
@@ -50,6 +62,8 @@ export function NativePushController({ userId }: NativePushControllerProps) {
   const { t } = useTranslation();
   const services = useGymCircleServices();
   const [promptOpen, setPromptOpen] = useState(false);
+  const [foregroundToast, setForegroundToast] =
+    useState<ForegroundPushToast | null>(null);
   const [activating, setActivating] = useState(false);
   const [promptErrorKey, setPromptErrorKey] = useState<
     "denied" | "unsupported" | "failed" | null
@@ -124,6 +138,67 @@ export function NativePushController({ userId }: NativePushControllerProps) {
     };
   }, [services.push, userId]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let hideTimer: number | null = null;
+
+    const handleForegroundPush = (event: Event) => {
+      const notification = (event as CustomEvent).detail as
+        | Record<string, unknown>
+        | undefined;
+      const title =
+        typeof notification?.title === "string" && notification.title.trim()
+          ? notification.title.trim()
+          : t("pushPermission.foregroundTitle");
+      const body =
+        typeof notification?.body === "string" && notification.body.trim()
+          ? notification.body.trim()
+          : t("pushPermission.foregroundBody");
+      const data = extractPushNotificationData(notification ?? {});
+
+      try {
+        window.localStorage.setItem(
+          "gym-circle.push-last-received.v1",
+          JSON.stringify({
+            title,
+            body,
+            receivedAt: new Date().toISOString(),
+            type:
+              typeof data.type === "string"
+                ? data.type
+                : typeof data.gymcircle_kind === "string"
+                  ? data.gymcircle_kind
+                  : null,
+          }),
+        );
+      } catch {
+        // Diagnóstico local é best-effort.
+      }
+
+      setForegroundToast({
+        id: Date.now(),
+        title,
+        body,
+        data,
+      });
+
+      if (hideTimer !== null) window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(
+        () => setForegroundToast(null),
+        FOREGROUND_TOAST_MS,
+      );
+    };
+
+    window.addEventListener("gymcircle:push-received", handleForegroundPush);
+    return () => {
+      if (hideTimer !== null) window.clearTimeout(hideTimer);
+      window.removeEventListener(
+        "gymcircle:push-received",
+        handleForegroundPush,
+      );
+    };
+  }, [t]);
+
   function dismissPrompt() {
     if (promptErrorKey !== "failed" && promptErrorKey !== "unsupported") {
       rememberPromptDecision(userId);
@@ -160,64 +235,103 @@ export function NativePushController({ userId }: NativePushControllerProps) {
     setActivating(false);
   }
 
-  if (!promptOpen) return null;
+  function openForegroundToastTarget() {
+    if (!foregroundToast) return;
+    const target = normalizePushNavigationTarget(foregroundToast.data);
+    if (!target) {
+      setForegroundToast(null);
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("gymcircle:push-action", {
+        detail: { data: foregroundToast.data, target },
+      }),
+    );
+    setForegroundToast(null);
+  }
+
   const canAttemptActivation =
     promptErrorKey !== "denied" && promptErrorKey !== "unsupported";
 
   return (
-    <div
-      aria-label={t("pushPermission.title")}
-      aria-modal="true"
-      className="fixed inset-0 z-[110] flex items-end justify-center bg-black/65 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-sm"
-      role="dialog"
-    >
-      <div className="w-full max-w-[448px] rounded-[26px] border border-white/[0.09] bg-[#101214] p-5 shadow-[0_22px_80px_rgba(0,0,0,0.55)]">
-        <span className="grid size-12 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-          <BellRing size={22} strokeWidth={2.4} />
-        </span>
-        <h2 className="mt-4 text-[19px] font-black text-white">
-          {t("pushPermission.title")}
-        </h2>
-        <p className="mt-1.5 text-[13px] font-bold leading-5 text-white/52">
-          {t("pushPermission.body")}
-        </p>
-
-        {promptErrorKey ? (
-          <p
-            aria-live="assertive"
-            className="mt-4 rounded-[14px] bg-[var(--gc-pink)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-pink)]"
-          >
-            {t(`pushPermission.${promptErrorKey}`)}
-          </p>
-        ) : null}
-
-        <div
-          className={`mt-5 grid gap-2 ${canAttemptActivation ? "grid-cols-2" : "grid-cols-1"}`}
+    <>
+      {foregroundToast ? (
+        <button
+          aria-live="polite"
+          className="gc-pressable fixed left-4 right-4 top-[calc(var(--gc-safe-top)+12px)] z-[115] mx-auto flex max-w-[448px] items-start gap-3 rounded-[22px] border border-white/[0.09] bg-[#111417]/95 p-3 text-left shadow-[0_18px_64px_rgba(0,0,0,0.45)] backdrop-blur-xl"
+          onClick={openForegroundToastTarget}
+          type="button"
         >
-          <button
-            className="gc-pressable rounded-full bg-white/[0.07] py-3 text-[13px] font-black text-white"
-            disabled={activating}
-            onClick={dismissPrompt}
-            type="button"
-          >
-            {promptErrorKey
-              ? t("common.close")
-              : t("pushPermission.notNow")}
-          </button>
-          {canAttemptActivation ? (
-            <button
-              className="gc-pressable rounded-full bg-[var(--gc-brand)] py-3 text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-45"
-              disabled={activating}
-              onClick={() => void activatePush()}
-              type="button"
+          <span className="grid size-11 shrink-0 place-items-center rounded-[15px] bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+            <BellRing size={20} strokeWidth={2.35} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-black text-white">
+              {foregroundToast.title}
+            </span>
+            <span className="mt-0.5 line-clamp-2 block text-[12px] font-bold leading-4 text-white/58">
+              {foregroundToast.body}
+            </span>
+          </span>
+        </button>
+      ) : null}
+
+      {promptOpen ? (
+        <div
+          aria-label={t("pushPermission.title")}
+          aria-modal="true"
+          className="fixed inset-0 z-[110] flex items-end justify-center bg-black/65 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-sm"
+          role="dialog"
+        >
+          <div className="w-full max-w-[448px] rounded-[26px] border border-white/[0.09] bg-[#101214] p-5 shadow-[0_22px_80px_rgba(0,0,0,0.55)]">
+            <span className="grid size-12 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+              <BellRing size={22} strokeWidth={2.4} />
+            </span>
+            <h2 className="mt-4 text-[19px] font-black text-white">
+              {t("pushPermission.title")}
+            </h2>
+            <p className="mt-1.5 text-[13px] font-bold leading-5 text-white/52">
+              {t("pushPermission.body")}
+            </p>
+
+            {promptErrorKey ? (
+              <p
+                aria-live="assertive"
+                className="mt-4 rounded-[14px] bg-[var(--gc-pink)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-pink)]"
+              >
+                {t(`pushPermission.${promptErrorKey}`)}
+              </p>
+            ) : null}
+
+            <div
+              className={`mt-5 grid gap-2 ${canAttemptActivation ? "grid-cols-2" : "grid-cols-1"}`}
             >
-              {activating
-                ? t("pushPermission.activating")
-                : t("pushPermission.activate")}
-            </button>
-          ) : null}
+              <button
+                className="gc-pressable rounded-full bg-white/[0.07] py-3 text-[13px] font-black text-white"
+                disabled={activating}
+                onClick={dismissPrompt}
+                type="button"
+              >
+                {promptErrorKey
+                  ? t("common.close")
+                  : t("pushPermission.notNow")}
+              </button>
+              {canAttemptActivation ? (
+                <button
+                  className="gc-pressable rounded-full bg-[var(--gc-brand)] py-3 text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-45"
+                  disabled={activating}
+                  onClick={() => void activatePush()}
+                  type="button"
+                >
+                  {activating
+                    ? t("pushPermission.activating")
+                    : t("pushPermission.activate")}
+                </button>
+              ) : null}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      ) : null}
+    </>
   );
 }
