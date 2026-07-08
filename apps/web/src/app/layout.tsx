@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { SupabaseClientProvider } from "@/lib/supabase/SupabaseClientProvider";
 import { readSupabaseEnv } from "@/lib/supabase/env";
@@ -67,6 +69,8 @@ export default function RootLayout({
             children
           )}
         </I18nClientProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
