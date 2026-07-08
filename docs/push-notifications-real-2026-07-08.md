@@ -173,6 +173,9 @@ Critério:
 - envio máximo por lote: 500;
 - timezone padrão: `America/Sao_Paulo`;
 - payload abre `gymcircle://workout`.
+- agendamento server-side: `cron.job` `gym-circle-daily-activity-reminders`,
+  `5 21 * * *` (18:05 America/Sao_Paulo).
+- a chamada agendada usa `pg_net` e `push_dispatch_secret` vindo do Vault.
 
 Log dedicado:
 
@@ -212,13 +215,18 @@ Se o destino falhar, o app cai no feed.
 
 ## Migration
 
-Migration criada, aditiva e não destrutiva:
+Migrations criadas, aditivas e não destrutivas:
 
 - `supabase/migrations/20260708150908_push_notifications_real.sql`
+- `supabase/migrations/20260708190741_schedule_daily_activity_reminders.sql`
 
-Ela cria `public.push_delivery_logs` e atualiza `private.notify_social_push()`.
+Elas criam `public.push_delivery_logs`, atualizam
+`private.notify_social_push()` e agendam o reminder diário.
 
-Importante: a Supabase CLI não estava disponível neste ambiente (`supabase: command not found`), então a migration foi criada manualmente. Ela ainda deve ser revisada/aplicada em produção somente com aprovação explícita.
+Importante: `db push` está bloqueado porque o histórico remoto possui versões
+que não existem localmente. Por isso, as migrations foram aplicadas em produção
+via `supabase db query --linked --file ...`, mantendo os arquivos versionados no
+repo.
 
 ## Checklist manual no iPhone físico
 
@@ -247,7 +255,6 @@ Importante: a Supabase CLI não estava disponível neste ambiente (`supabase: co
 - Deploy das Edge Functions:
   - `send-push`
   - `send-daily-activity-reminders`
-- Aplicar migration somente após aprovação.
-- Configurar agendamento diário da function de reminder, idealmente entre 18h e 21h.
+- Monitorar o primeiro disparo automático do reminder às 18:05 America/Sao_Paulo.
 - Validar App ID/provisioning profile com Push Notifications no Apple Developer.
 - Testar no iPhone físico; simulador não valida APNs real.
