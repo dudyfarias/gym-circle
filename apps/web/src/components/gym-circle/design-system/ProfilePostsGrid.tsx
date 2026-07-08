@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { useEffect, useRef } from "react";
 import { Camera, Play } from "lucide-react";
 import type { EnrichedPost } from "../social/types";
 import { VideoThumbnail } from "./VideoThumbnail";
@@ -26,18 +27,45 @@ type ProfilePostsGridProps = {
   posts: EnrichedPost[];
   onOpenPost?: (postId: string) => void;
   emptyTitle?: string;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 };
 
 export function ProfilePostsGrid({
   posts,
   onOpenPost,
   emptyTitle = "Os treinos vão aparecer aqui",
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: ProfilePostsGridProps) {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || !onLoadMore) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const node = sentinelRef.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) onLoadMore();
+      },
+      { rootMargin: "280px 0px" },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, onLoadMore]);
+
   if (posts.length === 0) {
     return (
       <div className="mt-6 grid place-items-center rounded-[20px] border border-dashed border-white/[0.08] bg-white/[0.02] py-14 text-center">
         <Camera className="text-white/32" size={28} strokeWidth={2} />
         <p className="mt-3 text-[13px] font-bold text-white/52">{emptyTitle}</p>
+        {loadingMore ? (
+          <span className="mt-4 size-5 animate-spin rounded-full border-2 border-white/12 border-t-[var(--gc-brand)]" />
+        ) : null}
       </div>
     );
   }
@@ -49,6 +77,15 @@ export function ProfilePostsGrid({
           <PostThumb key={post.id} onOpenPost={onOpenPost} post={post} />
         ))}
       </div>
+      {hasMore || loadingMore ? (
+        <div ref={sentinelRef} className="grid min-h-16 place-items-center py-5">
+          {loadingMore ? (
+            <span className="size-5 animate-spin rounded-full border-2 border-white/12 border-t-[var(--gc-brand)]" />
+          ) : (
+            <span className="h-px w-px opacity-0" />
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -58,6 +58,9 @@ type ProfileSheetProps = {
   hasStory?: boolean;
   storyViewed?: boolean;
   onOpenStory?: () => void;
+  postsHasMore?: boolean;
+  postsLoadingMore?: boolean;
+  onLoadMorePosts?: () => void;
 };
 
 type FollowCtaState = {
@@ -98,6 +101,9 @@ export function ProfileSheet({
   hasStory,
   storyViewed,
   onOpenStory,
+  postsHasMore,
+  postsLoadingMore,
+  onLoadMorePosts,
 }: ProfileSheetProps) {
   const { t } = useTranslation();
   if (!open || !user) return null;
@@ -200,6 +206,9 @@ export function ProfileSheet({
               ) : null}
               <ProfilePostsGrid
                 emptyTitle={t("profile.emptyPosts")}
+                hasMore={postsHasMore}
+                loadingMore={postsLoadingMore}
+                onLoadMore={onLoadMorePosts}
                 onOpenPost={onOpenPost}
                 posts={posts}
               />

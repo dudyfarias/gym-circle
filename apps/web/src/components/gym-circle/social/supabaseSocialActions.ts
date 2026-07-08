@@ -6,9 +6,11 @@ import {
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
   DirectMessageRow,
+  FeedPostRow,
   FollowRow,
   PostCommentLikeRow,
   PostLikeRow,
+  PostMediaRow,
   ProfileRow,
   StoryLikeRow,
   StoryRow,
@@ -81,7 +83,9 @@ export type SocialActionsContext = {
   refreshChat: () => Promise<void>;
   refreshConversationMessages: (conversationId: string) => Promise<void>;
   refreshPostDetails: (postId: string) => Promise<void>;
-  refreshProfilePosts: (userId: string) => Promise<void>;
+  refreshProfilePosts: SupabaseSocialActions["refreshProfilePosts"];
+  loadMoreProfilePosts: SupabaseSocialActions["loadMoreProfilePosts"];
+  invalidateProfilePostsCache: (userId?: string) => void;
   ensureProfilePostsForMonth: (userId: string, monthKey: string) => Promise<void>;
   refreshStoryViewerItems: (authorId: string) => Promise<StoryRow[]>;
   loadMoreFeed: () => Promise<void>;
@@ -111,6 +115,8 @@ export function createSocialActions(
     refreshConversationMessages,
     refreshPostDetails,
     refreshProfilePosts,
+    loadMoreProfilePosts,
+    invalidateProfilePostsCache,
     ensureProfilePostsForMonth,
     refreshStoryViewerItems,
     loadMoreFeed,
@@ -717,7 +723,9 @@ export function createSocialActions(
         return services.activities.mergeableForDate(workoutDate);
       },
       async integrateWorkoutIntoPost(postId: string, activityId: string) {
+        const post = aggRef.current.feedPosts.find((row) => row.id === postId);
         await services.activities.mergeIntoPost(postId, activityId);
+        invalidateProfilePostsCache(post?.user_id ?? currentUserId);
         await refresh();
         showFeedback(
           "success",
@@ -816,6 +824,10 @@ export function createSocialActions(
           }
         }
 
+        invalidateProfilePostsCache(currentUserId);
+        for (const taggedUserId of taggedUserIds) {
+          invalidateProfilePostsCache(taggedUserId);
+        }
         postCommitFollowUps.push(services.stats.refreshMine(), refresh());
         const followUpResults = await Promise.allSettled(postCommitFollowUps);
         const rejectedFollowUp = followUpResults.find(
@@ -852,6 +864,7 @@ export function createSocialActions(
         // Check-in cria um activity_day (trigger no DB) → dia marcado + streak
         // mantido, sem foto. Recarrega stats/calendário igual ao aceite de tag.
         await services.stats.refreshMine();
+        invalidateProfilePostsCache(currentUserId);
         await refresh();
         showFeedback("success", "Check-in feito", `${gymName} · dia marcado no calendário`);
       },
@@ -872,11 +885,13 @@ export function createSocialActions(
       async acceptPostTag(postId: string) {
         await services.participants.respondToPostTag(postId, currentUserId, "accepted");
         await services.stats.refreshMine();
+        invalidateProfilePostsCache(currentUserId);
         await refresh();
         showFeedback("success", "Marcação aceita", "Seu círculo acendeu se era treino de hoje.");
       },
       async rejectPostTag(postId: string) {
         await services.participants.respondToPostTag(postId, currentUserId, "rejected");
+        invalidateProfilePostsCache(currentUserId);
         await refresh();
         showFeedback("brand", "Marcação recusada");
       },
@@ -920,6 +935,10 @@ export function createSocialActions(
         };
       },
       async editPost(postId: string, input: EditPostInput) {
+        const existingPost = [
+          ...aggRef.current.feedPosts,
+          ...aggRef.current.profileFeedPosts,
+        ].find((row) => row.id === postId);
         const workoutTypes =
           input.workoutTypes ??
           (input.workoutType?.trim() ? [input.workoutType.trim()] : []);
@@ -952,6 +971,59 @@ export function createSocialActions(
         const taggedUserIds = input.taggedUserIds ?? [];
         if (taggedUserIds.length > 0) {
           await services.participants.requestPostTags(postId, currentUserId, taggedUserIds);
+        }
+        const cover = input.media?.[0] ?? null;
+        const patchPost = (row: FeedPostRow): FeedPostRow => {
+          if (row.id !== postId) return row;
+          return {
+            ...row,
+            caption: input.caption ?? null,
+            gym_id: input.gymId ?? null,
+            workout_type: workoutTypes[0] ?? null,
+            ...(cover
+              ? {
+                  blur_data_url: cover.blurDataUrl ?? null,
+                  image_url: cover.imageUrl,
+                  media_duration_seconds: cover.mediaDurationSeconds ?? null,
+                  media_height: cover.mediaHeight ?? null,
+                  media_type: cover.mediaType,
+                  media_width: cover.mediaWidth ?? null,
+                  poster_url: cover.posterUrl ?? null,
+                  thumbnail_url: cover.thumbnailUrl ?? null,
+                }
+              : {}),
+          };
+        };
+        const optimisticMediaRows: PostMediaRow[] | null = input.media
+          ? input.media.map((item, index) => ({
+              id: `optimistic:${postId}:${index}`,
+              post_id: postId,
+              position: index,
+              image_url: item.imageUrl,
+              media_type: item.mediaType,
+              thumbnail_url: item.thumbnailUrl ?? null,
+              poster_url: item.posterUrl ?? null,
+              blur_data_url: item.blurDataUrl ?? null,
+              media_width: item.mediaWidth ?? null,
+              media_height: item.mediaHeight ?? null,
+              media_duration_seconds: item.mediaDurationSeconds ?? null,
+              created_at: new Date().toISOString(),
+            }))
+          : null;
+        setAgg((current) => ({
+          ...current,
+          feedPosts: current.feedPosts.map(patchPost),
+          profileFeedPosts: current.profileFeedPosts.map(patchPost),
+          postMedia: optimisticMediaRows
+            ? [
+                ...current.postMedia.filter((row) => row.post_id !== postId),
+                ...optimisticMediaRows,
+              ]
+            : current.postMedia,
+        }));
+        invalidateProfilePostsCache(existingPost?.user_id ?? currentUserId);
+        for (const taggedUserId of taggedUserIds) {
+          invalidateProfilePostsCache(taggedUserId);
         }
         await refresh();
         showFeedback(
@@ -1040,6 +1112,10 @@ export function createSocialActions(
         });
 
         const taggedUserIds = input.taggedUserIds ?? [];
+        invalidateProfilePostsCache(currentUserId);
+        for (const taggedUserId of taggedUserIds) {
+          invalidateProfilePostsCache(taggedUserId);
+        }
         const followUps: Promise<unknown>[] = [
           services.stats.refreshMine(),
           refresh(),
@@ -1074,8 +1150,10 @@ export function createSocialActions(
         showFeedback("success", "Check-in atualizado");
       },
       async convertPostToCheckin(postId: string, gymId: string) {
+        const post = aggRef.current.feedPosts.find((row) => row.id === postId);
         await services.posts.convertToCheckin(postId, gymId);
         await services.stats.refreshMine();
+        invalidateProfilePostsCache(post?.user_id ?? currentUserId);
         await refresh();
         showFeedback(
           "success",
@@ -1084,7 +1162,20 @@ export function createSocialActions(
         );
       },
       async deletePost(postId: string) {
+        const post = aggRef.current.feedPosts.find((row) => row.id === postId);
         await services.posts.remove(postId);
+        invalidateProfilePostsCache(post?.user_id ?? currentUserId);
+        setAgg((current) => ({
+          ...current,
+          feedPosts: current.feedPosts.filter((row) => row.id !== postId),
+          profileFeedPosts: current.profileFeedPosts.filter((row) => row.id !== postId),
+          postMedia: current.postMedia.filter((row) => row.post_id !== postId),
+          postLikes: current.postLikes.filter((row) => row.post_id !== postId),
+          postComments: current.postComments.filter((row) => row.post_id !== postId),
+          postParticipants: current.postParticipants.filter(
+            (row) => row.post_id !== postId,
+          ),
+        }));
         await refresh();
         showFeedback("success", "Post apagado");
       },
@@ -1447,6 +1538,7 @@ export function createSocialActions(
       refreshChat,
       refreshPostDetails,
       refreshProfilePosts,
+      loadMoreProfilePosts,
       ensureProfilePostsForMonth,
       loadMoreFeed,
   });

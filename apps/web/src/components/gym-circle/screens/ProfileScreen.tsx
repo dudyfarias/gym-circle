@@ -83,6 +83,9 @@ type ProfileScreenProps = {
    * header das Conquistas em destaque.
    */
   onOpenAchievements?: () => void;
+  postsHasMore?: boolean;
+  postsLoadingMore?: boolean;
+  onLoadMorePosts?: () => void;
 };
 
 /**
@@ -111,6 +114,9 @@ export function ProfileScreen({
   onMarkContextualHintSeen,
   onOpenAchievementDetail,
   onOpenAchievements,
+  postsHasMore,
+  postsLoadingMore,
+  onLoadMorePosts,
 }: ProfileScreenProps) {
   const { t } = useTranslation();
   const profileCompletion = calculateProfileCompletion(currentUser);
@@ -302,6 +308,9 @@ export function ProfileScreen({
       {/* Posts grid — protagonista */}
       <ProfilePostsGrid
         emptyTitle={t("profile.emptyPostsTitle")}
+        hasMore={postsHasMore}
+        loadingMore={postsLoadingMore}
+        onLoadMore={onLoadMorePosts}
         onOpenPost={onOpenPost}
         posts={posts}
       />

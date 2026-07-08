@@ -101,6 +101,7 @@ import {
   writeNativeOwnProfileCache,
   writeNativeStoryTrayCache,
 } from "./supabaseSocialCache";
+import { createProfilePostsRequestCache } from "./profilePostsRequestCache";
 import {
   logSurfaceFallback,
   optionalStorySocialRows,
@@ -233,13 +234,29 @@ export type SupabaseSocialActions = {
   setMonthlyRecapCover: (monthKey: string, postId: string | null) => Promise<void>;
   refreshChat: () => Promise<void>;
   refreshPostDetails: (postId: string) => Promise<void>;
-  refreshProfilePosts: (userId: string) => Promise<void>;
+  refreshProfilePosts: (
+    userId: string,
+    options?: ProfilePostsRefreshOptions,
+  ) => Promise<void>;
+  loadMoreProfilePosts: (userId: string) => Promise<void>;
   searchProfiles: (query: string) => Promise<EnrichedUser[]>;
   listFollowUsers: (
     userId: string,
     kind: "followers" | "following",
   ) => Promise<EnrichedUser[]>;
   loadMoreFeed: () => Promise<void>;
+};
+
+export type ProfilePostsRefreshOptions = {
+  cursorCreatedAt?: string | null;
+  force?: boolean;
+  limit?: number;
+};
+
+export type ProfilePostsPageInfo = {
+  hasMore: boolean;
+  loading: boolean;
+  nextCursor: string | null;
 };
 
 export type SupabaseSocialResult = {
@@ -274,6 +291,7 @@ export type SupabaseSocialResult = {
   chatHydrated: boolean;
   feedLoadingMore: boolean;
   feedHasMore: boolean;
+  profilePostsPageInfo: Record<string, ProfilePostsPageInfo>;
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
@@ -289,6 +307,26 @@ type RankingState = {
   loading: boolean;
 };
 
+const PROFILE_POSTS_PAGE_LIMIT = 15;
+const PROFILE_POSTS_MAX_LIMIT = 30;
+const PROFILE_POSTS_TTL_MS = 60_000;
+
+type ProfilePostsFetchBundle = {
+  completeProfileStats: UserStatsRow | null;
+  directProfileRow: ProfileRow | null;
+  followersCount: number;
+  followingCount: number;
+  profileActivityDays: string[];
+  profileSurfaceRows: SurfacePostRow[];
+};
+
+function clampProfilePostsLimit(limit: number | null | undefined) {
+  return Math.min(
+    Math.max(limit ?? PROFILE_POSTS_PAGE_LIMIT, 1),
+    PROFILE_POSTS_MAX_LIMIT,
+  );
+}
+
 export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const services = useGymCircleServices();
   const [agg, setAgg] = useState<AggregateState>(() => loadNativeHomeCache(currentUserId));
@@ -298,6 +336,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const [chatHydrated, setChatHydrated] = useState(false);
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
   const [feedHasMore, setFeedHasMore] = useState(true);
+  const [profilePostsPageInfo, setProfilePostsPageInfo] = useState<
+    Record<string, ProfilePostsPageInfo>
+  >({});
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [error, setError] = useState<Error | null>(null);
   const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
@@ -321,6 +362,12 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const refreshTimerRef = useRef<number | null>(null);
   const chatRealtimeTimerRef = useRef<number | null>(null);
   const chatHydratedRef = useRef(false);
+  const profilePostsPageInfoRef = useRef<Record<string, ProfilePostsPageInfo>>({});
+  const profilePostsRequestCacheRef = useRef(
+    createProfilePostsRequestCache<ProfilePostsFetchBundle>({
+      ttlMs: PROFILE_POSTS_TTL_MS,
+    }),
+  );
   // Último post cujos detalhes foram carregados (proxy de "sheet de comentários
   // aberto neste post"). Usado pelo realtime pra refazer a lista do post aberto
   // mesmo quando ele ainda não tinha nenhum comentário (1º comentário ao vivo).
@@ -333,6 +380,41 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   useEffect(() => {
     aggRef.current = agg;
   }, [agg]);
+
+  useEffect(() => {
+    profilePostsRequestCacheRef.current.clear();
+    profilePostsPageInfoRef.current = {};
+  }, [currentUserId]);
+
+  const updateProfilePostsPageInfo = useCallback(
+    (userId: string, patch: Partial<ProfilePostsPageInfo>) => {
+      setProfilePostsPageInfo((current) => {
+        const previous = current[userId] ?? {
+          hasMore: true,
+          loading: false,
+          nextCursor: null,
+        };
+        const next = {
+          ...current,
+          [userId]: {
+            ...previous,
+            ...patch,
+          },
+        };
+        profilePostsPageInfoRef.current = next;
+        return next;
+      });
+    },
+    [],
+  );
+
+  const invalidateProfilePostsCache = useCallback((userId?: string) => {
+    if (userId) {
+      profilePostsRequestCacheRef.current.invalidateUser(userId);
+      return;
+    }
+    profilePostsRequestCacheRef.current.clear();
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     const myNotificationsRes = await services.client
@@ -1094,179 +1176,184 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   );
 
   const refreshProfilePosts = useCallback(
-    async (userId: string) => {
+    async (userId: string, options: ProfilePostsRefreshOptions = {}) => {
       markPerf("profile_posts_start");
-      // Sprint 3.6.3: 5 queries paralelas pra trazer TODOS os dados ricos
-      // do profile visitado. Antes só pegávamos posts; stats/follows/
-      // activity_days do user-alvo nunca eram buscados, então o
-      // `ProfileSheet` mostrava 0 em maior streak, treinos no mês, dias
-      // no ano, seguidores e seguindo — refletindo só conexões com o
-      // currentUser ou hardcoded zeros do `statsRowFromSurface`.
-      const [
-        profilePostsRes,
-        profileStatsRes,
-        followersCountRes,
-        followingCountRes,
-        profileActivityRes,
-        profileRowRes,
-      ] = await Promise.all([
-        // p_limit 50 = teto da RPC (least(...,50)). Alimenta grid do
-        // perfil + mini-fotos do calendário; meses mais antigos que a
-        // janela ficam sem foto (dia ainda marca via activity_days) —
-        // fetch por mês na navegação do calendário fica como follow-up
-        // (paridade com o MyCircleService nativo, que já consulta
-        // posts por mês).
-        services.client.rpc("get_profile_posts", {
-          p_user_id: userId,
-          p_cursor_created_at: null,
-          p_limit: 50,
-        }),
-        services.client
-          .from("user_stats_live")
-          .select(USER_STATS_COLUMNS)
-          .eq("user_id", userId)
-          .maybeSingle(),
-        // `head: true, count: 'exact'` pede só o count, sem retornar rows
-        // — leve mesmo pra usuários com milhares de followers.
-        services.client
-          .from("follows")
-          .select("*", { count: "exact", head: true })
-          .eq("following_id", userId)
-          .eq("status", "accepted"),
-        services.client
-          .from("follows")
-          .select("*", { count: "exact", head: true })
-          .eq("follower_id", userId)
-          .eq("status", "accepted"),
-        services.client
-          .from("user_activity_days")
-          .select("activity_date")
-          .eq("user_id", userId)
-          .order("activity_date", { ascending: false })
-          .limit(400),
-        // Sprint 11.2 — fetch direto do profile row. Antes o profile só
-        // era hidratado a partir dos posts (profileRowFromSurface), então
-        // users com ZERO posts (ex: alguém que só te seguiu) nunca
-        // entravam em `usersById` e a ProfileSheet abria vazia (user=null).
-        // RLS profiles_select_visible já filtra blocked/deactivated.
-        services.client
-          .from("profiles")
-          // Sprint 21.1 — PROFILE_COLUMNS exclui reactivation_token_hash
-          // (server-only) e blinda contra coluna sensível futura descer
-          // automaticamente pro cliente.
-          .select(PROFILE_COLUMNS)
-          .eq("user_id", userId)
-          .maybeSingle(),
-      ]);
-      if (profilePostsRes.error) {
-        logSurfaceFallback("profile posts", profilePostsRes.error);
+      const cursorCreatedAt = options.cursorCreatedAt ?? null;
+      const limit = clampProfilePostsLimit(options.limit);
+      updateProfilePostsPageInfo(userId, { loading: true });
+
+      try {
+        const bundle = await profilePostsRequestCacheRef.current.getOrFetch(
+          { cursorCreatedAt, limit, userId },
+          async () => {
+            // Profile posts é caro no banco. Mantemos as queries auxiliares
+            // dentro do mesmo request cacheado para que ProfileSheet,
+            // MyCircle e aba Perfil compartilhem a mesma Promise/TTL.
+            const [
+              profilePostsRes,
+              profileStatsRes,
+              followersCountRes,
+              followingCountRes,
+              profileActivityRes,
+              profileRowRes,
+            ] = await Promise.all([
+              services.client.rpc("get_profile_posts", {
+                p_user_id: userId,
+                p_cursor_created_at: cursorCreatedAt,
+                p_limit: limit,
+              }),
+              services.client
+                .from("user_stats_live")
+                .select(USER_STATS_COLUMNS)
+                .eq("user_id", userId)
+                .maybeSingle(),
+              services.client
+                .from("follows")
+                .select("*", { count: "exact", head: true })
+                .eq("following_id", userId)
+                .eq("status", "accepted"),
+              services.client
+                .from("follows")
+                .select("*", { count: "exact", head: true })
+                .eq("follower_id", userId)
+                .eq("status", "accepted"),
+              services.client
+                .from("user_activity_days")
+                .select("activity_date")
+                .eq("user_id", userId)
+                .order("activity_date", { ascending: false })
+                .limit(400),
+              services.client
+                .from("profiles")
+                .select(PROFILE_COLUMNS)
+                .eq("user_id", userId)
+                .maybeSingle(),
+            ]);
+
+            if (profilePostsRes.error) {
+              throw profilePostsRes.error;
+            }
+            if (profileStatsRes.error) {
+              logSurfaceFallback("profile stats", profileStatsRes.error);
+            }
+            if (followersCountRes.error) {
+              logSurfaceFallback("profile followers count", followersCountRes.error);
+            }
+            if (followingCountRes.error) {
+              logSurfaceFallback("profile following count", followingCountRes.error);
+            }
+            if (profileActivityRes.error) {
+              logSurfaceFallback("profile activity days", profileActivityRes.error);
+            }
+            if (profileRowRes.error) {
+              logSurfaceFallback("profile row", profileRowRes.error);
+            }
+
+            return {
+              completeProfileStats:
+                (profileStatsRes.data as unknown as UserStatsRow | null) ?? null,
+              directProfileRow:
+                (profileRowRes.data as unknown as ProfileRow | null) ?? null,
+              followersCount: followersCountRes.count ?? 0,
+              followingCount: followingCountRes.count ?? 0,
+              profileActivityDays: (
+                (profileActivityRes.data ?? []) as unknown as Array<{
+                  activity_date: string;
+                }>
+              ).map((row) => row.activity_date),
+              profileSurfaceRows: (profilePostsRes.data ?? []) as SurfacePostRow[],
+            } satisfies ProfilePostsFetchBundle;
+          },
+          { force: options.force },
+        );
+
+        if (!mountedRef.current) return;
+
+        const profileSurfaceRows = bundle.profileSurfaceRows;
+        const profileFeedPosts = profileSurfaceRows.map(feedPostRowFromSurface);
+        const profileSurfaceProfiles = [
+          bundle.directProfileRow,
+          ...profileSurfaceRows.map(profileRowFromSurface),
+        ].filter((profile): profile is ProfileRow => Boolean(profile));
+        const profileSurfaceStats: UserStatsRow[] = [
+          bundle.completeProfileStats,
+          ...profileSurfaceRows.map(statsRowFromSurface),
+        ].filter((stats): stats is UserStatsRow => Boolean(stats));
+        const profileCurrentUserLikes: PostLikeRow[] = profileSurfaceRows
+          .filter((row) => row.liked_by_me && row.id)
+          .map((row) => ({
+            post_id: row.id as string,
+            user_id: currentUserId,
+            created_at: row.created_at ?? new Date().toISOString(),
+          }));
+        const profileWeekStats =
+          bundle.profileActivityDays.length > 0
+            ? calculateWorkoutStats(bundle.profileActivityDays)
+            : null;
+        const nextProfileExtras: ProfileExtras = {
+          followersCount: bundle.followersCount,
+          followingCount: bundle.followingCount,
+          workoutsThisWeek: profileWeekStats?.workoutsThisWeek ?? 0,
+          activityDates: Array.from(new Set(bundle.profileActivityDays)),
+        };
+        const nextCursor =
+          profileSurfaceRows.length > 0
+            ? profileSurfaceRows[profileSurfaceRows.length - 1]?.created_at ?? null
+            : null;
+
+        setAgg((current) => ({
+          ...current,
+          profiles: mergeProfileRows(current.profiles, profileSurfaceProfiles),
+          stats: mergeStatsArrays(current.stats, profileSurfaceStats),
+          profileFeedPosts: mergeRowsByKey(
+            current.profileFeedPosts,
+            profileFeedPosts,
+            (post) => post.id,
+          ),
+          postLikes: [
+            ...current.postLikes.filter(
+              (like) =>
+                !(
+                  like.user_id === currentUserId &&
+                  profileFeedPosts.some((post) => post.id === like.post_id)
+                ),
+            ),
+            ...profileCurrentUserLikes,
+          ],
+          profileExtras: {
+            ...current.profileExtras,
+            [userId]: nextProfileExtras,
+          },
+        }));
+        updateProfilePostsPageInfo(userId, {
+          hasMore: profileSurfaceRows.length === limit && nextCursor !== null,
+          loading: false,
+          nextCursor,
+        });
+      } catch (error) {
+        logSurfaceFallback("profile posts", error);
+        if (mountedRef.current) {
+          updateProfilePostsPageInfo(userId, { loading: false });
+        }
+      } finally {
         measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
+      }
+    },
+    [currentUserId, services, updateProfilePostsPageInfo],
+  );
+
+  const loadMoreProfilePosts = useCallback(
+    async (userId: string) => {
+      const pageInfo = profilePostsPageInfoRef.current[userId];
+      if (!pageInfo || pageInfo.loading || !pageInfo.hasMore || !pageInfo.nextCursor) {
         return;
       }
-      // Os auxiliares não bloqueiam — se falhar (RLS, network), mantemos
-      // o que já estava em agg/profileExtras. Logamos via fallback helper.
-      if (profileStatsRes.error) {
-        logSurfaceFallback("profile stats", profileStatsRes.error);
-      }
-      if (followersCountRes.error) {
-        logSurfaceFallback("profile followers count", followersCountRes.error);
-      }
-      if (followingCountRes.error) {
-        logSurfaceFallback("profile following count", followingCountRes.error);
-      }
-      if (profileActivityRes.error) {
-        logSurfaceFallback("profile activity days", profileActivityRes.error);
-      }
-
-      if (profileRowRes.error) {
-        logSurfaceFallback("profile row", profileRowRes.error);
-      }
-
-      const profileSurfaceRows = (profilePostsRes.data ?? []) as SurfacePostRow[];
-      const profileFeedPosts = profileSurfaceRows.map(feedPostRowFromSurface);
-      // Sprint 11.2 — profile row direto entra PRIMEIRO (fonte canônica),
-      // depois os parciais extraídos dos posts. mergeProfileRows resolve
-      // conflitos preferindo campos não-nulos, então o row direto garante
-      // que o user é hidratado mesmo sem nenhum post.
-      const directProfileRow =
-        (profileRowRes.data as unknown as ProfileRow | null) ?? null;
-      const profileSurfaceProfiles = [
-        directProfileRow,
-        ...profileSurfaceRows.map(profileRowFromSurface),
-      ].filter((profile): profile is ProfileRow => Boolean(profile));
-      // Cast defensivo: supabase-js .maybeSingle() retorna tipo unionado
-      // com PostgrestError. Mesmo que TS consiga inferir em alguns casos,
-      // ir via `unknown` evita brechas em mudanças futuras da lib.
-      const completeProfileStats =
-        profileStatsRes.data as unknown as UserStatsRow | null;
-      // A row completa do user_stats_live (se veio) entra ANTES das
-      // partials do surface — `mergeStatsArrays` faz Math.max nos
-      // conflitos, então mesmo se vier depois o complete ganha.
-      const profileSurfaceStats: UserStatsRow[] = [
-        completeProfileStats,
-        ...profileSurfaceRows.map(statsRowFromSurface),
-      ].filter((stats): stats is UserStatsRow => Boolean(stats));
-      const profileCurrentUserLikes: PostLikeRow[] = profileSurfaceRows
-        .filter((row) => row.liked_by_me && row.id)
-        .map((row) => ({
-          post_id: row.id as string,
-          user_id: currentUserId,
-          created_at: row.created_at ?? new Date().toISOString(),
-        }));
-
-      // Calcula workoutsThisWeek do user-alvo a partir do user_activity_days
-      // dele (já filtrado por RLS — só vem se é o próprio user OU se o
-      // currentUser pode ver os posts dele, ver policy
-      // user_activity_days_select_visible). Se a query falhou ou retornou
-      // vazio (perfil privado sem follow), cai pra 0.
-      const profileActivityDays = (
-        (profileActivityRes.data ?? []) as unknown as Array<{
-          activity_date: string;
-        }>
-      ).map((row) => row.activity_date);
-      const profileWeekStats =
-        profileActivityDays.length > 0
-          ? calculateWorkoutStats(profileActivityDays)
-          : null;
-
-      const nextProfileExtras: ProfileExtras = {
-        followersCount: followersCountRes.count ?? 0,
-        followingCount: followingCountRes.count ?? 0,
-        workoutsThisWeek: profileWeekStats?.workoutsThisWeek ?? 0,
-        // Sprint 3.6.5: dates únicos pra alimentar o calendário do
-        // MyCircleSheet. profileActivityDays já é uma lista de
-        // activity_date strings via limit 400.
-        activityDates: Array.from(new Set(profileActivityDays)),
-      };
-
-      if (!mountedRef.current) return;
-      setAgg((current) => ({
-        ...current,
-        profiles: mergeProfileRows(current.profiles, profileSurfaceProfiles),
-        stats: mergeStatsArrays(current.stats, profileSurfaceStats),
-        profileFeedPosts: mergeRowsByKey(
-          current.profileFeedPosts,
-          profileFeedPosts,
-          (post) => post.id,
-        ),
-        postLikes: [
-          ...current.postLikes.filter(
-            (like) =>
-              !(
-                like.user_id === currentUserId &&
-                profileFeedPosts.some((post) => post.id === like.post_id)
-              ),
-          ),
-          ...profileCurrentUserLikes,
-        ],
-        profileExtras: {
-          ...current.profileExtras,
-          [userId]: nextProfileExtras,
-        },
-      }));
-      measurePerf("profile_posts_ms", "profile_posts_start", "profile_posts_end");
+      await refreshProfilePosts(userId, {
+        cursorCreatedAt: pageInfo.nextCursor,
+        limit: PROFILE_POSTS_PAGE_LIMIT,
+      });
     },
-    [currentUserId, services],
+    [refreshProfilePosts],
   );
 
   /**
@@ -2062,6 +2149,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         refreshConversationMessages,
         refreshPostDetails,
         refreshProfilePosts,
+        loadMoreProfilePosts,
+        invalidateProfilePostsCache,
         ensureProfilePostsForMonth,
         refreshStoryViewerItems,
         loadMoreFeed,
@@ -2096,6 +2185,8 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       refreshConversationMessages,
       refreshPostDetails,
       refreshProfilePosts,
+      loadMoreProfilePosts,
+      invalidateProfilePostsCache,
       ensureProfilePostsForMonth,
       refreshStoryViewerItems,
       loadMoreFeed,
@@ -2223,6 +2314,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     chatHydrated,
     feedLoadingMore,
     feedHasMore,
+    profilePostsPageInfo,
     loading,
     error,
     refresh,

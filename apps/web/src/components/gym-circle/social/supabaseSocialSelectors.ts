@@ -330,8 +330,16 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
   const mediaByPost = new Map<string, PostMediaRow[]>();
   for (const m of agg.postMedia) {
     const list = mediaByPost.get(m.post_id) ?? [];
-    list.push(m);
-    mediaByPost.set(m.post_id, list);
+    const existingIndex = list.findIndex((row) => row.position === m.position);
+    if (existingIndex >= 0) {
+      list[existingIndex] = m;
+    } else {
+      list.push(m);
+    }
+    mediaByPost.set(
+      m.post_id,
+      list.sort((a, b) => a.position - b.position),
+    );
   }
 
   return visibleRows

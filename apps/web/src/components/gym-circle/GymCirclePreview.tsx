@@ -1285,25 +1285,19 @@ export function GymCirclePreview({
     [currentUserPosts, social.currentUser.id],
   );
 
+  // Performance Supabase — não hidratamos mais get_profile_posts no boot.
+  // A RPC é cara; ela só roda quando a aba Perfil fica visível, ou quando o
+  // usuário abre ProfileSheet/MyCircle. O cache/dedupe no hook compartilha
+  // chamadas iguais entre essas superfícies.
+  useEffect(() => {
+    const currentUserId = social.currentUser?.id;
+    if (!currentUserId || activeScreen !== "profile") return;
+    void social.actions.refreshProfilePosts?.(currentUserId);
+  }, [activeScreen, social.currentUser?.id, social.actions]);
+
   // Sprint 7.5.8 — Lazy backfill de user_achievements no boot. Compara
   // achievements derivados (getAllAchievements) com o que está no DB e
   // popula faltantes. Idempotente. Best-effort (errors logged, não
-  // Fix calendário — hidrata os posts do PRÓPRIO user no boot. O feed
-  // inicial traz só os 30 posts mais recentes de TODO MUNDO (você + quem
-  // você segue); posts antigos seus caíam fora dessa janela e o
-  // calendário do MyCircle mostrava o dia treinado sem a mini-foto (e
-  // sem tap), como se o post tivesse sumido — mesmo gap no grid do
-  // perfil e no recompute de desafios. O fetch dedicado
-  // (refreshProfilePosts → get_profile_posts) traz seus posts direto,
-  // independente do volume do feed. Merge idempotente (mergeRowsByKey).
-  useEffect(() => {
-    const currentUserId = social.currentUser?.id;
-    if (!currentUserId) return;
-    void social.actions.refreshProfilePosts?.(currentUserId);
-    // social.actions é memoizado (useMemo no hook) → ref estável; o efeito
-    // segue rodando só na troca de user.
-  }, [social.currentUser?.id, social.actions]);
-
   // bloqueia UI). Sem isso, a RPC get_achievement_global_stats sempre
   // retornaria 0% — UI mostraria "Apenas 0% dos usuários" pra tudo.
   useEffect(() => {
@@ -1833,6 +1827,15 @@ export function GymCirclePreview({
             onOpenAchievementDetail={openAchievementDetailHybrid}
             // Sprint 15.5 — botão no header da row abre o Hall da Fama.
             onOpenAchievements={openBadges}
+            onLoadMorePosts={() =>
+              social.actions.loadMoreProfilePosts?.(social.currentUser.id)
+            }
+            postsHasMore={
+              social.profilePostsPageInfo?.[social.currentUser.id]?.hasMore ?? false
+            }
+            postsLoadingMore={
+              social.profilePostsPageInfo?.[social.currentUser.id]?.loading ?? false
+            }
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
@@ -2197,6 +2200,21 @@ export function GymCirclePreview({
             // Sprint 5.11 — ver coment em currentUser ProfileScreen acima.
             onOpenPost={openPostDetailFull}
             posts={profileSheetPosts}
+            onLoadMorePosts={
+              profileSheetUser
+                ? () => social.actions.loadMoreProfilePosts?.(profileSheetUser.id)
+                : undefined
+            }
+            postsHasMore={
+              profileSheetUser
+                ? social.profilePostsPageInfo?.[profileSheetUser.id]?.hasMore ?? false
+                : false
+            }
+            postsLoadingMore={
+              profileSheetUser
+                ? social.profilePostsPageInfo?.[profileSheetUser.id]?.loading ?? false
+                : false
+            }
             user={profileSheetUser}
           />
           <MyCircleSheet

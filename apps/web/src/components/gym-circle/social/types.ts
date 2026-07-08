@@ -657,7 +657,15 @@ export type SocialActions = {
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   refreshChat?: () => Promise<void>;
   refreshPostDetails?: (postId: string) => Promise<void>;
-  refreshProfilePosts?: (userId: string) => Promise<void>;
+  refreshProfilePosts?: (
+    userId: string,
+    options?: {
+      cursorCreatedAt?: string | null;
+      force?: boolean;
+      limit?: number;
+    },
+  ) => Promise<void>;
+  loadMoreProfilePosts?: (userId: string) => Promise<void>;
   /**
    * Fix calendário — busca posts do mês visível (YYYY-MM) do MyCircle
    * diretamente por workout_date, garantindo mini-fotos de meses antigos
@@ -726,6 +734,10 @@ export type SocialBundle = {
   feedCheckins?: EnrichedCheckin[];
   feedActivities?: EnrichedActivity[];
   profilePosts?: EnrichedPost[];
+  profilePostsPageInfo?: Record<
+    string,
+    { hasMore: boolean; loading: boolean; nextCursor: string | null }
+  >;
   storyBubbles: EnrichedStory[];
   storyGroups?: StoryGroup[];
   selectedStoryGroup?: StoryGroup | null;
