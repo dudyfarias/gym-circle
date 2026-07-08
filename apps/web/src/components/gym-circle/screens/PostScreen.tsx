@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
-  ActivityEntryInput,
   ComposerActivityContext,
   CreateWorkoutPostInput,
   EnrichedUser,
@@ -37,6 +36,7 @@ import type {
 import { MediaCarousel } from "../design-system/MediaCarousel";
 import { PinchZoomImage } from "../design-system/PinchZoomImage";
 import { formatElapsed } from "../workout/workoutElapsed";
+import { createWorkoutShareCoverFile } from "../workout/workoutShareCover";
 
 // Sprint 13 — limite do carrossel (alinhado com a regra de produto).
 const MAX_MEDIA = 10;
@@ -77,8 +77,6 @@ type PostScreenProps = {
    * OPCIONAL — sem mídia, geramos a capa de stats em canvas na hora do publish.
    */
   activityContext?: ComposerActivityContext | null;
-  /** Salva legenda/local/tags na entrada de atividade (publish sem foto). */
-  onSaveActivityEntry?: (input: ActivityEntryInput) => void | Promise<void>;
 };
 
 // Rastreio de treino → tag preset do composer (values PT-BR do banco).
@@ -157,7 +155,6 @@ export function PostScreen({
   taggableUsers = [],
   workoutDate,
   activityContext = null,
-  onSaveActivityEntry,
 }: PostScreenProps) {
   const { t } = useTranslation();
   // "Registrar treino": modo retroativo (dia treinado sem mídia).
@@ -170,6 +167,10 @@ export function PostScreen({
     : "";
   const getErrorMessage = (err: unknown) =>
     errorMessage(err, t("postScreen.publish.errors.generic"));
+  const activityTypeLabel = activityContext
+    ? (ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType] ??
+      t("workout.types.other"))
+    : "";
   const [caption, setCaption] = useState(activityContext?.caption ?? "");
   const [composerStep, setComposerStep] = useState<ComposerStep>("media");
   // Academias catalogadas durante essa sessão de post (via search sheet) —
@@ -727,57 +728,64 @@ export function PostScreen({
       return;
     }
 
-    // Treino rastreado SEM foto: não vira post — salva as infos (legenda/
-    // local/tags) na ENTRADA de atividade, que aparece no feed como
-    // check-in(treino) e pode virar post/carrossel depois (modelo mutável).
-    if (!imageUrl.trim() && activityContext) {
-      if (!onSaveActivityEntry) {
-        setPublishError(t("postScreen.publish.errors.generic"));
-        return;
-      }
-      setPublishing(true);
-      setPublishError(null);
-      try {
-        await onSaveActivityEntry({
-          caption,
-          workoutTypes:
-            resolvedWorkoutTypes.length > 0 ? resolvedWorkoutTypes : null,
-          gymId: resolvedLocation.gymId,
-          locationSource: resolvedLocation.source,
-          locationName: resolvedLocation.name,
-          locationLatitude: resolvedLocation.latitude,
-          locationLongitude: resolvedLocation.longitude,
-          locationGoogleMapsUrl: resolvedLocation.googleMapsUrl,
-        });
-        void HapticsService.success();
-      } catch (err) {
-        void HapticsService.error();
-        setPublishError(getErrorMessage(err));
-      } finally {
-        setPublishing(false);
-      }
-      return;
-    }
-
     setPublishing(true);
     setPublishError(null);
     try {
+      let publishImageUrl = imageUrl;
+      let publishMediaType = mediaType;
+      let publishMediaMeta = mediaMeta;
+      let publishMedia =
+        mediaItems.length > 1 ? mediaItems : undefined;
+
+      // Treino rastreado SEM foto precisa continuar sendo post social real.
+      // Como o contrato atual do banco exige `posts.image_url`, geramos uma
+      // capa leve de stats, fazemos upload e publicamos com source_activity_id.
+      if (!publishImageUrl.trim() && activityContext) {
+        const generatedCover = await createWorkoutShareCoverFile({
+          activityType: activityContext.activityType,
+          elapsedS: activityContext.elapsedS,
+          movingS: activityContext.movingS ?? null,
+          distanceM: activityContext.distanceM ?? null,
+          elevationGainM: activityContext.elevationGainM ?? null,
+          workoutDate: activityContext.workoutDate,
+          workoutTypeLabel: resolvedWorkoutType || activityTypeLabel,
+          locationLabel: resolvedLocation.name,
+        });
+        const cover = await uploadOne(generatedCover);
+        if (!cover?.imageUrl) {
+          throw new Error(t("postScreen.publish.errors.coverFailed"));
+        }
+        publishImageUrl = cover.imageUrl;
+        publishMediaType = "image";
+        publishMediaMeta = {
+          thumbnailUrl: cover.thumbnailUrl ?? null,
+          posterUrl: cover.posterUrl ?? null,
+          mediaWidth: cover.mediaWidth ?? 1200,
+          mediaHeight: cover.mediaHeight ?? 1500,
+          mediaDurationSeconds: cover.mediaDurationSeconds ?? null,
+          blurDataUrl: cover.blurDataUrl ?? null,
+        };
+        publishMedia = undefined;
+        setMediaItems([cover]);
+        applyCover(cover);
+      }
+
       await onPublish({
         caption,
         workoutType: resolvedWorkoutType,
         // Sprint 13 — carrossel (>1 mídia) + tags (workoutTypes = array).
-        media: mediaItems.length > 1 ? mediaItems : undefined,
+        media: publishMedia,
         workoutTypes: resolvedWorkoutTypes.length > 0 ? resolvedWorkoutTypes : null,
         gymId: resolvedLocation.gymId,
         gymName: resolvedLocation.name ?? "",
-        imageUrl,
-        thumbnailUrl: mediaMeta.thumbnailUrl ?? null,
-        posterUrl: mediaMeta.posterUrl ?? null,
-        mediaWidth: mediaMeta.mediaWidth ?? null,
-        mediaHeight: mediaMeta.mediaHeight ?? null,
-        mediaDurationSeconds: mediaMeta.mediaDurationSeconds ?? null,
-        blurDataUrl: mediaMeta.blurDataUrl ?? null,
-        mediaType,
+        imageUrl: publishImageUrl,
+        thumbnailUrl: publishMediaMeta.thumbnailUrl ?? null,
+        posterUrl: publishMediaMeta.posterUrl ?? null,
+        mediaWidth: publishMediaMeta.mediaWidth ?? null,
+        mediaHeight: publishMediaMeta.mediaHeight ?? null,
+        mediaDurationSeconds: publishMediaMeta.mediaDurationSeconds ?? null,
+        blurDataUrl: publishMediaMeta.blurDataUrl ?? null,
+        mediaType: publishMediaType,
         locationSource: resolvedLocation.source,
         locationName: resolvedLocation.name,
         locationLatitude: resolvedLocation.latitude,
@@ -901,9 +909,7 @@ export function PostScreen({
         <div className="mt-3 rounded-[16px] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3">
           <p className="text-[12.5px] font-black text-emerald-300">
             {t("postScreen.activity.title", {
-              type:
-                ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType] ??
-                t("workout.types.other"),
+              type: activityTypeLabel,
               elapsed: formatElapsed(activityContext.elapsedS),
             })}
           </p>
@@ -1183,13 +1189,17 @@ export function PostScreen({
           </div>
 
           {/* Caption + opções + publicar — só no segundo passo. */}
-      {imageUrl ? (
+      {imageUrl || activityContext ? (
         <>
           <textarea
             aria-label={t("postScreen.caption.aria")}
             className="mt-4 min-h-[88px] w-full resize-none bg-transparent text-[16px] font-medium leading-6 text-white outline-none placeholder:text-white/32"
             onChange={(event) => setCaption(event.target.value)}
-            placeholder={t("postScreen.caption.placeholder")}
+            placeholder={
+              activityContext
+                ? t("postScreen.caption.activityPlaceholder")
+                : t("postScreen.caption.placeholder")
+            }
             value={caption}
           />
 

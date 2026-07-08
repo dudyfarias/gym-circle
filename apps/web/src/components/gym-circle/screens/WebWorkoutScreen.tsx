@@ -500,6 +500,18 @@ export function WebWorkoutScreen({
         id: activity.id,
         activityType: session.activityType,
         elapsedS: activity.elapsedS,
+        movingS: isRouteWorkout(session.activityType)
+          ? Math.round(nativeSummary?.movingS ?? session.movingS)
+          : activity.elapsedS,
+        distanceM: isRouteWorkout(session.activityType)
+          ? (nativeSummary?.distanceM ?? session.distanceM)
+          : null,
+        elevationGainM: isRouteWorkout(session.activityType)
+          ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
+          : null,
+        route: isRouteWorkout(session.activityType)
+          ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
+          : null,
         workoutDate: activity.workoutDate,
       });
     } catch (error) {

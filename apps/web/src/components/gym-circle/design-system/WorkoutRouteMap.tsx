@@ -6,6 +6,7 @@ type WorkoutRouteMapProps = {
   route: number[][];
   className?: string;
   label: string;
+  showAttribution?: boolean;
 };
 
 const WIDTH = 420;
@@ -32,13 +33,14 @@ function worldPoint(latitude: number, longitude: number, zoom: number) {
 
 /**
  * Mapa real da rota sem SDK pesado: tiles OpenStreetMap + polyline SVG
- * projetada no mesmo Web Mercator dos tiles. O card pequeno continua usando
- * RouteSketch; o detalhe usa esta superfície geográfica.
+ * projetada no mesmo Web Mercator dos tiles. Usado no detalhe e no preview
+ * compacto do feed.
  */
 export function WorkoutRouteMap({
   route,
   className,
   label,
+  showAttribution = true,
 }: WorkoutRouteMapProps) {
   const geometry = useMemo(() => {
     const coordinates = route.filter(
@@ -182,14 +184,16 @@ export function WorkoutRouteMap({
           strokeWidth={2}
         />
       </svg>
-      <a
-        className="absolute bottom-1 right-1 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-bold text-white/75"
-        href="https://www.openstreetmap.org/copyright"
-        rel="noreferrer"
-        target="_blank"
-      >
-        © OpenStreetMap
-      </a>
+      {showAttribution ? (
+        <a
+          className="absolute bottom-1 right-1 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-bold text-white/75"
+          href="https://www.openstreetmap.org/copyright"
+          rel="noreferrer"
+          target="_blank"
+        >
+          © OpenStreetMap
+        </a>
+      ) : null}
     </div>
   );
 }

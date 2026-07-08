@@ -672,6 +672,10 @@ export function GymCirclePreview({
       activityType:
         activity.activityType as ComposerActivityContext["activityType"],
       elapsedS: activity.elapsedS,
+      movingS: activity.movingS,
+      distanceM: activity.distanceM,
+      elevationGainM: activity.elevationGainM,
+      route: activity.route,
       workoutDate: activity.workoutDate,
       caption: activity.caption,
       workoutTypes: activity.workoutTypes,
@@ -1884,17 +1888,6 @@ export function GymCirclePreview({
             }}
             onCreateCheckin={async (gymId, workoutDate) => {
               await social.actions.createCheckin?.(gymId, workoutDate);
-              setComposerWorkoutDate(null);
-              setScrollState("top");
-              setActiveScreen("feed");
-            }}
-            onSaveActivityEntry={async (input) => {
-              // Sem foto: salva legenda/local/tags na ENTRADA de atividade
-              // (feed mostra como check-in de treino; foto depois promove).
-              if (composerActivity && !composerActivity.id.startsWith("demo-")) {
-                await social.actions.saveActivityEntry?.(composerActivity.id, input);
-              }
-              setComposerActivity(null);
               setComposerWorkoutDate(null);
               setScrollState("top");
               setActiveScreen("feed");

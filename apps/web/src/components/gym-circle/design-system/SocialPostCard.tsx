@@ -24,6 +24,7 @@ import { getPostLikeSummary } from "../social/likes";
 import type { EnrichedPost, EnrichedUser, WorkoutDetail } from "../social/types";
 import { MediaCarousel } from "./MediaCarousel";
 import { StreakBadge } from "./StreakBadge";
+import { WorkoutRouteMap } from "./WorkoutRouteMap";
 
 type SocialPostCardProps = {
   post: EnrichedPost;
@@ -139,6 +140,18 @@ function SocialPostCardComponent({
   const captionToShow = showFullCaption
     ? post.caption
     : truncateCaptionText(post.caption, CAPTION_TRUNCATE_THRESHOLD);
+  const workoutRoute = useMemo(
+    () =>
+      (post.workout?.route ?? []).filter(
+        (point) =>
+          Array.isArray(point) &&
+          point.length >= 2 &&
+          Number.isFinite(point[0]) &&
+          Number.isFinite(point[1]),
+      ),
+    [post.workout?.route],
+  );
+  const hasWorkoutRoute = workoutRoute.length >= 2;
 
   function handleLike() {
     // Haptic light pré-callback pra resposta tátil imediata mesmo se o callback
@@ -354,6 +367,33 @@ function SocialPostCardComponent({
           </div>
         ) : null}
       </div>
+
+      {hasWorkoutRoute ? (
+        <div className="mx-4 mt-3 overflow-hidden rounded-[22px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.045]">
+          <button
+            aria-label={t("workoutDetail.mapTitle")}
+            className="gc-pressable block w-full"
+            disabled={!post.workout || !onOpenWorkoutDetail}
+            onClick={() => post.workout && onOpenWorkoutDetail?.(post.workout)}
+            type="button"
+          >
+            <WorkoutRouteMap
+              className="h-40 w-full"
+              label={t("workoutDetail.mapTitle")}
+              route={workoutRoute}
+              showAttribution={false}
+            />
+          </button>
+          <a
+            className="block bg-black/35 px-2 py-1 text-right text-[8px] font-bold text-white/46"
+            href="https://www.openstreetmap.org/copyright"
+            rel="noreferrer"
+            target="_blank"
+          >
+            © OpenStreetMap
+          </a>
+        </div>
+      ) : null}
 
       <div className="space-y-3 px-4 py-3.5">
         {/* Sprint 5 — Action row. Quando embebido no CommentsBottomSheet

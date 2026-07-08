@@ -541,6 +541,10 @@ export type ComposerActivityContext = {
   id: string;
   activityType: WebActivityInput["activityType"];
   elapsedS: number;
+  movingS?: number | null;
+  distanceM?: number | null;
+  elevationGainM?: number | null;
+  route?: number[][] | null;
   workoutDate: string;
   caption?: string | null;
   workoutTypes?: string[] | null;

@@ -666,7 +666,7 @@
   "postScreen": {
     "activity": {
       "title": "Treino concluído — {{type}} · {{elapsed}}",
-      "notice": "Dia marcado no calendário e streak mantido. Sem foto, o treino aparece no feed do mesmo jeito — dá pra adicionar fotos depois e virar post."
+      "notice": "Dia marcado no calendário e streak mantido. Mesmo sem foto, ele será publicado como post completo — com curtidas, comentários e mapa quando houver rota."
     },
     "topBar": {
       "eyebrow": "Post de treino",
@@ -703,6 +703,7 @@
     },
     "caption": {
       "placeholder": "Como foi o treino?",
+      "activityPlaceholder": "Escreva algo sobre esse treino...",
       "aria": "Legenda do post"
     },
     "moreOptions": "Mais opções",
@@ -764,7 +765,8 @@
         "needsGym": "Escolha uma academia cadastrada ou remova a localização.",
         "needsCurrentLocation": "Permita o GPS, tente de novo ou remova a localização antes de postar.",
         "generic": "Algo saiu errado. Tente de novo.",
-        "uploadInvalidType": "Escolha uma foto ou vídeo."
+        "uploadInvalidType": "Escolha uma foto ou vídeo.",
+        "coverFailed": "Não foi possível gerar a capa do treino. Tente adicionar uma foto ou publicar novamente."
       }
     }
   },

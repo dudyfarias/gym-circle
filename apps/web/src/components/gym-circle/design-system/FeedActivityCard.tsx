@@ -11,7 +11,7 @@ import {
   formatPace,
   paceFromDistance,
 } from "../workout/workoutElapsed";
-import { RouteSketch } from "./RouteSketch";
+import { WorkoutRouteMap } from "./WorkoutRouteMap";
 
 type FeedActivityCardProps = {
   activity: EnrichedActivity;
@@ -150,10 +150,31 @@ export function FeedActivityCard({
         </div>
       </button>
 
-      {/* Mini-mapa da rota (sketch da polyline) */}
+      {/* Mini-mapa real da rota (legado: atividades antigas ainda sem post). */}
       {activity.route && activity.route.length >= 2 ? (
         <div className="mx-4 mb-3 overflow-hidden rounded-[20px] border border-[var(--gc-blue)]/10 bg-[var(--gc-blue)]/[0.045]">
-          <RouteSketch route={activity.route} className="h-24 w-full" />
+          <button
+            aria-label={t("workoutDetail.mapTitle")}
+            className="gc-pressable block w-full"
+            disabled={!onOpenDetails}
+            onClick={() => onOpenDetails?.(activity)}
+            type="button"
+          >
+            <WorkoutRouteMap
+              className="h-32 w-full"
+              label={t("workoutDetail.mapTitle")}
+              route={activity.route}
+              showAttribution={false}
+            />
+          </button>
+          <a
+            className="block bg-black/35 px-2 py-1 text-right text-[8px] font-bold text-white/46"
+            href="https://www.openstreetmap.org/copyright"
+            rel="noreferrer"
+            target="_blank"
+          >
+            © OpenStreetMap
+          </a>
         </div>
       ) : null}
 

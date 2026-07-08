@@ -666,7 +666,7 @@
   "postScreen": {
     "activity": {
       "title": "Workout complete — {{type}} · {{elapsed}}",
-      "notice": "Day marked on your calendar and streak kept. Without a photo your workout still shows in the feed — you can add photos later to turn it into a post."
+      "notice": "Day marked on your calendar and streak kept. Even without a photo, it publishes as a full post — with likes, comments, and a map when there is a route."
     },
     "topBar": {
       "eyebrow": "Workout post",
@@ -703,6 +703,7 @@
     },
     "caption": {
       "placeholder": "How was the workout?",
+      "activityPlaceholder": "Write something about this workout...",
       "aria": "Post caption"
     },
     "moreOptions": "More options",
@@ -764,7 +765,8 @@
         "needsGym": "Pick a registered gym or remove the location.",
         "needsCurrentLocation": "Allow GPS, try again, or remove the location before posting.",
         "generic": "Something went wrong. Try again.",
-        "uploadInvalidType": "Pick a photo or video."
+        "uploadInvalidType": "Pick a photo or video.",
+        "coverFailed": "Couldn't generate the workout cover. Try adding a photo or publishing again."
       }
     }
   },
