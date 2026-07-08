@@ -154,7 +154,7 @@ function parseExerciseLine(line: string): WorkoutPlanExercise | null {
 
 function fallbackName(fileName?: string): string {
   const raw = fileName?.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").trim();
-  return raw || "Minha planilha";
+  return raw || "Meu treino";
 }
 
 export function parseWorkoutPlanText(

@@ -51,10 +51,10 @@ function rowToPlan(row: PlanRow): WorkoutPlan {
 }
 
 /**
- * CRUD das planilhas de treino (workout_plans). Dados próprios — o RLS garante
+ * CRUD dos treinos salvos (workout_plans). Dados próprios — o RLS garante
  * dono. Usa o cast de client (tabela não gerada nos types).
  */
-export function useWorkoutPlans() {
+export function useWorkoutPlans(enabled = true) {
   const client = useGymCircleClient();
   const { user } = useAuth();
   const db = client as unknown as SupabaseClient;
@@ -63,6 +63,11 @@ export function useWorkoutPlans() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      setError(null);
+      setLoading(false);
+      return;
+    }
     if (!user) {
       setPlans([]);
       setError(null);
@@ -85,7 +90,7 @@ export function useWorkoutPlans() {
     } finally {
       setLoading(false);
     }
-  }, [db, user]);
+  }, [db, enabled, user]);
 
   useEffect(() => {
     // Carga inicial/quando o user muda; refresh só faz setState async.
@@ -101,7 +106,7 @@ export function useWorkoutPlans() {
     }) => {
       if (!user) throw new Error("auth_required");
       const payload = {
-        name: input.name.trim() || "Planilha",
+        name: input.name.trim() || "Treino",
         exercises: input.exercises
           .map((e) => ({
             name: e.name.trim(),
@@ -134,6 +139,26 @@ export function useWorkoutPlans() {
     [db, user, refresh],
   );
 
+  const touchPlan = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      const updatedAt = new Date().toISOString();
+      setPlans((current) =>
+        current
+          .map((plan) =>
+            plan.id === id ? { ...plan, updatedAt } : plan,
+          )
+          .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+      );
+      const { error: updateError } = await db
+        .from("workout_plans")
+        .update({ updated_at: updatedAt })
+        .eq("id", id);
+      if (updateError) throw updateError;
+    },
+    [db, user],
+  );
+
   const deletePlan = useCallback(
     async (id: string) => {
       if (!user) throw new Error("auth_required");
@@ -147,5 +172,5 @@ export function useWorkoutPlans() {
     [db, user, refresh],
   );
 
-  return { plans, loading, error, refresh, savePlan, deletePlan };
+  return { plans, loading, error, refresh, savePlan, touchPlan, deletePlan };
 }

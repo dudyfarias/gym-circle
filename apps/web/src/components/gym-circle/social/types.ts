@@ -299,7 +299,7 @@ export type EnrichedActivity = {
 export type StrengthSet = {
   reps: number;
   weightKg: number | null;
-  /** Exercício da série (quando o treino veio de uma planilha). */
+  /** Exercício da série (quando o treino veio de um treino salvo). */
   exercise?: string | null;
   exerciseId?: string | null;
   targetKind?: "reps" | "failure" | "duration" | null;
@@ -309,7 +309,7 @@ export type StrengthSet = {
   techniqueNotes?: string | null;
 };
 
-/** Um exercício dentro de uma planilha: nome + séries/reps alvo. */
+/** Um exercício dentro de um treino salvo: nome + séries/reps alvo. */
 export type WorkoutPlanExercise = {
   name: string;
   sets: number | null;
@@ -323,7 +323,7 @@ export type WorkoutPlanExercise = {
   techniqueNotes?: string | null;
 };
 
-/** Planilha/rotina de treino salva pelo usuário (workout_plans). */
+/** Treino salvo pelo usuário (workout_plans). */
 export type WorkoutPlan = {
   id: string;
   name: string;

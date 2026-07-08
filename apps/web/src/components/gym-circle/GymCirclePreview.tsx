@@ -768,6 +768,11 @@ export function GymCirclePreview({
     setPostMenuId(null);
   }, [postMenuId]);
 
+  const openEditPost = useCallback((postId: string) => {
+    setEditPostId(postId);
+    setPostMenuId(null);
+  }, []);
+
   const handleConfirmDeletePost = useCallback(() => {
     if (!postMenuId || !deletePost) return;
     setConfirmIntent({ kind: "delete-post", postId: postMenuId });
@@ -1974,6 +1979,7 @@ export function GymCirclePreview({
             // Pattern correto: as linhas 883/1128 já usam `openPostDetail`
             // pro mesmo callback (`onOpenPost`) nos profile sheets.
             onOpenPostDetails={openPostDetail}
+            onEditPost={openEditPost}
             onOpenPostMenu={openPostMenu}
             onOpenActivityMenu={openActivityMenu}
             onOpenCheckinMenu={openCheckinMenu}
@@ -2021,6 +2027,7 @@ export function GymCirclePreview({
     openPostDetail,
     openPostDetailFull,
     openLikes,
+    openEditPost,
     usersById,
     resolveUser,
     openPostMenu,
@@ -2309,6 +2316,7 @@ export function GymCirclePreview({
             onOpenComments={openPostDetail}
             onOpenLikes={openLikes}
             onOpenPostMenu={openPostMenu}
+            onEditPost={openEditPost}
             onOpenWorkoutDetail={setDetailWorkout}
             onSelectUser={(userId) => {
               closePostDetailFull();

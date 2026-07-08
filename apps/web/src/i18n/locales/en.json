@@ -103,7 +103,7 @@
       "title": "Sets",
       "subtitle": "Reps and load",
       "guideTitle": "Log sets",
-      "guideBody": "Tap reps and kg to fill each row. While typing, workout controls tuck away so they do not cover the sheet.",
+      "guideBody": "Tap reps and kg to fill each row. While typing, workout controls tuck away so they do not cover the workout.",
       "jump": "Go to reps/kg",
       "progress": "{{done}}/{{total}} filled",
       "exerciseProgress": "{{done}}/{{total}} sets",
@@ -112,14 +112,17 @@
       "current": "Now",
       "completed": "Done",
       "swipeHint": "Swipe to move",
-      "emptyTitle": "Build your sheet",
-      "emptyHint": "Start by adding a set or opening a workout plan.",
+      "emptyTitle": "Build your workout",
+      "emptyHint": "Start by adding a set or opening a saved workout.",
       "untitledExercise": "Exercise",
       "reps": "Reps",
       "weight": "Weight (kg)",
       "add": "Add set",
       "addToExercise": "Add set here",
       "remove": "Remove set"
+    },
+    "saved": {
+      "quickTitle": "Recent workouts"
     },
     "finish": "Complete workout",
     "finishShort": "Finish",
@@ -180,7 +183,7 @@
   },
   "workoutPlans": {
     "fab": "More workout options",
-    "tools": "Plans & records",
+    "tools": "Workouts",
     "import": "Import workout",
     "importFile": "Import photo or PDF",
     "importHint": "We read it on your device and you review it before saving.",
@@ -191,7 +194,7 @@
       "reading": "Preparing the file…",
       "extracting": "Reading the PDF…",
       "recognizing": "Recognizing text…",
-      "parsing": "Building your plan…"
+      "parsing": "Building your workout…"
     },
     "importErrors": {
       "unsupported": "Use a JPG, PNG, WebP, HEIC image or a PDF.",
@@ -199,28 +202,28 @@
       "empty": "We couldn't find text in this file.",
       "unreadable": "We couldn't recognize the exercises. Try a sharper photo."
     },
-    "open": "Open plan",
-    "create": "New plan",
-    "createTitle": "New plan",
-    "editTitle": "Edit plan",
-    "namePlaceholder": "Plan name (e.g. Chest & Triceps)",
+    "open": "Open workouts",
+    "create": "Create workout",
+    "createTitle": "New workout",
+    "editTitle": "Edit workout",
+    "namePlaceholder": "Workout name (e.g. Chest & Triceps)",
     "exercises": "Exercises",
     "exerciseName": "Exercise",
     "setsShort": "Sets",
     "repsShort": "Reps",
     "removeExercise": "Remove exercise",
     "addExercise": "Add exercise",
-    "save": "Save plan",
+    "save": "Save workout",
     "saving": "Saving…",
     "start": "Start workout",
     "edit": "Edit",
     "delete": "Delete",
-    "deleteConfirm": "Delete this plan?",
-    "empty": "You don't have any plans yet. Create one to get started.",
+    "deleteConfirm": "Delete this workout?",
+    "empty": "You don't have any saved workouts yet. Create one to get started.",
     "noExercises": "No exercises",
     "errors": {
-      "save": "We couldn't save this plan. Try again.",
-      "delete": "We couldn't delete this plan. Try again."
+      "save": "We couldn't save this workout. Try again.",
+      "delete": "We couldn't delete this workout. Try again."
     }
   },
   "workoutCatalog": {

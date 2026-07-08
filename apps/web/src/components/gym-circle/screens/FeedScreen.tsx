@@ -61,6 +61,7 @@ type FeedScreenProps = {
   onSelectGym?: (gymId: string) => void;
   resolveUser?: (username: string) => { id: string } | undefined;
   onOpenPostMenu?: (postId: string) => void;
+  onEditPost?: (postId: string) => void;
   onOpenCheckinMenu?: (checkinId: string) => void;
   onOpenActivityMenu?: (activityId: string) => void;
   onEditCheckin?: (checkinId: string) => void;
@@ -100,6 +101,7 @@ export function FeedScreen({
   onSelectGym,
   resolveUser,
   onOpenPostMenu,
+  onEditPost,
   onOpenCheckinMenu,
   onOpenActivityMenu,
   onEditCheckin,
@@ -254,6 +256,7 @@ export function FeedScreen({
                   onLike={onLikePost}
                   onOpenLikes={onOpenLikes}
                   onOpenComments={onOpenPostDetails}
+                  onEditPost={onEditPost}
                   onOpenPostMenu={onOpenPostMenu}
                   onOpenWorkoutDetail={onOpenPostWorkoutDetail}
                   onSelectGym={onSelectGym}

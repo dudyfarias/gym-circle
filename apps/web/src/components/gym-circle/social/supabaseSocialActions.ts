@@ -780,6 +780,14 @@ export function createSocialActions(
             locationGoogleMapsUrl: input.locationGoogleMapsUrl ?? null,
           });
           feedCommitted = true;
+          if (input.sourceActivityId) {
+            setAgg((current) => ({
+              ...current,
+              feedActivities: current.feedActivities.filter(
+                (activity) => activity.id !== input.sourceActivityId,
+              ),
+            }));
+          }
           if (taggedUserIds.length > 0) {
             postCommitFollowUps.push(
               services.participants.createPostTags(

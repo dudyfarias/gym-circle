@@ -6,11 +6,14 @@ import { sanitizeLocationLabel } from "@gym-circle/core";
 import {
   ChevronRight,
   Heart,
+  ImagePlus,
   Loader2,
   MapPin,
   MessageCircle,
   MoreHorizontal,
+  Route,
   Send,
+  Timer,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
@@ -22,6 +25,12 @@ import {
 import { simulateHaptic } from "../social/haptics";
 import { getPostLikeSummary } from "../social/likes";
 import type { EnrichedPost, EnrichedUser, WorkoutDetail } from "../social/types";
+import {
+  formatElapsed,
+  formatKm,
+  formatPace,
+  paceFromDistance,
+} from "../workout/workoutElapsed";
 import { MediaCarousel } from "./MediaCarousel";
 import { StreakBadge } from "./StreakBadge";
 import { WorkoutRouteMap } from "./WorkoutRouteMap";
@@ -45,6 +54,8 @@ type SocialPostCardProps = {
   shareTargets?: EnrichedUser[];
   /** Abre o menu contextual: editar/apagar se for dono, denunciar/bloquear se for visitante. */
   onOpenPostMenu?: (postId: string) => void;
+  /** Abre o editor diretamente (usado no CTA "Adicionar fotos" de treino sem mídia real). */
+  onEditPost?: (postId: string) => void;
   onOpenLikes?: (postId: string) => void;
   /** P0.1 — post promovido de treino: abre o overlay de detalhes (Apple). */
   onOpenWorkoutDetail?: (workout: WorkoutDetail) => void;
@@ -63,6 +74,32 @@ type SocialPostCardProps = {
   inCommentsSheet?: boolean;
 };
 
+const WORKOUT_TYPE_LABEL_KEY: Record<string, string> = {
+  strength: "workout.types.strength",
+  run: "workout.types.run",
+  walk: "workout.types.walk",
+  ride: "workout.types.ride",
+  other: "workout.types.other",
+};
+
+function isAutomaticWorkoutCover(
+  post: EnrichedPost,
+  mediaItems: Array<{
+    mediaType?: string | null;
+    mediaWidth?: number | null;
+    mediaHeight?: number | null;
+  }>,
+) {
+  const media = mediaItems[0];
+  return Boolean(
+    post.workout &&
+      mediaItems.length === 1 &&
+      media?.mediaType === "image" &&
+      media.mediaWidth === 1200 &&
+      media.mediaHeight === 1500,
+  );
+}
+
 function SocialPostCardComponent({
   post,
   currentUserId,
@@ -75,6 +112,7 @@ function SocialPostCardComponent({
   resolveUser,
   shareTargets = [],
   onOpenPostMenu,
+  onEditPost,
   onOpenLikes,
   onOpenWorkoutDetail,
   inCommentsSheet = false,
@@ -107,6 +145,7 @@ function SocialPostCardComponent({
             mediaDurationSeconds: post.mediaDurationSeconds ?? null,
           },
         ];
+  const hideAutomaticWorkoutCover = isAutomaticWorkoutCover(post, mediaItems);
   const isPostOwner = post.userId === currentUserId;
   const acceptedParticipants = post.acceptedParticipants ?? [];
   const pendingParticipants = post.pendingParticipants ?? [];
@@ -152,6 +191,37 @@ function SocialPostCardComponent({
     [post.workout?.route],
   );
   const hasWorkoutRoute = workoutRoute.length >= 2;
+  const workoutSummary = post.workout
+    ? (() => {
+        const isRouteWorkout = (post.workout.distanceM ?? 0) > 0;
+        const movingS = post.workout.movingS ?? post.workout.elapsedS;
+        const pace = isRouteWorkout
+          ? paceFromDistance(post.workout.distanceM ?? 0, movingS)
+          : null;
+        const secondaryStats = [
+          isRouteWorkout ? formatElapsed(post.workout.elapsedS) : null,
+          pace != null ? formatPace(pace) : null,
+          isRouteWorkout && (post.workout.elevationGainM ?? 0) >= 1
+            ? `${Math.round(post.workout.elevationGainM ?? 0)} m`
+            : null,
+          post.workout.avgHr ? `${post.workout.avgHr} bpm` : null,
+          post.workout.totalCalories
+            ? `${Math.round(post.workout.totalCalories)} kcal`
+            : null,
+        ].filter((value): value is string => Boolean(value));
+        return {
+          isRouteWorkout,
+          label: t(
+            WORKOUT_TYPE_LABEL_KEY[post.workout.activityType] ??
+              "workout.types.other",
+          ),
+          primary: isRouteWorkout
+            ? formatKm(post.workout.distanceM ?? 0)
+            : formatElapsed(post.workout.elapsedS),
+          secondary: secondaryStats.join(" · "),
+        };
+      })()
+    : null;
 
   function handleLike() {
     // Haptic light pré-callback pra resposta tátil imediata mesmo se o callback
@@ -336,37 +406,69 @@ function SocialPostCardComponent({
         </div>
       </div>
 
-      {/* Double-tap-to-like (Instagram): wrapper em volta da mídia (carrossel
-          OU single) detecta o duplo-toque e mostra o coração. Não bloqueia
-          swipe/pinch/tap-de-vídeo (ver handlers). */}
-      <div
-        className="relative"
-        onDoubleClick={likeFromDoubleTap}
-        onTouchStart={handleMediaTouchStart}
-        onTouchEnd={handleMediaTouchEnd}
-      >
-      {/* Sprint 13 — carrossel/mídia unificados.
-          Importante para vídeo único: antes ele caía num `<video muted>` antigo
-          sem controle de som; agora passa pelo mesmo player de carrossel. */}
-        <MediaCarousel
-          altText={t("feed.post.openProfile", { name: post.author.name })}
-          media={mediaItems}
-          priority={post.author.username === "edu.fit"}
-        />
-
-        {/* Coração do duplo-toque — estoura no centro da mídia (~520ms). Mesmo
-            visual do StoryViewer (azul + glow), pointer-events-none. */}
-        {heartBurst ? (
-          <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center">
-            <Heart
-              className="gc-heart-burst text-[var(--gc-blue)] drop-shadow-[0_0_32px_rgba(48,213,255,0.65)]"
-              fill="currentColor"
-              size={96}
-              strokeWidth={2.4}
-            />
+      {workoutSummary ? (
+        <button
+          className="gc-pressable mx-4 mb-3 flex w-[calc(100%_-_2rem)] items-center gap-3 rounded-[20px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] p-4 text-left disabled:cursor-default"
+          disabled={!post.workout || !onOpenWorkoutDetail}
+          onClick={() => post.workout && onOpenWorkoutDetail?.(post.workout)}
+          type="button"
+        >
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[var(--gc-blue)] text-black shadow-[0_0_28px_rgba(48,213,255,0.2)]">
+            {workoutSummary.isRouteWorkout ? (
+              <Route size={21} strokeWidth={2.8} />
+            ) : (
+              <Timer size={21} strokeWidth={2.8} />
+            )}
           </div>
-        ) : null}
-      </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.08em] text-white/38">
+              {workoutSummary.label}
+            </p>
+            <p className="text-[20px] font-black leading-tight text-white">
+              {workoutSummary.primary}
+            </p>
+            {workoutSummary.secondary ? (
+              <p className="mt-0.5 truncate text-[11.5px] font-bold text-white/42">
+                {workoutSummary.secondary}
+              </p>
+            ) : null}
+          </div>
+        </button>
+      ) : null}
+
+      {!hideAutomaticWorkoutCover ? (
+        // Double-tap-to-like (Instagram): wrapper em volta da mídia (carrossel
+        // OU single) detecta o duplo-toque e mostra o coração. Não bloqueia
+        // swipe/pinch/tap-de-vídeo (ver handlers).
+        <div
+          className="relative"
+          onDoubleClick={likeFromDoubleTap}
+          onTouchStart={handleMediaTouchStart}
+          onTouchEnd={handleMediaTouchEnd}
+        >
+          {/* Sprint 13 — carrossel/mídia unificados.
+              Importante para vídeo único: antes ele caía num `<video muted>` antigo
+              sem controle de som; agora passa pelo mesmo player de carrossel. */}
+          <MediaCarousel
+            altText={t("feed.post.openProfile", { name: post.author.name })}
+            media={mediaItems}
+            priority={post.author.username === "edu.fit"}
+          />
+
+          {/* Coração do duplo-toque — estoura no centro da mídia (~520ms). Mesmo
+              visual do StoryViewer (azul + glow), pointer-events-none. */}
+          {heartBurst ? (
+            <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center">
+              <Heart
+                className="gc-heart-burst text-[var(--gc-blue)] drop-shadow-[0_0_32px_rgba(48,213,255,0.65)]"
+                fill="currentColor"
+                size={96}
+                strokeWidth={2.4}
+              />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {hasWorkoutRoute ? (
         <div className="mx-4 mt-3 overflow-hidden rounded-[22px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.045]">
@@ -393,6 +495,17 @@ function SocialPostCardComponent({
             © OpenStreetMap
           </a>
         </div>
+      ) : null}
+
+      {hideAutomaticWorkoutCover && isPostOwner && onEditPost && !inCommentsSheet ? (
+        <button
+          className="gc-pressable mx-4 mt-3 flex h-12 w-[calc(100%_-_2rem)] items-center justify-center gap-2 rounded-full bg-[var(--gc-blue)] text-[14px] font-black text-black"
+          onClick={() => onEditPost(post.id)}
+          type="button"
+        >
+          <ImagePlus size={18} strokeWidth={2.7} />
+          {t("feedScreen.activity.addPhoto")}
+        </button>
       ) : null}
 
       <div className="space-y-3 px-4 py-3.5">

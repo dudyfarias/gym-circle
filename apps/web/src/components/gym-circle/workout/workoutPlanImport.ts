@@ -120,7 +120,7 @@ function removeTableLines(
 async function normalizeImage(file: Blob): Promise<Blob> {
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
-    // Fotos de planilha costumam chegar com glifos muito pequenos. Ampliar
+    // Fotos de treino salvo costumam chegar com glifos muito pequenos. Ampliar
     // antes do OCR preserva "4x12", que era lido como "EXE" nas amostras.
     const scale = Math.min(
       3,

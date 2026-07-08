@@ -79,7 +79,7 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
               <ArrowLeft size={18} />
             </button>
           ) : (
-            <span className="grid size-10 place-items-center rounded-[14px] bg-[#97ff00]/12 text-[#97ff00]">
+            <span className="grid size-10 place-items-center rounded-[14px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
               <Trophy size={19} />
             </span>
           )}
@@ -107,8 +107,8 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
 
         {selected ? (
           <>
-            <div className="mb-4 rounded-[22px] border border-[#97ff00]/16 bg-[#97ff00]/[0.06] p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#97ff00]">
+            <div className="mb-4 rounded-[22px] border border-[var(--gc-brand)]/16 bg-[var(--gc-brand)]/[0.06] p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--gc-brand)]">
                 {selected.exerciseName ??
                   t(`personalRecords.metrics.${selected.metricKey}`)}
               </p>

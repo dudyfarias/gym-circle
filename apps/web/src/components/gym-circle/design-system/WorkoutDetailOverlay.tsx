@@ -219,7 +219,7 @@ export function WorkoutDetailOverlay({
                 const showExercise =
                   set.exercise != null &&
                   set.exercise !== (sets[index - 1]?.exercise ?? null);
-                // Numeração por exercício quando há planilha; global senão.
+                // Numeração por exercício quando há treino salvo; global senão.
                 const setNum = set.exercise
                   ? sets
                       .slice(0, index + 1)

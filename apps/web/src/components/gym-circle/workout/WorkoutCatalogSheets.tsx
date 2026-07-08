@@ -289,7 +289,7 @@ export function WorkoutExercisePicker({
                 onClick={() => onSelect(exercise)}
                 type="button"
               >
-                <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[#97ff00]/10 text-[#97ff00]">
+                <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
                   <Dumbbell size={17} />
                 </span>
                 <span className="min-w-0 flex-1">

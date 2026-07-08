@@ -42,7 +42,7 @@ describe("parseWorkoutPlanText", () => {
     expect(parsed.exercises).toHaveLength(1);
   });
 
-  it("entende falha, duração e técnicas das planilhas", () => {
+  it("entende falha, duração e técnicas dos treinos salvos", () => {
     const parsed = parseWorkoutPlanText(`
       Treino D
       Mergulho 4xF

@@ -41,7 +41,7 @@ import {
   restTimerReducer,
 } from "../workout/restTimer";
 import { formatElapsed } from "../workout/workoutElapsed";
-import { WorkoutPlansFab } from "../workout/WorkoutPlansFab";
+import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
 import {
   exerciseCatalogInfo,
   techniqueCatalogInfo,
@@ -49,6 +49,7 @@ import {
   type WorkoutCatalogInfo,
 } from "../workout/WorkoutCatalogSheets";
 import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
+import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import {
   appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
@@ -169,7 +170,7 @@ export function WebWorkoutScreen({
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [setsInputFocused, setSetsInputFocused] = useState(false);
   // Séries de musculação da sessão atual (só treino de força). Linhas
-  // editáveis (reps × carga); planilha pré-carrega com exercício + reps alvo.
+  // editáveis (reps × carga); treino salvo pré-carrega exercício + reps alvo.
   const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([]);
   const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(null);
   const workoutCatalog = useWorkoutCatalog();
@@ -178,6 +179,15 @@ export function WebWorkoutScreen({
     techniques,
     muscleGroups,
   } = workoutCatalog;
+  const workoutPlansController = useWorkoutPlans(open);
+  const { plans: savedWorkoutPlans, touchPlan } = workoutPlansController;
+  const quickWorkoutPlans = useMemo(
+    () =>
+      savedWorkoutPlans
+        .filter((plan) => plan.exercises.length > 0)
+        .slice(0, 5),
+    [savedWorkoutPlans],
+  );
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
@@ -419,6 +429,31 @@ export function WebWorkoutScreen({
     [applyNativeSnapshot, gpsEngine, onSessionChange],
   );
 
+  const startWorkoutPlan = useCallback(
+    (plan: WorkoutPlan) => {
+      // Cada exercício vira N linhas (séries alvo) já rotuladas; a pessoa
+      // preenche reps × carga durante a sessão.
+      const seeded: StrengthSet[] = plan.exercises.flatMap((ex) => {
+        const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
+        return Array.from({ length: count }, () => ({
+          reps: ex.reps ?? 0,
+          weightKg: null as number | null,
+          exercise: ex.name,
+          exerciseId: ex.exerciseId ?? null,
+          targetKind: ex.targetKind ?? "reps",
+          durationSeconds: ex.durationSeconds ?? null,
+          techniqueId: ex.techniqueId ?? null,
+          techniqueName: ex.techniqueName ?? null,
+          techniqueNotes: ex.techniqueNotes ?? null,
+        }));
+      });
+      void touchPlan(plan.id).catch(() => undefined);
+      setStrengthSets(seeded);
+      startWorkout("strength");
+    },
+    [startWorkout, touchPlan],
+  );
+
   const togglePause = useCallback(() => {
     if (!session) return;
     const routeActivityType = isRouteWorkout(session.activityType)
@@ -492,6 +527,8 @@ export function WebWorkoutScreen({
             : null,
       });
       clearStoredWorkoutSession();
+      setSession(null);
+      setStage("pick");
       setStrengthSets([]);
       dispatchRest({ type: "reset" });
       onSessionChange?.(false);
@@ -882,14 +919,49 @@ export function WebWorkoutScreen({
               </button>
             </header>
             <div className="mt-7 space-y-2.5 pb-6">
+              {quickWorkoutPlans.length > 0 ? (
+                <section className="mb-4">
+                  <p className="mb-2 px-1 text-[10.5px] font-black uppercase tracking-[0.16em] text-white/38">
+                    {t("workout.saved.quickTitle")}
+                  </p>
+                  <div className="space-y-2.5">
+                    {quickWorkoutPlans.map((plan) => (
+                      <button
+                        className="gc-pressable flex w-full min-w-0 items-center gap-3.5 rounded-[22px] border border-[var(--gc-brand)]/16 bg-[linear-gradient(135deg,rgba(92,232,255,0.11),rgba(11,13,14,0.98)_44%,rgba(48,213,255,0.05))] p-3.5 text-left shadow-[0_18px_48px_rgba(0,0,0,0.2)]"
+                        key={plan.id}
+                        onClick={() => startWorkoutPlan(plan)}
+                        type="button"
+                      >
+                        <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                          <Dumbbell size={22} strokeWidth={2.4} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[16px] font-black text-white">
+                            {plan.name}
+                          </span>
+                          <span className="mt-0.5 block truncate text-[12px] font-bold leading-snug text-white/42">
+                            {plan.exercises
+                              .slice(0, 3)
+                              .map((exercise) => exercise.name)
+                              .join(" · ") || t("workoutPlans.noExercises")}
+                          </span>
+                        </span>
+                        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
+                          <Play className="ml-0.5" fill="currentColor" size={16} />
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
               {TYPE_CARDS.map(({ type, icon: Icon }) => (
                 <button
-                  className="gc-pressable flex w-full items-center gap-3.5 rounded-[22px] border border-white/[0.07] bg-[#0c0f0b] p-3.5 text-left"
+                  className="gc-pressable flex w-full items-center gap-3.5 rounded-[22px] border border-white/[0.07] bg-[#0b1012] p-3.5 text-left"
                   key={type}
                   onClick={() => startWorkout(type)}
                   type="button"
                 >
-                  <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[#97ff00]/10 text-[#97ff00]">
+                  <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
                     <Icon size={22} strokeWidth={2.4} />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -900,34 +972,16 @@ export function WebWorkoutScreen({
                       {t(`workout.typeHints.${type}`)}
                     </span>
                   </span>
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#97ff00] text-black">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
                     <Play className="ml-0.5" fill="currentColor" size={16} />
                   </span>
                 </button>
               ))}
             </div>
-            <WorkoutPlansFab
+            <WorkoutPlansFabControlled
               catalog={workoutCatalog}
-              onStartPlan={(plan: WorkoutPlan) => {
-                // Cada exercício vira N linhas (séries alvo) já rotuladas; a
-                // pessoa preenche reps × carga durante a sessão.
-                const seeded: StrengthSet[] = plan.exercises.flatMap((ex) => {
-                  const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
-                  return Array.from({ length: count }, () => ({
-                    reps: ex.reps ?? 0,
-                    weightKg: null as number | null,
-                    exercise: ex.name,
-                    exerciseId: ex.exerciseId ?? null,
-                    targetKind: ex.targetKind ?? "reps",
-                    durationSeconds: ex.durationSeconds ?? null,
-                    techniqueId: ex.techniqueId ?? null,
-                    techniqueName: ex.techniqueName ?? null,
-                    techniqueNotes: ex.techniqueNotes ?? null,
-                  }));
-                });
-                setStrengthSets(seeded);
-                startWorkout("strength");
-              }}
+              onStartPlan={startWorkoutPlan}
+              plansController={workoutPlansController}
             />
           </>
         ) : session ? (
@@ -935,9 +989,9 @@ export function WebWorkoutScreen({
             <header className="flex items-center gap-3">
               <span className="inline-flex min-w-0 items-center gap-2 rounded-full bg-[#17191b] px-3.5 py-2 text-[14px] font-black text-white">
                 {session.activityType === "strength" ? (
-                  <Dumbbell className="text-[#97ff00]" size={15} />
+                  <Dumbbell className="text-[var(--gc-brand)]" size={15} />
                 ) : (
-                  <Footprints className="text-[#97ff00]" size={15} />
+                  <Footprints className="text-[var(--gc-brand)]" size={15} />
                 )}
                 <span className="truncate">
                   {t(`workout.types.${session.activityType}`)}
@@ -1058,7 +1112,7 @@ export function WebWorkoutScreen({
                               className={[
                                 "grid size-11 shrink-0 place-items-center rounded-[16px]",
                                 group.completed
-                                  ? "bg-[#97ff00] text-black"
+                                  ? "bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]"
                                   : "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]",
                               ].join(" ")}
                             >
@@ -1114,7 +1168,7 @@ export function WebWorkoutScreen({
                               })}
                             </span>
                             {group.completed ? (
-                              <span className="rounded-full bg-[#97ff00]/14 px-3 py-1.5 text-[10.5px] font-black text-[#97ff00]">
+                              <span className="rounded-full bg-[var(--gc-brand)]/14 px-3 py-1.5 text-[10.5px] font-black text-[var(--gc-brand)]">
                                 {t("workout.sets.completed")}
                               </span>
                             ) : (
@@ -1218,7 +1272,7 @@ export function WebWorkoutScreen({
                             index === safeActiveStrengthExerciseIndex
                               ? "w-6 bg-[var(--gc-brand)]"
                               : group.completed
-                                ? "w-1.5 bg-[#97ff00]/75"
+                                ? "w-1.5 bg-[var(--gc-brand)]/75"
                                 : "w-1.5 bg-white/18",
                           ].join(" ")}
                           key={group.key}

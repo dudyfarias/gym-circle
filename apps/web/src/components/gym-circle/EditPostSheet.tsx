@@ -107,8 +107,18 @@ function getMediaType(file: File): PostMediaType {
   return getMediaFileType(file) ?? "image";
 }
 
+function isAutomaticWorkoutCoverPost(post: EnrichedPost | null) {
+  if (!post?.workout) return false;
+  const media = post.media?.[0];
+  const mediaWidth = media?.mediaWidth ?? post.mediaWidth;
+  const mediaHeight = media?.mediaHeight ?? post.mediaHeight;
+  const mediaType = media?.mediaType ?? post.mediaType;
+  return mediaType === "image" && mediaWidth === 1200 && mediaHeight === 1500;
+}
+
 // Sprint 14 — lista de mídias atual do post (post.media já vem ≥1; senão, capa).
 function postToMediaItems(post: EnrichedPost): PostMediaItem[] {
+  if (isAutomaticWorkoutCoverPost(post)) return [];
   if (post.media && post.media.length > 0) return post.media;
   return [
     {
@@ -159,6 +169,7 @@ export function EditPostSheet({
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const isPromotingCheckin = Boolean(checkin);
+  const isAutomaticWorkoutCover = isAutomaticWorkoutCoverPost(post);
   const targetUserId = post?.userId ?? checkin?.userId ?? null;
   const searchableGyms = useMemo(() => {
     const merged = new Map<string, GymLocationOption>();
@@ -379,7 +390,7 @@ export function EditPostSheet({
 
   async function handleSave() {
     if ((!post && !checkin) || saving) return;
-    if (!selectedGym && mediaItems.length === 0) {
+    if (!selectedGym && mediaItems.length === 0 && !isAutomaticWorkoutCover) {
       setError("Selecione um local cadastrado para manter como check-in.");
       return;
     }
@@ -413,7 +424,12 @@ export function EditPostSheet({
           });
         }
       } else if (post) {
-        if (mediaItems.length === 0) {
+        if (mediaItems.length === 0 && isAutomaticWorkoutCover) {
+          await onSave(post.id, {
+            ...commonInput,
+            media: undefined,
+          });
+        } else if (mediaItems.length === 0) {
           if (!onConvertPostToCheckin || !selectedGym) {
             setError("Selecione um local para transformar o post em check-in.");
             return;
@@ -772,14 +788,18 @@ export function EditPostSheet({
           ) : (
             <button
               className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
-              disabled={saving || uploading || (mediaItems.length === 0 && !selectedGym)}
+              disabled={
+                saving ||
+                uploading ||
+                (mediaItems.length === 0 && !selectedGym && !isAutomaticWorkoutCover)
+              }
               onClick={handleSave}
               type="button"
             >
               <Check size={17} strokeWidth={2.8} />
               {saving
                 ? t("editPost.saving")
-                : mediaItems.length === 0
+                : mediaItems.length === 0 && !isAutomaticWorkoutCover
                   ? "Salvar como check-in"
                   : t(isPromotingCheckin ? "editCheckin.save" : "editPost.save")}
             </button>

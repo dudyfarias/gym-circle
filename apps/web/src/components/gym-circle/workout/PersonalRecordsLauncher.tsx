@@ -12,11 +12,11 @@ export function PersonalRecordsLauncher() {
   return (
     <>
       <button
-        className="gc-pressable mt-3 flex w-full items-center gap-3 rounded-[18px] border border-[#97ff00]/12 bg-[#97ff00]/[0.055] px-4 py-3 text-left"
+        className="gc-pressable mt-3 flex w-full items-center gap-3 rounded-[18px] border border-[var(--gc-brand)]/12 bg-[var(--gc-brand)]/[0.055] px-4 py-3 text-left"
         onClick={() => setOpen(true)}
         type="button"
       >
-        <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[#97ff00]/12 text-[#97ff00]">
+        <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
           <Trophy size={18} />
         </span>
         <span className="min-w-0 flex-1">

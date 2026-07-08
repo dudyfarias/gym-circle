@@ -47,6 +47,7 @@ type PostDetailOverlayProps = {
   onOpenComments: (postId: string) => void;
   onOpenLikes: (postId: string) => void;
   onOpenPostMenu: (postId: string) => void;
+  onEditPost: (postId: string) => void;
   onOpenWorkoutDetail: (workout: WorkoutDetail) => void;
   onSelectUser: (userId: string) => void;
   onSharePostToChat?: (postId: string, receiverId: string) => Promise<void> | void;
@@ -65,6 +66,7 @@ export function PostDetailOverlay({
   onOpenComments,
   onOpenLikes,
   onOpenPostMenu,
+  onEditPost,
   onOpenWorkoutDetail,
   onSelectUser,
   onSharePostToChat,
@@ -113,6 +115,7 @@ export function PostDetailOverlay({
             formatTime={formatTime}
             onLike={onLikePost}
             onOpenComments={onOpenComments}
+            onEditPost={onEditPost}
             onOpenLikes={onOpenLikes}
             onOpenPostMenu={onOpenPostMenu}
             onOpenWorkoutDetail={onOpenWorkoutDetail}

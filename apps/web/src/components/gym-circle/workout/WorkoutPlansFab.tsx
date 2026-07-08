@@ -11,13 +11,11 @@ import {
   Pencil,
   Play,
   Plus,
-  Trophy,
   Trash2,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { WorkoutPlan, WorkoutPlanExercise } from "../social/types";
-import { PersonalRecordsSheet } from "./PersonalRecordsSheet";
 import {
   exerciseCatalogInfo,
   techniqueCatalogInfo,
@@ -34,11 +32,17 @@ import {
 } from "./workoutPlanImport";
 
 type WorkoutPlansFabProps = {
-  /** Iniciar um treino de força com a planilha carregada. */
+  /** Iniciar um treino de força com o treino salvo carregado. */
   onStartPlan: (plan: WorkoutPlan) => void;
   /** Importar treino (Apple Saúde) — só onde há suporte (app iOS). */
   onImport?: () => void;
   catalog: ReturnType<typeof useWorkoutCatalog>;
+};
+
+export type WorkoutPlansController = ReturnType<typeof useWorkoutPlans>;
+
+type WorkoutPlansFabControlledProps = WorkoutPlansFabProps & {
+  plansController: WorkoutPlansController;
 };
 
 type DraftExercise = {
@@ -128,6 +132,23 @@ export function WorkoutPlansFab({
   onImport,
   catalog,
 }: WorkoutPlansFabProps) {
+  const plansController = useWorkoutPlans();
+  return (
+    <WorkoutPlansFabControlled
+      catalog={catalog}
+      onImport={onImport}
+      onStartPlan={onStartPlan}
+      plansController={plansController}
+    />
+  );
+}
+
+export function WorkoutPlansFabControlled({
+  onStartPlan,
+  onImport,
+  catalog,
+  plansController,
+}: WorkoutPlansFabControlledProps) {
   const { i18n, t } = useTranslation();
   const {
     plans,
@@ -135,8 +156,9 @@ export function WorkoutPlansFab({
     error: plansError,
     refresh,
     savePlan,
+    touchPlan,
     deletePlan,
-  } = useWorkoutPlans();
+  } = plansController;
   const {
     muscleGroups,
     exercises: catalogExercises,
@@ -150,8 +172,7 @@ export function WorkoutPlansFab({
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
-  const [recordsOpen, setRecordsOpen] = useState(false);
-  // null = editor fechado; objeto = editando (id undefined = nova planilha).
+  // null = editor fechado; objeto = editando (id undefined = novo treino).
   const [editing, setEditing] = useState<{
     id?: string;
     name: string;
@@ -398,14 +419,6 @@ export function WorkoutPlansFab({
                   openNewEditor();
                 }}
               />
-              <MenuRow
-                icon={<Trophy size={19} />}
-                label={t("personalRecords.title")}
-                onClick={() => {
-                  setMenuOpen(false);
-                  setRecordsOpen(true);
-                }}
-              />
             </div>
           </div>
         </div>
@@ -432,10 +445,6 @@ export function WorkoutPlansFab({
             </p>
           </div>
         </div>
-      ) : null}
-
-      {recordsOpen ? (
-        <PersonalRecordsSheet onClose={() => setRecordsOpen(false)} />
       ) : null}
 
       {deleteTarget ? (
@@ -480,7 +489,7 @@ export function WorkoutPlansFab({
         </div>
       ) : null}
 
-      {/* Lista de planilhas */}
+      {/* Lista de treinos */}
       {listOpen ? (
         <SheetShell title={t("workoutPlans.open")} onClose={() => setListOpen(false)}>
           {loading && plans.length === 0 ? (
@@ -558,6 +567,7 @@ export function WorkoutPlansFab({
                     disabled={plan.exercises.length === 0}
                     onClick={() => {
                       setListOpen(false);
+                      void touchPlan(plan.id).catch(() => undefined);
                       onStartPlan(plan);
                     }}
                     type="button"
@@ -572,7 +582,7 @@ export function WorkoutPlansFab({
         </SheetShell>
       ) : null}
 
-      {/* Editor (cadastrar / editar planilha) */}
+      {/* Editor (cadastrar / editar treino) */}
       {editing ? (
         <SheetShell
           title={
@@ -601,7 +611,7 @@ export function WorkoutPlansFab({
           {importedCount != null ? (
             <p
               aria-live="polite"
-              className="mb-4 rounded-[14px] bg-[#97ff00]/10 px-3 py-2.5 text-[11.5px] font-bold text-[#b9ff65]"
+              className="mb-4 rounded-[14px] bg-[var(--gc-brand)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-brand)]"
             >
               {t("workoutPlans.imported", { count: importedCount })}
             </p>
