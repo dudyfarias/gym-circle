@@ -1,6 +1,10 @@
 "use client";
 
 import type { PushService } from "@gym-circle/core";
+import {
+  extractPushNotificationData,
+  normalizePushNavigationTarget,
+} from "./pushDeepLinks";
 
 const LEGACY_TOKEN_KEY = "gym-circle.native-push-token.v1";
 const TOKEN_KEY = "gym-circle.native-push-token.v2";
@@ -330,8 +334,15 @@ export const PushNotificationsService = {
       await PushNotifications.addListener(
         "pushNotificationActionPerformed",
         (action) => {
+          const data = extractPushNotificationData(action);
           window.dispatchEvent(
-            new CustomEvent("gymcircle:push-action", { detail: action }),
+            new CustomEvent("gymcircle:push-action", {
+              detail: {
+                action,
+                data,
+                target: normalizePushNavigationTarget(data),
+              },
+            }),
           );
         },
       ),

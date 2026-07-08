@@ -427,7 +427,7 @@
   },
   "pushPermission": {
     "title": "Turn on notifications",
-    "body": "Get updates about likes, comments, messages, and progress from your Circle.",
+    "body": "Get updates about messages, likes, comments, and reminders to keep your Circle active.",
     "notNow": "Not now",
     "activate": "Turn on",
     "activating": "Turning on…",

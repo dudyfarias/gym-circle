@@ -62,6 +62,10 @@ import {
   attachCapacitorKeyboardListeners,
   type KeyboardPluginLike,
 } from "./keyboardDetection";
+import {
+  normalizePushNavigationTarget,
+  type PushNavigationTarget,
+} from "./native/pushDeepLinks";
 import { markPerf, measurePerf } from "./performance";
 
 const ChatScreen = dynamic(
@@ -712,6 +716,67 @@ export function GymCirclePreview({
     [refreshPostDetailsAction],
   );
   const closePostDetailFull = useCallback(() => setPostDetailFullId(null), []);
+
+  const openPushTarget = useCallback(
+    (target: PushNavigationTarget | null) => {
+      if (!target) {
+        setActiveScreen("feed");
+        return;
+      }
+      if (target.notifications) {
+        setNotificationsOpen(true);
+        return;
+      }
+      if (target.openWorkout) {
+        setCreateHubOpen(false);
+        setWorkoutOpen(true);
+        return;
+      }
+      if (target.openCreate) {
+        setCreateHubOpen(true);
+        return;
+      }
+      if (target.postId) {
+        setActiveScreen("feed");
+        openPostDetailFull(target.postId);
+        if (target.comments) openPostDetail(target.postId);
+        return;
+      }
+      if (target.screen) {
+        setActiveScreen(target.screen);
+      }
+    },
+    [openPostDetail, openPostDetailFull],
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let initialNavigationTimer: number | null = null;
+
+    const initial = normalizePushNavigationTarget(window.location.href);
+    if (initial) {
+      initialNavigationTimer = window.setTimeout(() => openPushTarget(initial), 0);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
+    const handlePushAction = (event: Event) => {
+      const detail = (event as CustomEvent).detail as
+        | { target?: PushNavigationTarget | null; data?: Record<string, unknown> }
+        | undefined;
+      openPushTarget(
+        detail?.target ?? normalizePushNavigationTarget(detail?.data ?? null),
+      );
+    };
+
+    window.addEventListener("gymcircle:push-action", handlePushAction);
+    return () => {
+      if (initialNavigationTimer !== null) {
+        window.clearTimeout(initialNavigationTimer);
+      }
+      window.removeEventListener("gymcircle:push-action", handlePushAction);
+    };
+  }, [openPushTarget]);
+
   const openLikes = useCallback(
     (postId: string) => {
       setLikesPostId(postId);

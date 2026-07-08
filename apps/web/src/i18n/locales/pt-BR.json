@@ -427,7 +427,7 @@
   },
   "pushPermission": {
     "title": "Ativar notificações",
-    "body": "Receba avisos de curtidas, comentários, mensagens e progresso do seu Circle.",
+    "body": "Receba avisos de mensagens, curtidas, comentários e lembretes para manter seu Circle ativo.",
     "notNow": "Agora não",
     "activate": "Ativar",
     "activating": "Ativando…",

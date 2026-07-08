@@ -166,7 +166,7 @@ let cachedApnsJwt: { token: string; expiresAt: number } | null = null;
 
 function apnsConfigured(): boolean {
   return Boolean(
-    Deno.env.get("APNS_KEY_P8") &&
+    (Deno.env.get("APNS_PRIVATE_KEY") || Deno.env.get("APNS_KEY_P8")) &&
       Deno.env.get("APNS_KEY_ID") &&
       Deno.env.get("APNS_TEAM_ID"),
   );
@@ -178,7 +178,9 @@ async function signApnsJwt(): Promise<string> {
     return cachedApnsJwt.token;
   }
 
-  const keyP8 = Deno.env.get("APNS_KEY_P8")?.replace(/\\n/g, "\n");
+  const keyP8 = (
+    Deno.env.get("APNS_PRIVATE_KEY") || Deno.env.get("APNS_KEY_P8")
+  )?.replace(/\\n/g, "\n");
   const keyId = Deno.env.get("APNS_KEY_ID");
   const teamId = Deno.env.get("APNS_TEAM_ID");
   if (!keyP8 || !keyId || !teamId) {
@@ -203,24 +205,30 @@ async function sendApnsAtEnvironment(args: {
   environment: "production" | "sandbox";
   payload: Record<string, unknown>;
   priority: number;
+  collapseId?: string | null;
 }): Promise<DeliveryResult> {
   const host = args.environment === "production"
     ? "api.push.apple.com"
     : "api.sandbox.push.apple.com";
 
   try {
+    const headers: Record<string, string> = {
+      authorization: `bearer ${args.jwt}`,
+      "apns-topic": args.bundleId,
+      "apns-push-type": "alert",
+      "apns-priority": String(args.priority),
+      "apns-expiration": "0",
+      "content-type": "application/json",
+    };
+    if (args.collapseId) {
+      headers["apns-collapse-id"] = args.collapseId;
+    }
+
     const response = await fetch(
       `https://${host}/3/device/${args.token}`,
       {
         method: "POST",
-        headers: {
-          authorization: `bearer ${args.jwt}`,
-          "apns-topic": args.bundleId,
-          "apns-push-type": "alert",
-          "apns-priority": String(args.priority),
-          "apns-expiration": "0",
-          "content-type": "application/json",
-        },
+        headers,
         body: JSON.stringify(args.payload),
       },
     );
@@ -270,6 +278,7 @@ async function sendApns(args: {
   environment: "production" | "sandbox";
   payload: Record<string, unknown>;
   priority: number;
+  collapseId?: string | null;
 }): Promise<DeliveryResult> {
   const first = await sendApnsAtEnvironment(args);
   if (
@@ -298,6 +307,17 @@ async function sendApns(args: {
       first.reason === "BadDeviceToken" &&
       fallback.reason === "BadDeviceToken",
   };
+}
+
+function collapseIdFor(payload: PushRequest): string | null {
+  const raw =
+    payload.data?.collapse_id ??
+    payload.data?.conversation_id ??
+    payload.data?.post_id ??
+    payload.data?.notification_id ??
+    payload.kind;
+  const normalized = raw.replace(/[^a-zA-Z0-9_.:-]/g, "-").slice(0, 64);
+  return normalized || null;
 }
 
 async function sendWebPush(args: {
@@ -550,7 +570,9 @@ Deno.serve(async (request: Request) => {
 
   if (payload.dry_run) {
     return jsonResponse({
-      ready: apnsReady && Boolean(webPush),
+      ready:
+        (tokens.length === 0 || apnsReady) &&
+        (subscriptions.length === 0 || Boolean(webPush)),
       apns: {
         configured: apnsReady,
         error: apnsConfigError,
@@ -572,6 +594,7 @@ Deno.serve(async (request: Request) => {
     if (apnsReady) {
       try {
         const jwt = await signApnsJwt();
+        const data = payload.data ?? {};
         const apnsPayload: Record<string, unknown> = {
           aps: {
             alert: { title: payload.title, body: payload.body },
@@ -579,10 +602,12 @@ Deno.serve(async (request: Request) => {
             "thread-id": payload.kind,
             category: payload.kind,
           },
-          ...(payload.data ?? {}),
+          ...data,
+          type: data.type ?? payload.kind,
           gymcircle_kind: payload.kind,
         };
         const priority = Math.min(10, Math.max(5, payload.priority ?? 10));
+        const collapseId = collapseIdFor(payload);
         results.push(
           ...(await Promise.all(
             tokens.map((row) =>
@@ -593,6 +618,7 @@ Deno.serve(async (request: Request) => {
                 environment: configuredEnvironment,
                 payload: apnsPayload,
                 priority,
+                collapseId,
               })
             ),
           )),

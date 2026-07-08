@@ -10,7 +10,7 @@ type NativePushControllerProps = {
   userId: string;
 };
 
-const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v1";
+const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v2";
 const PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 function promptStorageKey(userId: string) {
@@ -51,7 +51,9 @@ export function NativePushController({ userId }: NativePushControllerProps) {
   const services = useGymCircleServices();
   const [promptOpen, setPromptOpen] = useState(false);
   const [activating, setActivating] = useState(false);
-  const [promptError, setPromptError] = useState<string | null>(null);
+  const [promptErrorKey, setPromptErrorKey] = useState<
+    "denied" | "unsupported" | "failed" | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +94,16 @@ export function NativePushController({ userId }: NativePushControllerProps) {
         return;
       }
 
+      if (permission === "denied" && !promptWasDismissed(userId)) {
+        timer = window.setTimeout(() => {
+          if (!cancelled) {
+            setPromptErrorKey("denied");
+            setPromptOpen(true);
+          }
+        }, 4_000);
+        return;
+      }
+
       if (
         (permission === "prompt" ||
           permission === "prompt-with-rationale") &&
@@ -113,15 +125,17 @@ export function NativePushController({ userId }: NativePushControllerProps) {
   }, [services.push, userId]);
 
   function dismissPrompt() {
-    rememberPromptDecision(userId);
+    if (promptErrorKey !== "failed" && promptErrorKey !== "unsupported") {
+      rememberPromptDecision(userId);
+    }
     setPromptOpen(false);
-    setPromptError(null);
+    setPromptErrorKey(null);
   }
 
   async function activatePush() {
     if (activating) return;
     setActivating(true);
-    setPromptError(null);
+    setPromptErrorKey(null);
     const result = await PushNotificationsService.requestPushPermission(
       userId,
       services.push,
@@ -137,16 +151,18 @@ export function NativePushController({ userId }: NativePushControllerProps) {
       setPromptOpen(false);
     } else if (result.status === "permission_denied") {
       rememberPromptDecision(userId);
-      setPromptError(t("pushPermission.denied"));
+      setPromptErrorKey("denied");
     } else if (result.status === "unsupported") {
-      setPromptError(t("pushPermission.unsupported"));
+      setPromptErrorKey("unsupported");
     } else {
-      setPromptError(t("pushPermission.failed"));
+      setPromptErrorKey("failed");
     }
     setActivating(false);
   }
 
   if (!promptOpen) return null;
+  const canAttemptActivation =
+    promptErrorKey !== "denied" && promptErrorKey !== "unsupported";
 
   return (
     <div
@@ -166,36 +182,40 @@ export function NativePushController({ userId }: NativePushControllerProps) {
           {t("pushPermission.body")}
         </p>
 
-        {promptError ? (
+        {promptErrorKey ? (
           <p
             aria-live="assertive"
             className="mt-4 rounded-[14px] bg-[var(--gc-pink)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-pink)]"
           >
-            {promptError}
+            {t(`pushPermission.${promptErrorKey}`)}
           </p>
         ) : null}
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
+        <div
+          className={`mt-5 grid gap-2 ${canAttemptActivation ? "grid-cols-2" : "grid-cols-1"}`}
+        >
           <button
             className="gc-pressable rounded-full bg-white/[0.07] py-3 text-[13px] font-black text-white"
             disabled={activating}
             onClick={dismissPrompt}
             type="button"
           >
-            {promptError
+            {promptErrorKey
               ? t("common.close")
               : t("pushPermission.notNow")}
           </button>
-          <button
-            className="gc-pressable rounded-full bg-[var(--gc-brand)] py-3 text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-45"
-            disabled={activating || Boolean(promptError)}
-            onClick={() => void activatePush()}
-            type="button"
-          >
-            {activating
-              ? t("pushPermission.activating")
-              : t("pushPermission.activate")}
-          </button>
+          {canAttemptActivation ? (
+            <button
+              className="gc-pressable rounded-full bg-[var(--gc-brand)] py-3 text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-45"
+              disabled={activating}
+              onClick={() => void activatePush()}
+              type="button"
+            >
+              {activating
+                ? t("pushPermission.activating")
+                : t("pushPermission.activate")}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
