@@ -68,6 +68,12 @@ export function NativePushController({ userId }: NativePushControllerProps) {
   const [promptErrorKey, setPromptErrorKey] = useState<
     "denied" | "unsupported" | "failed" | null
   >(null);
+  // Motivo técnico real da falha de registro (erro do APNs vindo do
+  // registrationError, ou "push_registration_timeout"). Exibido no device pra
+  // diagnóstico — sem isso só víamos o erro genérico.
+  const [promptErrorDetail, setPromptErrorDetail] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -205,12 +211,14 @@ export function NativePushController({ userId }: NativePushControllerProps) {
     }
     setPromptOpen(false);
     setPromptErrorKey(null);
+    setPromptErrorDetail(null);
   }
 
   async function activatePush() {
     if (activating) return;
     setActivating(true);
     setPromptErrorKey(null);
+    setPromptErrorDetail(null);
     const result = await PushNotificationsService.requestPushPermission(
       userId,
       services.push,
@@ -230,6 +238,17 @@ export function NativePushController({ userId }: NativePushControllerProps) {
     } else if (result.status === "unsupported") {
       setPromptErrorKey("unsupported");
     } else {
+      // Expõe o motivo REAL: erro do APNs (registrationError) ou
+      // "push_registration_timeout" (nenhum callback nativo em 20s → binário
+      // sem capability/entitlement de push corretos).
+      const detail =
+        result.error instanceof Error
+          ? result.error.message
+          : typeof result.error === "string"
+            ? result.error
+            : "unknown_error";
+      console.error("[push] registration failed:", result.error);
+      setPromptErrorDetail(detail);
       setPromptErrorKey("failed");
     }
     setActivating(false);
@@ -300,6 +319,12 @@ export function NativePushController({ userId }: NativePushControllerProps) {
                 className="mt-4 rounded-[14px] bg-[var(--gc-pink)]/10 px-3 py-2.5 text-[11.5px] font-bold text-[var(--gc-pink)]"
               >
                 {t(`pushPermission.${promptErrorKey}`)}
+              </p>
+            ) : null}
+
+            {promptErrorDetail ? (
+              <p className="mt-2 select-text break-words rounded-[12px] bg-white/[0.05] px-3 py-2 font-mono text-[10.5px] leading-4 text-white/55">
+                {promptErrorDetail}
               </p>
             ) : null}
 
