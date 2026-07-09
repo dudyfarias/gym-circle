@@ -21,6 +21,7 @@ import {
 } from "./GymSearchSheet";
 import { MediaCarousel } from "./design-system/MediaCarousel";
 import { PinchZoomImage } from "./design-system/PinchZoomImage";
+import { VideoThumbnail } from "./design-system/VideoThumbnail";
 import {
   allSettledWithConcurrency,
   getMediaUploadConcurrency,
@@ -114,6 +115,27 @@ function isAutomaticWorkoutCoverPost(post: EnrichedPost | null) {
   const mediaHeight = media?.mediaHeight ?? post.mediaHeight;
   const mediaType = media?.mediaType ?? post.mediaType;
   return mediaType === "image" && mediaWidth === 1200 && mediaHeight === 1500;
+}
+
+function EditableMediaThumbnail({ item }: { item: PostMediaItem }) {
+  if (item.mediaType === "video") {
+    const poster = item.posterUrl ?? item.thumbnailUrl ?? null;
+    return poster ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img alt="" className="h-full w-full object-cover" src={poster} />
+    ) : (
+      <VideoThumbnail className="h-full w-full object-cover" src={item.imageUrl} />
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt=""
+      className="h-full w-full object-cover"
+      src={item.thumbnailUrl ?? item.imageUrl}
+    />
+  );
 }
 
 // Sprint 14 — lista de mídias atual do post (post.media já vem ≥1; senão, capa).
@@ -530,14 +552,9 @@ export function EditPostSheet({
             {mediaItems.map((item, index) => (
               <div
                 className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
-                key={item.imageUrl}
+                key={`${item.imageUrl}-${index}`}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt=""
-                  className="h-full w-full object-cover"
-                  src={item.thumbnailUrl ?? item.imageUrl}
-                />
+                <EditableMediaThumbnail item={item} />
                 <button
                   aria-label={t("postScreen.media.remove")}
                   className="gc-pressable absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/72 text-white"
@@ -776,15 +793,28 @@ export function EditPostSheet({
 
         <div className="border-t border-white/[0.06] p-4">
           {step === "media" ? (
-            <button
-              className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
-              disabled={uploading}
-              onClick={() => setStep("details")}
-              type="button"
-            >
-              Continuar
-              <ChevronRight size={18} strokeWidth={2.8} />
-            </button>
+            <div className="space-y-2">
+              {post && mediaChanged && mediaItems.length > 0 ? (
+                <button
+                  className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
+                  disabled={saving || uploading}
+                  onClick={handleSave}
+                  type="button"
+                >
+                  <Check size={17} strokeWidth={2.8} />
+                  {saving ? t("editPost.saving") : t("editPost.saveCarousel")}
+                </button>
+              ) : null}
+              <button
+                className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white/[0.08] text-[14px] font-black text-white disabled:opacity-50"
+                disabled={uploading}
+                onClick={() => setStep("details")}
+                type="button"
+              >
+                {t("editPost.continue")}
+                <ChevronRight size={18} strokeWidth={2.8} />
+              </button>
+            </div>
           ) : (
             <button
               className="gc-pressable flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"

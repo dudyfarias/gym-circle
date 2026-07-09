@@ -1007,6 +1007,8 @@
     },
     "saving": "Saving...",
     "save": "Save changes",
+    "saveCarousel": "Save carousel",
+    "continue": "Continue",
     "errors": {
       "save": "Failed to save"
     }

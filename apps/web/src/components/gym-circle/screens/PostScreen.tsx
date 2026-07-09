@@ -35,6 +35,7 @@ import type {
 } from "../social/types";
 import { MediaCarousel } from "../design-system/MediaCarousel";
 import { PinchZoomImage } from "../design-system/PinchZoomImage";
+import { VideoThumbnail } from "../design-system/VideoThumbnail";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { createWorkoutShareCoverFile } from "../workout/workoutShareCover";
 
@@ -125,6 +126,27 @@ type PendingUpload = {
   status: "uploading" | "error";
   progress: number;
 };
+
+function EditableMediaThumbnail({ item }: { item: PostMediaItem }) {
+  if (item.mediaType === "video") {
+    const poster = item.posterUrl ?? item.thumbnailUrl ?? null;
+    return poster ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img alt="" className="h-full w-full object-cover" src={poster} />
+    ) : (
+      <VideoThumbnail className="h-full w-full object-cover" src={item.imageUrl} />
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      alt=""
+      className="h-full w-full object-cover"
+      src={item.thumbnailUrl ?? item.imageUrl}
+    />
+  );
+}
 
 function getGymMeta(gym: GymLocationOption): string {
   return [gym.address, gym.city, gym.state].filter(Boolean).join(" · ");
@@ -1017,14 +1039,9 @@ export function PostScreen({
               {mediaItems.map((item, index) => (
                 <div
                   className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-black"
-                  key={item.imageUrl}
+                  key={`${item.imageUrl}-${index}`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt=""
-                    className="h-full w-full object-cover"
-                    src={item.thumbnailUrl ?? item.imageUrl}
-                  />
+                  <EditableMediaThumbnail item={item} />
                   <button
                     aria-label={t("postScreen.media.remove")}
                     className="gc-pressable absolute right-0.5 top-0.5 grid size-5 place-items-center rounded-full bg-black/72 text-white"
