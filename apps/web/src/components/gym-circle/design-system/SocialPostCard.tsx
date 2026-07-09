@@ -146,6 +146,11 @@ function SocialPostCardComponent({
           },
         ];
   const hideAutomaticWorkoutCover = isAutomaticWorkoutCover(post, mediaItems);
+  const hasRealMedia = mediaItems.some(
+    (media) =>
+      Boolean(media.imageUrl || media.thumbnailUrl || media.posterUrl) &&
+      !hideAutomaticWorkoutCover,
+  );
   const isPostOwner = post.userId === currentUserId;
   const acceptedParticipants = post.acceptedParticipants ?? [];
   const pendingParticipants = post.pendingParticipants ?? [];
@@ -222,6 +227,20 @@ function SocialPostCardComponent({
         };
       })()
     : null;
+  const shouldShowWorkoutSummaryCard = Boolean(workoutSummary && !hasRealMedia);
+  const workoutChipDetail =
+    workoutSummary && hasRealMedia
+      ? [
+          workoutSummary.primary,
+          workoutSummary.isRouteWorkout
+            ? workoutSummary.secondary
+                .split(" · ")
+                .find((value) => value.includes("/"))
+            : null,
+        ]
+          .filter((value): value is string => Boolean(value))
+          .join(" · ")
+      : null;
 
   function handleLike() {
     // Haptic light pré-callback pra resposta tátil imediata mesmo se o callback
@@ -406,7 +425,7 @@ function SocialPostCardComponent({
         </div>
       </div>
 
-      {workoutSummary ? (
+      {shouldShowWorkoutSummaryCard && workoutSummary ? (
         <button
           className="gc-pressable mx-4 mb-3 flex w-[calc(100%_-_2rem)] items-center gap-3 rounded-[20px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.055] p-4 text-left disabled:cursor-default"
           disabled={!post.workout || !onOpenWorkoutDetail}
@@ -564,12 +583,33 @@ function SocialPostCardComponent({
               // de detalhes (estilo Apple) — sem faixa extra, menos poluído.
               <button
                 aria-label={t("workoutDetail.title")}
-                className="gc-pressable flex items-center gap-1.5 rounded-full bg-[var(--gc-blue)]/12 px-3 py-2 text-[12px] font-black text-[var(--gc-blue)]"
+                className={[
+                  "gc-pressable flex min-w-0 max-w-[58%] items-center rounded-full bg-[var(--gc-blue)]/12 px-3 text-[var(--gc-blue)]",
+                  workoutChipDetail
+                    ? "gap-2 py-2 text-left"
+                    : "gap-1.5 py-2 text-[12px] font-black",
+                ].join(" ")}
                 onClick={() => post.workout && onOpenWorkoutDetail(post.workout)}
                 type="button"
               >
-                {post.workoutType}
-                <ChevronRight size={13} strokeWidth={3} />
+                <span className="min-w-0">
+                  <span
+                    className={[
+                      "block truncate",
+                      workoutChipDetail
+                        ? "text-[9.5px] font-black uppercase tracking-[0.08em] text-[var(--gc-blue)]/72"
+                        : "",
+                    ].join(" ")}
+                  >
+                    {post.workoutType}
+                  </span>
+                  {workoutChipDetail ? (
+                    <span className="mt-0.5 block truncate text-[12px] font-black leading-none text-[var(--gc-blue)]">
+                      {workoutChipDetail}
+                    </span>
+                  ) : null}
+                </span>
+                <ChevronRight className="shrink-0" size={13} strokeWidth={3} />
               </button>
             ) : (
               <span className="rounded-full bg-white/[0.06] px-3 py-2 text-[12px] font-bold text-white/72">
