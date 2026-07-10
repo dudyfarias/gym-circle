@@ -83,6 +83,7 @@ export type SocialActionsContext = {
   refreshChat: () => Promise<void>;
   refreshConversationMessages: (conversationId: string) => Promise<void>;
   refreshPostDetails: (postId: string) => Promise<void>;
+  refreshNotifications: () => Promise<void>;
   refreshProfilePosts: SupabaseSocialActions["refreshProfilePosts"];
   loadMoreProfilePosts: SupabaseSocialActions["loadMoreProfilePosts"];
   invalidateProfilePostsCache: (userId?: string) => void;
@@ -114,6 +115,7 @@ export function createSocialActions(
     refreshChat,
     refreshConversationMessages,
     refreshPostDetails,
+    refreshNotifications,
     refreshProfilePosts,
     loadMoreProfilePosts,
     invalidateProfilePostsCache,
@@ -1264,6 +1266,21 @@ export function createSocialActions(
         await refreshConversationMessages(conversationId).catch(() => undefined);
         await services.messages.markConversationRead(conversationId);
         void refreshChat();
+      },
+      async markNotificationsRead() {
+        const readAt = new Date().toISOString();
+        setAgg((current) => ({
+          ...current,
+          myNotifications: current.myNotifications.map((notification) =>
+            notification.read_at ? notification : { ...notification, read_at: readAt },
+          ),
+        }));
+        try {
+          await services.notifications.markAllRead(currentUserId);
+        } catch (err) {
+          await refreshNotifications().catch(() => undefined);
+          throw err;
+        }
       },
       async deleteChatConversation(userId: string) {
         const target = enrichedAll.get(userId);

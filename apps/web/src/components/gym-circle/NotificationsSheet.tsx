@@ -129,6 +129,7 @@ type NotificationsSheetProps = {
   onRejectPostTag?: (postId: string) => void | Promise<void>;
   onAcceptStoryTag?: (storyId: string) => void | Promise<void>;
   onRejectStoryTag?: (storyId: string) => void | Promise<void>;
+  onMarkAllRead?: () => void | Promise<void>;
 };
 
 type TagDecision = "accepted" | "rejected";
@@ -207,6 +208,7 @@ export function NotificationsSheet({
   onRejectPostTag,
   onAcceptStoryTag,
   onRejectStoryTag,
+  onMarkAllRead,
 }: NotificationsSheetProps) {
   const { t } = useTranslation();
   const services = useGymCircleServices();
@@ -517,10 +519,20 @@ export function NotificationsSheet({
   // Marca todas como lidas quando o sheet abre
   useEffect(() => {
     if (!open) return;
-    services.notifications.markAllRead(currentUserId).catch(() => {
-      /* ignora */
-    });
-  }, [open, services, currentUserId]);
+    const readAt = new Date().toISOString();
+    const optimisticTimer = window.setTimeout(() => {
+      setItems((current) =>
+        current.map((notification) =>
+          notification.read_at ? notification : { ...notification, read_at: readAt },
+        ),
+      );
+    }, 0);
+    void Promise.resolve(onMarkAllRead?.() ?? services.notifications.markAllRead(currentUserId))
+      .catch(() => {
+        void refresh();
+      });
+    return () => window.clearTimeout(optimisticTimer);
+  }, [currentUserId, onMarkAllRead, open, refresh, services.notifications]);
 
   const grouped = useMemo(() => {
     const today: NotificationRow[] = [];

@@ -661,6 +661,7 @@ export type SocialActions = {
   sendChatMessage?: (input: SendChatMessageInput) => Promise<void>;
   refreshChat?: () => Promise<void>;
   refreshPostDetails?: (postId: string) => Promise<void>;
+  markNotificationsRead?: () => Promise<void>;
   refreshProfilePosts?: (
     userId: string,
     options?: {

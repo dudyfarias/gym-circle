@@ -197,6 +197,7 @@ export type SupabaseSocialActions = {
   sendChatMessage: (input: SendChatMessageInput) => Promise<void>;
   markChatThreadRead: (userId: string) => Promise<void>;
   markChatConversationRead: (conversationId: string) => Promise<void>;
+  markNotificationsRead: () => Promise<void>;
   acceptFollowRequest: (requesterId: string) => Promise<void>;
   rejectFollowRequest: (requesterId: string) => Promise<void>;
   deleteChatConversation: (userId: string) => Promise<void>;
@@ -2148,6 +2149,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         refreshChat,
         refreshConversationMessages,
         refreshPostDetails,
+        refreshNotifications,
         refreshProfilePosts,
         loadMoreProfilePosts,
         invalidateProfilePostsCache,
@@ -2184,6 +2186,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       refreshChat,
       refreshConversationMessages,
       refreshPostDetails,
+      refreshNotifications,
       refreshProfilePosts,
       loadMoreProfilePosts,
       invalidateProfilePostsCache,

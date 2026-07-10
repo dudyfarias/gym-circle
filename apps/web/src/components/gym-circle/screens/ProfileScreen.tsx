@@ -172,7 +172,7 @@ export function ProfileScreen({
   );
 
   return (
-    <section className="gc-screen-enter min-h-screen px-5 pb-6">
+    <section className="gc-screen-enter min-h-screen px-5 pb-6" data-gc-no-tab-swipe>
       <TopBar
         eyebrow={t("feed.title")}
         extraAction={

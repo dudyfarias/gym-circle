@@ -181,6 +181,7 @@ const AccountSettingsSheet = dynamic(
 
 const NO_SCREEN_SWIPE_SELECTOR =
   "button,a,input,textarea,select,video,[contenteditable='true'],[data-gc-no-screen-swipe]";
+const NO_TAB_SWIPE_SELECTOR = "[data-gc-no-tab-swipe]";
 const SCREEN_SWIPE_THRESHOLD = 132;
 const SCREEN_SWIPE_MAX_VERTICAL = 34;
 const SCREEN_SWIPE_DOMINANCE = 2.15;
@@ -353,6 +354,7 @@ export function GymCirclePreview({
   const touchLastXRef = useRef<number | null>(null);
   const touchStartScreenRef = useRef<ScreenKey>("feed");
   const touchIgnoreScreenSwipeRef = useRef(false);
+  const touchIgnorePullRefreshRef = useRef(false);
   const touchPullingToRefreshRef = useRef(false);
   const screenOrder: ScreenKey[] = useMemo(
     () => ["feed", "chat", "post", "checkin", "profile"],
@@ -1229,8 +1231,13 @@ export function GymCirclePreview({
   const handleTouchStart = useCallback(
     (event: TouchEvent<HTMLDivElement>) => {
       const target = event.target;
-      touchIgnoreScreenSwipeRef.current =
+      const ignoresAllGestures =
         target instanceof Element && Boolean(target.closest(NO_SCREEN_SWIPE_SELECTOR));
+      touchIgnoreScreenSwipeRef.current =
+        ignoresAllGestures ||
+        activeScreen === "profile" ||
+        (target instanceof Element && Boolean(target.closest(NO_TAB_SWIPE_SELECTOR)));
+      touchIgnorePullRefreshRef.current = ignoresAllGestures;
       const touch = event.touches[0];
       touchStartXRef.current = touch?.clientX ?? null;
       touchLastXRef.current = touch?.clientX ?? null;
@@ -1243,7 +1250,7 @@ export function GymCirclePreview({
   );
 
   const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
-    if (touchIgnoreScreenSwipeRef.current || refreshing) return;
+    if (touchIgnorePullRefreshRef.current || refreshing) return;
     const startY = touchStartYRef.current;
     const startX = touchStartXRef.current;
     const touch = event.touches[0];
@@ -1277,6 +1284,7 @@ export function GymCirclePreview({
     touchLastXRef.current = null;
     touchLastYRef.current = null;
     touchIgnoreScreenSwipeRef.current = false;
+    touchIgnorePullRefreshRef.current = false;
     touchPullingToRefreshRef.current = false;
     setPullDistance(0);
     if (ignoreScreenSwipe) return;
@@ -2565,6 +2573,7 @@ export function GymCirclePreview({
             onRejectFollowRequest={social.actions.rejectFollowRequest}
             onRejectPostTag={social.actions.rejectPostTag}
             onRejectStoryTag={social.actions.rejectStoryTag}
+            onMarkAllRead={social.actions.markNotificationsRead}
             onSelectUser={(userId) => {
               setNotificationsOpen(false);
               openProfile(userId);
