@@ -15,7 +15,7 @@ export type ActivityOrigin = "live" | "web_timer" | "imported";
 export type StrengthSet = {
   reps: number;
   weightKg: number | null;
-  /** Exercício da série (quando o treino veio de uma planilha). */
+  /** Exercício da série (quando o treino veio de um treino salvo). */
   exercise?: string | null;
   exerciseId?: string | null;
   targetKind?: "reps" | "failure" | "duration" | null;
@@ -38,16 +38,51 @@ export type StrengthSetRow = {
   technique_notes?: string | null;
 };
 
+function isPersistableStrengthSet(
+  set: Pick<StrengthSet, "durationSeconds" | "reps" | "targetKind">,
+) {
+  if (set.targetKind === "duration") {
+    return (
+      typeof set.durationSeconds === "number" &&
+      Number.isFinite(set.durationSeconds) &&
+      set.durationSeconds > 0
+    );
+  }
+  return Number.isFinite(set.reps) && set.reps > 0;
+}
+
+function isPersistableStrengthSetRow(
+  set: Pick<StrengthSetRow, "duration_seconds" | "reps" | "target_kind">,
+) {
+  if (set.target_kind === "duration") {
+    return (
+      typeof set.duration_seconds === "number" &&
+      Number.isFinite(set.duration_seconds) &&
+      set.duration_seconds > 0
+    );
+  }
+  return Number.isFinite(set.reps) && set.reps > 0;
+}
+
 export function strengthSetsFromRow(
   rows: StrengthSetRow[] | null | undefined,
 ): StrengthSet[] | null {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   return rows
-    .filter((r) => Number.isFinite(r?.reps) && r.reps > 0)
+    .filter(isPersistableStrengthSetRow)
     .map((r) => ({
-      reps: Math.round(r.reps),
+      reps:
+        r.target_kind === "duration"
+          ? 0
+          : Number.isFinite(r.reps) && r.reps > 0
+            ? Math.round(r.reps)
+            : 0,
       weightKg:
-        r.weight_kg != null && Number.isFinite(r.weight_kg) ? r.weight_kg : null,
+        r.weight_kg != null &&
+        Number.isFinite(r.weight_kg) &&
+        r.weight_kg > 0
+          ? r.weight_kg
+          : null,
       exercise: r.exercise?.trim() || null,
       exerciseId: r.exercise_id?.trim() || null,
       targetKind: r.target_kind ?? null,
@@ -66,11 +101,18 @@ export function strengthSetsToRow(
 ): StrengthSetRow[] | null {
   if (!Array.isArray(sets) || sets.length === 0) return null;
   return sets
-    .filter((s) => Number.isFinite(s?.reps) && s.reps > 0)
+    .filter(isPersistableStrengthSet)
     .map((s) => ({
-      reps: Math.round(s.reps),
+      reps:
+        s.targetKind === "duration"
+          ? 0
+          : Number.isFinite(s.reps) && s.reps > 0
+            ? Math.round(s.reps)
+            : 0,
       weight_kg:
-        s.weightKg != null && Number.isFinite(s.weightKg) ? s.weightKg : null,
+        s.weightKg != null && Number.isFinite(s.weightKg) && s.weightKg > 0
+          ? s.weightKg
+          : null,
       exercise: s.exercise?.trim() || null,
       exercise_id: s.exerciseId?.trim() || null,
       target_kind: s.targetKind ?? null,

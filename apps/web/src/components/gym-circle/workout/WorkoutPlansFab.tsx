@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ClipboardList,
   Download,
@@ -30,6 +30,7 @@ import {
   WorkoutPlanImportError,
   type WorkoutPlanImportProgress,
 } from "./workoutPlanImport";
+import { getWorkoutPlanDisplayName } from "./workoutSummary";
 
 type WorkoutPlansFabProps = {
   /** Iniciar um treino de força com o treino salvo carregado. */
@@ -42,7 +43,9 @@ type WorkoutPlansFabProps = {
 export type WorkoutPlansController = ReturnType<typeof useWorkoutPlans>;
 
 type WorkoutPlansFabControlledProps = WorkoutPlansFabProps & {
+  createRequestKey?: number;
   plansController: WorkoutPlansController;
+  triggerPlacement?: "floating" | "inline";
 };
 
 type DraftExercise = {
@@ -144,10 +147,12 @@ export function WorkoutPlansFab({
 }
 
 export function WorkoutPlansFabControlled({
+  createRequestKey = 0,
   onStartPlan,
   onImport,
   catalog,
   plansController,
+  triggerPlacement = "floating",
 }: WorkoutPlansFabControlledProps) {
   const { i18n, t } = useTranslation();
   const {
@@ -169,6 +174,7 @@ export function WorkoutPlansFabControlled({
     submitTechnique,
   } = catalog;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const handledCreateRequestKeyRef = useRef(createRequestKey);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
@@ -194,6 +200,15 @@ export function WorkoutPlansFabControlled({
     setImportError(null);
     setEditing({ name: "", exercises: [emptyExercise()] });
   }
+
+  useEffect(() => {
+    if (createRequestKey <= handledCreateRequestKeyRef.current) return;
+    handledCreateRequestKeyRef.current = createRequestKey;
+    // Pedido explícito vindo do estado vazio da tela de escolha.
+    setImportedCount(null);
+    setImportError(null);
+    setEditing({ name: "", exercises: [emptyExercise()] });
+  }, [createRequestKey]);
 
   function openEditEditor(plan: WorkoutPlan) {
     setImportedCount(null);
@@ -368,7 +383,12 @@ export function WorkoutPlansFabControlled({
       {/* Ação persistente com rótulo: mais fácil de descobrir que um "+" solto. */}
       <button
         aria-label={t("workoutPlans.fab")}
-        className="gc-pressable absolute bottom-[calc(var(--gc-safe-bottom)+22px)] right-5 z-[70] flex h-14 items-center gap-2 rounded-full bg-[var(--gc-blue)] px-5 text-[13px] font-black text-black shadow-[0_10px_30px_rgba(48,213,255,0.35)]"
+        className={[
+          "gc-pressable z-[70] flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--gc-blue)] px-5 text-[13px] font-black text-black shadow-[0_10px_30px_rgba(48,213,255,0.24)]",
+          triggerPlacement === "inline"
+            ? "mt-5 w-full"
+            : "absolute bottom-[calc(var(--gc-safe-bottom)+22px)] right-5",
+        ].join(" ")}
         onClick={() => setMenuOpen(true)}
         type="button"
       >
@@ -459,7 +479,10 @@ export function WorkoutPlansFabControlled({
               {t("workoutPlans.deleteConfirm")}
             </p>
             <p className="mt-1 text-[12.5px] font-bold text-white/45">
-              {deleteTarget.name}
+              {getWorkoutPlanDisplayName(
+                deleteTarget.name,
+                t("workoutPlans.unnamed"),
+              )}
             </p>
             {operationError ? (
               <p
@@ -529,7 +552,10 @@ export function WorkoutPlansFabControlled({
                 >
                   <div className="flex min-w-0 items-center justify-between gap-2">
                     <p className="min-w-0 flex-1 truncate text-[15px] font-black text-white">
-                      {plan.name}
+                      {getWorkoutPlanDisplayName(
+                        plan.name,
+                        t("workoutPlans.unnamed"),
+                      )}
                     </p>
                     <button
                       aria-label={t("workoutPlans.edit")}

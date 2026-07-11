@@ -63,7 +63,7 @@
   "workout": {
     "title": "Iniciar treino",
     "pickTitle": "Escolha seu treino",
-    "pickHint": "O cronômetro começa assim que você escolher uma modalidade.",
+    "pickHint": "Continue um treino salvo ou comece livre por modalidade.",
     "inProgress": "Treino em andamento",
     "active": "Ativo",
     "paused": "Pausado",
@@ -95,6 +95,9 @@
       "cancel": "Cancelar descanso",
       "done": "Bora!",
       "restart": "Novo descanso",
+      "skip": "Pular descanso",
+      "nextSetHint_one": "{{count}} série restante neste exercício",
+      "nextSetHint_other": "{{count}} séries restantes neste exercício",
       "increase": "Adicionar 10 segundos",
       "decrease": "Diminuir 10 segundos",
       "inProgress": "Em andamento"
@@ -103,26 +106,52 @@
       "title": "Séries",
       "subtitle": "Reps e carga",
       "guideTitle": "Registrar séries",
-      "guideBody": "Toque em reps e kg para preencher. Enquanto digita, os controles recolhem para não tampar a ficha.",
+      "guideBody": "Registre cada série. Os controles recolhem enquanto você digita.",
       "jump": "Ir para reps/kg",
       "progress": "{{done}}/{{total}} preenchidas",
       "exerciseProgress": "{{done}}/{{total}} séries",
+      "exercisePosition": "Exercício {{current}} de {{total}}",
+      "remaining_one": "{{count}} série faltando",
+      "remaining_other": "{{count}} séries faltando",
       "exerciseCount_one": "{{count}} exercício",
       "exerciseCount_other": "{{count}} exercícios",
       "current": "Atual",
       "completed": "Concluído",
       "swipeHint": "Arraste para passar",
-      "emptyTitle": "Monte sua ficha",
+      "emptyTitle": "Monte seu treino",
       "emptyHint": "Comece adicionando uma série ou abrindo um treino.",
       "untitledExercise": "Exercício",
       "reps": "Reps",
       "weight": "Carga (kg)",
+      "kg": "Kg",
+      "weightPlaceholder": "kg",
+      "duration": "Duração",
+      "durationPlaceholder": "segundos",
+      "durationMode": "Por tempo",
+      "failureMode": "Até a falha",
+      "status": "Status",
+      "completeSet": "Concluir",
+      "markIncomplete": "Marcar como pendente",
+      "completeExercise": "Concluir exercício",
+      "exerciseCompleted": "Exercício concluído",
+      "nextExercise": "Próximo exercício",
+      "previousExercise": "Anterior",
+      "goToExercise": "Ir para o exercício {{current}}",
       "add": "Adicionar série",
       "addToExercise": "Adicionar série aqui",
       "remove": "Remover série"
     },
     "saved": {
-      "quickTitle": "Treinos recentes"
+      "title": "Meus treinos",
+      "subtitle": "Continue um treino salvo",
+      "create": "Criar treino",
+      "loadError": "Não foi possível carregar seus treinos.",
+      "emptyTitle": "Crie seu primeiro treino",
+      "emptyHint": "Monte um treino salvo ou comece livre agora."
+    },
+    "modalities": {
+      "title": "Modalidades",
+      "subtitle": "Ou comece livre por modalidade"
     },
     "finish": "Concluir treino",
     "finishShort": "Encerrar",
@@ -130,6 +159,12 @@
     "finishConfirm": {
       "title": "Encerrar este treino?",
       "description": "Você treinou por {{duration}}. Depois poderá adicionar legenda, localização e fotos."
+    },
+    "shortWorkout": {
+      "title": "Esse treino foi muito curto",
+      "description": "Esse treino durou menos de 2 minutos. Deseja salvar mesmo assim?",
+      "continue": "Continuar treino",
+      "saveAnyway": "Salvar mesmo assim"
     },
     "gps": {
       "strong": "GPS forte",
@@ -160,8 +195,16 @@
     "summary": {
       "title": "Treino concluído",
       "streakKept": "Dia marcado no calendário · streak mantido",
-      "addPhoto": "Adicionar foto do treino",
-      "saveWithoutPhoto": "Salvar sem foto"
+      "reviewHint": "Revise o resultado antes de compartilhar no Circle.",
+      "duration": "Duração",
+      "exercises": "Exercícios",
+      "sets": "Séries",
+      "reps": "Repetições",
+      "volume": "Volume estimado",
+      "route": "Mapa da rota do treino",
+      "share": "Compartilhar no Circle",
+      "addPhoto": "Adicionar foto",
+      "finishLater": "Concluir por agora"
     }
   },
   "workoutDetail": {
@@ -217,6 +260,9 @@
     "saving": "Salvando…",
     "start": "Iniciar treino",
     "edit": "Editar",
+    "unnamed": "Treino sem nome",
+    "rename": "Renomear",
+    "renameHint": "Escolha um nome que ajude você a encontrar este treino.",
     "delete": "Apagar",
     "deleteConfirm": "Apagar este treino?",
     "empty": "Você ainda não tem treinos salvos. Crie um pra começar.",
@@ -686,6 +732,10 @@
       "mediaReady_one": "1 mídia pronta",
       "mediaReady_other": "{{count}} mídias prontas",
       "mediaReadyHint": "Upload concluído. Agora adicione os detalhes.",
+      "activityNoMedia": "Treino sem mídia",
+      "activityNoMediaHint": "Adicione legenda e detalhes ou volte para incluir fotos e vídeos.",
+      "checkinNoMedia": "Check-in sem mídia",
+      "checkinNoMediaHint": "Escolha o local na próxima etapa. Você pode voltar e adicionar fotos.",
       "editMedia": "Editar"
     },
     "registerWorkout": {

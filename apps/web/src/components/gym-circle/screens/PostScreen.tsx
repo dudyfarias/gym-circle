@@ -194,7 +194,9 @@ export function PostScreen({
       t("workout.types.other"))
     : "";
   const [caption, setCaption] = useState(activityContext?.caption ?? "");
-  const [composerStep, setComposerStep] = useState<ComposerStep>("media");
+  const [composerStep, setComposerStep] = useState<ComposerStep>(
+    activityContext?.initialComposerStep ?? "media",
+  );
   // Academias catalogadas durante essa sessão de post (via search sheet) —
   // se juntam às `gyms` recebidas via prop pra que o select reconheça.
   const [localGyms, setLocalGyms] = useState<GymLocationOption[]>([]);
@@ -1185,14 +1187,18 @@ export function PostScreen({
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-black text-white">
                 {mediaItems.length === 0
-                  ? "Check-in sem mídia"
+                  ? activityContext
+                    ? t("postScreen.steps.activityNoMedia")
+                    : t("postScreen.steps.checkinNoMedia")
                   : t("postScreen.steps.mediaReady", {
                       count: mediaItems.length,
                     })}
               </p>
               <p className="mt-1 text-[11px] font-bold text-white/42">
                 {mediaItems.length === 0
-                  ? "Escolha o local na próxima etapa. Você pode voltar e adicionar fotos."
+                  ? activityContext
+                    ? t("postScreen.steps.activityNoMediaHint")
+                    : t("postScreen.steps.checkinNoMediaHint")
                   : t("postScreen.steps.mediaReadyHint")}
               </p>
             </div>

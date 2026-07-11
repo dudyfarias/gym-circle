@@ -63,7 +63,7 @@
   "workout": {
     "title": "Start workout",
     "pickTitle": "Choose your workout",
-    "pickHint": "The timer starts as soon as you choose an activity.",
+    "pickHint": "Continue a saved workout or start freely by activity.",
     "inProgress": "Workout in progress",
     "active": "Active",
     "paused": "Paused",
@@ -95,6 +95,9 @@
       "cancel": "Cancel rest",
       "done": "Go!",
       "restart": "New rest",
+      "skip": "Skip rest",
+      "nextSetHint_one": "{{count}} set remaining in this exercise",
+      "nextSetHint_other": "{{count}} sets remaining in this exercise",
       "increase": "Add 10 seconds",
       "decrease": "Remove 10 seconds",
       "inProgress": "In progress"
@@ -103,10 +106,13 @@
       "title": "Sets",
       "subtitle": "Reps and load",
       "guideTitle": "Log sets",
-      "guideBody": "Tap reps and kg to fill each row. While typing, workout controls tuck away so they do not cover the workout.",
+      "guideBody": "Log each set. Workout controls tuck away while you type.",
       "jump": "Go to reps/kg",
       "progress": "{{done}}/{{total}} filled",
       "exerciseProgress": "{{done}}/{{total}} sets",
+      "exercisePosition": "Exercise {{current}} of {{total}}",
+      "remaining_one": "{{count}} set remaining",
+      "remaining_other": "{{count}} sets remaining",
       "exerciseCount_one": "{{count}} exercise",
       "exerciseCount_other": "{{count}} exercises",
       "current": "Now",
@@ -117,12 +123,35 @@
       "untitledExercise": "Exercise",
       "reps": "Reps",
       "weight": "Weight (kg)",
+      "kg": "Kg",
+      "weightPlaceholder": "kg",
+      "duration": "Duration",
+      "durationPlaceholder": "seconds",
+      "durationMode": "Timed",
+      "failureMode": "To failure",
+      "status": "Status",
+      "completeSet": "Complete",
+      "markIncomplete": "Mark as pending",
+      "completeExercise": "Complete exercise",
+      "exerciseCompleted": "Exercise complete",
+      "nextExercise": "Next exercise",
+      "previousExercise": "Previous",
+      "goToExercise": "Go to exercise {{current}}",
       "add": "Add set",
       "addToExercise": "Add set here",
       "remove": "Remove set"
     },
     "saved": {
-      "quickTitle": "Recent workouts"
+      "title": "My workouts",
+      "subtitle": "Continue a saved workout",
+      "create": "Create workout",
+      "loadError": "We couldn't load your workouts.",
+      "emptyTitle": "Create your first workout",
+      "emptyHint": "Build a saved workout or start freely now."
+    },
+    "modalities": {
+      "title": "Activities",
+      "subtitle": "Or start freely by activity"
     },
     "finish": "Complete workout",
     "finishShort": "Finish",
@@ -130,6 +159,12 @@
     "finishConfirm": {
       "title": "Finish this workout?",
       "description": "You worked out for {{duration}}. You can add a caption, location and photos next."
+    },
+    "shortWorkout": {
+      "title": "This workout was very short",
+      "description": "This workout lasted less than 2 minutes. Save it anyway?",
+      "continue": "Continue workout",
+      "saveAnyway": "Save anyway"
     },
     "gps": {
       "strong": "Strong GPS",
@@ -160,8 +195,16 @@
     "summary": {
       "title": "Workout complete",
       "streakKept": "Day marked on your calendar · streak kept",
-      "addPhoto": "Add a workout photo",
-      "saveWithoutPhoto": "Save without photo"
+      "reviewHint": "Review the result before sharing it with your Circle.",
+      "duration": "Duration",
+      "exercises": "Exercises",
+      "sets": "Sets",
+      "reps": "Reps",
+      "volume": "Estimated volume",
+      "route": "Workout route map",
+      "share": "Share with your Circle",
+      "addPhoto": "Add photo",
+      "finishLater": "Done for now"
     }
   },
   "workoutDetail": {
@@ -217,6 +260,9 @@
     "saving": "Saving…",
     "start": "Start workout",
     "edit": "Edit",
+    "unnamed": "Unnamed workout",
+    "rename": "Rename",
+    "renameHint": "Choose a name that helps you find this workout.",
     "delete": "Delete",
     "deleteConfirm": "Delete this workout?",
     "empty": "You don't have any saved workouts yet. Create one to get started.",
@@ -686,6 +732,10 @@
       "mediaReady_one": "1 media item ready",
       "mediaReady_other": "{{count}} media items ready",
       "mediaReadyHint": "Upload complete. Now add the details.",
+      "activityNoMedia": "Workout without media",
+      "activityNoMediaHint": "Add a caption and details, or go back to include photos and videos.",
+      "checkinNoMedia": "Check-in without media",
+      "checkinNoMediaHint": "Choose the location on the next step. You can go back and add photos.",
       "editMedia": "Edit"
     },
     "registerWorkout": {

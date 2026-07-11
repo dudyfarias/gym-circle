@@ -11,7 +11,10 @@ import {
 } from "react";
 import {
   Bike,
+  Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Dumbbell,
   Footprints,
   Gauge,
@@ -20,6 +23,7 @@ import {
   Minus,
   MoveRight,
   Pause,
+  Pencil,
   Play,
   Plus,
   Square,
@@ -32,7 +36,6 @@ import { ConfirmSheet } from "../ConfirmSheet";
 import type {
   ComposerActivityContext,
   FinishedWebActivity,
-  StrengthSet,
   WebActivityInput,
   WorkoutPlan,
 } from "../social/types";
@@ -42,6 +45,10 @@ import {
 } from "../workout/restTimer";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
+import {
+  WorkoutCompletionSummary,
+  type FinishedWorkoutSummary,
+} from "../workout/WorkoutCompletionSummary";
 import {
   exerciseCatalogInfo,
   techniqueCatalogInfo,
@@ -59,6 +66,7 @@ import {
   pauseWorkoutSession,
   readStoredWorkoutSession,
   resumeWorkoutSession,
+  type LiveStrengthSet,
   type StoredWorkoutSession,
   type WorkoutRoutePoint,
   workoutElapsedSeconds,
@@ -66,6 +74,13 @@ import {
   workoutRouteCoordinates,
   writeStoredWorkoutSession,
 } from "../workout/workoutSession";
+import {
+  buildWorkoutSummaryMetrics,
+  getWorkoutPlanDisplayName,
+  isVeryShortWorkout,
+  normalizeStrengthSetsForSave,
+  parseOptionalWeightKg,
+} from "../workout/workoutSummary";
 
 type WorkoutType = WebActivityInput["activityType"];
 type RouteWorkoutType = Extract<WorkoutType, "run" | "walk" | "ride">;
@@ -86,23 +101,35 @@ type StrengthExerciseGroup = {
   exerciseId: string | null;
   key: string;
   name: string;
-  sets: Array<{ index: number; set: StrengthSet }>;
+  sets: Array<{ index: number; set: LiveStrengthSet }>;
+  targetKind: "reps" | "failure" | "duration";
   techniqueId: string | null;
   techniqueName: string | null;
   techniqueNotes: string | null;
   totalCount: number;
 };
 
+let liveStrengthSetSequence = 0;
+
+function nextLiveStrengthSetId() {
+  liveStrengthSetSequence += 1;
+  return `live-strength-set-${Date.now()}-${liveStrengthSetSequence}`;
+}
+
 function newStrengthSetFromTemplate(
-  template?: StrengthSet | null,
-): StrengthSet {
+  template?: LiveStrengthSet | null,
+): LiveStrengthSet {
   return {
-    reps: template?.reps ?? 0,
+    clientId: nextLiveStrengthSetId(),
+    reps: 0,
     weightKg: null,
     exercise: template?.exercise ?? null,
     exerciseId: template?.exerciseId ?? null,
     targetKind: template?.targetKind ?? null,
-    durationSeconds: template?.durationSeconds ?? null,
+    durationSeconds: null,
+    plannedReps: template?.plannedReps ?? template?.reps ?? null,
+    plannedDurationSeconds:
+      template?.plannedDurationSeconds ?? template?.durationSeconds ?? null,
     techniqueId: template?.techniqueId ?? null,
     techniqueName: template?.techniqueName ?? null,
     techniqueNotes: template?.techniqueNotes ?? null,
@@ -167,11 +194,24 @@ export function WebWorkoutScreen({
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
+  const [finishPromptElapsedS, setFinishPromptElapsedS] = useState<number | null>(
+    null,
+  );
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [setsInputFocused, setSetsInputFocused] = useState(false);
   // Séries de musculação da sessão atual (só treino de força). Linhas
   // editáveis (reps × carga); treino salvo pré-carrega exercício + reps alvo.
-  const [strengthSets, setStrengthSets] = useState<StrengthSet[]>([]);
+  const [strengthSets, setStrengthSets] = useState<LiveStrengthSet[]>([]);
+  const [completedStrengthSetIds, setCompletedStrengthSetIds] = useState<
+    Set<string>
+  >(() => new Set());
+  const [finishedSummary, setFinishedSummary] =
+    useState<FinishedWorkoutSummary | null>(null);
+  const [renameTarget, setRenameTarget] = useState<WorkoutPlan | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
+  const [createPlanRequestKey, setCreatePlanRequestKey] = useState(0);
   const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(null);
   const workoutCatalog = useWorkoutCatalog();
   const {
@@ -180,7 +220,14 @@ export function WebWorkoutScreen({
     muscleGroups,
   } = workoutCatalog;
   const workoutPlansController = useWorkoutPlans(open);
-  const { plans: savedWorkoutPlans, touchPlan } = workoutPlansController;
+  const {
+    plans: savedWorkoutPlans,
+    loading: workoutPlansLoading,
+    error: workoutPlansError,
+    refresh: refreshWorkoutPlans,
+    savePlan,
+    touchPlan,
+  } = workoutPlansController;
   const quickWorkoutPlans = useMemo(
     () =>
       savedWorkoutPlans
@@ -193,8 +240,9 @@ export function WebWorkoutScreen({
   const nativeSessionAttachedRef = useRef(false);
   const setsSectionRef = useRef<HTMLElement>(null);
   const exerciseCarouselRef = useRef<HTMLDivElement>(null);
+  const workoutDialogRef = useRef<HTMLDivElement>(null);
   const exerciseCardRefs = useRef<Array<HTMLElement | null>>([]);
-  const lastAutoAdvancedExerciseKeyRef = useRef<string | null>(null);
+  const autoAdvancedExerciseKeysRef = useRef<Set<string>>(new Set());
   const [activeStrengthExerciseIndex, setActiveStrengthExerciseIndex] =
     useState(0);
 
@@ -202,16 +250,26 @@ export function WebWorkoutScreen({
     if (!open) return;
     const id = window.setTimeout(() => {
       const stored = readStoredWorkoutSession();
+      setFinishedSummary(null);
       setFinishError(null);
       setFinishConfirmOpen(false);
+      setFinishPromptElapsedS(null);
       setDiscardConfirmOpen(false);
       setNowMs(Date.now());
       if (stored) {
+        autoAdvancedExerciseKeysRef.current.clear();
         setSession(stored);
+        setStrengthSets(stored.strengthSets);
+        setCompletedStrengthSetIds(
+          new Set(stored.completedStrengthSetIds),
+        );
         setStage("live");
         onSessionChange?.(true);
       } else {
+        autoAdvancedExerciseKeysRef.current.clear();
         setSession(null);
+        setStrengthSets([]);
+        setCompletedStrengthSetIds(new Set());
         setStage("pick");
         dispatchRest({ type: "reset" });
         onSessionChange?.(false);
@@ -219,6 +277,14 @@ export function WebWorkoutScreen({
     }, 0);
     return () => window.clearTimeout(id);
   }, [onSessionChange, open]);
+
+  useEffect(() => {
+    if (!finishedSummary) return;
+    const id = window.requestAnimationFrame(() => {
+      workoutDialogRef.current?.scrollTo({ top: 0 });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [finishedSummary]);
 
   useEffect(() => {
     if (!open || stage !== "live" || !hasSession) return;
@@ -245,6 +311,23 @@ export function WebWorkoutScreen({
     },
     [],
   );
+
+  useEffect(() => {
+    if (session?.activityType !== "strength" || stage !== "live") return;
+    // Sincroniza o rascunho completo para sobreviver a minimizar/reabrir.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    persistSession((current) => ({
+      ...current,
+      strengthSets,
+      completedStrengthSetIds: Array.from(completedStrengthSetIds),
+    }));
+  }, [
+    completedStrengthSetIds,
+    persistSession,
+    session?.activityType,
+    stage,
+    strengthSets,
+  ]);
 
   const applyNativeSnapshot = useCallback(
     (snapshot: {
@@ -390,9 +473,9 @@ export function WebWorkoutScreen({
   ]);
 
   const startWorkout = useCallback(
-    (activityType: WorkoutType) => {
+    (activityType: WorkoutType, initialStrengthSets: LiveStrengthSet[] = []) => {
       const next: StoredWorkoutSession = {
-        version: 3,
+        version: 4,
         startedAtMs: Date.now(),
         activityType,
         pausedAtMs: null,
@@ -401,11 +484,17 @@ export function WebWorkoutScreen({
         movingS: 0,
         elevationGainM: 0,
         restCount: 0,
+        strengthSets: initialStrengthSets,
+        completedStrengthSetIds: [],
         routePoints: [],
         lastRoutePoint: null,
       };
       writeStoredWorkoutSession(next);
       setSession(next);
+      setStrengthSets(initialStrengthSets);
+      setCompletedStrengthSetIds(new Set());
+      setActiveStrengthExerciseIndex(0);
+      autoAdvancedExerciseKeysRef.current.clear();
       setNowMs(next.startedAtMs);
       setStage("live");
       dispatchRest({ type: "reset" });
@@ -433,26 +522,57 @@ export function WebWorkoutScreen({
     (plan: WorkoutPlan) => {
       // Cada exercício vira N linhas (séries alvo) já rotuladas; a pessoa
       // preenche reps × carga durante a sessão.
-      const seeded: StrengthSet[] = plan.exercises.flatMap((ex) => {
+      const seeded: LiveStrengthSet[] = plan.exercises.flatMap((ex) => {
         const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
         return Array.from({ length: count }, () => ({
-          reps: ex.reps ?? 0,
+          clientId: nextLiveStrengthSetId(),
+          reps: 0,
           weightKg: null as number | null,
           exercise: ex.name,
           exerciseId: ex.exerciseId ?? null,
           targetKind: ex.targetKind ?? "reps",
-          durationSeconds: ex.durationSeconds ?? null,
+          durationSeconds: null,
+          plannedReps: ex.reps ?? null,
+          plannedDurationSeconds: ex.durationSeconds ?? null,
           techniqueId: ex.techniqueId ?? null,
           techniqueName: ex.techniqueName ?? null,
           techniqueNotes: ex.techniqueNotes ?? null,
         }));
       });
       void touchPlan(plan.id).catch(() => undefined);
-      setStrengthSets(seeded);
-      startWorkout("strength");
+      startWorkout("strength", seeded);
     },
     [startWorkout, touchPlan],
   );
+
+  const openRenameWorkoutPlan = useCallback((plan: WorkoutPlan) => {
+    setRenameTarget(plan);
+    setRenameValue(
+      plan.name.trim().toLocaleLowerCase("pt-BR") === "planilha"
+        ? ""
+        : plan.name,
+    );
+    setRenameError(null);
+  }, []);
+
+  const handleRenameWorkoutPlan = useCallback(async () => {
+    if (!renameTarget || renameSaving || !renameValue.trim()) return;
+    setRenameSaving(true);
+    setRenameError(null);
+    try {
+      await savePlan({
+        id: renameTarget.id,
+        name: renameValue.trim(),
+        exercises: renameTarget.exercises,
+      });
+      setRenameTarget(null);
+      setRenameValue("");
+    } catch {
+      setRenameError(t("workoutPlans.errors.save"));
+    } finally {
+      setRenameSaving(false);
+    }
+  }, [renameTarget, renameSaving, renameValue, savePlan, t]);
 
   const togglePause = useCallback(() => {
     if (!session) return;
@@ -487,6 +607,7 @@ export function WebWorkoutScreen({
     setFinishing(true);
     setFinishError(null);
     setFinishConfirmOpen(false);
+    setFinishPromptElapsedS(null);
     try {
       const endedMs = Date.now();
       const elapsedS = workoutElapsedSeconds(session, endedMs);
@@ -504,6 +625,14 @@ export function WebWorkoutScreen({
         );
         nativeSummary = await WorkoutLocationBridge.stop();
       }
+      const route = isRouteWorkout(session.activityType)
+        ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
+        : null;
+      const completedStrengthSets = normalizeStrengthSetsForSave(
+        strengthSets.filter((set) =>
+          completedStrengthSetIds.has(set.clientId),
+        ),
+      );
       const activity = await onFinish({
         activityType: session.activityType,
         startedAt: new Date(session.startedAtMs).toISOString(),
@@ -518,22 +647,13 @@ export function WebWorkoutScreen({
         elevationGainM: isRouteWorkout(session.activityType)
           ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
           : null,
-        route: isRouteWorkout(session.activityType)
-          ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
-          : null,
+        route,
         strengthSets:
-          session.activityType === "strength" && strengthSets.length > 0
-            ? strengthSets
+          session.activityType === "strength" && completedStrengthSets.length > 0
+            ? completedStrengthSets
             : null,
       });
-      clearStoredWorkoutSession();
-      setSession(null);
-      setStage("pick");
-      setStrengthSets([]);
-      dispatchRest({ type: "reset" });
-      onSessionChange?.(false);
-      nativeSessionAttachedRef.current = false;
-      onCompose({
+      const context: ComposerActivityContext = {
         id: activity.id,
         activityType: session.activityType,
         elapsedS: activity.elapsedS,
@@ -546,11 +666,24 @@ export function WebWorkoutScreen({
         elevationGainM: isRouteWorkout(session.activityType)
           ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
           : null,
-        route: isRouteWorkout(session.activityType)
-          ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
-          : null,
+        route,
         workoutDate: activity.workoutDate,
+      };
+      setFinishedSummary({
+        context,
+        metrics: buildWorkoutSummaryMetrics(
+          completedStrengthSets,
+          strengthSets.length,
+        ),
       });
+      clearStoredWorkoutSession();
+      setSession(null);
+      setStage("pick");
+      setStrengthSets([]);
+      setCompletedStrengthSetIds(new Set());
+      dispatchRest({ type: "reset" });
+      onSessionChange?.(false);
+      nativeSessionAttachedRef.current = false;
     } catch (error) {
       setFinishError(
         error instanceof Error ? error.message : t("workout.errors.finish"),
@@ -561,7 +694,7 @@ export function WebWorkoutScreen({
   }, [
     finishing,
     gpsEngine,
-    onCompose,
+    completedStrengthSetIds,
     onFinish,
     onSessionChange,
     session,
@@ -574,6 +707,8 @@ export function WebWorkoutScreen({
     dispatchRest({ type: "reset" });
     setSession(null);
     setStrengthSets([]);
+    setCompletedStrengthSetIds(new Set());
+    setFinishedSummary(null);
     setDiscardConfirmOpen(false);
     onSessionChange?.(false);
     nativeSessionAttachedRef.current = false;
@@ -626,43 +761,132 @@ export function WebWorkoutScreen({
         const nextSet = newStrengthSetFromTemplate(template);
         return [...prev.slice(0, insertAt), nextSet, ...prev.slice(insertAt)];
       });
-      window.requestAnimationFrame(() => {
-        exerciseCardRefs.current[activeStrengthExerciseIndex]?.scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-          inline: "center",
-        });
-      });
     },
-    [activeStrengthExerciseIndex],
+    [],
   );
 
-  const updateStrengthSetReps = useCallback((index: number, raw: string) => {
-    const value = raw.replace(/[^0-9]/g, "");
-    setStrengthSets((prev) =>
-      prev.map((set, i) =>
-        i === index
-          ? { ...set, reps: Number.parseInt(value, 10) || 0 }
-          : set,
-      ),
-    );
-  }, []);
+  const setStrengthSetCompleted = useCallback(
+    (clientId: string, completed: boolean) => {
+      setCompletedStrengthSetIds((current) => {
+        const next = new Set(current);
+        if (completed) next.add(clientId);
+        else next.delete(clientId);
+        return next;
+      });
+    },
+    [],
+  );
 
-  const updateStrengthSetWeight = useCallback((index: number, raw: string) => {
-    const value = raw.replace(/[^0-9.,]/g, "");
-    const weight = Number.parseFloat(value.replace(",", "."));
-    setStrengthSets((prev) =>
-      prev.map((set, i) =>
-        i === index
-          ? { ...set, weightKg: Number.isFinite(weight) ? weight : null }
-          : set,
-      ),
-    );
-  }, []);
+  const updateStrengthSetReps = useCallback(
+    (index: number, raw: string) => {
+      const value = raw.replace(/[^0-9]/g, "");
+      const reps = Number.parseInt(value, 10) || 0;
+      const current = strengthSets[index];
+      setStrengthSets((prev) =>
+        prev.map((set, i) => (i === index ? { ...set, reps } : set)),
+      );
+      if (!current) return;
+      const wasCompleted = completedStrengthSetIds.has(current.clientId);
+      const autoComplete =
+        reps > 0 &&
+        (wasCompleted ||
+          current.targetKind === "failure" ||
+          (current.weightKg != null && current.weightKg > 0));
+      setStrengthSetCompleted(current.clientId, autoComplete);
+    },
+    [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],
+  );
 
-  const removeStrengthSet = useCallback((index: number) => {
-    setStrengthSets((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+  const updateStrengthSetWeight = useCallback(
+    (index: number, raw: string) => {
+      const weightKg = parseOptionalWeightKg(raw);
+      const current = strengthSets[index];
+      setStrengthSets((prev) =>
+        prev.map((set, i) => (i === index ? { ...set, weightKg } : set)),
+      );
+      if (!current) return;
+      const wasCompleted = completedStrengthSetIds.has(current.clientId);
+      setStrengthSetCompleted(
+        current.clientId,
+        current.reps > 0 && (weightKg !== null || wasCompleted),
+      );
+    },
+    [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],
+  );
+
+  const updateStrengthSetDuration = useCallback(
+    (index: number, raw: string) => {
+      const value = raw.replace(/[^0-9]/g, "");
+      const durationSeconds = Number.parseInt(value, 10) || null;
+      const current = strengthSets[index];
+      setStrengthSets((prev) =>
+        prev.map((set, i) =>
+          i === index ? { ...set, durationSeconds } : set,
+        ),
+      );
+      if (current && durationSeconds === null) {
+        setStrengthSetCompleted(current.clientId, false);
+      }
+    },
+    [setStrengthSetCompleted, strengthSets],
+  );
+
+  const completeDurationSet = useCallback(
+    (index: number) => {
+      const current = strengthSets[index];
+      if (!current) return;
+      const durationSeconds =
+        current.durationSeconds ?? current.plannedDurationSeconds;
+      if (!durationSeconds || durationSeconds <= 0) return;
+      setStrengthSets((sets) =>
+        sets.map((set, i) =>
+          i === index ? { ...set, durationSeconds } : set,
+        ),
+      );
+      setStrengthSetCompleted(current.clientId, true);
+      navigator.vibrate?.(35);
+    },
+    [setStrengthSetCompleted, strengthSets],
+  );
+
+  const toggleDurationSetCompleted = useCallback(
+    (index: number) => {
+      const current = strengthSets[index];
+      if (!current) return;
+      if (completedStrengthSetIds.has(current.clientId)) {
+        setStrengthSetCompleted(current.clientId, false);
+        return;
+      }
+      completeDurationSet(index);
+    },
+    [
+      completedStrengthSetIds,
+      completeDurationSet,
+      setStrengthSetCompleted,
+      strengthSets,
+    ],
+  );
+
+  const toggleStrengthSetCompleted = useCallback(
+    (index: number) => {
+      const current = strengthSets[index];
+      if (!current) return;
+      setStrengthSetCompleted(
+        current.clientId,
+        !completedStrengthSetIds.has(current.clientId),
+      );
+    },
+    [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],
+  );
+
+  const removeStrengthSet = useCallback(
+    (index: number) => {
+      const clientId = strengthSets[index]?.clientId;
+      setStrengthSets((prev) => prev.filter((_, i) => i !== index));
+      if (clientId) setStrengthSetCompleted(clientId, false);
+    },
+    [setStrengthSetCompleted, strengthSets],
+  );
 
   const handleStrengthExerciseCarouselScroll = useCallback(() => {
     const scroller = exerciseCarouselRef.current;
@@ -726,6 +950,9 @@ export function WebWorkoutScreen({
   );
 
   const elapsedS = session ? workoutElapsedSeconds(session, nowMs) : 0;
+  const finishPromptIsVeryShort = isVeryShortWorkout(
+    finishPromptElapsedS ?? elapsedS,
+  );
   const pausedS = session ? workoutPausedSeconds(session, nowMs) : 0;
   const isPaused = Boolean(session && session.pausedAtMs !== null);
   const startedTime = useMemo(() => {
@@ -798,12 +1025,14 @@ export function WebWorkoutScreen({
       const name = set.exercise?.trim() || t("workout.sets.untitledExercise");
       const exerciseId = set.exerciseId ?? null;
       const techniqueId = set.techniqueId ?? null;
+      const targetKind = set.targetKind ?? "reps";
       const previous = groups[groups.length - 1];
       if (
         previous &&
         previous.name === name &&
         previous.exerciseId === exerciseId &&
-        previous.techniqueId === techniqueId
+        previous.techniqueId === techniqueId &&
+        previous.targetKind === targetKind
       ) {
         previous.sets.push({ index, set });
         return;
@@ -813,6 +1042,7 @@ export function WebWorkoutScreen({
         key: `${exerciseId ?? name}-${techniqueId ?? "plain"}-${index}`,
         name,
         sets: [{ index, set }],
+        targetKind,
         techniqueId,
         techniqueName: set.techniqueName ?? null,
         techniqueNotes: set.techniqueNotes ?? null,
@@ -821,7 +1051,7 @@ export function WebWorkoutScreen({
 
     return groups.map((group) => {
       const completedCount = group.sets.filter(
-        ({ set }) => set.weightKg !== null,
+        ({ set }) => completedStrengthSetIds.has(set.clientId),
       ).length;
       return {
         ...group,
@@ -830,7 +1060,7 @@ export function WebWorkoutScreen({
         totalCount: group.sets.length,
       };
     });
-  }, [strengthSets, t]);
+  }, [completedStrengthSetIds, strengthSets, t]);
 
   const safeActiveStrengthExerciseIndex =
     strengthExerciseGroups.length > 0
@@ -840,6 +1070,84 @@ export function WebWorkoutScreen({
         )
       : 0;
 
+  const goToStrengthExercise = useCallback(
+    (requestedIndex: number) => {
+      const lastIndex = strengthExerciseGroups.length - 1;
+      if (lastIndex < 0) return;
+      const nextIndex = Math.max(0, Math.min(requestedIndex, lastIndex));
+      const scroller = exerciseCarouselRef.current;
+      const card = exerciseCardRefs.current[nextIndex];
+      if (scroller && card) {
+        scroller.scrollTo({
+          behavior: "smooth",
+          left: card.offsetLeft - (scroller.clientWidth - card.offsetWidth) / 2,
+        });
+      }
+      setActiveStrengthExerciseIndex(nextIndex);
+    },
+    [strengthExerciseGroups.length],
+  );
+
+  const completeStrengthExercise = useCallback(
+    (group: StrengthExerciseGroup, groupIndex: number) => {
+      const durationById = new Map<string, number>();
+      const completedIds = new Set(
+        group.sets.flatMap(({ set }) => {
+          if (set.targetKind === "duration") {
+            const durationSeconds =
+              set.durationSeconds ?? set.plannedDurationSeconds;
+            if (!durationSeconds || durationSeconds <= 0) return [];
+            durationById.set(set.clientId, durationSeconds);
+            return [set.clientId];
+          }
+          return set.reps > 0 ? [set.clientId] : [];
+        }),
+      );
+      if (durationById.size > 0) {
+        setStrengthSets((current) =>
+          current.map((set) => {
+            const durationSeconds = durationById.get(set.clientId);
+            return durationSeconds ? { ...set, durationSeconds } : set;
+          }),
+        );
+      }
+      if (completedIds.size > 0) {
+        setCompletedStrengthSetIds((current) => {
+          const next = new Set(current);
+          completedIds.forEach((id) => next.add(id));
+          return next;
+        });
+        navigator.vibrate?.(45);
+      }
+      if (groupIndex < strengthExerciseGroups.length - 1) {
+        autoAdvancedExerciseKeysRef.current.add(group.key);
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        window.setTimeout(() => goToStrengthExercise(groupIndex + 1), 120);
+      }
+    },
+    [goToStrengthExercise, strengthExerciseGroups.length],
+  );
+
+  const handleStrengthExercisePrimaryAction = useCallback(
+    (group: StrengthExerciseGroup, groupIndex: number) => {
+      if (
+        group.completed &&
+        groupIndex < strengthExerciseGroups.length - 1
+      ) {
+        goToStrengthExercise(groupIndex + 1);
+        return;
+      }
+      completeStrengthExercise(group, groupIndex);
+    },
+    [
+      completeStrengthExercise,
+      goToStrengthExercise,
+      strengthExerciseGroups.length,
+    ],
+  );
+
   useEffect(() => {
     if (session?.activityType !== "strength") return;
     const currentGroup = strengthExerciseGroups[safeActiveStrengthExerciseIndex];
@@ -847,20 +1155,19 @@ export function WebWorkoutScreen({
     if (safeActiveStrengthExerciseIndex >= strengthExerciseGroups.length - 1) {
       return;
     }
-    if (lastAutoAdvancedExerciseKeyRef.current === currentGroup.key) return;
-    lastAutoAdvancedExerciseKeyRef.current = currentGroup.key;
+    if (autoAdvancedExerciseKeysRef.current.has(currentGroup.key)) return;
+    autoAdvancedExerciseKeysRef.current.add(currentGroup.key);
     const nextIndex = safeActiveStrengthExerciseIndex + 1;
     const timeout = window.setTimeout(() => {
-      exerciseCardRefs.current[nextIndex]?.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-      setActiveStrengthExerciseIndex(nextIndex);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      goToStrengthExercise(nextIndex);
     }, 240);
     return () => window.clearTimeout(timeout);
   }, [
     safeActiveStrengthExerciseIndex,
+    goToStrengthExercise,
     session?.activityType,
     strengthExerciseGroups,
   ]);
@@ -880,7 +1187,7 @@ export function WebWorkoutScreen({
           ? t("workout.gps.off")
           : t("workout.gps.searching");
   const filledStrengthSetCount = strengthSets.filter(
-    (set) => set.weightKg !== null,
+    (set) => completedStrengthSetIds.has(set.clientId),
   ).length;
 
   return (
@@ -891,14 +1198,94 @@ export function WebWorkoutScreen({
           onClose={() => setCatalogInfo(null)}
         />
       ) : null}
+      {renameTarget ? (
+        <div
+          aria-label={t("workoutPlans.rename")}
+          aria-modal="true"
+          className="fixed inset-0 z-[99] flex items-end justify-center bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-md"
+          role="dialog"
+        >
+          <button
+            aria-label={t("common.close")}
+            className="absolute inset-0"
+            onClick={() => setRenameTarget(null)}
+            type="button"
+          />
+          <div className="relative w-full max-w-[448px] rounded-[24px] border border-white/[0.08] bg-[#101214] p-5">
+            <h3 className="text-[18px] font-black text-white">
+              {t("workoutPlans.rename")}
+            </h3>
+            <p className="mt-1 text-[12px] font-bold text-white/42">
+              {t("workoutPlans.renameHint")}
+            </p>
+            <input
+              autoFocus
+              className="mt-4 w-full rounded-[15px] border border-white/[0.07] bg-white/[0.06] px-4 py-3 text-[16px] font-black text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)]"
+              maxLength={80}
+              onChange={(event) => setRenameValue(event.target.value)}
+              placeholder={t("workoutPlans.namePlaceholder")}
+              value={renameValue}
+            />
+            {renameError ? (
+              <p className="mt-3 text-[11.5px] font-bold text-[var(--gc-pink)]">
+                {renameError}
+              </p>
+            ) : null}
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                className="gc-pressable h-12 rounded-full bg-white/[0.07] text-[13px] font-black text-white"
+                onClick={() => setRenameTarget(null)}
+                type="button"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="gc-pressable h-12 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-40"
+                disabled={!renameValue.trim() || renameSaving}
+                onClick={() => void handleRenameWorkoutPlan()}
+                type="button"
+              >
+                {renameSaving ? t("workoutPlans.saving") : t("common.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div
-        aria-label={t("workout.inProgress")}
+        aria-label={
+          finishedSummary
+            ? t("workout.summary.title")
+            : stage === "pick"
+              ? t("workout.pickTitle")
+              : t("workout.inProgress")
+        }
         aria-modal="true"
         className="fixed inset-0 z-[95] flex justify-center overflow-y-auto bg-black"
+        ref={workoutDialogRef}
         role="dialog"
       >
       <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+18px)] pt-[calc(var(--gc-safe-top)+16px)]">
-        {stage === "pick" ? (
+        {finishedSummary ? (
+          <WorkoutCompletionSummary
+            data={finishedSummary}
+            onAddPhoto={() =>
+              onCompose({
+                ...finishedSummary.context,
+                initialComposerStep: "media",
+              })
+            }
+            onClose={() => {
+              setFinishedSummary(null);
+              onClose();
+            }}
+            onShare={() =>
+              onCompose({
+                ...finishedSummary.context,
+                initialComposerStep: "details",
+              })
+            }
+          />
+        ) : stage === "pick" ? (
           <>
             <header className="flex items-start justify-between gap-4">
               <div className="min-w-0">
@@ -918,42 +1305,130 @@ export function WebWorkoutScreen({
                 <X size={18} strokeWidth={2.4} />
               </button>
             </header>
-            <div className="mt-7 space-y-2.5 pb-6">
-              {quickWorkoutPlans.length > 0 ? (
-                <section className="mb-4">
-                  <p className="mb-2 px-1 text-[10.5px] font-black uppercase tracking-[0.16em] text-white/38">
-                    {t("workout.saved.quickTitle")}
-                  </p>
-                  <div className="space-y-2.5">
-                    {quickWorkoutPlans.map((plan) => (
+            <div className="mt-7 pb-24">
+              <section className="h-[198px]">
+                <div className="flex items-end justify-between gap-3 px-1">
+                  <div>
+                    <h3 className="text-[16px] font-black text-white">
+                      {t("workout.saved.title")}
+                    </h3>
+                    <p className="mt-0.5 text-[11.5px] font-bold text-white/42">
+                      {t("workout.saved.subtitle")}
+                    </p>
+                  </div>
+                  <button
+                    className="gc-pressable text-[11.5px] font-black text-[var(--gc-brand)]"
+                    onClick={() => setCreatePlanRequestKey((value) => value + 1)}
+                    type="button"
+                  >
+                    {t("workout.saved.create")}
+                  </button>
+                </div>
+
+                {workoutPlansLoading && savedWorkoutPlans.length === 0 ? (
+                  <div
+                    aria-label={t("common.loading")}
+                    className="mt-3 h-[136px] w-[78%] animate-pulse rounded-[24px] border border-white/[0.06] bg-white/[0.045] p-4"
+                  >
+                    <div className="h-4 w-2/3 rounded bg-white/[0.08]" />
+                    <div className="mt-3 h-3 w-1/2 rounded bg-white/[0.06]" />
+                    <div className="mt-7 h-10 w-full rounded-full bg-white/[0.07]" />
+                  </div>
+                ) : workoutPlansError && quickWorkoutPlans.length === 0 ? (
+                  <div className="mt-3 flex h-[136px] items-center justify-center rounded-[24px] border border-white/[0.07] bg-[#0b0d0e] px-5 text-center">
+                    <div>
+                      <p className="text-[12px] font-bold text-white/48">
+                        {t("workout.saved.loadError")}
+                      </p>
                       <button
-                        className="gc-pressable flex w-full min-w-0 items-center gap-3.5 rounded-[22px] border border-[var(--gc-brand)]/16 bg-[linear-gradient(135deg,rgba(92,232,255,0.11),rgba(11,13,14,0.98)_44%,rgba(48,213,255,0.05))] p-3.5 text-left shadow-[0_18px_48px_rgba(0,0,0,0.2)]"
-                        key={plan.id}
-                        onClick={() => startWorkoutPlan(plan)}
+                        className="gc-pressable mt-3 rounded-full bg-white/[0.07] px-4 py-2 text-[12px] font-black text-white"
+                        onClick={() => void refreshWorkoutPlans()}
                         type="button"
                       >
-                        <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-                          <Dumbbell size={22} strokeWidth={2.4} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[16px] font-black text-white">
-                            {plan.name}
-                          </span>
-                          <span className="mt-0.5 block truncate text-[12px] font-bold leading-snug text-white/42">
-                            {plan.exercises
-                              .slice(0, 3)
-                              .map((exercise) => exercise.name)
-                              .join(" · ") || t("workoutPlans.noExercises")}
-                          </span>
-                        </span>
-                        <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
-                          <Play className="ml-0.5" fill="currentColor" size={16} />
-                        </span>
+                        {t("common.retry")}
                       </button>
-                    ))}
+                    </div>
                   </div>
-                </section>
-              ) : null}
+                ) : quickWorkoutPlans.length === 0 ? (
+                  <button
+                    className="gc-pressable mt-3 flex h-[136px] w-full items-center gap-4 rounded-[24px] border border-dashed border-[var(--gc-brand)]/22 bg-[var(--gc-brand)]/[0.045] p-4 text-left"
+                    onClick={() => setCreatePlanRequestKey((value) => value + 1)}
+                    type="button"
+                  >
+                    <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                      <Plus size={21} strokeWidth={2.7} />
+                    </span>
+                    <span>
+                      <span className="block text-[14px] font-black text-white">
+                        {t("workout.saved.emptyTitle")}
+                      </span>
+                      <span className="mt-1 block text-[11.5px] font-bold leading-snug text-white/42">
+                        {t("workout.saved.emptyHint")}
+                      </span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="gc-scrollbar -mx-5 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-2">
+                    {quickWorkoutPlans.map((plan) => {
+                      const isLegacyName =
+                        getWorkoutPlanDisplayName(plan.name, "") === "";
+                      return (
+                        <article
+                          className="h-[136px] w-[78%] min-w-[272px] shrink-0 snap-start rounded-[24px] border border-[var(--gc-brand)]/16 bg-[linear-gradient(135deg,rgba(92,232,255,0.11),rgba(11,13,14,0.98)_52%,rgba(48,213,255,0.04))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]"
+                          key={plan.id}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                              <Dumbbell size={19} strokeWidth={2.4} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="truncate text-[15px] font-black text-white">
+                                {getWorkoutPlanDisplayName(
+                                  plan.name,
+                                  t("workoutPlans.unnamed"),
+                                )}
+                              </h4>
+                              <p className="mt-1 text-[11.5px] font-bold text-white/42">
+                                {t("workout.sets.exerciseCount", {
+                                  count: plan.exercises.length,
+                                })}
+                              </p>
+                            </div>
+                            {isLegacyName ? (
+                              <button
+                                aria-label={t("workoutPlans.rename")}
+                                className="gc-pressable grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/55"
+                                onClick={() => openRenameWorkoutPlan(plan)}
+                                type="button"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            ) : null}
+                          </div>
+                          <button
+                            className="gc-pressable mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[12.5px] font-black text-[var(--gc-brand-ink)]"
+                            onClick={() => startWorkoutPlan(plan)}
+                            type="button"
+                          >
+                            <Play fill="currentColor" size={14} />
+                            {t("workoutPlans.start")}
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="mt-8 space-y-2.5">
+                <div className="mb-3 px-1">
+                  <h3 className="text-[16px] font-black text-white">
+                    {t("workout.modalities.title")}
+                  </h3>
+                  <p className="mt-0.5 text-[11.5px] font-bold text-white/42">
+                    {t("workout.modalities.subtitle")}
+                  </p>
+                </div>
               {TYPE_CARDS.map(({ type, icon: Icon }) => (
                 <button
                   className="gc-pressable flex w-full items-center gap-3.5 rounded-[22px] border border-white/[0.07] bg-[#0b1012] p-3.5 text-left"
@@ -977,11 +1452,14 @@ export function WebWorkoutScreen({
                   </span>
                 </button>
               ))}
+              </section>
             </div>
             <WorkoutPlansFabControlled
               catalog={workoutCatalog}
+              createRequestKey={createPlanRequestKey}
               onStartPlan={startWorkoutPlan}
               plansController={workoutPlansController}
+              triggerPlacement="inline"
             />
           </>
         ) : session ? (
@@ -1022,15 +1500,23 @@ export function WebWorkoutScreen({
               </div>
             </header>
 
-            <main className="flex flex-1 flex-col pb-[150px]">
-              <section className="pt-10 text-center">
+            <main className="flex flex-1 flex-col pb-[118px]">
+              <section
+                className={[
+                  "text-center",
+                  session.activityType === "strength" ? "pt-6" : "pt-10",
+                ].join(" ")}
+              >
                 <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/42">
                   {t("workout.elapsed")}
                 </p>
                 <p
                   aria-label={`${t("workout.elapsed")}: ${formatElapsed(elapsedS)}`}
                   className={[
-                    "mt-1 text-[78px] font-black leading-none tracking-[-0.065em] tabular-nums",
+                    "mt-1 font-black leading-none tracking-[-0.065em] tabular-nums",
+                    session.activityType === "strength"
+                      ? "text-[58px]"
+                      : "text-[78px]",
                     isPaused ? "text-[#ffd60a]" : "text-[var(--gc-brand)]",
                   ].join(" ")}
                 >
@@ -1038,7 +1524,14 @@ export function WebWorkoutScreen({
                 </p>
               </section>
 
-              <section className="mt-8 grid grid-cols-3 gap-x-5 border-y border-white/[0.07] py-5">
+              <section
+                className={[
+                  "grid grid-cols-3 gap-x-5 border-y border-white/[0.07]",
+                  session.activityType === "strength"
+                    ? "mt-5 py-4"
+                    : "mt-8 py-5",
+                ].join(" ")}
+              >
                 {metricItems.map((item) => (
                   <MetricTile
                     key={item.label}
@@ -1099,9 +1592,24 @@ export function WebWorkoutScreen({
                         </button>
                       </article>
                     ) : (
-                      strengthExerciseGroups.map((group, groupIndex) => (
+                      strengthExerciseGroups.map((group, groupIndex) => {
+                        const remainingSets = Math.max(
+                          0,
+                          group.totalCount - group.completedCount,
+                        );
+                        const canCompleteGroup = group.sets.every(({ set }) =>
+                          group.targetKind === "duration"
+                            ? Boolean(
+                                set.durationSeconds ??
+                                  set.plannedDurationSeconds,
+                              )
+                            : set.reps > 0,
+                        );
+                        const isCurrentGroup =
+                          groupIndex === safeActiveStrengthExerciseIndex;
+                        return (
                         <article
-                          className="w-[88%] shrink-0 snap-center overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
+                          className="flex w-[calc(100%_-_40px)] min-w-[calc(100%_-_40px)] shrink-0 snap-center flex-col overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
                           key={group.key}
                           ref={(node) => {
                             exerciseCardRefs.current[groupIndex] = node;
@@ -1119,8 +1627,11 @@ export function WebWorkoutScreen({
                               <Dumbbell size={19} strokeWidth={2.5} />
                             </span>
                             <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/35">
-                                {groupIndex + 1}/{strengthExerciseGroups.length}
+                              <p className="text-[11px] font-black uppercase tracking-[0.13em] text-[var(--gc-brand)]">
+                                {t("workout.sets.exercisePosition", {
+                                  current: groupIndex + 1,
+                                  total: strengthExerciseGroups.length,
+                                })}
                               </p>
                               <h4 className="mt-1 truncate text-[19px] font-black leading-tight text-white">
                                 {group.name}
@@ -1161,7 +1672,7 @@ export function WebWorkoutScreen({
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
-                            <span className="rounded-full bg-white/[0.055] px-3 py-1.5 text-[10.5px] font-black text-white/62">
+                            <span className="rounded-full bg-[var(--gc-brand)]/10 px-3 py-1.5 text-[11px] font-black text-[var(--gc-brand)]">
                               {t("workout.sets.exerciseProgress", {
                                 done: group.completedCount,
                                 total: group.totalCount,
@@ -1172,200 +1683,435 @@ export function WebWorkoutScreen({
                                 {t("workout.sets.completed")}
                               </span>
                             ) : (
-                              <span className="rounded-full bg-white/[0.055] px-3 py-1.5 text-[10.5px] font-black text-white/42">
-                                {t("workout.sets.swipeHint")}
+                              <span className="rounded-full bg-white/[0.055] px-3 py-1.5 text-[10.5px] font-black text-white/50">
+                                {t("workout.sets.remaining", {
+                                  count: remainingSets,
+                                })}
                               </span>
                             )}
+                            <span className="rounded-full bg-white/[0.045] px-3 py-1.5 text-[10px] font-black text-white/35">
+                              {group.targetKind === "duration"
+                                ? t("workout.sets.durationMode")
+                                : group.targetKind === "failure"
+                                  ? t("workout.sets.failureMode")
+                                  : t("workout.sets.swipeHint")}
+                            </span>
                           </div>
 
-                          <div
-                            aria-hidden="true"
-                            className="mt-4 grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35"
-                          >
-                            <span />
-                            <span>{t("workout.sets.reps")}</span>
-                            <span />
-                            <span>kg</span>
-                            <span />
-                          </div>
+                          {group.targetKind === "duration" ? (
+                            <p className="mt-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
+                              {t("workout.sets.duration")}
+                            </p>
+                          ) : (
+                            <div
+                              aria-hidden="true"
+                              className={[
+                                "mt-4 grid gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35",
+                                group.targetKind === "failure"
+                                  ? "grid-cols-[24px_minmax(0,1fr)_70px_28px]"
+                                  : "grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px]",
+                              ].join(" ")}
+                            >
+                              <span />
+                              <span>{t("workout.sets.reps")}</span>
+                              {group.targetKind === "failure" ? (
+                                <span>{t("workout.sets.status")}</span>
+                              ) : (
+                                <>
+                                  <span />
+                                  <span>{t("workout.sets.kg")}</span>
+                                </>
+                              )}
+                              <span />
+                            </div>
+                          )}
 
                           <div className="mt-2 grid gap-2">
-                            {group.sets.map(({ index, set }, setIndex) => (
-                              <div
-                                className="grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_28px] items-center gap-2"
-                                key={`${group.key}-${index}`}
-                              >
-                                <span className="w-6 shrink-0 text-[12px] font-black tabular-nums text-white/40">
-                                  {setIndex + 1}
-                                </span>
-                                <input
-                                  aria-label={t("workout.sets.reps")}
-                                  className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
-                                  data-workout-set-input="true"
-                                  inputMode="numeric"
-                                  onBlur={handleStrengthSetInputBlur}
-                                  onChange={(event) =>
-                                    updateStrengthSetReps(
-                                      index,
-                                      event.target.value,
-                                    )
-                                  }
-                                  onFocus={() => setSetsInputFocused(true)}
-                                  placeholder={t("workout.sets.reps")}
-                                  value={set.reps ? String(set.reps) : ""}
-                                />
-                                <span className="shrink-0 text-[13px] font-black text-white/30">
-                                  ×
-                                </span>
-                                <input
-                                  aria-label={t("workout.sets.weight")}
-                                  className="min-w-0 flex-1 rounded-[14px] border border-white/[0.06] bg-white/[0.075] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/30 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
-                                  data-workout-set-input="true"
-                                  inputMode="decimal"
-                                  onBlur={handleStrengthSetInputBlur}
-                                  onChange={(event) =>
-                                    updateStrengthSetWeight(
-                                      index,
-                                      event.target.value,
-                                    )
-                                  }
-                                  onFocus={() => setSetsInputFocused(true)}
-                                  placeholder="0"
-                                  value={
-                                    set.weightKg != null
-                                      ? String(set.weightKg)
-                                      : ""
-                                  }
-                                />
-                                <button
-                                  aria-label={t("workout.sets.remove")}
-                                  className="gc-pressable shrink-0 text-white/35"
-                                  onClick={() => removeStrengthSet(index)}
-                                  type="button"
+                            {group.sets.map(({ index, set }, setIndex) => {
+                              const setCompleted = completedStrengthSetIds.has(
+                                set.clientId,
+                              );
+                              if (group.targetKind === "duration") {
+                                return (
+                                  <div
+                                    className={[
+                                      "grid grid-cols-[24px_minmax(0,1fr)_88px_28px] items-center gap-2 rounded-[16px] border p-2",
+                                      setCompleted
+                                        ? "border-[var(--gc-brand)]/35 bg-[var(--gc-brand)]/[0.06]"
+                                        : "border-white/[0.06] bg-white/[0.025]",
+                                    ].join(" ")}
+                                    key={set.clientId}
+                                  >
+                                    <span className="w-6 text-[12px] font-black tabular-nums text-white/40">
+                                      {setIndex + 1}
+                                    </span>
+                                    <label className="min-w-0">
+                                      <span className="sr-only">
+                                        {t("workout.sets.duration")}
+                                      </span>
+                                      <div className="flex items-center rounded-[13px] bg-white/[0.07] px-3">
+                                        <input
+                                          aria-label={t("workout.sets.duration")}
+                                          className="min-w-0 flex-1 bg-transparent py-3 text-center text-[17px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
+                                          data-workout-set-input="true"
+                                          inputMode="numeric"
+                                          onBlur={handleStrengthSetInputBlur}
+                                          onChange={(event) =>
+                                            updateStrengthSetDuration(
+                                              index,
+                                              event.target.value,
+                                            )
+                                          }
+                                          onFocus={() => setSetsInputFocused(true)}
+                                          placeholder={String(
+                                            set.plannedDurationSeconds ??
+                                              t(
+                                                "workout.sets.durationPlaceholder",
+                                              ),
+                                          )}
+                                          value={
+                                            set.durationSeconds
+                                              ? String(set.durationSeconds)
+                                              : ""
+                                          }
+                                        />
+                                        <span className="text-[11px] font-black text-white/35">
+                                          s
+                                        </span>
+                                      </div>
+                                    </label>
+                                    <button
+                                      aria-label={
+                                        setCompleted
+                                          ? t("workout.sets.markIncomplete")
+                                          : t("workout.sets.completeSet")
+                                      }
+                                      aria-pressed={setCompleted}
+                                      className={[
+                                        "gc-pressable h-10 rounded-full text-[10px] font-black",
+                                        setCompleted
+                                          ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
+                                          : "bg-white/[0.07] text-white",
+                                      ].join(" ")}
+                                      disabled={
+                                        !setCompleted &&
+                                        !set.durationSeconds &&
+                                        !set.plannedDurationSeconds
+                                      }
+                                      onClick={() =>
+                                        toggleDurationSetCompleted(index)
+                                      }
+                                      type="button"
+                                    >
+                                      {setCompleted
+                                        ? t("workout.sets.completed")
+                                        : t("workout.sets.completeSet")}
+                                    </button>
+                                    <button
+                                      aria-label={t("workout.sets.remove")}
+                                      className="gc-pressable text-white/35"
+                                      onClick={() => removeStrengthSet(index)}
+                                      type="button"
+                                    >
+                                      <X size={16} strokeWidth={2.6} />
+                                    </button>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div
+                                  className={[
+                                    "grid items-center gap-2 rounded-[16px] border p-2",
+                                    group.targetKind === "failure"
+                                      ? "grid-cols-[24px_minmax(0,1fr)_70px_28px]"
+                                      : "grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px]",
+                                    setCompleted
+                                      ? "border-[var(--gc-brand)]/30 bg-[var(--gc-brand)]/[0.05]"
+                                      : "border-white/[0.055] bg-white/[0.02]",
+                                  ].join(" ")}
+                                  key={set.clientId}
                                 >
-                                  <X size={16} strokeWidth={2.6} />
-                                </button>
-                              </div>
-                            ))}
+                                  <span className="w-6 text-[12px] font-black tabular-nums text-white/40">
+                                    {setIndex + 1}
+                                  </span>
+                                  <input
+                                    aria-label={t("workout.sets.reps")}
+                                    className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                                    data-workout-set-input="true"
+                                    inputMode="numeric"
+                                    onBlur={handleStrengthSetInputBlur}
+                                    onChange={(event) =>
+                                      updateStrengthSetReps(
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
+                                    onFocus={() => setSetsInputFocused(true)}
+                                    placeholder={String(set.plannedReps ?? t("workout.sets.reps"))}
+                                    value={set.reps > 0 ? String(set.reps) : ""}
+                                  />
+                                  {group.targetKind === "failure" ? null : (
+                                    <>
+                                      <span className="text-center text-[13px] font-black text-white/30">
+                                        ×
+                                      </span>
+                                      <input
+                                        aria-label={t("workout.sets.weight")}
+                                        className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                                        data-workout-set-input="true"
+                                        inputMode="decimal"
+                                        onBlur={handleStrengthSetInputBlur}
+                                        onChange={(event) =>
+                                          updateStrengthSetWeight(
+                                            index,
+                                            event.target.value,
+                                          )
+                                        }
+                                        onFocus={() => setSetsInputFocused(true)}
+                                        placeholder={t("workout.sets.weightPlaceholder")}
+                                        value={
+                                          set.weightKg != null && set.weightKg > 0
+                                            ? String(set.weightKg)
+                                            : ""
+                                        }
+                                      />
+                                    </>
+                                  )}
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      aria-label={
+                                        setCompleted
+                                          ? t("workout.sets.markIncomplete")
+                                          : t("workout.sets.completeSet")
+                                      }
+                                      aria-pressed={setCompleted}
+                                      className={[
+                                        "gc-pressable grid size-7 place-items-center rounded-full disabled:opacity-30",
+                                        setCompleted
+                                          ? "bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]"
+                                          : "bg-white/[0.07] text-white/55",
+                                      ].join(" ")}
+                                      disabled={set.reps <= 0}
+                                      onClick={() =>
+                                        toggleStrengthSetCompleted(index)
+                                      }
+                                      type="button"
+                                    >
+                                      <Check size={14} strokeWidth={3} />
+                                    </button>
+                                    {group.targetKind === "failure" ? null : (
+                                      <button
+                                        aria-label={t("workout.sets.remove")}
+                                        className="gc-pressable text-white/32"
+                                        onClick={() => removeStrengthSet(index)}
+                                        type="button"
+                                      >
+                                        <X size={14} strokeWidth={2.6} />
+                                      </button>
+                                    )}
+                                  </div>
+                                  {group.targetKind === "failure" ? (
+                                    <button
+                                      aria-label={t("workout.sets.remove")}
+                                      className="gc-pressable text-white/32"
+                                      onClick={() => removeStrengthSet(index)}
+                                      type="button"
+                                    >
+                                      <X size={14} strokeWidth={2.6} />
+                                    </button>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
                           </div>
 
                           <button
-                            className="gc-pressable mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white/[0.075] text-[13px] font-black text-[var(--gc-brand)]"
+                            className="gc-pressable order-2 mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-white/[0.075] text-[13px] font-black text-[var(--gc-brand)]"
                             onClick={() => addStrengthSetForGroup(group)}
                             type="button"
                           >
                             <Plus size={16} strokeWidth={2.8} />
                             {t("workout.sets.addToExercise")}
                           </button>
+
+                          <button
+                            className="gc-pressable order-2 mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-35"
+                            disabled={
+                              (group.completed &&
+                                groupIndex ===
+                                  strengthExerciseGroups.length - 1) ||
+                              (!group.completed && !canCompleteGroup)
+                            }
+                            onClick={() =>
+                              handleStrengthExercisePrimaryAction(
+                                group,
+                                groupIndex,
+                              )
+                            }
+                            type="button"
+                          >
+                            <Check size={17} strokeWidth={2.8} />
+                            {group.completed
+                              ? groupIndex <
+                                strengthExerciseGroups.length - 1
+                                ? t("workout.sets.nextExercise")
+                                : t("workout.sets.exerciseCompleted")
+                              : t("workout.sets.completeExercise")}
+                          </button>
+
+                          {strengthExerciseGroups.length > 1 ? (
+                            <div className="order-2 mt-2 grid grid-cols-2 gap-2">
+                              <button
+                                className="gc-pressable flex h-10 items-center justify-center gap-1.5 rounded-full bg-white/[0.055] text-[11.5px] font-black text-white/65 disabled:opacity-25"
+                                disabled={groupIndex === 0}
+                                onClick={() =>
+                                  goToStrengthExercise(groupIndex - 1)
+                                }
+                                type="button"
+                              >
+                                <ChevronLeft size={16} />
+                                {t("workout.sets.previousExercise")}
+                              </button>
+                              <button
+                                className="gc-pressable flex h-10 items-center justify-center gap-1.5 rounded-full bg-white/[0.055] text-[11.5px] font-black text-white/65 disabled:opacity-25"
+                                disabled={
+                                  groupIndex ===
+                                  strengthExerciseGroups.length - 1
+                                }
+                                onClick={() =>
+                                  goToStrengthExercise(groupIndex + 1)
+                                }
+                                type="button"
+                              >
+                                {t("workout.sets.nextExercise")}
+                                <ChevronRight size={16} />
+                              </button>
+                            </div>
+                          ) : null}
+
+                          {isCurrentGroup &&
+                          (group.completedCount > 0 ||
+                            rest.status === "running" ||
+                            rest.status === "paused") ? (
+                            <div className="order-1 mt-3 rounded-[20px] border border-white/[0.07] bg-black/30 p-3">
+                              <div className="flex items-center gap-2.5">
+                                <span className="grid size-9 place-items-center rounded-[13px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                                  <Timer size={17} strokeWidth={2.4} />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[13px] font-black text-white">
+                                    {t("workout.rest.title")}
+                                  </p>
+                                  <p className="text-[10.5px] font-bold text-white/38">
+                                    {t("workout.rest.nextSetHint", {
+                                      count: remainingSets,
+                                    })}
+                                  </p>
+                                </div>
+                                <p className="text-[28px] font-black tabular-nums text-white">
+                                  {formatElapsed(rest.remainingS)}
+                                </p>
+                              </div>
+                              <div className="mt-2.5 grid grid-cols-[38px_1fr_38px] items-center gap-2">
+                                <button
+                                  aria-label={t("workout.rest.decrease")}
+                                  className="gc-pressable grid size-[38px] place-items-center rounded-full bg-white/[0.06] text-white disabled:opacity-30"
+                                  disabled={rest.presetS <= 10}
+                                  onClick={() =>
+                                    dispatchRest({
+                                      type: "adjust",
+                                      deltaS: -10,
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  <Minus size={18} strokeWidth={2.7} />
+                                </button>
+                                {rest.status === "running" ||
+                                rest.status === "paused" ? (
+                                  <button
+                                    className="gc-pressable h-10 rounded-full bg-white/[0.07] text-[12px] font-black text-white"
+                                    onClick={() =>
+                                      dispatchRest({ type: "reset" })
+                                    }
+                                    type="button"
+                                  >
+                                    {t("workout.rest.skip")}
+                                  </button>
+                                ) : (
+                                  <button
+                                    className="gc-pressable h-10 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-[var(--gc-brand-ink)] disabled:opacity-35"
+                                    disabled={isPaused}
+                                    onClick={startRest}
+                                    type="button"
+                                  >
+                                    {rest.status === "done"
+                                      ? t("workout.rest.restart")
+                                      : t("workout.rest.start")}
+                                  </button>
+                                )}
+                                <button
+                                  aria-label={t("workout.rest.increase")}
+                                  className="gc-pressable grid size-[38px] place-items-center rounded-full bg-white/[0.06] text-white"
+                                  onClick={() =>
+                                    dispatchRest({
+                                      type: "adjust",
+                                      deltaS: 10,
+                                    })
+                                  }
+                                  type="button"
+                                >
+                                  <Plus size={18} strokeWidth={2.7} />
+                                </button>
+                              </div>
+                              {rest.status === "running" ||
+                              rest.status === "paused" ? (
+                                <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/[0.07]">
+                                  <div
+                                    className="h-full rounded-full bg-[var(--gc-brand)] transition-[width] duration-500"
+                                    style={{ width: `${restProgress}%` }}
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </article>
-                      ))
+                        );
+                      })
                     )}
                   </div>
 
                   {strengthExerciseGroups.length > 1 ? (
                     <div className="mt-1 flex justify-center gap-1.5 px-5">
                       {strengthExerciseGroups.map((group, index) => (
-                        <span
-                          aria-hidden="true"
-                          className={[
-                            "h-1.5 rounded-full transition-all",
-                            index === safeActiveStrengthExerciseIndex
-                              ? "w-6 bg-[var(--gc-brand)]"
-                              : group.completed
-                                ? "w-1.5 bg-[var(--gc-brand)]/75"
-                                : "w-1.5 bg-white/18",
-                          ].join(" ")}
+                        <button
+                          aria-label={t("workout.sets.goToExercise", {
+                            current: index + 1,
+                          })}
+                          className="gc-pressable grid size-8 place-items-center rounded-full"
                           key={group.key}
-                        />
+                          onClick={() => goToStrengthExercise(index)}
+                          type="button"
+                        >
+                          <span
+                            className={[
+                              "h-1.5 rounded-full transition-all",
+                              index === safeActiveStrengthExerciseIndex
+                                ? "w-6 bg-[var(--gc-brand)]"
+                                : group.completed
+                                  ? "w-1.5 bg-[var(--gc-brand)]/75"
+                                  : "w-1.5 bg-white/18",
+                            ].join(" ")}
+                          />
+                        </button>
                       ))}
                     </div>
                   ) : null}
                 </section>
               ) : null}
 
-              {session.activityType === "strength" ? (
-                <section className="mt-6 rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-5">
-                  <div className="flex items-center gap-3">
-                    <span className="grid size-10 place-items-center rounded-[14px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-                      <Timer size={19} strokeWidth={2.4} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-black text-white">
-                        {t("workout.rest.title")}
-                      </p>
-                      <p className="text-[11.5px] font-bold text-white/38">
-                        {t("workout.rest.subtitle")}
-                      </p>
-                    </div>
-                    {rest.status === "running" ||
-                    rest.status === "paused" ? (
-                      <span className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--gc-brand)]">
-                        {t("workout.rest.inProgress")}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-5 grid grid-cols-[54px_1fr_54px] items-center gap-3">
-                    <button
-                      aria-label={t("workout.rest.decrease")}
-                      className="gc-pressable grid size-[54px] place-items-center rounded-full bg-white/[0.06] text-white disabled:opacity-35"
-                      disabled={rest.presetS <= 10}
-                      onClick={() =>
-                        dispatchRest({ type: "adjust", deltaS: -10 })
-                      }
-                      type="button"
-                    >
-                      <Minus size={21} strokeWidth={2.7} />
-                    </button>
-                    <p className="text-center text-[48px] font-black leading-none tracking-[-0.045em] text-white tabular-nums">
-                      {formatElapsed(rest.remainingS)}
-                    </p>
-                    <button
-                      aria-label={t("workout.rest.increase")}
-                      className="gc-pressable grid size-[54px] place-items-center rounded-full bg-white/[0.06] text-white"
-                      onClick={() =>
-                        dispatchRest({ type: "adjust", deltaS: 10 })
-                      }
-                      type="button"
-                    >
-                      <Plus size={21} strokeWidth={2.7} />
-                    </button>
-                  </div>
-
-                  {rest.status === "running" ||
-                  rest.status === "paused" ? (
-                    <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
-                      <div
-                        className="h-full rounded-full bg-[var(--gc-brand)] transition-[width] duration-500"
-                        style={{ width: `${restProgress}%` }}
-                      />
-                    </div>
-                  ) : null}
-
-                  {rest.status === "running" ||
-                  rest.status === "paused" ? (
-                    <button
-                      className="gc-pressable mt-4 flex h-12 w-full items-center justify-center rounded-full bg-white/[0.065] text-[13px] font-black text-white"
-                      onClick={() => dispatchRest({ type: "reset" })}
-                      type="button"
-                    >
-                      {t("workout.rest.cancel")}
-                    </button>
-                  ) : (
-                    <button
-                      className="gc-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-40"
-                      disabled={isPaused}
-                      onClick={startRest}
-                      type="button"
-                    >
-                      <Timer size={17} />
-                      {rest.status === "done"
-                        ? t("workout.rest.restart")
-                        : t("workout.rest.start")}
-                    </button>
-                  )}
-                </section>
-              ) : (
+              {session.activityType !== "strength" ? (
                 <section className="mt-7 grid grid-cols-2 gap-3">
                   <div className="rounded-[22px] bg-[#0b0d0e] p-4">
                     <Gauge className="text-[var(--gc-brand)]" size={20} />
@@ -1386,7 +2132,7 @@ export function WebWorkoutScreen({
                     </p>
                   </div>
                 </section>
-              )}
+              ) : null}
 
               {finishError ? (
                 <p className="mt-4 text-center text-[12.5px] font-bold text-[var(--gc-pink)]">
@@ -1396,21 +2142,24 @@ export function WebWorkoutScreen({
 
               <footer
                 className={[
-                  "fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] bg-gradient-to-t from-black via-black/96 to-black/0 px-5 pb-[calc(var(--gc-safe-bottom)+10px)] pt-7 backdrop-blur-xl transition-all duration-200",
+                  "fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-[480px] border-t border-white/[0.05] bg-black/94 px-6 pb-[calc(var(--gc-safe-bottom)+7px)] pt-3 backdrop-blur-xl transition-all duration-200",
                   setsInputFocused
                     ? "pointer-events-none translate-y-12 opacity-0"
                     : "translate-y-0 opacity-100",
                 ].join(" ")}
               >
-                <div className="grid grid-cols-3 items-end gap-4">
+                <div className="grid grid-cols-3 items-end gap-5">
                   <button
                     aria-label={t("workout.finish")}
-                    className="gc-pressable grid justify-items-center gap-1.5 text-[10.5px] font-black text-white/60"
+                    className="gc-pressable grid justify-items-center gap-1 text-[10px] font-black text-white/52"
                     disabled={finishing}
-                    onClick={() => setFinishConfirmOpen(true)}
+                    onClick={() => {
+                      setFinishPromptElapsedS(elapsedS);
+                      setFinishConfirmOpen(true);
+                    }}
                     type="button"
                   >
-                    <span className="grid size-14 place-items-center rounded-full bg-[#ff2d55] text-white">
+                    <span className="grid size-12 place-items-center rounded-full bg-[#ff2d55] text-white">
                       {finishing ? (
                         <span className="size-5 animate-spin rounded-full border-2 border-white/35 border-t-white" />
                       ) : (
@@ -1423,11 +2172,11 @@ export function WebWorkoutScreen({
                     aria-label={
                       isPaused ? t("workout.resume") : t("workout.pause")
                     }
-                    className="gc-pressable grid justify-items-center gap-1.5 text-[10.5px] font-black text-white"
+                    className="gc-pressable grid justify-items-center gap-1 text-[10px] font-black text-white"
                     onClick={togglePause}
                     type="button"
                   >
-                    <span className="grid size-[66px] place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)] shadow-[0_0_28px_rgba(92,232,255,0.2)]">
+                    <span className="grid size-14 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)] shadow-[0_0_22px_rgba(92,232,255,0.16)]">
                       {isPaused ? (
                         <Play fill="currentColor" size={25} />
                       ) : (
@@ -1438,18 +2187,18 @@ export function WebWorkoutScreen({
                   </button>
                   <button
                     aria-label={t("workout.minimize")}
-                    className="gc-pressable grid justify-items-center gap-1.5 text-[10.5px] font-black text-white/60"
+                    className="gc-pressable grid justify-items-center gap-1 text-[10px] font-black text-white/52"
                     onClick={onClose}
                     type="button"
                   >
-                    <span className="grid size-14 place-items-center rounded-full bg-[#17191b] text-white">
+                    <span className="grid size-12 place-items-center rounded-full bg-[#17191b] text-white">
                       <ChevronDown size={23} strokeWidth={2.5} />
                     </span>
                     {t("workout.minimizeShort")}
                   </button>
                 </div>
                 <button
-                  className="gc-pressable mt-2 w-full py-1.5 text-center text-[11px] font-black text-white/28"
+                  className="gc-pressable mt-1 w-full py-1 text-center text-[10px] font-black text-white/24"
                   onClick={() => setDiscardConfirmOpen(true)}
                   type="button"
                 >
@@ -1459,16 +2208,37 @@ export function WebWorkoutScreen({
             </main>
 
             <ConfirmSheet
-              cancelLabel={t("common.cancel")}
-              confirmLabel={t("workout.finish")}
-              description={t("workout.finishConfirm.description", {
-                duration: formatElapsed(elapsedS),
-              })}
-              onClose={() => setFinishConfirmOpen(false)}
+              cancelLabel={
+                finishPromptIsVeryShort
+                  ? t("workout.shortWorkout.continue")
+                  : t("common.cancel")
+              }
+              confirmLabel={
+                finishPromptIsVeryShort
+                  ? t("workout.shortWorkout.saveAnyway")
+                  : t("workout.finish")
+              }
+              description={
+                finishPromptIsVeryShort
+                  ? t("workout.shortWorkout.description")
+                  : t("workout.finishConfirm.description", {
+                      duration: formatElapsed(
+                        finishPromptElapsedS ?? elapsedS,
+                      ),
+                    })
+              }
+              onClose={() => {
+                setFinishConfirmOpen(false);
+                setFinishPromptElapsedS(null);
+              }}
               onConfirm={handleFinish}
               open={finishConfirmOpen}
-              title={t("workout.finishConfirm.title")}
-              tone="destructive"
+              title={
+                finishPromptIsVeryShort
+                  ? t("workout.shortWorkout.title")
+                  : t("workout.finishConfirm.title")
+              }
+              tone={finishPromptIsVeryShort ? "default" : "destructive"}
             />
             <ConfirmSheet
               cancelLabel={t("common.cancel")}

@@ -546,6 +546,8 @@ export type ComposerActivityContext = {
   elevationGainM?: number | null;
   route?: number[][] | null;
   workoutDate: string;
+  /** Resumo pós-treino pode abrir direto em mídia ou nos detalhes do post. */
+  initialComposerStep?: "media" | "details";
   caption?: string | null;
   workoutTypes?: string[] | null;
   gymId?: string | null;

@@ -1,4 +1,4 @@
-import type { WebActivityInput } from "../social/types";
+import type { StrengthSet, WebActivityInput } from "../social/types";
 
 export const WORKOUT_STORAGE_KEY = "gc-web-workout";
 
@@ -11,8 +11,15 @@ export type WorkoutRoutePoint = {
   timestampMs: number;
 };
 
+/** Estado editável de uma série durante o treino. Campos `planned*` são só UI. */
+export type LiveStrengthSet = StrengthSet & {
+  clientId: string;
+  plannedDurationSeconds?: number | null;
+  plannedReps?: number | null;
+};
+
 export type StoredWorkoutSession = {
-  version: 3;
+  version: 4;
   startedAtMs: number;
   activityType: WebActivityInput["activityType"];
   pausedAtMs: number | null;
@@ -21,6 +28,8 @@ export type StoredWorkoutSession = {
   movingS: number;
   elevationGainM: number;
   restCount: number;
+  strengthSets: LiveStrengthSet[];
+  completedStrengthSetIds: string[];
   routePoints: WorkoutRoutePoint[];
   lastRoutePoint: WorkoutRoutePoint | null;
 };
@@ -32,6 +41,67 @@ function numberOr(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value)
     ? value
     : fallback;
+}
+
+function readStoredStrengthSets(value: unknown): LiveStrengthSet[] {
+  if (!Array.isArray(value)) return [];
+  const usedClientIds = new Set<string>();
+  return value.flatMap((raw, index) => {
+    if (!raw || typeof raw !== "object") return [];
+    const set = raw as Partial<LiveStrengthSet>;
+    const targetKind =
+      set.targetKind === "duration" || set.targetKind === "failure"
+        ? set.targetKind
+        : "reps";
+    const preferredClientId =
+      typeof set.clientId === "string" && set.clientId
+        ? set.clientId
+        : `restored-set-${index}`;
+    const clientId = usedClientIds.has(preferredClientId)
+      ? `${preferredClientId}-${index}`
+      : preferredClientId;
+    usedClientIds.add(clientId);
+    return [
+      {
+        clientId,
+        reps: Math.max(0, Math.round(numberOr(set.reps, 0))),
+        weightKg:
+          typeof set.weightKg === "number" &&
+          Number.isFinite(set.weightKg) &&
+          set.weightKg > 0
+            ? set.weightKg
+            : null,
+        exercise: typeof set.exercise === "string" ? set.exercise : null,
+        exerciseId:
+          typeof set.exerciseId === "string" ? set.exerciseId : null,
+        targetKind,
+        durationSeconds:
+          typeof set.durationSeconds === "number" &&
+          Number.isFinite(set.durationSeconds) &&
+          set.durationSeconds > 0
+            ? Math.round(set.durationSeconds)
+            : null,
+        plannedDurationSeconds:
+          typeof set.plannedDurationSeconds === "number" &&
+          Number.isFinite(set.plannedDurationSeconds) &&
+          set.plannedDurationSeconds > 0
+            ? Math.round(set.plannedDurationSeconds)
+            : null,
+        plannedReps:
+          typeof set.plannedReps === "number" &&
+          Number.isFinite(set.plannedReps) &&
+          set.plannedReps > 0
+            ? Math.round(set.plannedReps)
+            : null,
+        techniqueId:
+          typeof set.techniqueId === "string" ? set.techniqueId : null,
+        techniqueName:
+          typeof set.techniqueName === "string" ? set.techniqueName : null,
+        techniqueNotes:
+          typeof set.techniqueNotes === "string" ? set.techniqueNotes : null,
+      },
+    ];
+  });
 }
 
 export function readStoredWorkoutSession(): StoredWorkoutSession | null {
@@ -46,8 +116,12 @@ export function readStoredWorkoutSession(): StoredWorkoutSession | null {
     ) {
       return null;
     }
+    const strengthSets = readStoredStrengthSets(parsed.strengthSets);
+    const validStrengthSetIds = new Set(
+      strengthSets.map((set) => set.clientId),
+    );
     return {
-      version: 3,
+      version: 4,
       startedAtMs: parsed.startedAtMs,
       activityType: parsed.activityType,
       pausedAtMs:
@@ -57,11 +131,22 @@ export function readStoredWorkoutSession(): StoredWorkoutSession | null {
       movingS: numberOr(parsed.movingS, 0),
       elevationGainM: numberOr(parsed.elevationGainM, 0),
       restCount: Math.max(0, Math.floor(numberOr(parsed.restCount, 0))),
+      strengthSets,
+      completedStrengthSetIds: Array.isArray(parsed.completedStrengthSetIds)
+        ? Array.from(
+            new Set(
+              parsed.completedStrengthSetIds.filter(
+                (value): value is string =>
+                  typeof value === "string" && validStrengthSetIds.has(value),
+              ),
+            ),
+          )
+        : [],
       routePoints: Array.isArray(parsed.routePoints)
         ? parsed.routePoints.filter(isValidRoutePoint)
         : [],
       lastRoutePoint: parsed.lastRoutePoint ?? null,
-    } as StoredWorkoutSession;
+    };
   } catch {
     return null;
   }

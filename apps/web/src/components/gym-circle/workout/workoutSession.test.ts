@@ -1,18 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendWorkoutRoutePoint,
   distanceBetweenRoutePoints,
   formatAveragePace,
   pauseWorkoutSession,
+  readStoredWorkoutSession,
   resumeWorkoutSession,
   type StoredWorkoutSession,
   workoutElapsedSeconds,
   workoutPausedSeconds,
   workoutRouteCoordinates,
+  writeStoredWorkoutSession,
 } from "./workoutSession";
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 const base: StoredWorkoutSession = {
-  version: 3,
+  version: 4,
   startedAtMs: 1_000,
   activityType: "run",
   pausedAtMs: null,
@@ -21,6 +27,8 @@ const base: StoredWorkoutSession = {
   movingS: 0,
   elevationGainM: 0,
   restCount: 0,
+  strengthSets: [],
+  completedStrengthSetIds: [],
   routePoints: [],
   lastRoutePoint: null,
 };
@@ -33,6 +41,119 @@ describe("workout session clock", () => {
     const resumed = resumeWorkoutSession(paused, 16_000);
     expect(workoutElapsedSeconds(resumed, 21_000)).toBe(15);
     expect(workoutPausedSeconds(resumed, 21_000)).toBe(5);
+  });
+});
+
+describe("workout session storage", () => {
+  it("restaura séries e conclusões de uma sessão de musculação", () => {
+    let storedValue: string | null = null;
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: () => storedValue,
+        removeItem: () => {
+          storedValue = null;
+        },
+        setItem: (_key: string, value: string) => {
+          storedValue = value;
+        },
+      },
+    });
+    const strengthSession: StoredWorkoutSession = {
+      ...base,
+      activityType: "strength",
+      strengthSets: [
+        {
+          clientId: "set-1",
+          reps: 10,
+          weightKg: 20,
+          exercise: "Supino",
+          targetKind: "reps",
+          plannedReps: 10,
+        },
+      ],
+      completedStrengthSetIds: ["set-1"],
+    };
+
+    writeStoredWorkoutSession(strengthSession);
+
+    expect(readStoredWorkoutSession()).toEqual(
+      expect.objectContaining({
+        activityType: "strength",
+        completedStrengthSetIds: ["set-1"],
+        strengthSets: [
+          expect.objectContaining({
+            clientId: "set-1",
+            exercise: "Supino",
+            plannedReps: 10,
+            reps: 10,
+            weightKg: 20,
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("migra uma sessão v3 mantendo relógio e rota", () => {
+    const storedValue = JSON.stringify({
+      ...base,
+      version: 3,
+      startedAtMs: 42_000,
+      distanceM: 850,
+      strengthSets: undefined,
+      completedStrengthSetIds: undefined,
+    });
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: () => storedValue,
+      },
+    });
+
+    expect(readStoredWorkoutSession()).toEqual(
+      expect.objectContaining({
+        version: 4,
+        startedAtMs: 42_000,
+        distanceM: 850,
+        strengthSets: [],
+        completedStrengthSetIds: [],
+      }),
+    );
+  });
+
+  it("remove conclusões órfãs e normaliza carga inválida no restore", () => {
+    const storedValue = JSON.stringify({
+      ...base,
+      activityType: "strength",
+      strengthSets: [
+        {
+          clientId: "duration-1",
+          reps: 0,
+          weightKg: 0,
+          targetKind: "duration",
+          durationSeconds: 30,
+          plannedDurationSeconds: 30,
+        },
+      ],
+      completedStrengthSetIds: ["duration-1", "duration-1", "missing"],
+    });
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: () => storedValue,
+      },
+    });
+
+    expect(readStoredWorkoutSession()).toEqual(
+      expect.objectContaining({
+        completedStrengthSetIds: ["duration-1"],
+        strengthSets: [
+          expect.objectContaining({
+            clientId: "duration-1",
+            durationSeconds: 30,
+            plannedDurationSeconds: 30,
+            weightKg: null,
+          }),
+        ],
+      }),
+    );
   });
 });
 

@@ -135,4 +135,72 @@ describe("strength set catalog metadata", () => {
 
     expect(strengthSetsFromRow(strengthSetsToRow(sets))).toEqual(sets);
   });
+
+  it("preserva série por duração sem inventar repetições", () => {
+    const sets = [
+      {
+        reps: 0,
+        weightKg: 0,
+        exercise: "Prancha",
+        exerciseId: "plank",
+        targetKind: "duration" as const,
+        durationSeconds: 45,
+      },
+    ];
+
+    expect(strengthSetsToRow(sets)).toEqual([
+      expect.objectContaining({
+        reps: 0,
+        weight_kg: null,
+        target_kind: "duration",
+        duration_seconds: 45,
+      }),
+    ]);
+    expect(strengthSetsFromRow(strengthSetsToRow(sets))).toEqual([
+      expect.objectContaining({
+        reps: 0,
+        weightKg: null,
+        targetKind: "duration",
+        durationSeconds: 45,
+      }),
+    ]);
+  });
+
+  it("preserva falha sem carga e descarta duração vazia", () => {
+    expect(
+      strengthSetsToRow([
+        {
+          reps: 12,
+          weightKg: null,
+          exercise: "Flexão",
+          targetKind: "failure",
+        },
+        {
+          reps: 0,
+          weightKg: null,
+          exercise: "Prancha",
+          targetKind: "duration",
+          durationSeconds: null,
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        reps: 12,
+        weight_kg: null,
+        target_kind: "failure",
+      }),
+    ]);
+  });
+
+  it("normaliza cargas legadas menores ou iguais a zero", () => {
+    expect(
+      strengthSetsFromRow([
+        { reps: 10, weight_kg: 0 },
+        { reps: 8, weight_kg: -5 },
+      ]),
+    ).toEqual([
+      expect.objectContaining({ reps: 10, weightKg: null }),
+      expect.objectContaining({ reps: 8, weightKg: null }),
+    ]);
+  });
 });
