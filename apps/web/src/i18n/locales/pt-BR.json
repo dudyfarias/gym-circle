@@ -204,7 +204,19 @@
       "route": "Mapa da rota do treino",
       "share": "Compartilhar no Circle",
       "addPhoto": "Adicionar foto",
-      "finishLater": "Concluir por agora"
+      "finishLater": "Concluir por agora",
+      "vsPrevious": "vs. treino anterior · {{date}}",
+      "repsUnit": "reps",
+      "volumeUnit": "kg de volume",
+      "improvedIn": "Você evoluiu em: {{names}}"
+    },
+    "history": {
+      "title": "Histórico do exercício",
+      "lastTime": "Última vez",
+      "usePrevious": "Usar cargas",
+      "use": "Usar",
+      "volume": "{{value}} kg de volume",
+      "empty": "Sem registros anteriores deste exercício."
     }
   },
   "workoutDetail": {

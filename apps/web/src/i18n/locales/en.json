@@ -204,7 +204,19 @@
       "route": "Workout route map",
       "share": "Share with your Circle",
       "addPhoto": "Add photo",
-      "finishLater": "Done for now"
+      "finishLater": "Done for now",
+      "vsPrevious": "vs. last workout · {{date}}",
+      "repsUnit": "reps",
+      "volumeUnit": "kg volume",
+      "improvedIn": "You improved on: {{names}}"
+    },
+    "history": {
+      "title": "Exercise history",
+      "lastTime": "Last time",
+      "usePrevious": "Use loads",
+      "use": "Use",
+      "volume": "{{value}} kg volume",
+      "empty": "No previous records for this exercise."
     }
   },
   "workoutDetail": {

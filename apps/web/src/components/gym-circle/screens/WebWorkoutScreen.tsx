@@ -18,6 +18,7 @@ import {
   Dumbbell,
   Footprints,
   Gauge,
+  History,
   Info,
   MapPinned,
   Minus,
@@ -40,9 +41,16 @@ import type {
   WorkoutPlan,
 } from "../social/types";
 import {
+  buildWorkoutComparison,
+  exerciseHistoryKey,
+  lastPerformanceLabel,
+  type ExerciseHistoryEntry,
+} from "../workout/exerciseHistory";
+import {
   REST_TIMER_INITIAL,
   restTimerReducer,
 } from "../workout/restTimer";
+import { useExerciseHistory } from "../workout/useExerciseHistory";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
 import {
@@ -207,6 +215,8 @@ export function WebWorkoutScreen({
   >(() => new Set());
   const [finishedSummary, setFinishedSummary] =
     useState<FinishedWorkoutSummary | null>(null);
+  // Sprint 2 — histórico por exercício ("última vez", usar cargas, sheet).
+  const [historySheetKey, setHistorySheetKey] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<WorkoutPlan | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
@@ -220,6 +230,10 @@ export function WebWorkoutScreen({
     muscleGroups,
   } = workoutCatalog;
   const workoutPlansController = useWorkoutPlans(open);
+  // Sprint 2 — histórico do próprio user pra "última vez"/usar cargas/comparação.
+  const strengthHistory = useExerciseHistory(
+    open && stage === "live" && session?.activityType === "strength",
+  );
   const {
     plans: savedWorkoutPlans,
     loading: workoutPlansLoading,
@@ -675,6 +689,13 @@ export function WebWorkoutScreen({
           completedStrengthSets,
           strengthSets.length,
         ),
+        comparison:
+          session.activityType === "strength"
+            ? buildWorkoutComparison(
+                completedStrengthSets,
+                strengthHistory.latestActivity,
+              )
+            : null,
       });
       clearStoredWorkoutSession();
       setSession(null);
@@ -698,6 +719,7 @@ export function WebWorkoutScreen({
     onFinish,
     onSessionChange,
     session,
+    strengthHistory.latestActivity,
     strengthSets,
     t,
   ]);
@@ -886,6 +908,35 @@ export function WebWorkoutScreen({
       if (clientId) setStrengthSetCompleted(clientId, false);
     },
     [setStrengthSetCompleted, strengthSets],
+  );
+
+  // Sprint 2 — preenche as séries de um exercício com a execução anterior.
+  // Só campos vazios (carga null / reps 0): não sobrescreve o que foi digitado.
+  const applyHistoryEntryToExercise = useCallback(
+    (exerciseKey: string, entry: ExerciseHistoryEntry) => {
+      setStrengthSets((prev) => {
+        let position = 0;
+        return prev.map((set) => {
+          if (exerciseHistoryKey(set.exerciseId, set.exercise) !== exerciseKey) {
+            return set;
+          }
+          const source =
+            entry.sets[position] ?? entry.sets[entry.sets.length - 1] ?? null;
+          position += 1;
+          if (!source) return set;
+          const next = { ...set };
+          if (next.weightKg == null && source.weightKg != null) {
+            next.weightKg = source.weightKg;
+          }
+          if ((!next.reps || next.reps <= 0) && next.targetKind !== "duration") {
+            next.reps = source.reps;
+          }
+          return next;
+        });
+      });
+      navigator.vibrate?.(30);
+    },
+    [],
   );
 
   const handleStrengthExerciseCarouselScroll = useCallback(() => {
@@ -1197,6 +1248,85 @@ export function WebWorkoutScreen({
           info={catalogInfo}
           onClose={() => setCatalogInfo(null)}
         />
+      ) : null}
+      {historySheetKey ? (
+        <div
+          aria-label={t("workout.history.title")}
+          aria-modal="true"
+          className="fixed inset-0 z-[99] flex items-end justify-center bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-md"
+          role="dialog"
+        >
+          <button
+            aria-label={t("common.close")}
+            className="absolute inset-0"
+            onClick={() => setHistorySheetKey(null)}
+            type="button"
+          />
+          <div className="relative w-full max-w-[448px] rounded-[26px] border border-white/[0.09] bg-[#101214] p-5 shadow-[0_22px_80px_rgba(0,0,0,0.55)]">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-[17px] font-black text-white">
+                {t("workout.history.title")}
+              </h3>
+              <button
+                aria-label={t("common.close")}
+                className="gc-pressable grid size-9 place-items-center rounded-full bg-white/[0.07] text-white/75"
+                onClick={() => setHistorySheetKey(null)}
+                type="button"
+              >
+                <X size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+            <div className="mt-4 grid max-h-[46vh] gap-2 overflow-y-auto">
+              {(strengthHistory.historyByKey.get(historySheetKey) ?? [])
+                .slice(0, 10)
+                .map((entry) => (
+                  <div
+                    className="flex items-center gap-3 rounded-[16px] border border-white/[0.06] bg-white/[0.03] p-3"
+                    key={entry.activityId}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11px] font-black uppercase tracking-[0.1em] text-white/40">
+                        {new Intl.DateTimeFormat(i18n.language, {
+                          day: "numeric",
+                          month: "short",
+                          timeZone: "America/Sao_Paulo",
+                        }).format(new Date(entry.performedAt))}
+                      </p>
+                      <p className="mt-0.5 truncate text-[15px] font-black tabular-nums text-white">
+                        {lastPerformanceLabel(entry)}
+                      </p>
+                      {entry.totalVolumeKg > 0 ? (
+                        <p className="text-[11.5px] font-bold text-white/45">
+                          {t("workout.history.volume", {
+                            value: entry.totalVolumeKg.toLocaleString(
+                              i18n.language,
+                              { maximumFractionDigits: 1 },
+                            ),
+                          })}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      className="gc-pressable shrink-0 rounded-full bg-[var(--gc-brand)]/12 px-3.5 py-2 text-[11px] font-black text-[var(--gc-brand)]"
+                      onClick={() => {
+                        applyHistoryEntryToExercise(historySheetKey, entry);
+                        setHistorySheetKey(null);
+                      }}
+                      type="button"
+                    >
+                      {t("workout.history.use")}
+                    </button>
+                  </div>
+                ))}
+              {(strengthHistory.historyByKey.get(historySheetKey) ?? [])
+                .length === 0 ? (
+                <p className="py-8 text-center text-[13px] font-semibold text-white/45">
+                  {t("workout.history.empty")}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
       ) : null}
       {renameTarget ? (
         <div
@@ -1607,6 +1737,14 @@ export function WebWorkoutScreen({
                         );
                         const isCurrentGroup =
                           groupIndex === safeActiveStrengthExerciseIndex;
+                        const historyKey = exerciseHistoryKey(
+                          group.exerciseId,
+                          group.name,
+                        );
+                        const lastEntry = historyKey
+                          ? (strengthHistory.historyByKey.get(historyKey)?.[0] ??
+                            null)
+                          : null;
                         return (
                         <article
                           className="flex w-[calc(100%_-_40px)] min-w-[calc(100%_-_40px)] shrink-0 snap-center flex-col overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#0b0d0e] p-4 shadow-[0_24px_70px_rgba(0,0,0,0.28)]"
@@ -1697,6 +1835,44 @@ export function WebWorkoutScreen({
                                   : t("workout.sets.swipeHint")}
                             </span>
                           </div>
+
+                          {lastEntry && historyKey ? (
+                            <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-white/[0.06] bg-white/[0.03] p-2 pl-3">
+                              <button
+                                aria-label={t("workout.history.title")}
+                                className="gc-pressable flex min-w-0 flex-1 items-center gap-2 text-left"
+                                onClick={() => setHistorySheetKey(historyKey)}
+                                type="button"
+                              >
+                                <History
+                                  className="shrink-0 text-white/40"
+                                  size={15}
+                                />
+                                <span className="min-w-0">
+                                  <span className="block text-[9.5px] font-black uppercase tracking-[0.12em] text-white/38">
+                                    {t("workout.history.lastTime")}
+                                  </span>
+                                  <span className="block truncate text-[13px] font-black tabular-nums text-white/85">
+                                    {lastPerformanceLabel(lastEntry)}
+                                  </span>
+                                </span>
+                              </button>
+                              {group.targetKind !== "duration" ? (
+                                <button
+                                  className="gc-pressable shrink-0 rounded-full bg-[var(--gc-brand)]/12 px-3 py-2 text-[11px] font-black text-[var(--gc-brand)]"
+                                  onClick={() =>
+                                    applyHistoryEntryToExercise(
+                                      historyKey,
+                                      lastEntry,
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  {t("workout.history.usePrevious")}
+                                </button>
+                              ) : null}
+                            </div>
+                          ) : null}
 
                           {group.targetKind === "duration" ? (
                             <p className="mt-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/35">

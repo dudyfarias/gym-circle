@@ -4,6 +4,7 @@ import { Camera, Check, Share2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { WorkoutRouteMap } from "../design-system/WorkoutRouteMap";
 import type { ComposerActivityContext } from "../social/types";
+import type { WorkoutComparison } from "./exerciseHistory";
 import { formatElapsed } from "./workoutElapsed";
 import { formatDistance } from "./workoutSession";
 import type { WorkoutSummaryMetrics } from "./workoutSummary";
@@ -11,7 +12,15 @@ import type { WorkoutSummaryMetrics } from "./workoutSummary";
 export type FinishedWorkoutSummary = {
   context: ComposerActivityContext;
   metrics: WorkoutSummaryMetrics;
+  /** Sprint 2 — comparação com a última sessão de força (null sem histórico). */
+  comparison?: WorkoutComparison | null;
 };
+
+function deltaLabel(value: number, unit: string): string {
+  const rounded = Math.round(value * 10) / 10;
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded} ${unit}`;
+}
 
 type WorkoutCompletionSummaryProps = {
   data: FinishedWorkoutSummary;
@@ -40,8 +49,20 @@ export function WorkoutCompletionSummary({
   onShare,
 }: WorkoutCompletionSummaryProps) {
   const { i18n, t } = useTranslation();
-  const { context, metrics } = data;
+  const { context, metrics, comparison } = data;
   const route = context.route?.length && context.route.length > 1 ? context.route : null;
+  const comparisonDate = comparison
+    ? new Intl.DateTimeFormat(i18n.language, {
+        day: "numeric",
+        month: "short",
+        timeZone: "America/Sao_Paulo",
+      }).format(new Date(comparison.previousDate))
+    : null;
+  const showComparison =
+    comparison != null &&
+    (comparison.deltaReps !== 0 ||
+      comparison.deltaVolumeKg !== 0 ||
+      comparison.improvedExercises.length > 0);
   const volumeLabel = metrics.totalVolumeKg.toLocaleString(i18n.language, {
     maximumFractionDigits: 1,
   });
@@ -113,6 +134,36 @@ export function WorkoutCompletionSummary({
           </>
         ) : null}
       </section>
+
+      {showComparison && comparison ? (
+        <section className="mt-3 rounded-[20px] border border-[var(--gc-brand)]/16 bg-[var(--gc-brand)]/[0.05] p-4">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--gc-brand)]">
+            {t("workout.summary.vsPrevious", { date: comparisonDate })}
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {comparison.deltaReps !== 0 ? (
+              <span className="rounded-full bg-white/[0.06] px-3 py-1.5 text-[12px] font-black tabular-nums text-white">
+                {deltaLabel(comparison.deltaReps, t("workout.summary.repsUnit"))}
+              </span>
+            ) : null}
+            {comparison.deltaVolumeKg !== 0 ? (
+              <span className="rounded-full bg-white/[0.06] px-3 py-1.5 text-[12px] font-black tabular-nums text-white">
+                {deltaLabel(
+                  comparison.deltaVolumeKg,
+                  t("workout.summary.volumeUnit"),
+                )}
+              </span>
+            ) : null}
+          </div>
+          {comparison.improvedExercises.length > 0 ? (
+            <p className="mt-2.5 text-[12.5px] font-bold leading-snug text-white/72">
+              {t("workout.summary.improvedIn", {
+                names: comparison.improvedExercises.slice(0, 3).join(", "),
+              })}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       {route ? (
         <WorkoutRouteMap
