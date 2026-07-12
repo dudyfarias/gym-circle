@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAuth, useGymCircleClient } from "@gym-circle/core/hooks";
 import {
@@ -21,42 +21,72 @@ export function useExerciseHistory(enabled: boolean) {
   const [activities, setActivities] = useState<ExerciseHistoryActivityRow[]>(
     [],
   );
+  const [dataUserId, setDataUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const refresh = useCallback(() => {
+    setRefreshVersion((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     if (!enabled || !user) return;
     let cancelled = false;
-    // Carga inicial/quando habilita; o effect só dispara fetch assíncrono.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    void db
-      .from("activities")
-      .select("id, started_at, ended_at, strength_sets")
-      .eq("user_id", user.id)
-      .eq("activity_type", "strength")
-      .not("strength_sets", "is", null)
-      .order("started_at", { ascending: false })
-      .limit(30)
-      .then(({ data }) => {
-        if (cancelled) return;
-        setActivities((data ?? []) as ExerciseHistoryActivityRow[]);
-        setLoading(false);
-      });
+    void (async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const { data, error: queryError } = await db
+          .from("activities")
+          .select("id, started_at, ended_at, strength_sets")
+          .eq("user_id", user.id)
+          .eq("activity_type", "strength")
+          .not("strength_sets", "is", null)
+          .order("started_at", { ascending: false })
+          .limit(60);
+        if (queryError) throw queryError;
+        if (!cancelled) {
+          setActivities((data ?? []) as ExerciseHistoryActivityRow[]);
+          setDataUserId(user.id);
+        }
+      } catch (queryError) {
+        if (!cancelled) {
+          setActivities([]);
+          setDataUserId(user.id);
+          setError(
+            queryError instanceof Error
+              ? queryError.message
+              : "exercise_history_load_failed",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [db, enabled, user]);
+  }, [db, enabled, refreshVersion, user]);
+
+  const visibleActivities = useMemo(
+    () =>
+      enabled && user && dataUserId === user.id ? activities : [],
+    [activities, dataUserId, enabled, user],
+  );
 
   const historyByKey = useMemo(
-    () => buildExerciseHistory(activities),
-    [activities],
+    () => buildExerciseHistory(visibleActivities),
+    [visibleActivities],
   );
 
   return {
-    activities,
+    activities: visibleActivities,
     historyByKey,
     /** Última sessão de força salva ANTES da atual (base da comparação). */
-    latestActivity: activities[0] ?? null,
-    loading,
+    latestActivity: visibleActivities[0] ?? null,
+    loading: Boolean(enabled && user && loading),
+    error: enabled && user ? error : null,
+    refresh,
   };
 }

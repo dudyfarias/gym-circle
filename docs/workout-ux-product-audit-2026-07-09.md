@@ -1584,3 +1584,106 @@ Validação final local:
 - rascunho privado de activity;
 - novas RPCs ou migrations;
 - integrações HealthKit/Strava e Android.
+
+## 23. Registro de implementação — Sprint 2 Histórico e carga anterior
+
+Implementada em 11 de julho de 2026 no commit `37885a8`. A revisão de 12 de
+julho confirmou que a base estava funcional e identificou ajustes incorporados
+à Sprint 3.
+
+### 23.1 Entregas
+
+- O exercício ativo mostra a última execução do próprio usuário.
+- **Usar cargas** reaplica somente pesos nos campos vazios; repetições permanecem
+  como resultado real da sessão atual.
+- O histórico contextual lista sessões, melhor série, volume e duração.
+- O pós-treino compara apenas exercícios presentes nas duas sessões, evitando
+  comparar rotinas incompatíveis.
+- Exercícios por duração passam a existir no histórico sem inventar reps ou
+  carga.
+- Falhas de carregamento têm estado de erro e retry; troca/logout não reutiliza
+  dados da conta anterior.
+- O resumo de última execução deixou de sugerir que todas as séries tiveram as
+  mesmas repetições e mostra a melhor série de forma direta.
+
+### 23.2 Ajuste de séries até a falha
+
+- **Até a falha** agora aceita **Reps × Kg**.
+- Repetições continuam obrigatórias para concluir a série; carga é opcional para
+  peso corporal.
+- Com carga positiva, a série entra em volume, histórico, gráficos e recorde.
+- Sem carga, continua válida e entra somente em repetições.
+- Não houve migration: `StrengthSet`, JSONB, serialização e captura de recordes
+  já suportavam `target_kind = failure` com `weight_kg`.
+
+## 24. Registro de implementação — Sprint 3 Progresso e gráficos
+
+Implementada em 12 de julho de 2026. A definição oficial seguida foi a desta
+auditoria: **Progresso e gráficos**. O plano “Biblioteca e inteligência” do
+documento visual complementar permanece como etapa futura.
+
+### 24.1 Progresso e recordes em uma superfície
+
+- O launcher do perfil passa a abrir **Progresso e recordes**.
+- A mesma sheet reúne as abas acessíveis **Visão geral**, **Histórico** e
+  **Recordes**; o ranking entre amigos foi preservado.
+- O histórico solicitado fica junto do recorde pessoal, não apenas durante um
+  treino ativo.
+- O detalhe de exercício mostra melhor carga, sessões, séries, recorde e lista
+  cronológica de execuções.
+
+### 24.2 Gráficos e métricas
+
+- Gráfico semanal de frequência.
+- Gráficos por exercício alternáveis entre carga, volume, repetições e tempo.
+- Visão geral com treinos e dias ativos na semana, volume semanal e quantidade
+  de recordes.
+- Distribuição de séries por grupo muscular.
+- Estados vazios explicam quando ainda faltam dados; a tendência só é desenhada
+  com pelo menos dois pontos válidos.
+- O gráfico oferece equivalente textual para leitores de tela e não depende
+  apenas de cor.
+
+### 24.3 Dados, privacidade e performance
+
+- Sem migration e sem nova RPC nesta etapa: produção tinha apenas 15 atividades
+  e 66 séries no momento da auditoria.
+- A consulta é limitada aos últimos 84 dias e a 200 atividades, com select
+  mínimo, filtro explícito por `user_id`, cleanup e proteção contra resposta
+  antiga após troca de conta.
+- O catálogo fornece o grupo muscular primário; exercício desconhecido cai em
+  **Outros**.
+- Carga zero, negativa ou ausente não entra em volume nem gráfico de carga.
+- Série por duração usa segundos como métrica própria.
+- A migração para RPC agregada fica condicionada a mais de 500 atividades por
+  usuário ou p95 acima de 200 ms, evitando complexidade prematura.
+
+### 24.4 Cobertura adicionada
+
+- Histórico por duração e comparação apenas de exercícios em comum.
+- Falha com e sem carga.
+- Carga zero/null.
+- Semanas cronológicas com gaps.
+- Grupos musculares e fallback `other`.
+- Pontos de exercício ordenados cronologicamente.
+- Loading, erro, retry e isolamento por usuário nos hooks.
+
+### 24.5 Próximas etapas deliberadamente fora da Sprint 3
+
+- sugestão automática de progressão de carga;
+- deload e alertas inteligentes;
+- normalização de `strength_sets`;
+- RPCs agregadas de progresso;
+- vínculo persistido entre activity e workout plan;
+- biblioteca inteligente, variações e vídeos adicionais;
+- HealthKit/Strava, Android e app SwiftUI paralelo.
+
+### 24.6 Validação final
+
+- ESLint: sem erros ou warnings;
+- TypeScript: sem erros;
+- Vitest: **63 arquivos e 482 testes passando**;
+- Next.js production build: concluído;
+- JSON pt-BR/en: válido;
+- `git diff --check`: limpo;
+- nenhuma migration, secret ou dependência nova.

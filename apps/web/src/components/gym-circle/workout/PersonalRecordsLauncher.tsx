@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Trophy } from "lucide-react";
+import { BarChart3, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PersonalRecordsSheet } from "./PersonalRecordsSheet";
 
@@ -17,7 +17,7 @@ export function PersonalRecordsLauncher() {
         type="button"
       >
         <span className="grid size-10 shrink-0 place-items-center rounded-[13px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-          <Trophy size={18} />
+          <BarChart3 size={18} />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block text-[13.5px] font-black text-white">

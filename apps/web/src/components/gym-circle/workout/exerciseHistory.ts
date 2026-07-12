@@ -18,11 +18,23 @@ export type ExerciseHistoryActivityRow = {
         weight_kg?: number | null;
         exercise?: string | null;
         exercise_id?: string | null;
+        target_kind?: "reps" | "failure" | "duration" | null;
+        duration_seconds?: number | null;
       }>
     | null;
 };
 
-export type ExerciseHistorySet = { reps: number; weightKg: number | null };
+export type ExerciseHistorySet = {
+  reps: number;
+  weightKg: number | null;
+  targetKind: "reps" | "failure" | "duration";
+  durationSeconds: number | null;
+};
+
+export type ExerciseHistoryBestSet = {
+  reps: number;
+  weightKg: number | null;
+};
 
 export type ExerciseHistoryEntry = {
   activityId: string;
@@ -30,10 +42,11 @@ export type ExerciseHistoryEntry = {
   performedAt: string;
   sets: ExerciseHistorySet[];
   /** Maior carga (desempate: mais reps); sem carga → série de mais reps. */
-  bestSet: ExerciseHistorySet | null;
+  bestSet: ExerciseHistoryBestSet | null;
   maxWeightKg: number | null;
   totalReps: number;
   totalVolumeKg: number;
+  totalDurationSeconds: number;
 };
 
 export type WorkoutComparison = {
@@ -58,14 +71,15 @@ export function exerciseHistoryKey(
 }
 
 function betterSet(
-  a: ExerciseHistorySet | null,
+  a: ExerciseHistoryBestSet | null,
   b: ExerciseHistorySet,
-): ExerciseHistorySet {
-  if (!a) return b;
+): ExerciseHistoryBestSet {
+  const candidate = { reps: b.reps, weightKg: b.weightKg };
+  if (!a) return candidate;
   const aW = a.weightKg ?? 0;
   const bW = b.weightKg ?? 0;
-  if (bW !== aW) return bW > aW ? b : a;
-  return b.reps > a.reps ? b : a;
+  if (bW !== aW) return bW > aW ? candidate : a;
+  return b.reps > a.reps ? candidate : a;
 }
 
 function entryFromSets(
@@ -73,17 +87,19 @@ function entryFromSets(
   performedAt: string,
   sets: ExerciseHistorySet[],
 ): ExerciseHistoryEntry {
-  let bestSet: ExerciseHistorySet | null = null;
+  let bestSet: ExerciseHistoryBestSet | null = null;
   let maxWeightKg: number | null = null;
   let totalReps = 0;
   let totalVolumeKg = 0;
+  let totalDurationSeconds = 0;
   for (const set of sets) {
-    bestSet = betterSet(bestSet, set);
+    if (set.reps > 0) bestSet = betterSet(bestSet, set);
     if (set.weightKg != null && set.weightKg > 0) {
       maxWeightKg = Math.max(maxWeightKg ?? 0, set.weightKg);
       totalVolumeKg += set.reps * set.weightKg;
     }
     totalReps += set.reps;
+    totalDurationSeconds += set.durationSeconds ?? 0;
   }
   return {
     activityId,
@@ -93,6 +109,7 @@ function entryFromSets(
     maxWeightKg,
     totalReps,
     totalVolumeKg: Math.round(totalVolumeKg * 100) / 100,
+    totalDurationSeconds,
   };
 }
 
@@ -101,8 +118,16 @@ function rowSetsByKey(
 ): Map<string, ExerciseHistorySet[]> {
   const byKey = new Map<string, ExerciseHistorySet[]>();
   for (const raw of row.strength_sets ?? []) {
+    const targetKind =
+      raw.target_kind === "failure" || raw.target_kind === "duration"
+        ? raw.target_kind
+        : "reps";
     const reps = typeof raw.reps === "number" && raw.reps > 0 ? raw.reps : 0;
-    if (reps <= 0) continue;
+    const durationSeconds =
+      typeof raw.duration_seconds === "number" && raw.duration_seconds > 0
+        ? Math.round(raw.duration_seconds)
+        : null;
+    if (reps <= 0 && durationSeconds == null) continue;
     const key = exerciseHistoryKey(raw.exercise_id, raw.exercise);
     if (!key) continue;
     const set: ExerciseHistorySet = {
@@ -111,6 +136,8 @@ function rowSetsByKey(
         typeof raw.weight_kg === "number" && raw.weight_kg > 0
           ? raw.weight_kg
           : null,
+      targetKind,
+      durationSeconds,
     };
     const list = byKey.get(key);
     if (list) list.push(set);
@@ -140,37 +167,55 @@ export function buildExerciseHistory(
   return history;
 }
 
-/** "3×10 · 20 kg" (sem carga: "3×10"). Vazio quando não há séries. */
+/** Melhor série da sessão. Vazio quando o exercício foi apenas por duração. */
 export function lastPerformanceLabel(entry: ExerciseHistoryEntry): string {
-  if (!entry.bestSet) return "";
-  const base = `${entry.sets.length}×${entry.bestSet.reps}`;
+  if (!entry.bestSet) {
+    return entry.totalDurationSeconds > 0
+      ? `${entry.totalDurationSeconds}s`
+      : "";
+  }
+  const base = `${entry.bestSet.reps} ×`;
   const weight = entry.bestSet.weightKg;
-  if (weight == null) return base;
+  if (weight == null) return `${entry.bestSet.reps} reps`;
   const label = Number.isInteger(weight)
     ? String(weight)
     : weight.toFixed(1).replace(/\.0$/, "");
-  return `${base} · ${label} kg`;
+  return `${base} ${label} kg`;
 }
 
 function currentTotalsByKey(sets: StrengthSet[]) {
-  const byKey = new Map<string, { name: string; maxWeightKg: number | null }>();
-  let totalReps = 0;
-  let totalVolumeKg = 0;
+  const byKey = new Map<
+    string,
+    {
+      name: string;
+      maxWeightKg: number | null;
+      totalReps: number;
+      totalVolumeKg: number;
+    }
+  >();
   for (const set of sets) {
     if (!set.reps || set.reps <= 0) continue;
-    totalReps += set.reps;
     const weight = set.weightKg != null && set.weightKg > 0 ? set.weightKg : null;
-    if (weight != null) totalVolumeKg += set.reps * weight;
+    const volume = weight != null ? set.reps * weight : 0;
     const key = exerciseHistoryKey(set.exerciseId, set.exercise);
     if (!key) continue;
     const current = byKey.get(key);
     if (!current) {
-      byKey.set(key, { name: set.exercise ?? "", maxWeightKg: weight });
-    } else if (weight != null && weight > (current.maxWeightKg ?? 0)) {
-      current.maxWeightKg = weight;
+      byKey.set(key, {
+        name: set.exercise ?? "",
+        maxWeightKg: weight,
+        totalReps: set.reps,
+        totalVolumeKg: volume,
+      });
+    } else {
+      current.totalReps += set.reps;
+      current.totalVolumeKg += volume;
+      if (weight != null && weight > (current.maxWeightKg ?? 0)) {
+        current.maxWeightKg = weight;
+      }
     }
   }
-  return { byKey, totalReps, totalVolumeKg };
+  return byKey;
 }
 
 /**
@@ -186,29 +231,40 @@ export function buildWorkoutComparison(
   const previousDate = previous.started_at ?? previous.ended_at;
   if (!previousDate) return null;
 
-  const current = currentTotalsByKey(currentSets);
-  if (current.totalReps <= 0) return null;
+  const currentByKey = currentTotalsByKey(currentSets);
+  if (currentByKey.size === 0) return null;
 
-  let previousReps = 0;
-  let previousVolumeKg = 0;
-  const previousMaxByKey = new Map<string, number>();
+  const previousByKey = new Map<
+    string,
+    { totalReps: number; totalVolumeKg: number; maxWeightKg: number | null }
+  >();
   for (const [key, sets] of rowSetsByKey(previous)) {
+    let totalReps = 0;
+    let totalVolumeKg = 0;
+    let maxWeightKg: number | null = null;
     for (const set of sets) {
-      previousReps += set.reps;
+      totalReps += set.reps;
       if (set.weightKg != null) {
-        previousVolumeKg += set.reps * set.weightKg;
-        previousMaxByKey.set(
-          key,
-          Math.max(previousMaxByKey.get(key) ?? 0, set.weightKg),
-        );
+        totalVolumeKg += set.reps * set.weightKg;
+        maxWeightKg = Math.max(maxWeightKg ?? 0, set.weightKg);
       }
     }
+    previousByKey.set(key, { totalReps, totalVolumeKg, maxWeightKg });
   }
-  if (previousReps <= 0) return null;
 
+  let currentReps = 0;
+  let currentVolumeKg = 0;
+  let previousReps = 0;
+  let previousVolumeKg = 0;
   const improvedExercises: string[] = [];
-  for (const [key, info] of current.byKey) {
-    const previousMax = previousMaxByKey.get(key);
+  for (const [key, info] of currentByKey) {
+    const previousInfo = previousByKey.get(key);
+    if (!previousInfo) continue;
+    currentReps += info.totalReps;
+    currentVolumeKg += info.totalVolumeKg;
+    previousReps += previousInfo.totalReps;
+    previousVolumeKg += previousInfo.totalVolumeKg;
+    const previousMax = previousInfo.maxWeightKg;
     if (
       previousMax != null &&
       info.maxWeightKg != null &&
@@ -219,11 +275,13 @@ export function buildWorkoutComparison(
     }
   }
 
+  if (currentReps <= 0 || previousReps <= 0) return null;
+
   return {
     previousDate,
-    deltaReps: current.totalReps - previousReps,
+    deltaReps: currentReps - previousReps,
     deltaVolumeKg:
-      Math.round((current.totalVolumeKg - previousVolumeKg) * 100) / 100,
+      Math.round((currentVolumeKg - previousVolumeKg) * 100) / 100,
     improvedExercises,
   };
 }

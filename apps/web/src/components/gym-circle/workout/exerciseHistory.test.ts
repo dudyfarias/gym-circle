@@ -60,8 +60,33 @@ describe("buildExerciseHistory", () => {
       ]),
     ]);
     const supino = history.get("ex-1");
-    expect(supino?.[0].sets).toEqual([{ reps: 10, weightKg: null }]);
+    expect(supino?.[0].sets).toEqual([
+      {
+        reps: 10,
+        weightKg: null,
+        targetKind: "reps",
+        durationSeconds: null,
+      },
+    ]);
     expect(supino?.[0].maxWeightKg).toBeNull();
+  });
+
+  it("preserva exercícios por duração no histórico", () => {
+    const history = buildExerciseHistory([
+      row("a1", "2026-07-08T10:00:00Z", [
+        {
+          reps: 0,
+          weight_kg: null,
+          exercise: "Prancha",
+          exercise_id: "ex-duration",
+          target_kind: "duration",
+          duration_seconds: 45,
+        },
+      ]),
+    ]);
+
+    expect(history.get("ex-duration")?.[0].totalDurationSeconds).toBe(45);
+    expect(lastPerformanceLabel(history.get("ex-duration")![0])).toBe("45s");
   });
 });
 
@@ -74,7 +99,7 @@ describe("lastPerformanceLabel", () => {
         { reps: 8, weight_kg: 22.5, exercise: "Supino", exercise_id: "ex-1" },
       ]),
     ]);
-    expect(lastPerformanceLabel(history.get("ex-1")![0])).toBe("3×8 · 22.5 kg");
+    expect(lastPerformanceLabel(history.get("ex-1")![0])).toBe("8 × 22.5 kg");
   });
 
   it("sem carga mostra só séries×reps", () => {
@@ -83,7 +108,7 @@ describe("lastPerformanceLabel", () => {
         { reps: 15, weight_kg: null, exercise: "Prancha", exercise_id: null },
       ]),
     ]);
-    expect(lastPerformanceLabel(history.get("name:prancha")![0])).toBe("1×15");
+    expect(lastPerformanceLabel(history.get("name:prancha")![0])).toBe("15 reps");
   });
 });
 
@@ -116,6 +141,29 @@ describe("buildWorkoutComparison", () => {
     expect(buildWorkoutComparison([], previous)).toBeNull();
     expect(
       buildWorkoutComparison([{ reps: 0, weightKg: 20 }], previous),
+    ).toBeNull();
+  });
+
+  it("compara somente exercícios presentes nas duas sessões", () => {
+    const comparison = buildWorkoutComparison(
+      [
+        { reps: 12, weightKg: 22.5, exercise: "Supino", exerciseId: "ex-1" },
+        { reps: 20, weightKg: 50, exercise: "Remada", exerciseId: "ex-3" },
+      ],
+      previous,
+    );
+
+    expect(comparison?.deltaReps).toBe(12 - 20);
+    expect(comparison?.deltaVolumeKg).toBe(12 * 22.5 - 20 * 20);
+    expect(comparison?.improvedExercises).toEqual(["Supino"]);
+  });
+
+  it("não compara rotinas sem nenhum exercício em comum", () => {
+    expect(
+      buildWorkoutComparison(
+        [{ reps: 10, weightKg: 30, exercise: "Remada", exerciseId: "ex-3" }],
+        previous,
+      ),
     ).toBeNull();
   });
 });

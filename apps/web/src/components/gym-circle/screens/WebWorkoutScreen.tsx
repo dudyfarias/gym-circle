@@ -27,6 +27,7 @@ import {
   Pencil,
   Play,
   Plus,
+  RefreshCw,
   Square,
   Timer,
   TrendingUp,
@@ -217,6 +218,7 @@ export function WebWorkoutScreen({
     useState<FinishedWorkoutSummary | null>(null);
   // Sprint 2 — histórico por exercício ("última vez", usar cargas, sheet).
   const [historySheetKey, setHistorySheetKey] = useState<string | null>(null);
+  const [historyAppliedMessage, setHistoryAppliedMessage] = useState("");
   const [renameTarget, setRenameTarget] = useState<WorkoutPlan | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
@@ -910,8 +912,9 @@ export function WebWorkoutScreen({
     [setStrengthSetCompleted, strengthSets],
   );
 
-  // Sprint 2 — preenche as séries de um exercício com a execução anterior.
-  // Só campos vazios (carga null / reps 0): não sobrescreve o que foi digitado.
+  // Sprint 2 — reaplica somente as cargas da execução anterior.
+  // Repetições continuam sendo o resultado real de hoje, especialmente em
+  // séries até a falha. Campos já digitados nunca são sobrescritos.
   const applyHistoryEntryToExercise = useCallback(
     (exerciseKey: string, entry: ExerciseHistoryEntry) => {
       setStrengthSets((prev) => {
@@ -928,15 +931,13 @@ export function WebWorkoutScreen({
           if (next.weightKg == null && source.weightKg != null) {
             next.weightKg = source.weightKg;
           }
-          if ((!next.reps || next.reps <= 0) && next.targetKind !== "duration") {
-            next.reps = source.reps;
-          }
           return next;
         });
       });
+      setHistoryAppliedMessage(t("workout.history.applied"));
       navigator.vibrate?.(30);
     },
-    [],
+    [t],
   );
 
   const handleStrengthExerciseCarouselScroll = useCallback(() => {
@@ -1243,6 +1244,9 @@ export function WebWorkoutScreen({
 
   return (
     <>
+      <p aria-live="polite" className="sr-only">
+        {historyAppliedMessage}
+      </p>
       {catalogInfo ? (
         <WorkoutCatalogInfoSheet
           info={catalogInfo}
@@ -1304,18 +1308,26 @@ export function WebWorkoutScreen({
                             ),
                           })}
                         </p>
+                      ) : entry.totalDurationSeconds > 0 ? (
+                        <p className="text-[11.5px] font-bold text-white/45">
+                          {t("workout.history.duration", {
+                            value: entry.totalDurationSeconds,
+                          })}
+                        </p>
                       ) : null}
                     </div>
-                    <button
-                      className="gc-pressable shrink-0 rounded-full bg-[var(--gc-brand)]/12 px-3.5 py-2 text-[11px] font-black text-[var(--gc-brand)]"
-                      onClick={() => {
-                        applyHistoryEntryToExercise(historySheetKey, entry);
-                        setHistorySheetKey(null);
-                      }}
-                      type="button"
-                    >
-                      {t("workout.history.use")}
-                    </button>
+                    {entry.totalReps > 0 ? (
+                      <button
+                        className="gc-pressable shrink-0 rounded-full bg-[var(--gc-brand)]/12 px-3.5 py-2 text-[11px] font-black text-[var(--gc-brand)]"
+                        onClick={() => {
+                          applyHistoryEntryToExercise(historySheetKey, entry);
+                          setHistorySheetKey(null);
+                        }}
+                        type="button"
+                      >
+                        {t("workout.history.use")}
+                      </button>
+                    ) : null}
                   </div>
                 ))}
               {(strengthHistory.historyByKey.get(historySheetKey) ?? [])
@@ -1836,7 +1848,22 @@ export function WebWorkoutScreen({
                             </span>
                           </div>
 
-                          {lastEntry && historyKey ? (
+                          {strengthHistory.loading && isCurrentGroup ? (
+                            <div
+                              aria-label={t("common.loading")}
+                              className="mt-3 h-[52px] animate-pulse rounded-[16px] border border-white/[0.05] bg-white/[0.025]"
+                              role="status"
+                            />
+                          ) : strengthHistory.error && isCurrentGroup ? (
+                            <button
+                              className="gc-pressable mt-3 flex w-full items-center justify-center gap-2 rounded-[16px] border border-white/[0.06] bg-white/[0.03] px-3 py-3 text-[11.5px] font-black text-white/65"
+                              onClick={strengthHistory.refresh}
+                              type="button"
+                            >
+                              <RefreshCw size={14} />
+                              {t("workout.history.loadError")} {t("common.retry")}
+                            </button>
+                          ) : lastEntry && historyKey ? (
                             <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-white/[0.06] bg-white/[0.03] p-2 pl-3">
                               <button
                                 aria-label={t("workout.history.title")}
@@ -1881,26 +1908,21 @@ export function WebWorkoutScreen({
                           ) : (
                             <div
                               aria-hidden="true"
-                              className={[
-                                "mt-4 grid gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35",
-                                group.targetKind === "failure"
-                                  ? "grid-cols-[24px_minmax(0,1fr)_70px_28px]"
-                                  : "grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px]",
-                              ].join(" ")}
+                              className="mt-4 grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35"
                             >
                               <span />
                               <span>{t("workout.sets.reps")}</span>
-                              {group.targetKind === "failure" ? (
-                                <span>{t("workout.sets.status")}</span>
-                              ) : (
-                                <>
-                                  <span />
-                                  <span>{t("workout.sets.kg")}</span>
-                                </>
-                              )}
+                              <span />
+                              <span>{t("workout.sets.kg")}</span>
                               <span />
                             </div>
                           )}
+
+                          {group.targetKind === "failure" ? (
+                            <p className="mt-2 px-1 text-[11px] font-semibold leading-snug text-white/46">
+                              {t("workout.sets.failureWeightHint")}
+                            </p>
+                          ) : null}
 
                           <div className="mt-2 grid gap-2">
                             {group.sets.map(({ index, set }, setIndex) => {
@@ -1998,10 +2020,7 @@ export function WebWorkoutScreen({
                               return (
                                 <div
                                   className={[
-                                    "grid items-center gap-2 rounded-[16px] border p-2",
-                                    group.targetKind === "failure"
-                                      ? "grid-cols-[24px_minmax(0,1fr)_70px_28px]"
-                                      : "grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px]",
+                                    "grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px] items-center gap-2 rounded-[16px] border p-2",
                                     setCompleted
                                       ? "border-[var(--gc-brand)]/30 bg-[var(--gc-brand)]/[0.05]"
                                       : "border-white/[0.055] bg-white/[0.02]",
@@ -2027,33 +2046,29 @@ export function WebWorkoutScreen({
                                     placeholder={String(set.plannedReps ?? t("workout.sets.reps"))}
                                     value={set.reps > 0 ? String(set.reps) : ""}
                                   />
-                                  {group.targetKind === "failure" ? null : (
-                                    <>
-                                      <span className="text-center text-[13px] font-black text-white/30">
-                                        ×
-                                      </span>
-                                      <input
-                                        aria-label={t("workout.sets.weight")}
-                                        className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
-                                        data-workout-set-input="true"
-                                        inputMode="decimal"
-                                        onBlur={handleStrengthSetInputBlur}
-                                        onChange={(event) =>
-                                          updateStrengthSetWeight(
-                                            index,
-                                            event.target.value,
-                                          )
-                                        }
-                                        onFocus={() => setSetsInputFocused(true)}
-                                        placeholder={t("workout.sets.weightPlaceholder")}
-                                        value={
-                                          set.weightKg != null && set.weightKg > 0
-                                            ? String(set.weightKg)
-                                            : ""
-                                        }
-                                      />
-                                    </>
-                                  )}
+                                  <span className="text-center text-[13px] font-black text-white/30">
+                                    ×
+                                  </span>
+                                  <input
+                                    aria-label={t("workout.sets.weight")}
+                                    className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                                    data-workout-set-input="true"
+                                    inputMode="decimal"
+                                    onBlur={handleStrengthSetInputBlur}
+                                    onChange={(event) =>
+                                      updateStrengthSetWeight(
+                                        index,
+                                        event.target.value,
+                                      )
+                                    }
+                                    onFocus={() => setSetsInputFocused(true)}
+                                    placeholder={t("workout.sets.weightPlaceholder")}
+                                    value={
+                                      set.weightKg != null && set.weightKg > 0
+                                        ? String(set.weightKg)
+                                        : ""
+                                    }
+                                  />
                                   <div className="flex items-center justify-end gap-1">
                                     <button
                                       aria-label={
@@ -2076,18 +2091,6 @@ export function WebWorkoutScreen({
                                     >
                                       <Check size={14} strokeWidth={3} />
                                     </button>
-                                    {group.targetKind === "failure" ? null : (
-                                      <button
-                                        aria-label={t("workout.sets.remove")}
-                                        className="gc-pressable text-white/32"
-                                        onClick={() => removeStrengthSet(index)}
-                                        type="button"
-                                      >
-                                        <X size={14} strokeWidth={2.6} />
-                                      </button>
-                                    )}
-                                  </div>
-                                  {group.targetKind === "failure" ? (
                                     <button
                                       aria-label={t("workout.sets.remove")}
                                       className="gc-pressable text-white/32"
@@ -2096,7 +2099,7 @@ export function WebWorkoutScreen({
                                     >
                                       <X size={14} strokeWidth={2.6} />
                                     </button>
-                                  ) : null}
+                                  </div>
                                 </div>
                               );
                             })}
