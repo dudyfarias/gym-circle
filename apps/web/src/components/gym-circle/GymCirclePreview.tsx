@@ -1376,6 +1376,75 @@ export function GymCirclePreview({
     [currentUserPosts, social.currentUser.id],
   );
 
+  // Assinatura por VALOR para o pipeline de achievements. O selector social
+  // recria `currentUser` e pode recriar os arrays de posts/desafios mesmo sem
+  // mudança de conteúdo; usar essas referências como deps fazia os effects de
+  // backfill/celebração consultarem user_achievements a cada render.
+  const achievementUserId = social.currentUser?.id ?? null;
+  const achievementPostsSnapshot = currentUserAuthoredPosts.map((post) => ({
+    createdAt: post.createdAt,
+    gymId: post.gymId,
+    workoutType: post.workoutType ?? null,
+    workoutTypes: post.workoutTypes ?? null,
+  }));
+  const achievementSourceKey = JSON.stringify({
+    challenges: monthlyChallenges
+      .map((challenge) => ({
+        completedAt: challenge.completedAt,
+        description: challenge.description,
+        goalTarget: challenge.goalTarget,
+        id: challenge.id,
+        isSecret: challenge.isSecret ?? false,
+        periodKey: challenge.periodKey,
+        progress: challenge.progress,
+        rarity: challenge.rarity,
+        title: challenge.title,
+        trophyId: challenge.trophyId ?? null,
+      }))
+      .sort((a, b) => `${a.periodKey}:${a.id}`.localeCompare(`${b.periodKey}:${b.id}`)),
+    posts: currentUserAuthoredPosts
+      .map((post) => ({
+        createdAt: post.createdAt,
+        gymId: post.gymId,
+        id: post.id,
+        workoutType: post.workoutType ?? null,
+        workoutTypes: post.workoutTypes ?? null,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    user: {
+      activeDaysCount: social.currentUser.activeDaysCount,
+      createdAt: social.currentUser.createdAt ?? null,
+      followersCount: social.currentUser.followersCount,
+      lastStreakRestoreUsedAt:
+        social.currentUser.lastStreakRestoreUsedAt ?? null,
+      longestStreak: social.currentUser.longestStreak,
+      workoutsThisMonth: social.currentUser.workoutsThisMonth,
+      workoutsThisWeek: social.currentUser.workoutsThisWeek,
+    },
+  });
+  const achievementSourceRef = useRef({
+    monthlyChallenges,
+    posts: achievementPostsSnapshot,
+    user: social.currentUser,
+  });
+  const achievementClientRef = useRef(services.client);
+  const lastAchievementBackfillKeyRef = useRef<string | null>(null);
+  const lastAchievementCelebrationCheckKeyRef = useRef<string | null>(null);
+
+  // Atualizar refs não causa render nem request. Estes effects podem observar
+  // referências instáveis; os effects de rede abaixo continuam chaveados só
+  // pelas assinaturas primitivas e rodam depois destes na ordem do componente.
+  useEffect(() => {
+    achievementSourceRef.current = {
+      monthlyChallenges,
+      posts: achievementPostsSnapshot,
+      user: social.currentUser,
+    };
+  }, [achievementPostsSnapshot, monthlyChallenges, social.currentUser]);
+  useEffect(() => {
+    achievementClientRef.current = services.client;
+  }, [services.client]);
+
   // Performance Supabase — não hidratamos mais get_profile_posts no boot.
   // A RPC é cara; ela só roda quando a aba Perfil fica visível, ou quando o
   // usuário abre ProfileSheet/MyCircle. O cache/dedupe no hook compartilha
@@ -1392,67 +1461,68 @@ export function GymCirclePreview({
   // bloqueia UI). Sem isso, a RPC get_achievement_global_stats sempre
   // retornaria 0% — UI mostraria "Apenas 0% dos usuários" pra tudo.
   useEffect(() => {
-    const currentUserId = social.currentUser?.id;
+    const currentUserId = achievementUserId;
     if (!currentUserId) return;
+    const backfillKey = `${currentUserId}:${achievementSourceKey}`;
+    if (lastAchievementBackfillKeyRef.current === backfillKey) return;
+    // Marcamos antes da chamada. Como o service é best-effort e absorve o
+    // erro, uma falha não pode virar retry infinito; novo conteúdo ou reload
+    // gera uma nova tentativa segura.
+    lastAchievementBackfillKeyRef.current = backfillKey;
+    const source = achievementSourceRef.current;
     const allAchievements = getAllAchievements({
-      user: social.currentUser,
-      postsCount: currentUserAuthoredPosts.length,
-      hasUsedStreakRestore: Boolean(social.currentUser.lastStreakRestoreUsedAt),
-      posts: currentUserAuthoredPosts.map((post) => ({
-        createdAt: post.createdAt,
-        workoutType: post.workoutType ?? null,
-        workoutTypes: post.workoutTypes ?? null,
-        gymId: post.gymId,
-      })),
-      monthlyChallenges,
+      user: source.user,
+      postsCount: source.posts.length,
+      hasUsedStreakRestore: Boolean(source.user.lastStreakRestoreUsedAt),
+      posts: source.posts,
+      monthlyChallenges: source.monthlyChallenges,
     });
     void backfillUserAchievements(
-      services.client,
+      achievementClientRef.current,
       currentUserId,
       allAchievements,
     );
-  }, [
-    services.client,
-    social.currentUser?.id,
-    social.currentUser,
-    social.currentUser?.longestStreak,
-    social.currentUser?.workoutsThisMonth,
-    social.currentUser?.activeDaysCount,
-    social.currentUser?.followersCount,
-    social.currentUser?.lastStreakRestoreUsedAt,
-    currentUserAuthoredPosts,
-    monthlyChallenges,
-  ]);
+  }, [achievementSourceKey, achievementUserId]);
 
   // Sprint 7.5.11 — Carrega queue de achievements uncelebrated.
   // Roda AFTER backfill effect (mesmas deps) pra capturar os recém
   // inseridos. Cross-ref composite IDs com allAchievements pra resolver
   // shape completo (label/description/iconKey/rarity). Best-effort.
   useEffect(() => {
-    const currentUserId = social.currentUser?.id;
+    const currentUserId = achievementUserId;
     if (!currentUserId) return;
+    const celebrationCheckKey = `${currentUserId}:${achievementSourceKey}`;
+    if (
+      lastAchievementCelebrationCheckKeyRef.current ===
+      celebrationCheckKey
+    ) {
+      return;
+    }
     let cancelled = false;
     // Delay levemente pra dar tempo do backfill rodar primeiro
     const timer = setTimeout(async () => {
+      // O ref só é marcado quando o timer realmente começa. Assim o ciclo
+      // setup/cleanup extra do React Strict Mode não cancela a única checagem.
+      if (
+        lastAchievementCelebrationCheckKeyRef.current ===
+        celebrationCheckKey
+      ) {
+        return;
+      }
+      lastAchievementCelebrationCheckKeyRef.current = celebrationCheckKey;
       try {
         const compositeIds = await loadUncelebratedAchievementIds(
-          services.client,
+          achievementClientRef.current,
           currentUserId,
         );
         if (cancelled || compositeIds.length === 0) return;
+        const source = achievementSourceRef.current;
         const allAchievements = getAllAchievements({
-          user: social.currentUser,
-          postsCount: currentUserAuthoredPosts.length,
-          hasUsedStreakRestore: Boolean(
-            social.currentUser.lastStreakRestoreUsedAt,
-          ),
-          posts: currentUserAuthoredPosts.map((post) => ({
-            createdAt: post.createdAt,
-            workoutType: post.workoutType ?? null,
-            workoutTypes: post.workoutTypes ?? null,
-            gymId: post.gymId,
-          })),
-          monthlyChallenges,
+          user: source.user,
+          postsCount: source.posts.length,
+          hasUsedStreakRestore: Boolean(source.user.lastStreakRestoreUsedAt),
+          posts: source.posts,
+          monthlyChallenges: source.monthlyChallenges,
         });
         const resolved = resolveAchievementsByCompositeIds(
           compositeIds,
@@ -1470,13 +1540,7 @@ export function GymCirclePreview({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [
-    services.client,
-    social.currentUser?.id,
-    social.currentUser,
-    currentUserAuthoredPosts,
-    monthlyChallenges,
-  ]);
+  }, [achievementSourceKey, achievementUserId]);
 
   // Sprint 9.5.4 — listeners pro inverse bridge. SwiftUI OtherProfileView
   // posta eventos quando user toca em ações que precisam roteamento web
