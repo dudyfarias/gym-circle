@@ -150,6 +150,8 @@ export type Activity = {
 };
 
 export type ActivityInput = {
+  /** ID do cliente usado pelo RPC de finalização idempotente. */
+  clientSessionId?: string;
   activityType: ActivityType;
   mode: ActivityMode;
   origin: ActivityOrigin;

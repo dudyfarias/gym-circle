@@ -526,6 +526,8 @@ export type CreateWorkoutPostInput = {
  * Saúde (FC/calorias) continuam exclusivos das APIs nativas.
  */
 export type WebActivityInput = {
+  /** ID estável criado no começo da sessão para finalização idempotente. */
+  clientSessionId: string;
   activityType: "strength" | "run" | "walk" | "ride" | "other";
   startedAt: string;
   endedAt: string;

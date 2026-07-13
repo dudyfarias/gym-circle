@@ -1004,3 +1004,28 @@ Esta entrega altera somente documentação. Não cria migration, RPC ou código.
 Executar `git diff --check`, confirmar o diff exclusivo do documento, fazer
 commit seletivo e push. A aplicação técnica começa apenas após aprovação da
 Sprint 0.
+
+## 25. Registro de execução da Sprint 0 — 2026-07-12
+
+Implementação local concluída e detalhada em
+`docs/workout-sprint-0-implementation-2026-07-12.md`.
+
+Entregas realizadas:
+
+- rascunho v5 namespaced por usuário e validado por `ownerUserId`;
+- `clientSessionId` estável desde o início da sessão;
+- finalização por RPC idempotente, com fallback apenas durante rollout sem RPC;
+- migration aditiva com estado `private | composing | shared`, índice único,
+  RLS, guards e sincronização com `posts.source_activity_id`;
+- activities privadas removidas do feed bruto;
+- descanso persistido por deadline absoluto (`endsAtMs`);
+- testes de isolamento, background, restore, RPC, fallback e falha real;
+- documentação de rollout e QA com duas contas/iPhone.
+
+Estado desta atualização:
+
+- migration criada, mas não aplicada;
+- nenhuma mudança em Supabase production;
+- nenhum deploy realizado;
+- validação SQL em preview pendente porque o Docker local não estava ativo;
+- alarme garantido com tela bloqueada permanece uma entrega nativa futura.

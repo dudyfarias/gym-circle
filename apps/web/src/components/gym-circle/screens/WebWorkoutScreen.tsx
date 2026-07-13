@@ -69,6 +69,7 @@ import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import {
   appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
+  createWorkoutClientSessionId,
   formatAveragePace,
   formatAverageSpeed,
   formatDistance,
@@ -99,6 +100,7 @@ type GpsEngine = "checking" | "native" | "web";
 
 type WebWorkoutScreenProps = {
   open: boolean;
+  userId: string;
   onClose: () => void;
   onFinish: (input: WebActivityInput) => Promise<FinishedWebActivity>;
   onCompose: (activity: ComposerActivityContext) => void;
@@ -189,6 +191,7 @@ function MetricTile({
 
 export function WebWorkoutScreen({
   open,
+  userId,
   onClose,
   onFinish,
   onCompose,
@@ -199,6 +202,7 @@ export function WebWorkoutScreen({
   const [session, setSession] = useState<StoredWorkoutSession | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [rest, dispatchRest] = useReducer(restTimerReducer, REST_TIMER_INITIAL);
+  const restRef = useRef(rest);
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("off");
   const [gpsEngine, setGpsEngine] = useState<GpsEngine>("checking");
   const [finishing, setFinishing] = useState(false);
@@ -266,7 +270,7 @@ export function WebWorkoutScreen({
   useEffect(() => {
     if (!open) return;
     const id = window.setTimeout(() => {
-      const stored = readStoredWorkoutSession();
+      const stored = readStoredWorkoutSession(userId);
       setFinishedSummary(null);
       setFinishError(null);
       setFinishConfirmOpen(false);
@@ -280,6 +284,11 @@ export function WebWorkoutScreen({
         setCompletedStrengthSetIds(
           new Set(stored.completedStrengthSetIds),
         );
+        dispatchRest({
+          type: "restore",
+          state: stored.restTimer,
+          nowMs: Date.now(),
+        });
         setStage("live");
         onSessionChange?.(true);
       } else {
@@ -293,7 +302,7 @@ export function WebWorkoutScreen({
       }
     }, 0);
     return () => window.clearTimeout(id);
-  }, [onSessionChange, open]);
+  }, [onSessionChange, open, userId]);
 
   useEffect(() => {
     if (!finishedSummary) return;
@@ -307,7 +316,9 @@ export function WebWorkoutScreen({
     if (!open || stage !== "live" || !hasSession) return;
     const id = window.setInterval(() => {
       setNowMs(Date.now());
-      if (sessionPausedAtMs === null) dispatchRest({ type: "tick" });
+      if (sessionPausedAtMs === null) {
+        dispatchRest({ type: "tick", nowMs: Date.now() });
+      }
     }, 1_000);
     return () => window.clearInterval(id);
   }, [hasSession, open, sessionPausedAtMs, stage]);
@@ -320,19 +331,31 @@ export function WebWorkoutScreen({
     ) => {
       setSession((current) => {
         if (!current) return current;
-        const next = updater(current);
+        const updated = updater(current);
+        const next =
+          updated.restTimer === restRef.current
+            ? updated
+            : { ...updated, restTimer: restRef.current };
         if (next === current) return current;
-        writeStoredWorkoutSession(next);
+        writeStoredWorkoutSession(userId, next);
         return next;
       });
     },
-    [],
+    [userId],
   );
+
+  useEffect(() => {
+    restRef.current = rest;
+  }, [rest]);
+
+  useEffect(() => {
+    if (!session || stage !== "live") return;
+    writeStoredWorkoutSession(userId, { ...session, restTimer: rest });
+  }, [rest, session, stage, userId]);
 
   useEffect(() => {
     if (session?.activityType !== "strength" || stage !== "live") return;
     // Sincroniza o rascunho completo para sobreviver a minimizar/reabrir.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     persistSession((current) => ({
       ...current,
       strengthSets,
@@ -492,7 +515,9 @@ export function WebWorkoutScreen({
   const startWorkout = useCallback(
     (activityType: WorkoutType, initialStrengthSets: LiveStrengthSet[] = []) => {
       const next: StoredWorkoutSession = {
-        version: 4,
+        version: 5,
+        ownerUserId: userId,
+        clientSessionId: createWorkoutClientSessionId(),
         startedAtMs: Date.now(),
         activityType,
         pausedAtMs: null,
@@ -501,12 +526,13 @@ export function WebWorkoutScreen({
         movingS: 0,
         elevationGainM: 0,
         restCount: 0,
+        restTimer: REST_TIMER_INITIAL,
         strengthSets: initialStrengthSets,
         completedStrengthSetIds: [],
         routePoints: [],
         lastRoutePoint: null,
       };
-      writeStoredWorkoutSession(next);
+      writeStoredWorkoutSession(userId, next);
       setSession(next);
       setStrengthSets(initialStrengthSets);
       setCompletedStrengthSetIds(new Set());
@@ -532,7 +558,7 @@ export function WebWorkoutScreen({
         );
       }
     },
-    [applyNativeSnapshot, gpsEngine, onSessionChange],
+    [applyNativeSnapshot, gpsEngine, onSessionChange, userId],
   );
 
   const startWorkoutPlan = useCallback(
@@ -604,7 +630,9 @@ export function WebWorkoutScreen({
           ({ WorkoutLocationBridge }) => WorkoutLocationBridge.pause(),
         );
       }
-      if (rest.status === "running") dispatchRest({ type: "pause" });
+      if (rest.status === "running") {
+        dispatchRest({ type: "pause", nowMs: actionNow });
+      }
     } else {
       persistSession((current) => resumeWorkoutSession(current, actionNow));
       if (routeActivityType && gpsEngine === "native") {
@@ -613,7 +641,9 @@ export function WebWorkoutScreen({
             WorkoutLocationBridge.resume(routeActivityType),
         );
       }
-      if (rest.status === "paused") dispatchRest({ type: "resume" });
+      if (rest.status === "paused") {
+        dispatchRest({ type: "resume", nowMs: actionNow });
+      }
     }
     setNowMs(actionNow);
     navigator.vibrate?.(45);
@@ -651,6 +681,7 @@ export function WebWorkoutScreen({
         ),
       );
       const activity = await onFinish({
+        clientSessionId: session.clientSessionId,
         activityType: session.activityType,
         startedAt: new Date(session.startedAtMs).toISOString(),
         endedAt: new Date(endedMs).toISOString(),
@@ -700,7 +731,7 @@ export function WebWorkoutScreen({
               )
             : null,
       });
-      clearStoredWorkoutSession();
+      clearStoredWorkoutSession(userId);
       setSession(null);
       setStage("pick");
       setStrengthSets([]);
@@ -725,10 +756,11 @@ export function WebWorkoutScreen({
     strengthHistory.latestActivity,
     strengthSets,
     t,
+    userId,
   ]);
 
   const handleDiscard = useCallback(() => {
-    clearStoredWorkoutSession();
+    clearStoredWorkoutSession(userId);
     dispatchRest({ type: "reset" });
     setSession(null);
     setStrengthSets([]);
@@ -747,11 +779,11 @@ export function WebWorkoutScreen({
       );
     }
     onClose();
-  }, [gpsEngine, onClose, onSessionChange, session]);
+  }, [gpsEngine, onClose, onSessionChange, session, userId]);
 
   const startRest = useCallback(() => {
     if (!session || session.pausedAtMs !== null) return;
-    dispatchRest({ type: "start" });
+    dispatchRest({ type: "start", nowMs: Date.now() });
     persistSession((current) => ({
       ...current,
       restCount: current.restCount + 1,
@@ -2208,6 +2240,7 @@ export function WebWorkoutScreen({
                                     dispatchRest({
                                       type: "adjust",
                                       deltaS: -10,
+                                      nowMs: Date.now(),
                                     })
                                   }
                                   type="button"
@@ -2244,6 +2277,7 @@ export function WebWorkoutScreen({
                                     dispatchRest({
                                       type: "adjust",
                                       deltaS: 10,
+                                      nowMs: Date.now(),
                                     })
                                   }
                                   type="button"

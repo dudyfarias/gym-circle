@@ -680,6 +680,7 @@ export function createSocialActions(
       // resumo oferece "Adicionar foto" → publishWorkout com sourceActivityId).
       async finishWebActivity(input: WebActivityInput): Promise<FinishedWebActivity> {
         const activity = await services.activities.create(currentUserId, {
+          clientSessionId: input.clientSessionId,
           activityType: input.activityType,
           mode:
             input.activityType === "run" ||

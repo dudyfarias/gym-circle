@@ -12,6 +12,7 @@ import {
   workoutPausedSeconds,
   workoutRouteCoordinates,
   writeStoredWorkoutSession,
+  workoutStorageKey,
 } from "./workoutSession";
 
 afterEach(() => {
@@ -19,7 +20,9 @@ afterEach(() => {
 });
 
 const base: StoredWorkoutSession = {
-  version: 4,
+  version: 5,
+  ownerUserId: "user-a",
+  clientSessionId: "00000000-0000-4000-8000-000000000001",
   startedAtMs: 1_000,
   activityType: "run",
   pausedAtMs: null,
@@ -28,11 +31,29 @@ const base: StoredWorkoutSession = {
   movingS: 0,
   elevationGainM: 0,
   restCount: 0,
+  restTimer: {
+    status: "idle",
+    presetS: 60,
+    remainingS: 60,
+    endsAtMs: null,
+  },
   strengthSets: [],
   completedStrengthSetIds: [],
   routePoints: [],
   lastRoutePoint: null,
 };
+
+function installStorage(initial: Record<string, string> = {}) {
+  const values = new Map(Object.entries(initial));
+  vi.stubGlobal("window", {
+    localStorage: {
+      getItem: (key: string) => values.get(key) ?? null,
+      removeItem: (key: string) => values.delete(key),
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  });
+  return values;
+}
 
 describe("workout session clock", () => {
   it("excludes completed and current pauses from elapsed time", () => {
@@ -90,18 +111,7 @@ describe("strength set completion", () => {
 
 describe("workout session storage", () => {
   it("restaura séries e conclusões de uma sessão de musculação", () => {
-    let storedValue: string | null = null;
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: () => storedValue,
-        removeItem: () => {
-          storedValue = null;
-        },
-        setItem: (_key: string, value: string) => {
-          storedValue = value;
-        },
-      },
-    });
+    installStorage();
     const strengthSession: StoredWorkoutSession = {
       ...base,
       activityType: "strength",
@@ -118,9 +128,9 @@ describe("workout session storage", () => {
       completedStrengthSetIds: ["set-1"],
     };
 
-    writeStoredWorkoutSession(strengthSession);
+    writeStoredWorkoutSession("user-a", strengthSession);
 
-    expect(readStoredWorkoutSession()).toEqual(
+    expect(readStoredWorkoutSession("user-a")).toEqual(
       expect.objectContaining({
         activityType: "strength",
         completedStrengthSetIds: ["set-1"],
@@ -137,30 +147,27 @@ describe("workout session storage", () => {
     );
   });
 
-  it("migra uma sessão v3 mantendo relógio e rota", () => {
-    const storedValue = JSON.stringify({
+  it("não reivindica sessão global legada sem dono", () => {
+    const legacy = JSON.stringify({
       ...base,
-      version: 3,
+      version: 4,
       startedAtMs: 42_000,
       distanceM: 850,
-      strengthSets: undefined,
-      completedStrengthSetIds: undefined,
     });
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: () => storedValue,
-      },
-    });
+    const values = installStorage({ "gc-web-workout": legacy });
 
-    expect(readStoredWorkoutSession()).toEqual(
-      expect.objectContaining({
-        version: 4,
-        startedAtMs: 42_000,
-        distanceM: 850,
-        strengthSets: [],
-        completedStrengthSetIds: [],
-      }),
+    expect(readStoredWorkoutSession("user-a")).toBeNull();
+    expect(values.has("gc-web-workout")).toBe(false);
+  });
+
+  it("isola rascunhos entre contas no mesmo aparelho", () => {
+    installStorage();
+    writeStoredWorkoutSession("user-a", base);
+
+    expect(readStoredWorkoutSession("user-a")?.clientSessionId).toBe(
+      base.clientSessionId,
     );
+    expect(readStoredWorkoutSession("user-b")).toBeNull();
   });
 
   it("remove conclusões órfãs e normaliza carga inválida no restore", () => {
@@ -179,13 +186,11 @@ describe("workout session storage", () => {
       ],
       completedStrengthSetIds: ["duration-1", "duration-1", "missing"],
     });
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: () => storedValue,
-      },
+    installStorage({
+      [workoutStorageKey("user-a")]: storedValue,
     });
 
-    expect(readStoredWorkoutSession()).toEqual(
+    expect(readStoredWorkoutSession("user-a")).toEqual(
       expect.objectContaining({
         completedStrengthSetIds: ["duration-1"],
         strengthSets: [

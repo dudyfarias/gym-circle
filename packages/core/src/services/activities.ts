@@ -12,9 +12,27 @@ export function activityService(client: GymCircleClient) {
   return {
     /** Grava uma atividade rastreada; o trigger marca o dia/streak. */
     async create(userId: string, input: ActivityInput): Promise<Activity> {
+      const row = activityInputToRow(input, userId);
+      if (input.clientSessionId) {
+        const { data, error } = await (
+          client as unknown as SupabaseClient
+        ).rpc("finalize_workout_activity", {
+          p_client_session_id: input.clientSessionId,
+          p_payload: row,
+        });
+        if (!error) {
+          const result = Array.isArray(data) ? data[0] : data;
+          if (!result) throw new Error("activity_finalize_empty_result");
+          return activityRowToDomain(result as ActivityRow);
+        }
+        // Compatibilidade de rollout: o web novo pode chegar antes da
+        // migration. Outros erros (RLS, payload, rede) continuam visíveis.
+        if (!isMissingFinalizeWorkoutRpc(error)) throw error;
+      }
+
       const { data, error } = await client
         .from("activities")
-        .insert(activityInputToRow(input, userId))
+        .insert(row)
         .select("*")
         .single();
       if (error) throw error;
@@ -114,6 +132,17 @@ export function activityService(client: GymCircleClient) {
       if (error) throw error;
     },
   };
+}
+
+function isMissingFinalizeWorkoutRpc(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  if (candidate.code === "PGRST202" || candidate.code === "42883") return true;
+  return (
+    typeof candidate.message === "string" &&
+    candidate.message.includes("finalize_workout_activity") &&
+    /not find|does not exist/i.test(candidate.message)
+  );
 }
 
 type MergeableActivityRow = {

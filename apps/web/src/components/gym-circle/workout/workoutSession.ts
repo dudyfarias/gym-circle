@@ -1,6 +1,26 @@
 import type { StrengthSet, WebActivityInput } from "../social/types";
+import {
+  REST_TIMER_INITIAL,
+  type RestTimerState,
+} from "./restTimer";
 
+/** Chave global v4, removida por segurança na primeira leitura autenticada. */
 export const WORKOUT_STORAGE_KEY = "gc-web-workout";
+
+export function workoutStorageKey(userId: string) {
+  return `${WORKOUT_STORAGE_KEY}:${userId}`;
+}
+
+export function createWorkoutClientSessionId() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (value) => {
+    const random = Math.floor(Math.random() * 16);
+    const digit = value === "x" ? random : (random & 0x3) | 0x8;
+    return digit.toString(16);
+  });
+}
 
 export type WorkoutRoutePoint = {
   latitude: number;
@@ -34,7 +54,9 @@ export function shouldAutoCompleteStrengthSet(input: {
 }
 
 export type StoredWorkoutSession = {
-  version: 4;
+  version: 5;
+  ownerUserId: string;
+  clientSessionId: string;
   startedAtMs: number;
   activityType: WebActivityInput["activityType"];
   pausedAtMs: number | null;
@@ -43,6 +65,7 @@ export type StoredWorkoutSession = {
   movingS: number;
   elevationGainM: number;
   restCount: number;
+  restTimer: RestTimerState;
   strengthSets: LiveStrengthSet[];
   completedStrengthSetIds: string[];
   routePoints: WorkoutRoutePoint[];
@@ -119,16 +142,23 @@ function readStoredStrengthSets(value: unknown): LiveStrengthSet[] {
   });
 }
 
-export function readStoredWorkoutSession(): StoredWorkoutSession | null {
+export function readStoredWorkoutSession(userId: string): StoredWorkoutSession | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(WORKOUT_STORAGE_KEY);
+    // Não reivindica rascunhos v4 sem owner: isso poderia entregar o treino da
+    // conta anterior à conta atual no mesmo aparelho.
+    window.localStorage.removeItem(WORKOUT_STORAGE_KEY);
+    const raw = window.localStorage.getItem(workoutStorageKey(userId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredWorkoutSession>;
     if (
+      parsed.version !== 5 ||
+      parsed.ownerUserId !== userId ||
+      typeof parsed.clientSessionId !== "string" ||
       typeof parsed.startedAtMs !== "number" ||
       typeof parsed.activityType !== "string"
     ) {
+      window.localStorage.removeItem(workoutStorageKey(userId));
       return null;
     }
     const strengthSets = readStoredStrengthSets(parsed.strengthSets);
@@ -136,7 +166,9 @@ export function readStoredWorkoutSession(): StoredWorkoutSession | null {
       strengthSets.map((set) => set.clientId),
     );
     return {
-      version: 4,
+      version: 5,
+      ownerUserId: userId,
+      clientSessionId: parsed.clientSessionId,
       startedAtMs: parsed.startedAtMs,
       activityType: parsed.activityType,
       pausedAtMs:
@@ -146,6 +178,28 @@ export function readStoredWorkoutSession(): StoredWorkoutSession | null {
       movingS: numberOr(parsed.movingS, 0),
       elevationGainM: numberOr(parsed.elevationGainM, 0),
       restCount: Math.max(0, Math.floor(numberOr(parsed.restCount, 0))),
+      restTimer:
+        parsed.restTimer &&
+        typeof parsed.restTimer.presetS === "number" &&
+        typeof parsed.restTimer.remainingS === "number"
+          ? {
+              status:
+                parsed.restTimer.status === "running" ||
+                parsed.restTimer.status === "paused" ||
+                parsed.restTimer.status === "done"
+                  ? parsed.restTimer.status
+                  : "idle",
+              presetS: Math.max(5, Math.floor(parsed.restTimer.presetS)),
+              remainingS: Math.max(
+                0,
+                Math.floor(parsed.restTimer.remainingS),
+              ),
+              endsAtMs:
+                typeof parsed.restTimer.endsAtMs === "number"
+                  ? parsed.restTimer.endsAtMs
+                  : null,
+            }
+          : REST_TIMER_INITIAL,
       strengthSets,
       completedStrengthSetIds: Array.isArray(parsed.completedStrengthSetIds)
         ? Array.from(
@@ -163,22 +217,31 @@ export function readStoredWorkoutSession(): StoredWorkoutSession | null {
       lastRoutePoint: parsed.lastRoutePoint ?? null,
     };
   } catch {
+    window.localStorage.removeItem(workoutStorageKey(userId));
     return null;
   }
 }
 
-export function writeStoredWorkoutSession(session: StoredWorkoutSession) {
+export function writeStoredWorkoutSession(
+  userId: string,
+  session: StoredWorkoutSession,
+) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(WORKOUT_STORAGE_KEY, JSON.stringify(session));
+  if (session.ownerUserId !== userId) return;
+  window.localStorage.setItem(
+    workoutStorageKey(userId),
+    JSON.stringify(session),
+  );
 }
 
-export function clearStoredWorkoutSession() {
+export function clearStoredWorkoutSession(userId: string) {
   if (typeof window === "undefined") return;
+  window.localStorage.removeItem(workoutStorageKey(userId));
   window.localStorage.removeItem(WORKOUT_STORAGE_KEY);
 }
 
-export function hasStoredWorkoutSession() {
-  return readStoredWorkoutSession() !== null;
+export function hasStoredWorkoutSession(userId: string) {
+  return readStoredWorkoutSession(userId) !== null;
 }
 
 export function workoutElapsedSeconds(

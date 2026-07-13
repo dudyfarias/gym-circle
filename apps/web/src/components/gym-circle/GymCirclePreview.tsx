@@ -227,7 +227,7 @@ export function GymCirclePreview({
   const [createHubOpen, setCreateHubOpen] = useState(false);
   const [workoutOpen, setWorkoutOpen] = useState(false);
   const [workoutSessionActive, setWorkoutSessionActive] = useState(
-    () => hasStoredWorkoutSession(),
+    () => hasStoredWorkoutSession(social.currentUser.id),
   );
   const [composerActivity, setComposerActivity] = useState<ComposerActivityContext | null>(null);
   // Detalhes do treino (estilo Apple Atividades) — tocar nos stats da entrada
@@ -1212,14 +1212,16 @@ export function GymCirclePreview({
       // Rastreio de treino (Fase 1): o "+" central abre o hub de criar em vez
       // de ir direto ao composer (iniciar treino / postar / check-in).
       if (screen === "post") {
-        setWorkoutSessionActive(hasStoredWorkoutSession());
+        setWorkoutSessionActive(
+          hasStoredWorkoutSession(social.currentUser.id),
+        );
         setCreateHubOpen(true);
         return;
       }
       if (screen === "checkin") setCheckinTargetGymId(null);
       setActiveScreen(screen);
     },
-    [activeScreen, scrollFeedToTop],
+    [activeScreen, scrollFeedToTop, social.currentUser.id],
   );
 
   const openGymDetail = useCallback((gymId: string) => {
@@ -2196,6 +2198,7 @@ export function GymCirclePreview({
             open={createHubOpen}
           />
           <WebWorkoutScreen
+            userId={social.currentUser.id}
             onCompose={(activity) => {
               setWorkoutOpen(false);
               setComposerActivity(activity);

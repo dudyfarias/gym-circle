@@ -27,6 +27,79 @@ const baseRow: ActivityRow = {
 };
 
 describe("activityService.create", () => {
+  it("finaliza por RPC quando há clientSessionId", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: baseRow, error: null });
+    const client = { rpc } as unknown as GymCircleClient;
+
+    const activity = await activityService(client).create("u1", {
+      clientSessionId: "00000000-0000-4000-8000-000000000001",
+      activityType: "strength",
+      mode: "session",
+      origin: "web_timer",
+      startedAt: "2026-07-02T21:00:00Z",
+      endedAt: "2026-07-02T21:58:00Z",
+      elapsedS: 3480,
+    });
+
+    expect(rpc).toHaveBeenCalledWith("finalize_workout_activity", {
+      p_client_session_id: "00000000-0000-4000-8000-000000000001",
+      p_payload: expect.objectContaining({
+        user_id: "u1",
+        activity_type: "strength",
+      }),
+    });
+    expect(activity.id).toBe("a1");
+  });
+
+  it("faz fallback temporário se a migration do RPC ainda não chegou", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: "PGRST202", message: "function not found" },
+    });
+    const insert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({ data: baseRow, error: null }),
+      }),
+    });
+    const client = {
+      rpc,
+      from: vi.fn().mockReturnValue({ insert }),
+    } as unknown as GymCircleClient;
+
+    await activityService(client).create("u1", {
+      clientSessionId: "00000000-0000-4000-8000-000000000001",
+      activityType: "strength",
+      mode: "session",
+      origin: "web_timer",
+      startedAt: "2026-07-02T21:00:00Z",
+      endedAt: "2026-07-02T21:58:00Z",
+      elapsedS: 3480,
+    });
+
+    expect(insert).toHaveBeenCalledOnce();
+  });
+
+  it("não mascara falha real do RPC idempotente", async () => {
+    const client = {
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: { code: "42501", message: "rls" },
+      }),
+    } as unknown as GymCircleClient;
+
+    await expect(
+      activityService(client).create("u1", {
+        clientSessionId: "00000000-0000-4000-8000-000000000001",
+        activityType: "strength",
+        mode: "session",
+        origin: "web_timer",
+        startedAt: "2026-07-02T21:00:00Z",
+        endedAt: "2026-07-02T21:58:00Z",
+        elapsedS: 3480,
+      }),
+    ).rejects.toMatchObject({ code: "42501" });
+  });
+
   it("insere a row mapeada e devolve o domínio", async () => {
     const insert = vi.fn().mockReturnValue({
       select: vi.fn().mockReturnValue({
