@@ -1587,6 +1587,25 @@ export function GymCirclePreview({
     };
   }, [celebrationQueue, social.currentUser?.id]);
 
+  // Assinaturas estáveis (string) do que o effect de desafios abaixo
+  // realmente consome. Depender das REFERÊNCIAS de `social.currentUser`,
+  // `workoutDays` e `currentUserPosts` fazia o effect re-disparar a cada
+  // render (o selector recria `currentUser` a cada render); como o effect
+  // chama setMonthlyChallenges (novo array), isso virava um loop infinito
+  // de fetch (monthly_challenges + user_achievements) que travava o app —
+  // no boot ele disparava centenas de requisições. Chavear por VALOR mata o
+  // loop sem perder reatividade às mudanças reais de dados.
+  const monthlyChallengeUserId = social.currentUser?.id ?? null;
+  const monthlyChallengeWorkoutDaysKey = (
+    social.currentUser?.workoutDays ?? []
+  ).join(",");
+  const monthlyChallengePostsKey = currentUserPosts
+    .map(
+      (post) =>
+        `${post.workoutDate ?? ""}|${post.workoutType ?? ""}|${(post.workoutTypes ?? []).join("/")}|${post.acceptedParticipants?.length ?? 0}|${post.media?.length ?? 1}`,
+    )
+    .join(";");
+
   // Sprint 7.5.6 + 7.5.10 + 17 — carrega desafios mensais + recomputa
   // progress baseado em workoutDays + posts atuais. Suporta os 6
   // goal_kinds: workouts_in_month, workout_type_specific, group_workouts,
@@ -1660,12 +1679,16 @@ export function GymCirclePreview({
     return () => {
       cancelled = true;
     };
+    // Chaveado pelas assinaturas de VALOR acima (workoutDays/posts) em vez das
+    // referências, que mudavam a cada render e causavam loop de fetch.
+    // currentUser e currentUserPosts são lidos por conteúdo dentro do effect,
+    // refletido nessas keys — por isso não entram como deps de referência.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     services.client,
-    social.currentUser,
-    social.currentUser?.id,
-    social.currentUser?.workoutDays,
-    currentUserPosts,
+    monthlyChallengeUserId,
+    monthlyChallengeWorkoutDaysKey,
+    monthlyChallengePostsKey,
     i18n.language,
   ]);
 
