@@ -466,6 +466,12 @@ export function GymCirclePreview({
   }, [social.actions, social.currentUser.id]);
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
   // Sprint 3.5.3: handlers do MyCircleSheet.
+  // Desestrutura as actions usadas pelos efeitos/callbacks do My Circle para
+  // que o objeto `social.actions` (recriado por merges do bundle) não vire uma
+  // dependência instável e reabra o ciclo de render.
+  const refreshProfilePostsForMyCircle = social.actions.refreshProfilePosts;
+  const ensureProfilePostsForMyCircleMonth =
+    social.actions.ensureProfilePostsForMonth;
   // Sprint 8.1: estratégia híbrida — quando flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`
   // ativada E o bridge nativo está disponível (iOS + Capacitor + plugin
   // registrado), apresenta MyCircleView SwiftUI nativa em vez do web sheet.
@@ -497,10 +503,10 @@ export function GymCirclePreview({
       // fotos + tap), sem depender da janela do feed nem de ter passado
       // pelo ProfileSheet antes. Fire-and-forget: sheet abre na hora e as
       // fotos entram quando o merge chegar.
-      void social.actions.refreshProfilePosts?.(userId);
+      void refreshProfilePostsForMyCircle?.(userId);
       setMyCircleUserId(userId);
     },
-    [social.actions, social.currentUser.id],
+    [refreshProfilePostsForMyCircle, social.currentUser.id],
   );
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   // "Registrar treino": tap num dia treinado sem post no calendário do próprio
@@ -516,9 +522,9 @@ export function GymCirclePreview({
   const handleMyCircleVisibleMonthChange = useCallback(
     (monthKey: string) => {
       if (!myCircleUserId) return;
-      void social.actions.ensureProfilePostsForMonth?.(myCircleUserId, monthKey);
+      void ensureProfilePostsForMyCircleMonth?.(myCircleUserId, monthKey);
     },
-    [myCircleUserId, social.actions],
+    [ensureProfilePostsForMyCircleMonth, myCircleUserId],
   );
   // Sprint 8.11.4 — bridge híbrido pra AchievementDetailOverlay. Wrappa o
   // setter web setAchievementDetail. Quando a flag `NEXT_PUBLIC_USE_NATIVE_MYCIRCLE`

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock, Share2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -169,24 +169,33 @@ export function MyCircleSheet({
     year: today.getFullYear(),
     month: today.getMonth(),
   });
+  const lastVisibleMonthNotificationRef = useRef<string | null>(null);
   const visibleMonthKey = `${calendarMonth.year}-${String(
     calendarMonth.month + 1,
   ).padStart(2, "0")}`;
+  const visibleUserId = user?.id ?? null;
+  const canSeeDetails = Boolean(
+    user && (isOwn || !user.isPrivate || user.followStatus === "accepted"),
+  );
 
   useEffect(() => {
-    if (
-      open &&
-      user &&
-      (isOwn || !user.isPrivate || user.followStatus === "accepted")
-    ) {
-      onVisibleMonthChange?.(visibleMonthKey);
+    if (!open) {
+      lastVisibleMonthNotificationRef.current = null;
+      return;
     }
-  }, [isOwn, onVisibleMonthChange, open, user, visibleMonthKey]);
+    if (!visibleUserId || !canSeeDetails) return;
+
+    // O objeto EnrichedUser e alguns callbacks do social bundle podem ganhar
+    // nova referência após qualquer merge de estado. Sem esta chave, o effect
+    // notificava o mesmo mês, o parent atualizava estado e a montagem do
+    // MyCircle entrava num ciclo síncrono que congelava todo o Perfil.
+    const notificationKey = `${visibleUserId}:${visibleMonthKey}`;
+    if (lastVisibleMonthNotificationRef.current === notificationKey) return;
+    lastVisibleMonthNotificationRef.current = notificationKey;
+    onVisibleMonthChange?.(visibleMonthKey);
+  }, [canSeeDetails, onVisibleMonthChange, open, visibleMonthKey, visibleUserId]);
 
   if (!open || !user) return null;
-
-  const canSeeDetails =
-    isOwn || !user.isPrivate || user.followStatus === "accepted";
 
   const consistencyInput = {
     workoutsThisWeek: user.workoutsThisWeek ?? 0,
