@@ -1458,8 +1458,12 @@ export function GymCirclePreview({
   useEffect(() => {
     const currentUserId = social.currentUser?.id;
     if (!currentUserId || activeScreen !== "profile") return;
-    void social.actions.refreshProfilePosts?.(currentUserId);
-  }, [activeScreen, social.currentUser?.id, social.actions]);
+    // `social.actions` é um bundle recriado após merges do estado social.
+    // Dependê-lo aqui fazia refresh -> merge -> nova actions -> refresh em
+    // loop, congelando qualquer interação da aba Perfil. A action específica
+    // preserva a reatividade sem transformar cada clique em novo refetch.
+    void refreshProfilePostsForMyCircle?.(currentUserId);
+  }, [activeScreen, refreshProfilePostsForMyCircle, social.currentUser?.id]);
 
   // Sprint 7.5.8 — Lazy backfill de user_achievements no boot. Compara
   // achievements derivados (getAllAchievements) com o que está no DB e
