@@ -1,5 +1,7 @@
 "use client";
 
+import { Capacitor } from "@capacitor/core";
+
 export type HapticLevel =
   | "light"
   | "medium"
@@ -25,34 +27,28 @@ function vibrateFallback(level: HapticLevel) {
   }
 }
 
-// Cache module-level dos dynamic imports do Capacitor. Sem isso, cada chamada
-// (Haptics pode disparar dezenas de vezes em ações burst — swipe, scrub) faria
-// 2 dynamic imports. Bundler cacheia internamente, mas o lookup de Promise
-// ainda tem overhead. Cache aqui evita tanto o lookup quanto múltiplas
-// criações de Promise no path quente.
-type NativeHapticModules = {
-  Capacitor: typeof import("@capacitor/core").Capacitor;
-  haptics: typeof import("@capacitor/haptics");
-};
-let cachedNativeModules: Promise<NativeHapticModules | null> | null = null;
+// O runtime precisa ser identificado antes de carregar o plugin de haptics.
+// Carregar @capacitor/haptics no path web do primeiro toque criava um chunk
+// assíncrono desnecessário e podia bloquear o renderer antes do callback do
+// botão (o Perfil ficava completamente sem interação). O core já faz parte do
+// shell Capacitor; o plugin pesado continua lazy e só existe no path nativo.
+type NativeHapticModule = typeof import("@capacitor/haptics");
+let cachedNativeModule: Promise<NativeHapticModule | null> | null = null;
 
-function loadNativeHapticModules(): Promise<NativeHapticModules | null> {
-  if (cachedNativeModules) return cachedNativeModules;
-  cachedNativeModules = Promise.all([
-    import("@capacitor/core"),
-    import("@capacitor/haptics"),
-  ])
-    .then(([core, haptics]) => ({ Capacitor: core.Capacitor, haptics }))
-    .catch(() => null);
-  return cachedNativeModules;
+function loadNativeHapticModule(): Promise<NativeHapticModule | null> {
+  if (cachedNativeModule) return cachedNativeModule;
+  cachedNativeModule = import("@capacitor/haptics").catch(() => null);
+  return cachedNativeModule;
 }
 
 async function runNativeHaptic(level: HapticLevel): Promise<boolean> {
+  // A checagem síncrona é intencional: no web, nenhum import assíncrono do
+  // plugin deve acontecer entre o click e a ação principal do botão.
+  if (!Capacitor.isNativePlatform()) return false;
+
   try {
-    const loaded = await loadNativeHapticModules();
-    if (!loaded) return false;
-    const { Capacitor, haptics } = loaded;
-    if (!Capacitor.isNativePlatform()) return false;
+    const haptics = await loadNativeHapticModule();
+    if (!haptics) return false;
 
     if (level === "selection") {
       await haptics.Haptics.selectionChanged();
