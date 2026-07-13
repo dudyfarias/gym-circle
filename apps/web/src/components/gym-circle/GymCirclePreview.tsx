@@ -1219,6 +1219,13 @@ export function GymCirclePreview({
         return;
       }
       if (screen === "checkin") setCheckinTargetGymId(null);
+      if (screen === "profile") {
+        // A aba Perfil representa sempre o perfil próprio. Garanta que uma
+        // camada de perfil externo/My Circle deixada por uma navegação
+        // anterior não permaneça acima da tela e da bottom navigation.
+        setProfileOpenId(null);
+        setMyCircleUserId(null);
+      }
       setActiveScreen(screen);
     },
     [activeScreen, scrollFeedToTop, social.currentUser.id],
@@ -2143,9 +2150,13 @@ export function GymCirclePreview({
                 do tab bar com backdrop-blur sobrepõe o conteúdo (iOS-style). */}
             <div
               className="gc-scrollbar h-full overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+96px)]"
-              onTouchEnd={handleTouchEnd}
-              onTouchMove={handleTouchMove}
-              onTouchStart={handleTouchStart}
+              // Perfil já desabilita swipe entre abas. Também removemos aqui
+              // o recognizer global de pull-to-refresh: no WKWebView, um leve
+              // deslocamento do dedo podia chamar preventDefault() no
+              // touchmove e cancelar o click que abriria My Circle/sheets.
+              onTouchEnd={activeScreen === "profile" ? undefined : handleTouchEnd}
+              onTouchMove={activeScreen === "profile" ? undefined : handleTouchMove}
+              onTouchStart={activeScreen === "profile" ? undefined : handleTouchStart}
               onScroll={handleAppScroll}
               ref={scrollRef}
             >
