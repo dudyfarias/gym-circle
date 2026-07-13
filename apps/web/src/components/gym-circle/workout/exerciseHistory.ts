@@ -53,6 +53,7 @@ export type WorkoutComparison = {
   previousDate: string;
   deltaReps: number;
   deltaVolumeKg: number;
+  deltaDurationSeconds: number;
   /** Exercícios em comum cuja maior carga subiu vs o treino anterior. */
   improvedExercises: string[];
 };
@@ -191,10 +192,17 @@ function currentTotalsByKey(sets: StrengthSet[]) {
       maxWeightKg: number | null;
       totalReps: number;
       totalVolumeKg: number;
+      totalDurationSeconds: number;
     }
   >();
   for (const set of sets) {
-    if (!set.reps || set.reps <= 0) continue;
+    const durationSeconds =
+      set.targetKind === "duration" &&
+      set.durationSeconds != null &&
+      set.durationSeconds > 0
+        ? Math.round(set.durationSeconds)
+        : 0;
+    if ((!set.reps || set.reps <= 0) && durationSeconds <= 0) continue;
     const weight = set.weightKg != null && set.weightKg > 0 ? set.weightKg : null;
     const volume = weight != null ? set.reps * weight : 0;
     const key = exerciseHistoryKey(set.exerciseId, set.exercise);
@@ -206,10 +214,12 @@ function currentTotalsByKey(sets: StrengthSet[]) {
         maxWeightKg: weight,
         totalReps: set.reps,
         totalVolumeKg: volume,
+        totalDurationSeconds: durationSeconds,
       });
     } else {
       current.totalReps += set.reps;
       current.totalVolumeKg += volume;
+      current.totalDurationSeconds += durationSeconds;
       if (weight != null && weight > (current.maxWeightKg ?? 0)) {
         current.maxWeightKg = weight;
       }
@@ -236,11 +246,17 @@ export function buildWorkoutComparison(
 
   const previousByKey = new Map<
     string,
-    { totalReps: number; totalVolumeKg: number; maxWeightKg: number | null }
+    {
+      totalReps: number;
+      totalVolumeKg: number;
+      totalDurationSeconds: number;
+      maxWeightKg: number | null;
+    }
   >();
   for (const [key, sets] of rowSetsByKey(previous)) {
     let totalReps = 0;
     let totalVolumeKg = 0;
+    let totalDurationSeconds = 0;
     let maxWeightKg: number | null = null;
     for (const set of sets) {
       totalReps += set.reps;
@@ -248,22 +264,34 @@ export function buildWorkoutComparison(
         totalVolumeKg += set.reps * set.weightKg;
         maxWeightKg = Math.max(maxWeightKg ?? 0, set.weightKg);
       }
+      totalDurationSeconds += set.durationSeconds ?? 0;
     }
-    previousByKey.set(key, { totalReps, totalVolumeKg, maxWeightKg });
+    previousByKey.set(key, {
+      totalReps,
+      totalVolumeKg,
+      totalDurationSeconds,
+      maxWeightKg,
+    });
   }
 
   let currentReps = 0;
   let currentVolumeKg = 0;
   let previousReps = 0;
   let previousVolumeKg = 0;
+  let currentDurationSeconds = 0;
+  let previousDurationSeconds = 0;
+  let comparableExerciseCount = 0;
   const improvedExercises: string[] = [];
   for (const [key, info] of currentByKey) {
     const previousInfo = previousByKey.get(key);
     if (!previousInfo) continue;
+    comparableExerciseCount += 1;
     currentReps += info.totalReps;
     currentVolumeKg += info.totalVolumeKg;
     previousReps += previousInfo.totalReps;
     previousVolumeKg += previousInfo.totalVolumeKg;
+    currentDurationSeconds += info.totalDurationSeconds;
+    previousDurationSeconds += previousInfo.totalDurationSeconds;
     const previousMax = previousInfo.maxWeightKg;
     if (
       previousMax != null &&
@@ -275,13 +303,22 @@ export function buildWorkoutComparison(
     }
   }
 
-  if (currentReps <= 0 || previousReps <= 0) return null;
+  if (comparableExerciseCount === 0) return null;
+  if (
+    currentReps <= 0 &&
+    previousReps <= 0 &&
+    currentDurationSeconds <= 0 &&
+    previousDurationSeconds <= 0
+  ) {
+    return null;
+  }
 
   return {
     previousDate,
     deltaReps: currentReps - previousReps,
     deltaVolumeKg:
       Math.round((currentVolumeKg - previousVolumeKg) * 100) / 100,
+    deltaDurationSeconds: currentDurationSeconds - previousDurationSeconds,
     improvedExercises,
   };
 }

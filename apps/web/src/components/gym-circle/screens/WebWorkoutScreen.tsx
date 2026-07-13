@@ -75,6 +75,7 @@ import {
   pauseWorkoutSession,
   readStoredWorkoutSession,
   resumeWorkoutSession,
+  shouldAutoCompleteStrengthSet,
   type LiveStrengthSet,
   type StoredWorkoutSession,
   type WorkoutRoutePoint,
@@ -811,11 +812,12 @@ export function WebWorkoutScreen({
       );
       if (!current) return;
       const wasCompleted = completedStrengthSetIds.has(current.clientId);
-      const autoComplete =
-        reps > 0 &&
-        (wasCompleted ||
-          current.targetKind === "failure" ||
-          (current.weightKg != null && current.weightKg > 0));
+      const autoComplete = shouldAutoCompleteStrengthSet({
+        reps,
+        targetKind: current.targetKind,
+        weightKg: current.weightKg,
+        wasCompleted,
+      });
       setStrengthSetCompleted(current.clientId, autoComplete);
     },
     [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],
@@ -832,7 +834,12 @@ export function WebWorkoutScreen({
       const wasCompleted = completedStrengthSetIds.has(current.clientId);
       setStrengthSetCompleted(
         current.clientId,
-        current.reps > 0 && (weightKg !== null || wasCompleted),
+        shouldAutoCompleteStrengthSet({
+          reps: current.reps,
+          targetKind: current.targetKind,
+          weightKg,
+          wasCompleted,
+        }),
       );
     },
     [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],

@@ -209,6 +209,7 @@
       "vsPrevious": "vs. exercícios em comum · {{date}}",
       "repsUnit": "reps",
       "volumeUnit": "kg de volume",
+      "secondsUnit": "s",
       "improvedIn": "Você evoluiu em: {{names}}"
     },
     "history": {
@@ -293,7 +294,19 @@
     "chooseMuscle": "Selecione o grupo muscular e adicione ao treino.",
     "search": "Buscar exercício",
     "emptyGroup": "Nenhum exercício encontrado neste grupo.",
+    "allGroups": "Todos",
+    "equipment": "Equipamentos",
+    "allEquipment": "Todos",
+    "community": "Comunidade",
+    "originalName": "Nome original",
+    "original": "Original",
+    "translationPending": "Parte deste conteúdo ainda não tem tradução para inglês. O nome original está identificado acima.",
+    "variations": "Variações",
+    "variationCount_one": "{{count}} variação",
+    "variationCount_other": "{{count}} variações",
+    "loadError": "Não foi possível carregar a biblioteca de exercícios.",
     "addFromCatalog": "Adicionar do catálogo",
+    "addToWorkout": "Adicionar ao treino",
     "addManual": "Cadastrar outro exercício",
     "muscleGroup": "Grupo muscular",
     "target": "Reps / falha / tempo",
@@ -302,7 +315,10 @@
     "aboutExercise": "Ver explicação do exercício",
     "aboutTechnique": "Ver explicação da técnica",
     "watchVideo": "Ver vídeo de demonstração",
-    "videoSearchNotice": "Abriremos resultados de demonstração; confirme o exercício antes de executar."
+    "videoSearchNotice": "Abriremos resultados de demonstração; confirme o exercício antes de executar.",
+    "communityConfirmTitle": "Adicionar ao catálogo da comunidade?",
+    "communityConfirmBody": "Este exercício ou técnica ainda não existe. Ao continuar, ele será enviado ao catálogo da comunidade e poderá ser revisado para outras pessoas.",
+    "communityConfirmAction": "Cadastrar e salvar"
   },
   "personalRecords": {
     "title": "Progresso e recordes",
@@ -314,6 +330,7 @@
     "rankingTitle": "Ranking do circle",
     "rankingSubtitle": "Você e as pessoas que você segue.",
     "rankingEmpty": "Ainda não há outras marcas para comparar.",
+    "rankingError": "Não foi possível carregar o ranking agora.",
     "metrics": {
       "strength_weight": "Maior carga",
       "run_5k_time": "Melhor 5 km",
@@ -363,6 +380,33 @@
       "recentRecordsSubtitle": "Suas melhores marcas ficam junto do histórico.",
       "historyEmptyTitle": "Seu histórico começa no próximo treino",
       "historyEmptyBody": "Conclua séries para acompanhar carga, volume, repetições e tempo por exercício.",
+      "historyRangeHint": "Histórico recente dos últimos 84 dias. Seus recordes continuam considerando todo o período.",
+      "insights": {
+        "title": "Insights do seu treino",
+        "subtitle": "Orientações conservadoras baseadas apenas no que você registrou.",
+        "progression": {
+          "title": "Carga consistente",
+          "titleWithExercise": "{{exercise}} · carga consistente",
+          "body": "Você manteve {{weight}} kg em duas sessões comparáveis e chegou a {{reps}} reps totais.",
+          "action": "Se a execução estiver boa, você pode considerar o próximo incremento disponível."
+        },
+        "muscle-gap": {
+          "title": "Grupo ainda não registrado",
+          "body": "Você ainda não registrou {{group}} nesta semana. Último registro: {{date}}."
+        },
+        "weekly": {
+          "title": "Comparativo semanal",
+          "up": "Até agora: {{current}} treinos, contra {{previous}} na semana anterior.",
+          "steady": "Até agora você manteve {{current}} treinos, igual à semana anterior.",
+          "down": "Até agora: {{current}} treinos, contra {{previous}} na semana anterior."
+        },
+        "learning": {
+          "title": "Aprendendo com seus treinos",
+          "no-exercises": "Conclua séries para começarmos a reconhecer sua evolução.",
+          "insufficient-weighted-history": "Registre carga em pelo menos duas sessões do mesmo exercício para receber sugestões.",
+          "collecting-comparable-sessions": "Continue registrando carga e reps. Só sugeriremos progressão quando duas sessões forem realmente comparáveis."
+        }
+      },
       "exerciseHistory": "Histórico do exercício",
       "exerciseDetailSubtitle": "Evolução, sessões e recorde pessoal.",
       "sessions": "Sessões",

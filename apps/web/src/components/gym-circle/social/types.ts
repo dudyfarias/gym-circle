@@ -355,6 +355,18 @@ export type WorkoutExerciseCatalogItem = {
   videoUrl: string | null;
   videoSearchQuery: string | null;
   status: "approved" | "community";
+  /** Relação curada: null no exercício-base; aponta para a base nas variações. */
+  parentExerciseId: string | null;
+  /** Padrão biomecânico curado (ex.: horizontal_push, squat, hinge). */
+  movementPattern: string | null;
+  /** Variações reais ligadas pelo catálogo; nunca inferidas pelo nome. */
+  variations: Array<{
+    id: string;
+    slug: string;
+    namePt: string;
+    nameEn: string;
+    equipment: string[];
+  }>;
 };
 
 export type WorkoutTechniqueCatalogItem = {

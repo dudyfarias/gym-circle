@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAuth, useGymCircleClient } from "@gym-circle/core/hooks";
 
@@ -15,6 +15,7 @@ export type PersonalRecord = {
   activityId: string;
   metricKey: PersonalRecordMetric;
   exerciseKey: string;
+  exerciseId: string | null;
   exerciseName: string | null;
   value: number;
   unit: "kg" | "seconds";
@@ -42,6 +43,7 @@ type RecordRow = {
   activity_id: string;
   metric_key: PersonalRecordMetric;
   exercise_key: string;
+  exercise_id?: string | null;
   exercise_name: string | null;
   value: number | string;
   unit: "kg" | "seconds";
@@ -70,6 +72,7 @@ function mapRecord(row: RecordRow): PersonalRecord {
     activityId: row.activity_id,
     metricKey: row.metric_key,
     exerciseKey: row.exercise_key,
+    exerciseId: row.exercise_id ?? null,
     exerciseName: row.exercise_name,
     value: Number(row.value),
     unit: row.unit,
@@ -97,38 +100,56 @@ function mapLeaderboard(row: LeaderboardRow): PersonalRecordLeaderboardRow {
 export function usePersonalRecords() {
   const client = useGymCircleClient();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const db = client as unknown as SupabaseClient;
+  const requestSequence = useRef(0);
   const [records, setRecords] = useState<PersonalRecord[]>([]);
+  const [dataUserId, setDataUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!user) {
-      setRecords([]);
-      setError(null);
-      setLoading(false);
-      return;
-    }
+    if (!userId) return;
+    const requestId = ++requestSequence.current;
     setLoading(true);
     setError(null);
     try {
-      const { data, error: queryError } = await db.rpc("get_personal_records");
+      let result = await db.rpc("get_personal_records_v2");
+      if (
+        result.error &&
+        (result.error.code === "PGRST202" || result.error.code === "42883")
+      ) {
+        result = await db.rpc("get_personal_records");
+      }
+      const { data, error: queryError } = result;
       if (queryError) throw queryError;
+      if (requestSequence.current !== requestId) return;
       setRecords(((data ?? []) as RecordRow[]).map(mapRecord));
+      setDataUserId(userId);
     } catch (queryError) {
+      if (requestSequence.current !== requestId) return;
       setError(
         queryError instanceof Error ? queryError.message : "records_load_failed",
       );
     } finally {
-      setLoading(false);
+      if (requestSequence.current === requestId) setLoading(false);
     }
-  }, [db, user]);
+  }, [db, userId]);
 
   useEffect(() => {
-    // Carga inicial/quando o user muda; refresh só faz setState async.
+    if (!userId) return;
+    // Carga inicial/quando o user muda; respostas antigas são invalidadas.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
-  }, [refresh]);
+    return () => {
+      requestSequence.current += 1;
+    };
+  }, [refresh, userId]);
+
+  const visibleRecords = useMemo(
+    () => (userId && dataUserId === userId ? records : []),
+    [dataUserId, records, userId],
+  );
 
   const loadLeaderboard = useCallback(
     async (
@@ -138,7 +159,7 @@ export function usePersonalRecords() {
         "get_personal_record_leaderboard",
         {
           p_metric_key: record.metricKey,
-          p_exercise_key: record.exerciseKey,
+          p_exercise_key: record.exerciseId ?? record.exerciseKey,
           p_limit: 20,
         },
       );
@@ -148,5 +169,11 @@ export function usePersonalRecords() {
     [db],
   );
 
-  return { records, loading, error, refresh, loadLeaderboard };
+  return {
+    records: visibleRecords,
+    loading: Boolean(userId && loading),
+    error: userId ? error : null,
+    refresh,
+    loadLeaderboard,
+  };
 }

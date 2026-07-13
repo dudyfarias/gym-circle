@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -9,19 +9,26 @@ import {
   History,
   Medal,
   RefreshCw,
+  Sparkles,
   Timer,
+  TrendingUp,
   Trophy,
   Users,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ExerciseProgressDetail } from "./ExerciseProgressDetail";
+import { personalRecordForExercise } from "./personalRecordMatching";
 import { usePersonalRecords } from "./usePersonalRecords";
 import type {
   PersonalRecord,
   PersonalRecordLeaderboardRow,
 } from "./usePersonalRecords";
 import { useWorkoutProgress } from "./useWorkoutProgress";
+import {
+  buildWorkoutInsights,
+  type WorkoutInsight,
+} from "./workoutInsights";
 import type { WorkoutExerciseProgress } from "./workoutProgress";
 import { WorkoutProgressChart } from "./WorkoutProgressChart";
 
@@ -49,30 +56,6 @@ function formatValue(record: Pick<PersonalRecord, "unit" | "value" | "reps">) {
   return record.reps ? `${weight} kg × ${record.reps}` : `${weight} kg`;
 }
 
-function normalizedName(value: string | null | undefined) {
-  return (value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLocaleLowerCase("pt-BR")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
-function recordForExercise(
-  exercise: WorkoutExerciseProgress,
-  records: PersonalRecord[],
-) {
-  const nameKey = normalizedName(exercise.exerciseName);
-  return (
-    records.find(
-      (record) =>
-        record.metricKey === "strength_weight" &&
-        (record.exerciseKey === exercise.key ||
-          normalizedName(record.exerciseName || record.exerciseKey) === nameKey),
-    ) ?? null
-  );
-}
-
 export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
   const { i18n, t } = useTranslation();
   const {
@@ -92,6 +75,13 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
   );
   const [leaders, setLeaders] = useState<PersonalRecordLeaderboardRow[]>([]);
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState<string | null>(null);
+  const leaderboardRequestSequence = useRef(0);
+  const activeRanking =
+    selectedRanking &&
+    records.some((record) => record.id === selectedRanking.id)
+      ? selectedRanking
+      : null;
   const selectedExercise = selectedExerciseKey
     ? (progress.exercises.find((exercise) => exercise.key === selectedExerciseKey) ??
       null)
@@ -111,32 +101,44 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
   );
 
   async function openLeaderboard(record: PersonalRecord) {
+    const requestId = ++leaderboardRequestSequence.current;
     setSelectedRanking(record);
+    setLeaders([]);
+    setLeaderboardError(null);
     setLeaderboardLoading(true);
     try {
-      setLeaders(await loadLeaderboard(record));
+      const nextLeaders = await loadLeaderboard(record);
+      if (leaderboardRequestSequence.current !== requestId) return;
+      setLeaders(nextLeaders);
     } catch {
+      if (leaderboardRequestSequence.current !== requestId) return;
       setLeaders([]);
+      setLeaderboardError("leaderboard_load_failed");
     } finally {
-      setLeaderboardLoading(false);
+      if (leaderboardRequestSequence.current === requestId) {
+        setLeaderboardLoading(false);
+      }
     }
   }
 
   function goBack() {
-    if (selectedRanking) {
+    leaderboardRequestSequence.current += 1;
+    if (activeRanking) {
       setSelectedRanking(null);
+      setLeaders([]);
+      setLeaderboardError(null);
       return;
     }
     setSelectedExerciseKey(null);
   }
 
-  const hasNestedView = Boolean(selectedRanking || selectedExercise);
-  const title = selectedRanking
+  const hasNestedView = Boolean(activeRanking || selectedExercise);
+  const title = activeRanking
     ? t("personalRecords.rankingTitle")
     : selectedExercise
       ? selectedExercise.exerciseName
       : t("personalRecords.title");
-  const subtitle = selectedRanking
+  const subtitle = activeRanking
     ? t("personalRecords.rankingSubtitle")
     : selectedExercise
       ? t("personalRecords.progress.exerciseDetailSubtitle")
@@ -181,18 +183,20 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
           </button>
         </header>
 
-        {selectedRanking ? (
+        {activeRanking ? (
           <LeaderboardView
+            error={leaderboardError}
             leaders={leaders}
             loading={leaderboardLoading}
-            record={selectedRanking}
+            onRetry={() => void openLeaderboard(activeRanking)}
+            record={activeRanking}
           />
         ) : selectedExercise ? (
           <ExerciseProgressDetail
             exercise={selectedExercise}
             key={selectedExercise.key}
             onOpenLeaderboard={(record) => void openLeaderboard(record)}
-            record={recordForExercise(selectedExercise, records)}
+            record={personalRecordForExercise(selectedExercise, records)}
           />
         ) : (
           <>
@@ -232,6 +236,7 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
                   loaded={progress.updatedAt !== null}
                   loading={progress.loading}
                   muscleGroups={progress.muscleGroups}
+                  insights={buildWorkoutInsights(progress)}
                   numberFormatter={numberFormatter}
                   progressError={progress.error}
                   records={records}
@@ -274,6 +279,7 @@ export function PersonalRecordsSheet({ onClose }: PersonalRecordsSheetProps) {
 }
 
 type OverviewTabProps = {
+  insights: WorkoutInsight[];
   loaded: boolean;
   loading: boolean;
   muscleGroups: ReturnType<typeof useWorkoutProgress>["muscleGroups"];
@@ -287,6 +293,7 @@ type OverviewTabProps = {
 };
 
 function OverviewTab({
+  insights,
   loaded,
   loading,
   muscleGroups,
@@ -305,6 +312,12 @@ function OverviewTab({
     ...muscleGroups.map((group) => group.setCount),
   );
   const recentWeeks = weeks.slice(-8);
+  const visibleInsights = [
+    ...insights.filter((insight) => insight.type === "progression"),
+    ...insights.filter((insight) => insight.type === "learning"),
+    ...insights.filter((insight) => insight.type === "weekly"),
+    ...insights.filter((insight) => insight.type === "muscle-gap").slice(0, 1),
+  ].slice(0, 4);
 
   if (!loaded && loading) {
     return <ProgressSkeleton />;
@@ -344,6 +357,18 @@ function OverviewTab({
           label={t("personalRecords.progress.records")}
           value={String(records.length)}
         />
+      </section>
+
+      <section>
+        <SectionHeading
+          subtitle={t("personalRecords.progress.insights.subtitle")}
+          title={t("personalRecords.progress.insights.title")}
+        />
+        <div className="mt-3 grid gap-2">
+          {visibleInsights.map((insight) => (
+            <WorkoutInsightCard insight={insight} key={insight.id} />
+          ))}
+        </div>
       </section>
 
       <section>
@@ -484,6 +509,9 @@ function HistoryTab({
 
   return (
     <div className="grid gap-2.5">
+      <p className="rounded-[15px] bg-white/[0.035] px-3 py-2.5 text-[10.5px] font-bold leading-4 text-white/40">
+        {t("personalRecords.progress.historyRangeHint")}
+      </p>
       {exercises.map((exercise) => (
         <button
           className="gc-pressable flex min-h-[86px] w-full items-center gap-3 rounded-[20px] border border-white/[0.065] bg-[#0b0d0e] p-3.5 text-left"
@@ -576,12 +604,16 @@ function RecordsTab({
 }
 
 function LeaderboardView({
+  error,
   leaders,
   loading,
+  onRetry,
   record,
 }: {
+  error: string | null;
   leaders: PersonalRecordLeaderboardRow[];
   loading: boolean;
+  onRetry: () => void;
   record: PersonalRecord;
 }) {
   const { t } = useTranslation();
@@ -598,6 +630,11 @@ function LeaderboardView({
       </div>
       {loading ? (
         <ProgressSkeleton />
+      ) : error ? (
+        <RetryState
+          message={t("personalRecords.rankingError")}
+          onRetry={onRetry}
+        />
       ) : leaders.length === 0 ? (
         <EmptyState
           body={t("personalRecords.rankingEmpty")}
@@ -629,6 +666,63 @@ function LeaderboardView({
         </div>
       )}
     </>
+  );
+}
+
+function WorkoutInsightCard({ insight }: { insight: WorkoutInsight }) {
+  const { i18n, t } = useTranslation();
+  const isProgression = insight.type === "progression";
+  const Icon = isProgression ? TrendingUp : Sparkles;
+  let title = t(`personalRecords.progress.insights.${insight.type}.title`);
+  let body = "";
+  if (insight.type === "progression") {
+    title = t("personalRecords.progress.insights.progression.titleWithExercise", {
+      exercise: insight.data.exerciseName,
+    });
+    body = t("personalRecords.progress.insights.progression.body", {
+      weight: insight.data.maxWeightKg,
+      reps: insight.data.currentTotalReps,
+    });
+  } else if (insight.type === "muscle-gap") {
+    body = t("personalRecords.progress.insights.muscle-gap.body", {
+      group: t(
+        `personalRecords.progress.muscleGroupNames.${insight.data.muscleGroupSlug}`,
+        { defaultValue: insight.data.muscleGroupSlug },
+      ),
+      date: new Intl.DateTimeFormat(i18n.language, {
+        day: "numeric",
+        month: "short",
+        timeZone: "UTC",
+      }).format(new Date(`${insight.data.lastWorkoutDate}T12:00:00.000Z`)),
+    });
+  } else if (insight.type === "weekly") {
+    body = t(`personalRecords.progress.insights.weekly.${insight.trend}`, {
+      current: insight.data.current.sessionCount,
+      previous: insight.data.previous.sessionCount,
+    });
+  } else {
+    body = t(
+      `personalRecords.progress.insights.learning.${insight.reason}`,
+      insight.data,
+    );
+  }
+  return (
+    <article className="flex gap-3 rounded-[18px] border border-[var(--gc-brand)]/12 bg-[var(--gc-brand)]/[0.045] p-3.5">
+      <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+        <Icon size={17} />
+      </span>
+      <div className="min-w-0">
+        <p className="text-[13px] font-black text-white">{title}</p>
+        <p className="mt-1 text-[11.5px] font-bold leading-5 text-white/52">
+          {body}
+        </p>
+        {isProgression ? (
+          <p className="mt-1.5 text-[10.5px] font-black text-[var(--gc-brand)]">
+            {t("personalRecords.progress.insights.progression.action")}
+          </p>
+        ) : null}
+      </div>
+    </article>
   );
 }
 
@@ -699,12 +793,18 @@ function EmptyState({ body, title }: { body: string; title: string }) {
   );
 }
 
-function RetryState({ onRetry }: { onRetry: () => void }) {
+function RetryState({
+  message,
+  onRetry,
+}: {
+  message?: string;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <div className="rounded-[22px] border border-[var(--gc-pink)]/12 bg-[var(--gc-pink)]/[0.04] p-5 text-center">
       <p className="text-[12.5px] font-bold text-white/55">
-        {t("personalRecords.progress.loadError")}
+        {message ?? t("personalRecords.progress.loadError")}
       </p>
       <button
         className="gc-pressable mx-auto mt-3 flex min-h-11 items-center gap-2 rounded-full bg-white/[0.08] px-4 text-[13px] font-black text-white"

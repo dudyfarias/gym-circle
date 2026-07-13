@@ -133,6 +133,7 @@ describe("buildWorkoutComparison", () => {
     expect(comparison?.deltaReps).toBe(0);
     // atual: 20*22.5 + 12*30 = 810; anterior: 20*20 + 12*30 = 760
     expect(comparison?.deltaVolumeKg).toBe(50);
+    expect(comparison?.deltaDurationSeconds).toBe(0);
     expect(comparison?.improvedExercises).toEqual(["Supino"]);
   });
 
@@ -165,5 +166,36 @@ describe("buildWorkoutComparison", () => {
         previous,
       ),
     ).toBeNull();
+  });
+
+  it("compara exercícios por duração sem inventar reps", () => {
+    const comparison = buildWorkoutComparison(
+      [
+        {
+          reps: 0,
+          weightKg: null,
+          exercise: "Prancha",
+          exerciseId: "ex-duration",
+          targetKind: "duration",
+          durationSeconds: 60,
+        },
+      ],
+      row("prev-duration", "2026-07-08T10:00:00Z", [
+        {
+          reps: 0,
+          weight_kg: null,
+          exercise: "Prancha",
+          exercise_id: "ex-duration",
+          target_kind: "duration",
+          duration_seconds: 45,
+        },
+      ]),
+    );
+
+    expect(comparison).toMatchObject({
+      deltaReps: 0,
+      deltaVolumeKg: 0,
+      deltaDurationSeconds: 15,
+    });
   });
 });

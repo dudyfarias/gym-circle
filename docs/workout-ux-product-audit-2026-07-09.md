@@ -1687,3 +1687,95 @@ documento visual complementar permanece como etapa futura.
 - JSON pt-BR/en: válido;
 - `git diff --check`: limpo;
 - nenhuma migration, secret ou dependência nova.
+
+## 25. Registro de implementação — QA, qualidade, inteligência e biblioteca
+
+Implementado em 12 de julho de 2026, cobrindo os quatro próximos passos após as
+Sprints 2 e 3. Nenhuma alteração foi aplicada diretamente ao Supabase.
+
+### 25.1 QA das Sprints 2 e 3
+
+- O fluxo **até a falha** deixou de concluir automaticamente ao preencher reps:
+  a confirmação é explícita, permitindo digitar a carga opcional antes de
+  avançar.
+- A comparação pós-treino passou a incluir exercícios por duração sem inventar
+  repetições.
+- Recordes agora isolam respostas por usuário; requests antigas não podem
+  reaparecer após troca de conta.
+- O ranking ganhou dedupe por sequência, erro e retry, evitando resposta de um
+  recorde aparecer em outro.
+- A UI informa que o histórico analítico cobre 84 dias, enquanto os recordes
+  continuam all-time.
+
+### 25.2 Qualidade dos dados verificada em produção
+
+- 66 séries, todas com reps positivas, `exercise_id` válido e correspondência
+  no catálogo.
+- 14 séries com carga positiva e 52 sem carga; nenhuma carga zero, negativa ou
+  string.
+- 4 séries até a falha, ainda sem carga por serem dados anteriores ao campo de
+  peso opcional.
+- O banco salva somente séries explicitamente concluídas; séries planejadas ou
+  puladas ainda não são persistidas e não entram em analytics.
+- `null` significa **sem carga registrada**. Só tratamos como peso corporal
+  quando o exercício for exclusivamente desse tipo ou houver confirmação
+  futura do usuário.
+
+### 25.3 Progressão inteligente conservadora
+
+- Uma sugestão de progressão exige duas sessões comparáveis do mesmo
+  `exercise_id`, pelo menos duas séries ponderadas em cada, mesma quantidade de
+  séries ponderadas, mesma maior carga e reps totais sem queda.
+- Sem evidência suficiente, a UI mostra estado de aprendizado; não inventa
+  aumento de carga.
+- Há comparativo semanal e alerta de grupo **não registrado** na semana com base
+  somente no histórico. Não há promessa médica de recuperação ou deload.
+- Produção ainda não possui nenhum exercício com duas sessões ponderadas
+  comparáveis; portanto o comportamento correto atual é o estado de coleta.
+
+### 25.4 Biblioteca de exercícios
+
+- Busca textual global, mesmo quando outro grupo muscular está selecionado.
+- Chips **Todos**, grupo muscular e equipamento, com áreas de toque de 44 px.
+- Equipamentos traduzidos em pt-BR/en e exercícios comunitários identificados.
+- Loading, erro/retry, estado vazio e fechamento por Escape.
+- A seleção abre explicação/instruções e vídeo antes de adicionar ao treino.
+- Editor usa nome do catálogo no idioma atual por `exerciseId`; técnicas também
+  respeitam o idioma.
+- Exercício/técnica inexistente só entra no catálogo comunitário depois de uma
+  confirmação explícita.
+
+### 25.5 Limites e próximos dados estruturais
+
+- A estrutura de variações foi preparada com `parent_exercise_id` e
+  `movement_pattern`, sem inferência por nome. A migration ainda não foi
+  aplicada e a curadoria dos relacionamentos continua pendente.
+- Histórico completo de conclusão exigirá persistir séries planejadas,
+  concluídas e puladas, posição e metas.
+- Diferenciar carga externa, peso corporal, assistido e não informado exigirá
+  `load_mode`.
+- A canonicalização de recordes por `exercise_id` foi preparada com backfill
+  conservador, RPC v2 e fallback para `exercise_key`. A migration ainda não foi
+  aplicada.
+- RPC agregada continua condicionada a mais de 500 atividades por usuário ou
+  p95 superior a 200 ms.
+
+### 25.6 Evidência de QA
+
+- Banco de produção auditado apenas com queries read-only.
+- Regras puras cobertas para progressão, aprendizado, lacuna muscular,
+  comparativo semanal, busca/filtros do catálogo, duração e conclusão até a
+  falha.
+- O navegador autenticado não estava disponível nesta execução; o smoke visual
+  logado em iPhone/Capacitor permanece necessário antes de publicar.
+
+### 25.7 Fechamento técnico e mapa de pendências
+
+- O catálogo agora protege a interface inglesa de traduções legadas falsas,
+  identifica o nome original e omite instruções PT quando não há versão EN.
+- Variações explícitas aparecem no preview e também participam da busca.
+- Recordes novos poderão ser associados diretamente ao mesmo `exercise_id` do
+  histórico e do catálogo sem quebrar clientes antigos.
+- O mapa operacional completo, incluindo ordem de migrations, QA obrigatório e
+  backlog estrutural, está em
+  `docs/workout-remaining-map-2026-07-12.md`.

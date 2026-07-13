@@ -18,6 +18,21 @@ export type LiveStrengthSet = StrengthSet & {
   plannedReps?: number | null;
 };
 
+/**
+ * Séries até a falha só concluem pelo check explícito: preencher reps primeiro
+ * não pode avançar antes de o usuário informar a carga opcional.
+ */
+export function shouldAutoCompleteStrengthSet(input: {
+  reps: number;
+  targetKind: LiveStrengthSet["targetKind"];
+  weightKg: number | null;
+  wasCompleted: boolean;
+}): boolean {
+  if (input.reps <= 0) return false;
+  if (input.wasCompleted) return true;
+  return input.targetKind !== "failure" && input.weightKg !== null;
+}
+
 export type StoredWorkoutSession = {
   version: 4;
   startedAtMs: number;

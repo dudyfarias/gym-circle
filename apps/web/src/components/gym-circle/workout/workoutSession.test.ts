@@ -6,6 +6,7 @@ import {
   pauseWorkoutSession,
   readStoredWorkoutSession,
   resumeWorkoutSession,
+  shouldAutoCompleteStrengthSet,
   type StoredWorkoutSession,
   workoutElapsedSeconds,
   workoutPausedSeconds,
@@ -41,6 +42,49 @@ describe("workout session clock", () => {
     const resumed = resumeWorkoutSession(paused, 16_000);
     expect(workoutElapsedSeconds(resumed, 21_000)).toBe(15);
     expect(workoutPausedSeconds(resumed, 21_000)).toBe(5);
+  });
+});
+
+describe("strength set completion", () => {
+  it("mantém série até a falha pendente até o check explícito", () => {
+    expect(
+      shouldAutoCompleteStrengthSet({
+        reps: 10,
+        targetKind: "failure",
+        weightKg: null,
+        wasCompleted: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoCompleteStrengthSet({
+        reps: 10,
+        targetKind: "failure",
+        weightKg: 20,
+        wasCompleted: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("preserva conclusão existente ao editar carga e reps", () => {
+    expect(
+      shouldAutoCompleteStrengthSet({
+        reps: 8,
+        targetKind: "failure",
+        weightKg: 25,
+        wasCompleted: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("mantém o preenchimento rápido para série normal ponderada", () => {
+    expect(
+      shouldAutoCompleteStrengthSet({
+        reps: 12,
+        targetKind: "reps",
+        weightKg: 30,
+        wasCompleted: false,
+      }),
+    ).toBe(true);
   });
 });
 

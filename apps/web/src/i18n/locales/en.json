@@ -209,6 +209,7 @@
       "vsPrevious": "vs. shared exercises · {{date}}",
       "repsUnit": "reps",
       "volumeUnit": "kg volume",
+      "secondsUnit": "s",
       "improvedIn": "You improved on: {{names}}"
     },
     "history": {
@@ -293,7 +294,19 @@
     "chooseMuscle": "Pick a muscle group and add an exercise.",
     "search": "Search exercises",
     "emptyGroup": "No exercises found in this group.",
+    "allGroups": "All",
+    "equipment": "Equipment",
+    "allEquipment": "All equipment",
+    "community": "Community",
+    "originalName": "Original name",
+    "original": "Original",
+    "translationPending": "Some catalog content is still awaiting an English translation. The original catalog name is identified above.",
+    "variations": "Variations",
+    "variationCount_one": "{{count}} variation",
+    "variationCount_other": "{{count}} variations",
+    "loadError": "We couldn't load the exercise library.",
     "addFromCatalog": "Add from catalog",
+    "addToWorkout": "Add to workout",
     "addManual": "Add another exercise",
     "muscleGroup": "Muscle group",
     "target": "Reps / failure / time",
@@ -302,7 +315,10 @@
     "aboutExercise": "View exercise explanation",
     "aboutTechnique": "View technique explanation",
     "watchVideo": "Watch demonstration video",
-    "videoSearchNotice": "We'll open demonstration results; confirm the exercise before performing it."
+    "videoSearchNotice": "We'll open demonstration results; confirm the exercise before performing it.",
+    "communityConfirmTitle": "Add to the community catalog?",
+    "communityConfirmBody": "This exercise or technique does not exist yet. If you continue, it will be submitted to the community catalog and may be reviewed for other people.",
+    "communityConfirmAction": "Submit and save"
   },
   "personalRecords": {
     "title": "Progress and records",
@@ -314,6 +330,7 @@
     "rankingTitle": "Circle ranking",
     "rankingSubtitle": "You and the people you follow.",
     "rankingEmpty": "There are no other marks to compare yet.",
+    "rankingError": "We couldn't load the ranking right now.",
     "metrics": {
       "strength_weight": "Heaviest weight",
       "run_5k_time": "Best 5K",
@@ -363,6 +380,33 @@
       "recentRecordsSubtitle": "Your personal bests live alongside your history.",
       "historyEmptyTitle": "Your history starts with your next workout",
       "historyEmptyBody": "Complete sets to track weight, volume, reps and time by exercise.",
+      "historyRangeHint": "Recent history covers the last 84 days. Your personal records still use all-time data.",
+      "insights": {
+        "title": "Workout insights",
+        "subtitle": "Conservative guidance based only on what you logged.",
+        "progression": {
+          "title": "Consistent load",
+          "titleWithExercise": "{{exercise}} · consistent load",
+          "body": "You maintained {{weight}} kg across two comparable sessions and reached {{reps}} total reps.",
+          "action": "If your form feels solid, you may consider the next available increment."
+        },
+        "muscle-gap": {
+          "title": "Muscle group not logged yet",
+          "body": "You haven't logged {{group}} this week. Last logged: {{date}}."
+        },
+        "weekly": {
+          "title": "Weekly comparison",
+          "up": "So far: {{current}} workouts, versus {{previous}} last week.",
+          "steady": "So far you have maintained {{current}} workouts, matching last week.",
+          "down": "So far: {{current}} workouts, versus {{previous}} last week."
+        },
+        "learning": {
+          "title": "Learning from your workouts",
+          "no-exercises": "Complete sets so we can start recognizing your progress.",
+          "insufficient-weighted-history": "Log weight in at least two sessions of the same exercise to receive suggestions.",
+          "collecting-comparable-sessions": "Keep logging weight and reps. We only suggest progression when two sessions are truly comparable."
+        }
+      },
       "exerciseHistory": "Exercise history",
       "exerciseDetailSubtitle": "Progress, sessions and personal record.",
       "sessions": "Sessions",

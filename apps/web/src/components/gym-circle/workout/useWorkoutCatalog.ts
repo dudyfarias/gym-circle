@@ -33,6 +33,8 @@ type ExerciseRow = {
   video_url: string | null;
   video_search_query: string | null;
   status: "approved" | "community";
+  parent_exercise_id?: string | null;
+  movement_pattern?: string | null;
 };
 
 type TechniqueRow = {
@@ -49,6 +51,18 @@ type TechniqueRow = {
   video_search_query: string | null;
   status: "approved" | "community";
 };
+
+export function isMissingWorkoutVariationColumns(error: {
+  code?: string;
+  message?: string;
+} | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    /parent_exercise_id|movement_pattern/i.test(error.message ?? "")
+  );
+}
 
 function mapMuscleGroup(row: MuscleGroupRow): WorkoutMuscleGroup {
   return {
@@ -77,7 +91,50 @@ function mapExercise(row: ExerciseRow): WorkoutExerciseCatalogItem {
     videoUrl: row.video_url,
     videoSearchQuery: row.video_search_query,
     status: row.status,
+    parentExerciseId: row.parent_exercise_id ?? null,
+    movementPattern: row.movement_pattern ?? null,
+    variations: [],
   };
+}
+
+/**
+ * Liga somente relações explícitas do catálogo. Uma variação conhece o
+ * exercício-base e suas irmãs; a base conhece todas as filhas.
+ */
+export function linkWorkoutCatalogVariations(
+  exercises: WorkoutExerciseCatalogItem[],
+): WorkoutExerciseCatalogItem[] {
+  const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
+  const childrenByParent = new Map<string, WorkoutExerciseCatalogItem[]>();
+  for (const exercise of exercises) {
+    if (!exercise.parentExerciseId || !byId.has(exercise.parentExerciseId)) {
+      continue;
+    }
+    const current = childrenByParent.get(exercise.parentExerciseId) ?? [];
+    current.push(exercise);
+    childrenByParent.set(exercise.parentExerciseId, current);
+  }
+
+  return exercises.map((exercise) => {
+    const rootId =
+      exercise.parentExerciseId && byId.has(exercise.parentExerciseId)
+        ? exercise.parentExerciseId
+        : exercise.id;
+    const root = byId.get(rootId);
+    const related = [root, ...(childrenByParent.get(rootId) ?? [])]
+      .filter(
+        (item): item is WorkoutExerciseCatalogItem =>
+          Boolean(item) && item?.id !== exercise.id,
+      )
+      .map((item) => ({
+        id: item.id,
+        slug: item.slug,
+        namePt: item.namePt,
+        nameEn: item.nameEn,
+        equipment: item.equipment,
+      }));
+    return { ...exercise, variations: related };
+  });
 }
 
 function mapTechnique(row: TechniqueRow): WorkoutTechniqueCatalogItem {
@@ -161,7 +218,8 @@ export function useWorkoutCatalog() {
     setLoading(true);
     setError(null);
     try {
-      const [groupsResult, exercisesResult, techniquesResult] = await Promise.all([
+      const [groupsResult, initialExercisesResult, techniquesResult] =
+        await Promise.all([
         db
           .from("workout_muscle_groups")
           .select("slug, name_pt, name_en, icon_key, sort_order")
@@ -169,7 +227,7 @@ export function useWorkoutCatalog() {
         db
           .from("workout_exercise_catalog")
           .select(
-            "id, slug, name_pt, name_en, aliases, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, description_pt, description_en, instructions_pt, instructions_en, video_url, video_search_query, status",
+            "id, slug, name_pt, name_en, aliases, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, description_pt, description_en, instructions_pt, instructions_en, video_url, video_search_query, status, parent_exercise_id, movement_pattern",
           )
           .order("name_pt", { ascending: true }),
         db
@@ -179,6 +237,16 @@ export function useWorkoutCatalog() {
           )
           .order("name_pt", { ascending: true }),
       ]);
+      const exercisesResult =
+        initialExercisesResult.error &&
+        isMissingWorkoutVariationColumns(initialExercisesResult.error)
+          ? await db
+              .from("workout_exercise_catalog")
+              .select(
+                "id, slug, name_pt, name_en, aliases, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, description_pt, description_en, instructions_pt, instructions_en, video_url, video_search_query, status",
+              )
+              .order("name_pt", { ascending: true })
+          : initialExercisesResult;
       if (groupsResult.error) throw groupsResult.error;
       if (exercisesResult.error) throw exercisesResult.error;
       if (techniquesResult.error) throw techniquesResult.error;
@@ -186,7 +254,9 @@ export function useWorkoutCatalog() {
         ((groupsResult.data ?? []) as MuscleGroupRow[]).map(mapMuscleGroup),
       );
       setExercises(
-        ((exercisesResult.data ?? []) as ExerciseRow[]).map(mapExercise),
+        linkWorkoutCatalogVariations(
+          ((exercisesResult.data ?? []) as ExerciseRow[]).map(mapExercise),
+        ),
       );
       setTechniques(
         ((techniquesResult.data ?? []) as TechniqueRow[]).map(mapTechnique),
@@ -275,13 +345,12 @@ export function useWorkoutCatalog() {
         .single();
       if (submitError) throw submitError;
       const created = mapExercise(data as ExerciseRow);
-      setExercises((current) =>
-        current.some((item) => item.id === created.id)
-          ? current
-          : [...current, created].sort((a, b) =>
-              a.namePt.localeCompare(b.namePt, "pt-BR"),
-            ),
-      );
+      setExercises((current) => {
+        if (current.some((item) => item.id === created.id)) return current;
+        return linkWorkoutCatalogVariations([...current, created]).sort((a, b) =>
+          a.namePt.localeCompare(b.namePt, "pt-BR"),
+        );
+      });
       return created;
     },
     [db, findExercise, user],

@@ -155,6 +155,7 @@ export function WorkoutPlansFabControlled({
   triggerPlacement = "floating",
 }: WorkoutPlansFabControlledProps) {
   const { i18n, t } = useTranslation();
+  const english = i18n.language.toLowerCase().startsWith("en");
   const {
     plans,
     loading,
@@ -168,6 +169,9 @@ export function WorkoutPlansFabControlled({
     muscleGroups,
     exercises: catalogExercises,
     techniques,
+    loading: catalogLoading,
+    error: catalogError,
+    refresh: refreshCatalog,
     findExercise,
     findTechnique,
     submitExercise,
@@ -194,6 +198,9 @@ export function WorkoutPlansFabControlled({
   const [deleteTarget, setDeleteTarget] = useState<WorkoutPlan | null>(null);
   const [catalogPickerOpen, setCatalogPickerOpen] = useState(false);
   const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(null);
+  const [communityCatalogItems, setCommunityCatalogItems] = useState<string[]>(
+    [],
+  );
 
   function openNewEditor() {
     setImportedCount(null);
@@ -213,7 +220,31 @@ export function WorkoutPlansFabControlled({
   function openEditEditor(plan: WorkoutPlan) {
     setImportedCount(null);
     setImportError(null);
-    setEditing({ id: plan.id, name: plan.name, exercises: toDraft(plan.exercises) });
+    setEditing({
+      id: plan.id,
+      name: plan.name,
+      exercises: toDraft(plan.exercises).map((draft) => {
+        const catalogExercise = draft.exerciseId
+          ? catalogExercises.find((item) => item.id === draft.exerciseId)
+          : findExercise(draft.name);
+        const catalogTechnique = draft.techniqueId
+          ? techniques.find((item) => item.id === draft.techniqueId)
+          : findTechnique(draft.techniqueName);
+        return {
+          ...draft,
+          name: catalogExercise
+            ? english
+              ? catalogExercise.nameEn
+              : catalogExercise.namePt
+            : draft.name,
+          techniqueName: catalogTechnique
+            ? english
+              ? catalogTechnique.nameEn
+              : catalogTechnique.namePt
+            : draft.techniqueName,
+        };
+      }),
+    });
   }
 
   function openFilePicker() {
@@ -241,7 +272,11 @@ export function WorkoutPlansFabControlled({
             catalogExercise?.primaryMuscleGroupSlug ?? draft.muscleGroupSlug,
           techniqueId: catalogTechnique?.id ?? null,
           techniqueName:
-            catalogTechnique?.namePt ?? draft.techniqueName,
+            (catalogTechnique
+              ? english
+                ? catalogTechnique.nameEn
+                : catalogTechnique.namePt
+              : null) ?? draft.techniqueName,
         };
       });
       setEditing({
@@ -264,8 +299,31 @@ export function WorkoutPlansFabControlled({
     }
   }
 
-  async function handleSave() {
+  async function handleSave(allowCommunitySubmission = false) {
     if (!editing) return;
+    const unknownExercises = editing.exercises
+      .filter(
+        (exercise) =>
+          exercise.name.trim() &&
+          !exercise.exerciseId &&
+          !findExercise(exercise.name),
+      )
+      .map((exercise) => exercise.name.trim());
+    const unknownTechniques = editing.exercises
+      .map((exercise) => exercise.techniqueName.trim())
+      .filter(
+        (name) =>
+          name.length > 0 &&
+          !findTechnique(name) &&
+          !/^(f|falha|failure|por tempo|timed)$/i.test(name),
+      );
+    const unknownItems = Array.from(
+      new Set([...unknownExercises, ...unknownTechniques]),
+    );
+    if (!allowCommunitySubmission && unknownItems.length > 0) {
+      setCommunityCatalogItems(unknownItems);
+      return;
+    }
     setSaving(true);
     setOperationError(null);
     try {
@@ -284,9 +342,13 @@ export function WorkoutPlansFabControlled({
             const techniqueName =
               exercise.techniqueName.trim() ||
               (target.targetKind === "failure"
-                ? "Até a falha"
+                ? english
+                  ? "Until failure"
+                  : "Até a falha"
                 : target.targetKind === "duration"
-                  ? "Por tempo"
+                  ? english
+                    ? "Timed"
+                    : "Por tempo"
                   : "");
             const catalogTechnique = techniqueName
               ? techniques.find((item) => item.id === exercise.techniqueId) ??
@@ -294,14 +356,18 @@ export function WorkoutPlansFabControlled({
                 (await submitTechnique({ name: techniqueName }))
               : null;
             return {
-              name: catalogExercise.namePt,
+              name: english ? catalogExercise.nameEn : catalogExercise.namePt,
               sets: Number.parseInt(exercise.sets, 10) || null,
               ...target,
               exerciseId: catalogExercise.id,
               muscleGroupSlug: catalogExercise.primaryMuscleGroupSlug,
               techniqueId: catalogTechnique?.id ?? null,
               techniqueName:
-                (catalogTechnique?.namePt ?? techniqueName) || null,
+                (catalogTechnique
+                  ? english
+                    ? catalogTechnique.nameEn
+                    : catalogTechnique.namePt
+                  : techniqueName) || null,
               techniqueNotes: exercise.techniqueNotes.trim() || null,
             } satisfies WorkoutPlanExercise;
           }),
@@ -312,6 +378,7 @@ export function WorkoutPlansFabControlled({
         exercises,
       });
       setEditing(null);
+      setCommunityCatalogItems([]);
     } catch {
       setOperationError(t("workoutPlans.errors.save"));
     } finally {
@@ -346,13 +413,16 @@ export function WorkoutPlansFabControlled({
 
       {catalogPickerOpen ? (
         <WorkoutExercisePicker
+          error={catalogError}
           exercises={catalogExercises}
+          loading={catalogLoading}
           muscleGroups={muscleGroups}
           onClose={() => setCatalogPickerOpen(false)}
+          onRetry={() => void refreshCatalog()}
           onSelect={(exercise) => {
             const draft: DraftExercise = {
               ...emptyExercise(),
-              name: exercise.namePt,
+              name: english ? exercise.nameEn : exercise.namePt,
               exerciseId: exercise.id,
               muscleGroupSlug: exercise.primaryMuscleGroupSlug,
             };
@@ -378,6 +448,43 @@ export function WorkoutPlansFabControlled({
           info={catalogInfo}
           onClose={() => setCatalogInfo(null)}
         />
+      ) : null}
+
+      {communityCatalogItems.length > 0 ? (
+        <div
+          aria-label={t("workoutCatalog.communityConfirmTitle")}
+          aria-modal="true"
+          className="fixed inset-0 z-[112] flex items-end justify-center bg-black/76 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-sm"
+          role="alertdialog"
+        >
+          <div className="w-full max-w-[448px] rounded-[24px] border border-white/[0.08] bg-[#101214] p-5">
+            <p className="text-[17px] font-black text-white">
+              {t("workoutCatalog.communityConfirmTitle")}
+            </p>
+            <p className="mt-2 text-[12.5px] font-bold leading-5 text-white/48">
+              {t("workoutCatalog.communityConfirmBody")}
+            </p>
+            <p className="mt-3 line-clamp-3 text-[11.5px] font-black text-[var(--gc-brand)]">
+              {communityCatalogItems.join(", ")}
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                className="gc-pressable min-h-12 rounded-full bg-white/[0.07] px-3 text-[13px] font-black text-white"
+                onClick={() => setCommunityCatalogItems([])}
+                type="button"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="gc-pressable min-h-12 rounded-full bg-[var(--gc-brand)] px-3 text-[13px] font-black text-black"
+                onClick={() => void handleSave(true)}
+                type="button"
+              >
+                {t("workoutCatalog.communityConfirmAction")}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {/* Ação persistente com rótulo: mais fácil de descobrir que um "+" solto. */}
@@ -733,7 +840,7 @@ export function WorkoutPlansFabControlled({
                             exerciseCatalogInfo(
                               catalogExercise,
                               i18n.language,
-                              i18n.language.startsWith("en")
+                              english
                                 ? group?.nameEn
                                 : group?.namePt,
                             ),
@@ -794,7 +901,7 @@ export function WorkoutPlansFabControlled({
                       >
                         {muscleGroups.map((group) => (
                           <option key={group.slug} value={group.slug}>
-                            {i18n.language.startsWith("en")
+                            {english
                               ? group.nameEn
                               : group.namePt}
                           </option>
@@ -943,7 +1050,10 @@ export function WorkoutPlansFabControlled({
           </div>
           <datalist id="workout-techniques">
             {techniques.map((technique) => (
-              <option key={technique.id} value={technique.namePt} />
+              <option
+                key={technique.id}
+                value={english ? technique.nameEn : technique.namePt}
+              />
             ))}
           </datalist>
           <button
@@ -964,7 +1074,7 @@ export function WorkoutPlansFabControlled({
           <button
             className="gc-pressable mt-6 w-full rounded-full bg-[var(--gc-blue)] py-3.5 text-[15px] font-black text-black disabled:opacity-40"
             disabled={!canSave || saving}
-            onClick={handleSave}
+            onClick={() => void handleSave(false)}
             type="button"
           >
             {saving ? t("workoutPlans.saving") : t("workoutPlans.save")}

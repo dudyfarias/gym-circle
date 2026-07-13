@@ -62,6 +62,7 @@ export function WorkoutCompletionSummary({
     comparison != null &&
     (comparison.deltaReps !== 0 ||
       comparison.deltaVolumeKg !== 0 ||
+      comparison.deltaDurationSeconds !== 0 ||
       comparison.improvedExercises.length > 0);
   const volumeLabel = metrics.totalVolumeKg.toLocaleString(i18n.language, {
     maximumFractionDigits: 1,
@@ -151,6 +152,14 @@ export function WorkoutCompletionSummary({
                 {deltaLabel(
                   comparison.deltaVolumeKg,
                   t("workout.summary.volumeUnit"),
+                )}
+              </span>
+            ) : null}
+            {comparison.deltaDurationSeconds !== 0 ? (
+              <span className="rounded-full bg-white/[0.06] px-3 py-1.5 text-[12px] font-black tabular-nums text-white">
+                {deltaLabel(
+                  comparison.deltaDurationSeconds,
+                  t("workout.summary.secondsUnit"),
                 )}
               </span>
             ) : null}
