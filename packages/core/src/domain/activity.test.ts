@@ -113,6 +113,13 @@ describe("activityRowToDomain", () => {
       totalCalories: 512,
       workoutDate: "2026-07-02",
       createdAt: "2026-07-02T21:58:01Z",
+      workoutPlanId: null,
+      workoutPlanNameSnapshot: null,
+      workoutPlanExercisesSnapshot: null,
+      workoutPlanVersionSnapshot: null,
+      workoutPlanStartedFrom: null,
+      workoutNote: null,
+      workoutExerciseContext: [],
     });
   });
 });
@@ -133,7 +140,9 @@ describe("strength set catalog metadata", () => {
       },
     ];
 
-    expect(strengthSetsFromRow(strengthSetsToRow(sets))).toEqual(sets);
+    expect(strengthSetsFromRow(strengthSetsToRow(sets))).toEqual([
+      expect.objectContaining(sets[0]),
+    ]);
   });
 
   it("preserva série por duração sem inventar repetições", () => {
@@ -201,6 +210,66 @@ describe("strength set catalog metadata", () => {
     ).toEqual([
       expect.objectContaining({ reps: 10, weightKg: null }),
       expect.objectContaining({ reps: 8, weightKg: null }),
+    ]);
+  });
+
+  it("preserva status, origem, tipo de carga e esforço opcionais", () => {
+    const rows = strengthSetsToRow([
+      {
+        reps: 10,
+        weightKg: null,
+        assistedWeightKg: 25,
+        exercise: "Barra assistida",
+        setId: "set-1",
+        setIndex: 2,
+        setStatus: "completed",
+        setOrigin: "planned",
+        loadType: "assisted",
+        rpe: 8.5,
+        rir: 2,
+        targetRestS: 90,
+        actualRestS: 84,
+        note: "Boa execução",
+      },
+      {
+        reps: 0,
+        weightKg: null,
+        exercise: "Supino",
+        setStatus: "skipped",
+        setOrigin: "planned",
+        loadType: "not_provided",
+        plannedRepsMin: 8,
+        plannedRepsMax: 12,
+      },
+    ]);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        assisted_weight_kg: 25,
+        load_type: "assisted",
+        set_status: "completed",
+        rpe: 8.5,
+        actual_rest_s: 84,
+      }),
+      expect.objectContaining({
+        set_status: "skipped",
+        planned_reps_min: 8,
+        planned_reps_max: 12,
+      }),
+    ]);
+    expect(strengthSetsFromRow(rows)).toEqual([
+      expect.objectContaining({
+        assistedWeightKg: 25,
+        loadType: "assisted",
+        setStatus: "completed",
+        rpe: 8.5,
+        actualRestS: 84,
+      }),
+      expect.objectContaining({
+        setStatus: "skipped",
+        plannedRepsMin: 8,
+        plannedRepsMax: 12,
+      }),
     ]);
   });
 });

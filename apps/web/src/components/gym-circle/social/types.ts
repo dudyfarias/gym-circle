@@ -299,6 +299,17 @@ export type EnrichedActivity = {
 export type StrengthSet = {
   reps: number;
   weightKg: number | null;
+  setId?: string | null;
+  setIndex?: number | null;
+  setStatus?: "planned" | "completed" | "skipped" | "added" | null;
+  setOrigin?: "planned" | "added" | null;
+  loadType?: "external" | "bodyweight" | "assisted" | "not_provided" | null;
+  assistedWeightKg?: number | null;
+  bodyweightKgSnapshot?: number | null;
+  plannedRepsMin?: number | null;
+  plannedRepsMax?: number | null;
+  plannedDurationSeconds?: number | null;
+  plannedWeightKg?: number | null;
   /** Exercício da série (quando o treino veio de um treino salvo). */
   exercise?: string | null;
   exerciseId?: string | null;
@@ -307,6 +318,11 @@ export type StrengthSet = {
   techniqueId?: string | null;
   techniqueName?: string | null;
   techniqueNotes?: string | null;
+  note?: string | null;
+  rpe?: number | null;
+  rir?: number | null;
+  targetRestS?: number | null;
+  actualRestS?: number | null;
 };
 
 /** Um exercício dentro de um treino salvo: nome + séries/reps alvo. */
@@ -329,6 +345,19 @@ export type WorkoutPlan = {
   name: string;
   exercises: WorkoutPlanExercise[];
   updatedAt: string;
+  planVersion?: number;
+  isFavorite?: boolean;
+  stats?: WorkoutPlanStats | null;
+};
+
+export type WorkoutPlanStats = {
+  workoutPlanId: string;
+  timesUsed: number;
+  lastUsedAt: string | null;
+  averageDurationS: number | null;
+  averageVolumeKg: number | null;
+  maxVolumeKg: number | null;
+  averageCompletionRate: number | null;
 };
 
 export type WorkoutMuscleGroup = {
@@ -400,6 +429,19 @@ export type WorkoutDetail = {
   gymName: string | null;
   locationName: string | null;
   caption: string | null;
+  recordHighlights?: WorkoutRecordHighlight[] | null;
+};
+
+export type WorkoutRecordHighlight = {
+  id: string;
+  metricKey: string;
+  exerciseId: string | null;
+  exerciseName: string | null;
+  value: number;
+  unit: string;
+  reps: number | null;
+  isEstimated: boolean;
+  achievedAt: string | null;
 };
 
 /** Infos de post salvas na ENTRADA de atividade (treino sem foto). */
@@ -539,6 +581,24 @@ export type WebActivityInput = {
   route?: number[][] | null;
   /** Séries de musculação (só treino de força). */
   strengthSets?: StrengthSet[] | null;
+  workoutPlanId?: string | null;
+  workoutPlanNameSnapshot?: string | null;
+  workoutPlanExercisesSnapshot?: WorkoutPlanExercise[] | null;
+  workoutPlanVersionSnapshot?: number | null;
+  workoutPlanStartedFrom?:
+    | "saved_plan"
+    | "free"
+    | "suggested"
+    | "duplicate"
+    | "imported"
+    | null;
+  workoutNote?: string | null;
+  workoutExerciseContext?: Array<{
+    exerciseId?: string | null;
+    exercise?: string | null;
+    note?: string | null;
+    targetRestS?: number | null;
+  }>;
 };
 
 export type FinishedWebActivity = {

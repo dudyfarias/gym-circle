@@ -1,6 +1,6 @@
 "use client";
 
-import { Bike, Dumbbell, Footprints, MapPin, Play, X } from "lucide-react";
+import { Bike, Dumbbell, Footprints, MapPin, Play, Trophy, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { WorkoutDetail } from "../social/types";
@@ -56,6 +56,14 @@ function spLongDate(iso: string | null): string {
     month: "short",
     timeZone: "America/Sao_Paulo",
   }).format(d);
+}
+
+function formatRecordValue(value: number, unit: string): string {
+  if (unit === "seconds") return formatElapsed(Math.round(value));
+  const formatted = new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: unit === "kg" ? 1 : 2,
+  }).format(value);
+  return `${formatted} ${unit}`.trim();
 }
 
 /**
@@ -206,6 +214,39 @@ export function WorkoutDetailOverlay({
             </div>
           ))}
         </div>
+
+        {workout.recordHighlights && workout.recordHighlights.length > 0 ? (
+          <section className="mt-4 rounded-[22px] border border-[#FFD60A]/18 bg-[#FFD60A]/[0.055] p-4">
+            <div className="flex items-center gap-2 text-[#FFD60A]">
+              <Trophy size={17} strokeWidth={2.6} />
+              <p className="text-[11px] font-black uppercase tracking-[0.13em]">
+                {t("workout.records.newRecords")}
+              </p>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {workout.recordHighlights.slice(0, 3).map((highlight) => (
+                <div
+                  className="flex items-center justify-between gap-3 rounded-[16px] bg-black/18 px-3.5 py-3"
+                  key={highlight.id}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-black text-white">
+                      {highlight.exerciseName ?? t("workout.records.workoutRecord")}
+                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/42">
+                      {t(`workout.records.metrics.${highlight.metricKey}`, {
+                        defaultValue: highlight.metricKey,
+                      })}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-[16px] font-black tabular-nums text-[#FFD60A]">
+                    {formatRecordValue(highlight.value, highlight.unit)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* Séries de musculação (só treino de força) */}
         {workout.strengthSets && workout.strengthSets.length > 0 ? (

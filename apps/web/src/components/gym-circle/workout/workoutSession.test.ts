@@ -25,6 +25,7 @@ const base: StoredWorkoutSession = {
   clientSessionId: "00000000-0000-4000-8000-000000000001",
   startedAtMs: 1_000,
   activityType: "run",
+  workoutPlan: null,
   pausedAtMs: null,
   pausedTotalMs: 0,
   distanceM: 0,

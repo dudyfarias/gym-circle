@@ -1,6 +1,6 @@
 "use client";
 
-import { Camera, Check, Share2, X } from "lucide-react";
+import { Camera, Check, Share2, Trophy, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { WorkoutRouteMap } from "../design-system/WorkoutRouteMap";
 import type { ComposerActivityContext } from "../social/types";
@@ -8,6 +8,7 @@ import type { WorkoutComparison } from "./exerciseHistory";
 import { formatElapsed } from "./workoutElapsed";
 import { formatDistance } from "./workoutSession";
 import type { WorkoutSummaryMetrics } from "./workoutSummary";
+import { useActivityRecordHighlights } from "./useActivityRecordHighlights";
 
 export type FinishedWorkoutSummary = {
   context: ComposerActivityContext;
@@ -42,6 +43,11 @@ function SummaryMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function recordValue(value: number, unit: string, language: string) {
+  if (unit === "seconds") return formatElapsed(Math.round(value));
+  return `${value.toLocaleString(language, { maximumFractionDigits: 2 })} ${unit}`.trim();
+}
+
 export function WorkoutCompletionSummary({
   data,
   onAddPhoto,
@@ -50,6 +56,7 @@ export function WorkoutCompletionSummary({
 }: WorkoutCompletionSummaryProps) {
   const { i18n, t } = useTranslation();
   const { context, metrics, comparison } = data;
+  const recordHighlights = useActivityRecordHighlights(context.id);
   const route = context.route?.length && context.route.length > 1 ? context.route : null;
   const comparisonDate = comparison
     ? new Intl.DateTimeFormat(i18n.language, {
@@ -171,6 +178,39 @@ export function WorkoutCompletionSummary({
               })}
             </p>
           ) : null}
+        </section>
+      ) : null}
+
+      {recordHighlights.length > 0 ? (
+        <section className="mt-3 rounded-[20px] border border-[#FFD60A]/18 bg-[#FFD60A]/[0.055] p-4">
+          <div className="flex items-center gap-2 text-[#FFD60A]">
+            <Trophy size={17} strokeWidth={2.7} />
+            <p className="text-[10px] font-black uppercase tracking-[0.14em]">
+              {t("workout.records.newRecords")}
+            </p>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {recordHighlights.slice(0, 3).map((highlight) => (
+              <div
+                className="flex items-center justify-between gap-3 rounded-[15px] bg-black/18 px-3.5 py-3"
+                key={highlight.id}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-black text-white">
+                    {highlight.exerciseName ?? t("workout.records.workoutRecord")}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-white/42">
+                    {t(`workout.records.metrics.${highlight.metricKey}`, {
+                      defaultValue: highlight.metricKey,
+                    })}
+                  </p>
+                </div>
+                <p className="shrink-0 text-[16px] font-black tabular-nums text-[#FFD60A]">
+                  {recordValue(highlight.value, highlight.unit, i18n.language)}
+                </p>
+              </div>
+            ))}
+          </div>
         </section>
       ) : null}
 

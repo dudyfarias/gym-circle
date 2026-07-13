@@ -75,6 +75,66 @@ export function logSurfaceFallback(surface: string, error: unknown) {
   }
 }
 
+type WorkoutRecordHighlightRow = {
+  post_id: string;
+  highlights: Array<{
+    id: string;
+    metric_key: string;
+    exercise_id: string | null;
+    exercise_name: string | null;
+    value: number | string;
+    unit: string;
+    reps: number | null;
+    is_estimated: boolean | null;
+    achieved_at: string | null;
+  }> | null;
+};
+
+async function hydrateWorkoutRecordHighlights(
+  client: GymCircleSupabaseClient,
+  rows: SurfacePostRow[],
+): Promise<SurfacePostRow[]> {
+  const postIds = rows
+    .filter((row) => row.workout_activity_type != null)
+    .map((row) => row.id);
+  if (postIds.length === 0) return rows;
+
+  // Uma única consulta por página mantém o feed sem N+1. Durante um deploy
+  // parcial (web antes da migration), PRs são um enriquecimento opcional e o
+  // feed continua funcionando normalmente.
+  const result = await (client as unknown as SupabaseClient).rpc(
+    "get_post_workout_record_highlights",
+    { p_post_ids: postIds },
+  );
+  if (result.error) {
+    logSurfaceFallback("workout record highlights", result.error);
+    return rows;
+  }
+
+  const byPostId = new Map<string, NonNullable<SurfacePostRow["workout_record_highlights"]>>();
+  for (const item of (result.data ?? []) as WorkoutRecordHighlightRow[]) {
+    byPostId.set(
+      item.post_id,
+      (item.highlights ?? []).map((highlight) => ({
+        id: highlight.id,
+        metric_key: highlight.metric_key,
+        exercise_id: highlight.exercise_id,
+        exercise_name: highlight.exercise_name,
+        value: Number(highlight.value),
+        unit: highlight.unit,
+        reps: highlight.reps,
+        is_estimated: Boolean(highlight.is_estimated),
+        achieved_at: highlight.achieved_at,
+      })),
+    );
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    workout_record_highlights: byPostId.get(row.id) ?? null,
+  }));
+}
+
 export async function queryHomeFeedSurface(
   client: GymCircleSupabaseClient,
   limit: number,
@@ -85,7 +145,11 @@ export async function queryHomeFeedSurface(
     p_limit: limit,
   });
   if (!rpcRes.error) {
-    return { data: (rpcRes.data ?? []) as SurfacePostRow[], error: null };
+    const rows = (rpcRes.data ?? []) as SurfacePostRow[];
+    return {
+      data: await hydrateWorkoutRecordHighlights(client, rows),
+      error: null,
+    };
   }
 
   logSurfaceFallback("home feed", rpcRes.error);

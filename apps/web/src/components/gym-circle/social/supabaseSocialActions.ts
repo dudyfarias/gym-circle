@@ -697,6 +697,15 @@ export function createSocialActions(
           elevationGainM: input.elevationGainM ?? null,
           route: input.route ?? null,
           strengthSets: input.strengthSets ?? null,
+          workoutPlanId: input.workoutPlanId ?? null,
+          workoutPlanNameSnapshot: input.workoutPlanNameSnapshot ?? null,
+          workoutPlanExercisesSnapshot:
+            input.workoutPlanExercisesSnapshot ?? null,
+          workoutPlanVersionSnapshot:
+            input.workoutPlanVersionSnapshot ?? null,
+          workoutPlanStartedFrom: input.workoutPlanStartedFrom ?? null,
+          workoutNote: input.workoutNote ?? null,
+          workoutExerciseContext: input.workoutExerciseContext ?? [],
         });
         await services.stats.refreshMine();
         await refresh();

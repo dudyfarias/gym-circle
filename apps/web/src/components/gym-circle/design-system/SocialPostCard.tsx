@@ -14,6 +14,7 @@ import {
   Route,
   Send,
   Timer,
+  Trophy,
 } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
@@ -524,6 +525,29 @@ function SocialPostCardComponent({
         >
           <ImagePlus size={18} strokeWidth={2.7} />
           {t("feedScreen.activity.addPhoto")}
+        </button>
+      ) : null}
+
+      {post.workout?.recordHighlights?.length ? (
+        <button
+          className="gc-pressable mx-4 mt-3 flex w-[calc(100%_-_2rem)] items-center gap-3 rounded-[18px] border border-[#FFD60A]/16 bg-[#FFD60A]/[0.055] px-4 py-3 text-left"
+          disabled={!onOpenWorkoutDetail}
+          onClick={() => post.workout && onOpenWorkoutDetail?.(post.workout)}
+          type="button"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#FFD60A]/12 text-[#FFD60A]">
+            <Trophy size={17} strokeWidth={2.7} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[9.5px] font-black uppercase tracking-[0.12em] text-[#FFD60A]">
+              {t("workout.records.newRecords")}
+            </span>
+            <span className="mt-0.5 block truncate text-[13px] font-black text-white">
+              {post.workout.recordHighlights[0]?.exerciseName ??
+                t("workout.records.workoutRecord")}
+            </span>
+          </span>
+          <ChevronRight className="shrink-0 text-[#FFD60A]" size={15} strokeWidth={3} />
         </button>
       ) : null}
 

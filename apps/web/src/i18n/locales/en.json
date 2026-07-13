@@ -130,6 +130,18 @@
       "durationMode": "Timed",
       "failureMode": "To failure",
       "failureWeightHint": "Log the reps you reached at failure and the load used, if any.",
+      "loadType": "Load type",
+      "loadTypes": {
+        "external": "Load",
+        "bodyweight": "Bodyweight",
+        "assisted": "Assisted",
+        "notProvided": "No load"
+      },
+      "advancedForSet": "Advanced · set {{number}}",
+      "restSeconds": "Rest (s)",
+      "note": "Note",
+      "notePlaceholder": "Form, discomfort or an adjustment for next time",
+      "effortHint": "RPE measures effort from 1 to 10. RIR is how many reps you still had in reserve.",
       "status": "Status",
       "completeSet": "Complete",
       "markIncomplete": "Mark as pending",
@@ -137,6 +149,7 @@
       "exerciseCompleted": "Exercise complete",
       "nextExercise": "Next exercise",
       "previousExercise": "Previous",
+      "skipExercise": "Skip exercise",
       "goToExercise": "Go to exercise {{current}}",
       "add": "Add set",
       "addToExercise": "Add set here",
@@ -148,7 +161,26 @@
       "create": "Create workout",
       "loadError": "We couldn't load your workouts.",
       "emptyTitle": "Create your first workout",
-      "emptyHint": "Build a saved workout or start freely now."
+      "emptyHint": "Build a saved workout or start freely now.",
+      "timesUsed_one": "done {{count}} time",
+      "timesUsed_other": "done {{count}} times",
+      "averageDuration": "avg. {{duration}}",
+      "averageCompletion": "{{percent}}% complete",
+      "addFavorite": "Add to favorites",
+      "removeFavorite": "Remove from favorites"
+    },
+    "recommendation": {
+      "title": "Today's suggestion",
+      "reasons": {
+        "weekday-pattern": "You usually do this workout today",
+        "sequence-pattern": "It is next in your sequence",
+        "favorite": "One of your favorites",
+        "frequent": "One of your most frequent workouts",
+        "well-rested": "You have not done it for a few days",
+        "no-history-favorite": "Starting with your favorite",
+        "no-history-recent": "Starting with your most recent workout",
+        "limited-history": "Learning your routine"
+      }
     },
     "modalities": {
       "title": "Activities",
@@ -222,6 +254,15 @@
       "volume": "{{value}} kg volume",
       "duration": "{{value}} total seconds",
       "empty": "No previous records for this exercise."
+    },
+    "records": {
+      "newRecords": "New records",
+      "workoutRecord": "Workout record",
+      "metrics": {
+        "strength_weight": "Heaviest weight",
+        "run_5k_time": "Best 5K",
+        "run_10k_time": "Best 10K"
+      }
     }
   },
   "workoutDetail": {

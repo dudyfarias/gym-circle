@@ -1,4 +1,8 @@
-import type { StrengthSet, WebActivityInput } from "../social/types";
+import type {
+  StrengthSet,
+  WebActivityInput,
+  WorkoutPlanExercise,
+} from "../social/types";
 import {
   REST_TIMER_INITIAL,
   type RestTimerState,
@@ -38,6 +42,14 @@ export type LiveStrengthSet = StrengthSet & {
   plannedReps?: number | null;
 };
 
+export type WorkoutSessionPlanContext = {
+  id: string;
+  name: string;
+  exercisesSnapshot: WorkoutPlanExercise[];
+  version: number;
+  startedFrom: "saved_plan" | "suggested" | "duplicate";
+};
+
 /**
  * Séries até a falha só concluem pelo check explícito: preencher reps primeiro
  * não pode avançar antes de o usuário informar a carga opcional.
@@ -59,6 +71,7 @@ export type StoredWorkoutSession = {
   clientSessionId: string;
   startedAtMs: number;
   activityType: WebActivityInput["activityType"];
+  workoutPlan: WorkoutSessionPlanContext | null;
   pausedAtMs: number | null;
   pausedTotalMs: number;
   distanceM: number;
@@ -137,6 +150,53 @@ function readStoredStrengthSets(value: unknown): LiveStrengthSet[] {
           typeof set.techniqueName === "string" ? set.techniqueName : null,
         techniqueNotes:
           typeof set.techniqueNotes === "string" ? set.techniqueNotes : null,
+        setId: typeof set.setId === "string" ? set.setId : clientId,
+        setIndex:
+          typeof set.setIndex === "number" && Number.isFinite(set.setIndex)
+            ? Math.max(1, Math.round(set.setIndex))
+            : index + 1,
+        setStatus:
+          set.setStatus === "completed" ||
+          set.setStatus === "skipped" ||
+          set.setStatus === "added"
+            ? set.setStatus
+            : "planned",
+        setOrigin: set.setOrigin === "added" ? "added" : "planned",
+        loadType:
+          set.loadType === "external" ||
+          set.loadType === "bodyweight" ||
+          set.loadType === "assisted"
+            ? set.loadType
+            : "not_provided",
+        assistedWeightKg:
+          typeof set.assistedWeightKg === "number" &&
+          Number.isFinite(set.assistedWeightKg) &&
+          set.assistedWeightKg > 0
+            ? set.assistedWeightKg
+            : null,
+        bodyweightKgSnapshot:
+          typeof set.bodyweightKgSnapshot === "number" &&
+          Number.isFinite(set.bodyweightKgSnapshot) &&
+          set.bodyweightKgSnapshot > 0
+            ? set.bodyweightKgSnapshot
+            : null,
+        note: typeof set.note === "string" ? set.note : null,
+        rpe:
+          typeof set.rpe === "number" && set.rpe >= 1 && set.rpe <= 10
+            ? set.rpe
+            : null,
+        rir:
+          typeof set.rir === "number" && set.rir >= 0 && set.rir <= 10
+            ? set.rir
+            : null,
+        targetRestS:
+          typeof set.targetRestS === "number" && set.targetRestS >= 0
+            ? Math.min(3_600, Math.round(set.targetRestS))
+            : null,
+        actualRestS:
+          typeof set.actualRestS === "number" && set.actualRestS >= 0
+            ? Math.min(7_200, Math.round(set.actualRestS))
+            : null,
       },
     ];
   });
@@ -171,6 +231,7 @@ export function readStoredWorkoutSession(userId: string): StoredWorkoutSession |
       clientSessionId: parsed.clientSessionId,
       startedAtMs: parsed.startedAtMs,
       activityType: parsed.activityType,
+      workoutPlan: readWorkoutPlanContext(parsed.workoutPlan),
       pausedAtMs:
         typeof parsed.pausedAtMs === "number" ? parsed.pausedAtMs : null,
       pausedTotalMs: numberOr(parsed.pausedTotalMs, 0),
@@ -220,6 +281,31 @@ export function readStoredWorkoutSession(userId: string): StoredWorkoutSession |
     window.localStorage.removeItem(workoutStorageKey(userId));
     return null;
   }
+}
+
+function readWorkoutPlanContext(value: unknown): WorkoutSessionPlanContext | null {
+  if (!value || typeof value !== "object") return null;
+  const plan = value as Partial<WorkoutSessionPlanContext>;
+  if (
+    typeof plan.id !== "string" ||
+    typeof plan.name !== "string" ||
+    !Array.isArray(plan.exercisesSnapshot)
+  ) {
+    return null;
+  }
+  return {
+    id: plan.id,
+    name: plan.name,
+    exercisesSnapshot: plan.exercisesSnapshot,
+    version:
+      typeof plan.version === "number" && plan.version >= 1
+        ? Math.round(plan.version)
+        : 1,
+    startedFrom:
+      plan.startedFrom === "suggested" || plan.startedFrom === "duplicate"
+        ? plan.startedFrom
+        : "saved_plan",
+  };
 }
 
 export function writeStoredWorkoutSession(

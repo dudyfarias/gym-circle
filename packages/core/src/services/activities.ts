@@ -30,7 +30,9 @@ export function activityService(client: GymCircleClient) {
         if (!isMissingFinalizeWorkoutRpc(error)) throw error;
       }
 
-      const { data, error } = await client
+      // As colunas de contexto do plano são aditivas e chegam antes da
+      // próxima regeneração dos tipos do Supabase no rollout desta sprint.
+      const { data, error } = await (client as unknown as SupabaseClient)
         .from("activities")
         .insert(row)
         .select("*")

@@ -138,6 +138,19 @@ export type FeedPostRow =
       | null;
     workout_started_at?: string | null;
     workout_ended_at?: string | null;
+    workout_record_highlights?:
+      | {
+          id: string;
+          metric_key: string;
+          exercise_id?: string | null;
+          exercise_name?: string | null;
+          value: number;
+          unit: string;
+          reps?: number | null;
+          is_estimated?: boolean;
+          achieved_at?: string | null;
+        }[]
+      | null;
   };
 
 /**

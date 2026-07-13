@@ -499,6 +499,18 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
               gymName: row.location_name ?? null,
               locationName: row.location_name ?? null,
               caption: row.caption ?? null,
+              recordHighlights:
+                row.workout_record_highlights?.map((highlight) => ({
+                  id: highlight.id,
+                  metricKey: highlight.metric_key,
+                  exerciseId: highlight.exercise_id ?? null,
+                  exerciseName: highlight.exercise_name ?? null,
+                  value: Number(highlight.value),
+                  unit: highlight.unit,
+                  reps: highlight.reps ?? null,
+                  isEstimated: Boolean(highlight.is_estimated),
+                  achievedAt: highlight.achieved_at ?? null,
+                })) ?? null,
             }
           : null,
         comments: postComments.map((c) => ({

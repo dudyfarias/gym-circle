@@ -1029,3 +1029,75 @@ Estado desta atualização:
 - nenhum deploy realizado;
 - validação SQL em preview pendente porque o Docker local não estava ativo;
 - alarme garantido com tela bloqueada permanece uma entrega nativa futura.
+
+## 26. Registro de execução das Sprints A–G — 2026-07-13
+
+Implementação integrada concluída, com rollout aditivo e retrocompatível:
+
+### Sprint A — vínculo activity ↔ treino salvo
+
+- `workout_plan_id`, snapshots imutáveis de nome/exercícios/versão e origem;
+- validação de ownership e versão no banco;
+- `is_favorite` persistido no treino salvo;
+- RPC agregada `get_my_workout_plan_stats`, sem N+1;
+- contexto do plano preservado da sessão local até a activity finalizada.
+
+### Sprint B — séries e carga semanticamente corretas
+
+- `set_status`: planned, completed, skipped e added;
+- `set_origin`: planned ou added;
+- `load_type`: external, bodyweight, assisted e not_provided;
+- carga vazia/zero normalizada como ausência;
+- volume e recordes usam somente carga externa positiva;
+- exercícios até a falha aceitam reps e carga sem obrigar carga;
+- UI permite pular exercício e registrar assistência.
+
+### Sprint C — esforço, notas e descanso
+
+- nota opcional do treino, exercício e set;
+- RPE/RIR opcionais em controles avançados;
+- descanso alvo e real por set;
+- validação de formato/tamanho no banco, sem tornar dados avançados obrigatórios.
+
+### Sprint D — PRs no pós-treino e social
+
+- snapshot imutável em `activity_record_highlights`;
+- RPC por activity e RPC em lote por posts;
+- destaques no resumo pós-treino, detalhe e card social;
+- carga zero, dado não informado e resultado inferior não viram PR.
+
+### Sprint E — favoritos e evolução por treino
+
+- cards mostram favorito, quantidade de execuções, duração média e conclusão;
+- estatísticas derivadas das activities, sem counters sujeitos a drift;
+- ordenação prioriza recomendação e favorito.
+
+### Sprint F — sugestão pessoal do dia
+
+- recomendador explicável por dia da semana, sequência, frequência, recência e
+  favorito;
+- score, confiança e motivo auditáveis;
+- confiança baixa enquanto a amostra é pequena;
+- fallback seguro sem histórico;
+- documentação em `workout-pattern-recommendation-2026-07-13.md`.
+
+### Sprint G — catálogo governado
+
+- aliases separados por idioma, erros comuns, dificuldade e proveniência;
+- licença/origem/revisão de assets;
+- variações por exercício-base e padrão de movimento;
+- contribuição comunitária visível ao autor até aprovação;
+- nenhum vídeo de terceiro é publicado sem proveniência/licença.
+
+### Validação local
+
+- ESLint: aprovado;
+- Next.js build/TypeScript: aprovado;
+- Vitest: 537/537 testes aprovados;
+- `git diff --check`: aprovado;
+- nenhuma mudança de Android, SwiftUI, Push, HealthKit ou Strava faz parte
+  destas sprints.
+
+O rollout de banco deve respeitar a ordem: canonicalização de exercise ID,
+variações, Sprint 0, A, B, C e D/G. O web só deve ser publicado após as
+migrations aditivas estarem aplicadas e validadas.

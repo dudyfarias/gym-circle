@@ -29,6 +29,8 @@ import {
   Plus,
   RefreshCw,
   Square,
+  Sparkles,
+  Star,
   Timer,
   TrendingUp,
   X,
@@ -66,6 +68,7 @@ import {
 } from "../workout/WorkoutCatalogSheets";
 import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
 import { useWorkoutPlans } from "../workout/useWorkoutPlans";
+import { WorkoutSetAdvancedFields } from "../workout/WorkoutSetAdvancedFields";
 import {
   appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
@@ -131,8 +134,13 @@ function nextLiveStrengthSetId() {
 function newStrengthSetFromTemplate(
   template?: LiveStrengthSet | null,
 ): LiveStrengthSet {
+  const clientId = nextLiveStrengthSetId();
   return {
-    clientId: nextLiveStrengthSetId(),
+    clientId,
+    setId: clientId,
+    setStatus: "added",
+    setOrigin: "added",
+    loadType: "not_provided",
     reps: 0,
     weightKg: null,
     exercise: template?.exercise ?? null,
@@ -247,15 +255,31 @@ export function WebWorkoutScreen({
     error: workoutPlansError,
     refresh: refreshWorkoutPlans,
     savePlan,
-    touchPlan,
+    toggleFavorite,
+    recommendation: workoutRecommendation,
   } = workoutPlansController;
-  const quickWorkoutPlans = useMemo(
-    () =>
-      savedWorkoutPlans
-        .filter((plan) => plan.exercises.length > 0)
-        .slice(0, 5),
-    [savedWorkoutPlans],
-  );
+  const suggestedWorkoutPlan = useMemo(() => {
+    const id = workoutRecommendation.recommendation?.planId;
+    return id ? savedWorkoutPlans.find((plan) => plan.id === id) ?? null : null;
+  }, [savedWorkoutPlans, workoutRecommendation.recommendation?.planId]);
+  const quickWorkoutPlans = useMemo(() => {
+    const suggestedId = workoutRecommendation.recommendation?.planId;
+    return savedWorkoutPlans
+      .filter((plan) => plan.exercises.length > 0)
+      .sort((left, right) => {
+        if ((left.id === suggestedId) !== (right.id === suggestedId)) {
+          return left.id === suggestedId ? -1 : 1;
+        }
+        if (Boolean(left.isFavorite) !== Boolean(right.isFavorite)) {
+          return left.isFavorite ? -1 : 1;
+        }
+        const lastUsed = (right.stats?.lastUsedAt ?? "").localeCompare(
+          left.stats?.lastUsedAt ?? "",
+        );
+        return lastUsed || right.updatedAt.localeCompare(left.updatedAt);
+      })
+      .slice(0, 5);
+  }, [savedWorkoutPlans, workoutRecommendation.recommendation?.planId]);
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
@@ -513,13 +537,18 @@ export function WebWorkoutScreen({
   ]);
 
   const startWorkout = useCallback(
-    (activityType: WorkoutType, initialStrengthSets: LiveStrengthSet[] = []) => {
+    (
+      activityType: WorkoutType,
+      initialStrengthSets: LiveStrengthSet[] = [],
+      workoutPlan: StoredWorkoutSession["workoutPlan"] = null,
+    ) => {
       const next: StoredWorkoutSession = {
         version: 5,
         ownerUserId: userId,
         clientSessionId: createWorkoutClientSessionId(),
         startedAtMs: Date.now(),
         activityType,
+        workoutPlan,
         pausedAtMs: null,
         pausedTotalMs: 0,
         distanceM: 0,
@@ -562,30 +591,47 @@ export function WebWorkoutScreen({
   );
 
   const startWorkoutPlan = useCallback(
-    (plan: WorkoutPlan) => {
+    (
+      plan: WorkoutPlan,
+      startedFrom: "saved_plan" | "suggested" = "saved_plan",
+    ) => {
       // Cada exercício vira N linhas (séries alvo) já rotuladas; a pessoa
       // preenche reps × carga durante a sessão.
       const seeded: LiveStrengthSet[] = plan.exercises.flatMap((ex) => {
         const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
-        return Array.from({ length: count }, () => ({
-          clientId: nextLiveStrengthSetId(),
-          reps: 0,
-          weightKg: null as number | null,
-          exercise: ex.name,
-          exerciseId: ex.exerciseId ?? null,
-          targetKind: ex.targetKind ?? "reps",
-          durationSeconds: null,
-          plannedReps: ex.reps ?? null,
-          plannedDurationSeconds: ex.durationSeconds ?? null,
-          techniqueId: ex.techniqueId ?? null,
-          techniqueName: ex.techniqueName ?? null,
-          techniqueNotes: ex.techniqueNotes ?? null,
-        }));
+        return Array.from({ length: count }, () => {
+          const clientId = nextLiveStrengthSetId();
+          return {
+            clientId,
+            setId: clientId,
+            setStatus: "planned" as const,
+            setOrigin: "planned" as const,
+            loadType: "not_provided" as const,
+            reps: 0,
+            weightKg: null as number | null,
+            exercise: ex.name,
+            exerciseId: ex.exerciseId ?? null,
+            targetKind: ex.targetKind ?? "reps",
+            durationSeconds: null,
+            plannedReps: ex.reps ?? null,
+            plannedRepsMin: ex.reps ?? null,
+            plannedRepsMax: ex.reps ?? null,
+            plannedDurationSeconds: ex.durationSeconds ?? null,
+            techniqueId: ex.techniqueId ?? null,
+            techniqueName: ex.techniqueName ?? null,
+            techniqueNotes: ex.techniqueNotes ?? null,
+          };
+        });
+      }).map((set, index) => ({ ...set, setIndex: index + 1 }));
+      startWorkout("strength", seeded, {
+        id: plan.id,
+        name: plan.name,
+        exercisesSnapshot: plan.exercises,
+        version: plan.planVersion ?? 1,
+        startedFrom,
       });
-      void touchPlan(plan.id).catch(() => undefined);
-      startWorkout("strength", seeded);
     },
-    [startWorkout, touchPlan],
+    [startWorkout],
   );
 
   const openRenameWorkoutPlan = useCallback((plan: WorkoutPlan) => {
@@ -675,10 +721,24 @@ export function WebWorkoutScreen({
       const route = isRouteWorkout(session.activityType)
         ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
         : null;
-      const completedStrengthSets = normalizeStrengthSetsForSave(
-        strengthSets.filter((set) =>
-          completedStrengthSetIds.has(set.clientId),
-        ),
+      const finalizedStrengthSets = normalizeStrengthSetsForSave(
+        strengthSets.map((set, index) => {
+          const completed = completedStrengthSetIds.has(set.clientId);
+          return {
+            ...set,
+            setIndex: index + 1,
+            setStatus: completed
+              ? set.setOrigin === "added"
+                ? ("added" as const)
+                : ("completed" as const)
+              : set.setStatus === "skipped"
+                ? ("skipped" as const)
+                : ("planned" as const),
+          };
+        }),
+      );
+      const completedStrengthSets = finalizedStrengthSets.filter(
+        (set) => set.setStatus === "completed" || set.setStatus === "added",
       );
       const activity = await onFinish({
         clientSessionId: session.clientSessionId,
@@ -697,9 +757,15 @@ export function WebWorkoutScreen({
           : null,
         route,
         strengthSets:
-          session.activityType === "strength" && completedStrengthSets.length > 0
-            ? completedStrengthSets
+          session.activityType === "strength" && finalizedStrengthSets.length > 0
+            ? finalizedStrengthSets
             : null,
+        workoutPlanId: session.workoutPlan?.id ?? null,
+        workoutPlanNameSnapshot: session.workoutPlan?.name ?? null,
+        workoutPlanExercisesSnapshot:
+          session.workoutPlan?.exercisesSnapshot ?? null,
+        workoutPlanVersionSnapshot: session.workoutPlan?.version ?? null,
+        workoutPlanStartedFrom: session.workoutPlan?.startedFrom ?? "free",
       });
       const context: ComposerActivityContext = {
         id: activity.id,
@@ -840,7 +906,16 @@ export function WebWorkoutScreen({
       const reps = Number.parseInt(value, 10) || 0;
       const current = strengthSets[index];
       setStrengthSets((prev) =>
-        prev.map((set, i) => (i === index ? { ...set, reps } : set)),
+        prev.map((set, i) =>
+          i === index
+            ? {
+                ...set,
+                reps,
+                setStatus:
+                  set.setStatus === "skipped" ? "planned" : set.setStatus,
+              }
+            : set,
+        ),
       );
       if (!current) return;
       const wasCompleted = completedStrengthSetIds.has(current.clientId);
@@ -860,7 +935,26 @@ export function WebWorkoutScreen({
       const weightKg = parseOptionalWeightKg(raw);
       const current = strengthSets[index];
       setStrengthSets((prev) =>
-        prev.map((set, i) => (i === index ? { ...set, weightKg } : set)),
+        prev.map((set, i) =>
+          i === index
+            ? {
+                ...set,
+                weightKg: set.loadType === "assisted" ? null : weightKg,
+                assistedWeightKg:
+                  set.loadType === "assisted" ? weightKg : null,
+                loadType:
+                  weightKg === null
+                    ? set.loadType === "assisted"
+                      ? "assisted"
+                      : "not_provided"
+                    : set.loadType === "assisted"
+                      ? "assisted"
+                      : "external",
+                setStatus:
+                  set.setStatus === "skipped" ? "planned" : set.setStatus,
+              }
+            : set,
+        ),
       );
       if (!current) return;
       const wasCompleted = completedStrengthSetIds.has(current.clientId);
@@ -877,6 +971,36 @@ export function WebWorkoutScreen({
     [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],
   );
 
+  const updateStrengthSetLoadType = useCallback(
+    (index: number, loadType: NonNullable<LiveStrengthSet["loadType"]>) => {
+      setStrengthSets((current) =>
+        current.map((set, setIndex) =>
+          setIndex === index
+            ? {
+                ...set,
+                loadType,
+                weightKg: loadType === "external" ? set.weightKg : null,
+                assistedWeightKg:
+                  loadType === "assisted" ? set.assistedWeightKg : null,
+              }
+            : set,
+        ),
+      );
+    },
+    [],
+  );
+
+  const patchStrengthSet = useCallback(
+    (index: number, patch: Partial<LiveStrengthSet>) => {
+      setStrengthSets((current) =>
+        current.map((set, setIndex) =>
+          setIndex === index ? { ...set, ...patch } : set,
+        ),
+      );
+    },
+    [],
+  );
+
   const updateStrengthSetDuration = useCallback(
     (index: number, raw: string) => {
       const value = raw.replace(/[^0-9]/g, "");
@@ -884,7 +1008,14 @@ export function WebWorkoutScreen({
       const current = strengthSets[index];
       setStrengthSets((prev) =>
         prev.map((set, i) =>
-          i === index ? { ...set, durationSeconds } : set,
+          i === index
+            ? {
+                ...set,
+                durationSeconds,
+                setStatus:
+                  set.setStatus === "skipped" ? "planned" : set.setStatus,
+              }
+            : set,
         ),
       );
       if (current && durationSeconds === null) {
@@ -1216,6 +1347,28 @@ export function WebWorkoutScreen({
           document.activeElement.blur();
         }
         window.setTimeout(() => goToStrengthExercise(groupIndex + 1), 120);
+      }
+    },
+    [goToStrengthExercise, strengthExerciseGroups.length],
+  );
+
+  const skipStrengthExercise = useCallback(
+    (group: StrengthExerciseGroup, groupIndex: number) => {
+      const groupIds = new Set(group.sets.map(({ set }) => set.clientId));
+      setStrengthSets((current) =>
+        current.map((set) =>
+          groupIds.has(set.clientId)
+            ? { ...set, setStatus: "skipped" as const }
+            : set,
+        ),
+      );
+      setCompletedStrengthSetIds((current) => {
+        const next = new Set(current);
+        groupIds.forEach((id) => next.delete(id));
+        return next;
+      });
+      if (groupIndex < strengthExerciseGroups.length - 1) {
+        goToStrengthExercise(groupIndex + 1);
       }
     },
     [goToStrengthExercise, strengthExerciseGroups.length],
@@ -1553,6 +1706,28 @@ export function WebWorkoutScreen({
                     {quickWorkoutPlans.map((plan) => {
                       const isLegacyName =
                         getWorkoutPlanDisplayName(plan.name, "") === "";
+                      const isSuggested = suggestedWorkoutPlan?.id === plan.id;
+                      const planStats = [
+                        plan.stats?.timesUsed
+                          ? t("workout.saved.timesUsed", {
+                              count: plan.stats.timesUsed,
+                            })
+                          : null,
+                        (plan.stats?.averageDurationS ?? 0) > 0
+                          ? t("workout.saved.averageDuration", {
+                              duration: formatElapsed(
+                                Math.round(plan.stats?.averageDurationS ?? 0),
+                              ),
+                            })
+                          : null,
+                        (plan.stats?.averageCompletionRate ?? 0) > 0
+                          ? t("workout.saved.averageCompletion", {
+                              percent: Math.round(
+                                (plan.stats?.averageCompletionRate ?? 0) * 100,
+                              ),
+                            })
+                          : null,
+                      ].filter(Boolean);
                       return (
                         <article
                           className="h-[136px] w-[78%] min-w-[272px] shrink-0 snap-start rounded-[24px] border border-[var(--gc-brand)]/16 bg-[linear-gradient(135deg,rgba(92,232,255,0.11),rgba(11,13,14,0.98)_52%,rgba(48,213,255,0.04))] p-4 shadow-[0_18px_48px_rgba(0,0,0,0.2)]"
@@ -1560,21 +1735,54 @@ export function WebWorkoutScreen({
                         >
                           <div className="flex items-start gap-3">
                             <span className="grid size-10 shrink-0 place-items-center rounded-[14px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-                              <Dumbbell size={19} strokeWidth={2.4} />
+                              {isSuggested ? (
+                                <Sparkles size={19} strokeWidth={2.4} />
+                              ) : (
+                                <Dumbbell size={19} strokeWidth={2.4} />
+                              )}
                             </span>
                             <div className="min-w-0 flex-1">
+                              {isSuggested ? (
+                                <p className="truncate text-[9px] font-black uppercase tracking-[0.12em] text-[var(--gc-brand)]">
+                                  {t("workout.recommendation.title")}
+                                </p>
+                              ) : null}
                               <h4 className="truncate text-[15px] font-black text-white">
                                 {getWorkoutPlanDisplayName(
                                   plan.name,
                                   t("workoutPlans.unnamed"),
                                 )}
                               </h4>
-                              <p className="mt-1 text-[11.5px] font-bold text-white/42">
+                              <p className="mt-1 truncate text-[11px] font-bold text-white/42">
+                                {isSuggested &&
+                                workoutRecommendation.recommendation
+                                  ? `${t(`workout.recommendation.reasons.${workoutRecommendation.recommendation.reasonCode}`)} · `
+                                  : ""}
                                 {t("workout.sets.exerciseCount", {
                                   count: plan.exercises.length,
                                 })}
+                                {planStats.length > 0
+                                  ? ` · ${planStats.join(" · ")}`
+                                  : ""}
                               </p>
                             </div>
+                            <button
+                              aria-label={
+                                plan.isFavorite
+                                  ? t("workout.saved.removeFavorite")
+                                  : t("workout.saved.addFavorite")
+                              }
+                              aria-pressed={Boolean(plan.isFavorite)}
+                              className="gc-pressable grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/55"
+                              onClick={() => void toggleFavorite(plan.id)}
+                              type="button"
+                            >
+                              <Star
+                                className={plan.isFavorite ? "text-[#ffd60a]" : ""}
+                                fill={plan.isFavorite ? "currentColor" : "none"}
+                                size={14}
+                              />
+                            </button>
                             {isLegacyName ? (
                               <button
                                 aria-label={t("workoutPlans.rename")}
@@ -1588,7 +1796,12 @@ export function WebWorkoutScreen({
                           </div>
                           <button
                             className="gc-pressable mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[12.5px] font-black text-[var(--gc-brand-ink)]"
-                            onClick={() => startWorkoutPlan(plan)}
+                            onClick={() =>
+                              startWorkoutPlan(
+                                plan,
+                                isSuggested ? "suggested" : "saved_plan",
+                              )
+                            }
                             type="button"
                           >
                             <Play fill="currentColor" size={14} />
@@ -2057,15 +2270,15 @@ export function WebWorkoutScreen({
                               }
 
                               return (
-                                <div
-                                  className={[
-                                    "grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px] items-center gap-2 rounded-[16px] border p-2",
-                                    setCompleted
-                                      ? "border-[var(--gc-brand)]/30 bg-[var(--gc-brand)]/[0.05]"
-                                      : "border-white/[0.055] bg-white/[0.02]",
-                                  ].join(" ")}
-                                  key={set.clientId}
-                                >
+                                <div className="grid gap-1.5" key={set.clientId}>
+                                  <div
+                                    className={[
+                                      "grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px] items-center gap-2 rounded-[16px] border p-2",
+                                      setCompleted
+                                        ? "border-[var(--gc-brand)]/30 bg-[var(--gc-brand)]/[0.05]"
+                                        : "border-white/[0.055] bg-white/[0.02]",
+                                    ].join(" ")}
+                                  >
                                   <span className="w-6 text-[12px] font-black tabular-nums text-white/40">
                                     {setIndex + 1}
                                   </span>
@@ -2088,27 +2301,70 @@ export function WebWorkoutScreen({
                                   <span className="text-center text-[13px] font-black text-white/30">
                                     ×
                                   </span>
-                                  <input
-                                    aria-label={t("workout.sets.weight")}
-                                    className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
-                                    data-workout-set-input="true"
-                                    inputMode="decimal"
-                                    onBlur={handleStrengthSetInputBlur}
-                                    onChange={(event) =>
-                                      updateStrengthSetWeight(
-                                        index,
-                                        event.target.value,
-                                      )
-                                    }
-                                    onFocus={() => setSetsInputFocused(true)}
-                                    placeholder={t("workout.sets.weightPlaceholder")}
-                                    value={
-                                      set.weightKg != null && set.weightKg > 0
-                                        ? String(set.weightKg)
-                                        : ""
-                                    }
-                                  />
-                                  <div className="flex items-center justify-end gap-1">
+                                  <div className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-1.5 py-1">
+                                    <select
+                                      aria-label={t("workout.sets.loadType")}
+                                      className="w-full bg-transparent text-center text-[9px] font-black uppercase text-white/55 outline-none"
+                                      onChange={(event) =>
+                                        updateStrengthSetLoadType(
+                                          index,
+                                          event.target.value as NonNullable<
+                                            LiveStrengthSet["loadType"]
+                                          >,
+                                        )
+                                      }
+                                      value={set.loadType ?? "not_provided"}
+                                    >
+                                      <option value="external">
+                                        {t("workout.sets.loadTypes.external")}
+                                      </option>
+                                      <option value="bodyweight">
+                                        {t("workout.sets.loadTypes.bodyweight")}
+                                      </option>
+                                      <option value="assisted">
+                                        {t("workout.sets.loadTypes.assisted")}
+                                      </option>
+                                      <option value="not_provided">
+                                        {t("workout.sets.loadTypes.notProvided")}
+                                      </option>
+                                    </select>
+                                    {set.loadType === "external" ||
+                                    set.loadType === "assisted" ? (
+                                      <input
+                                        aria-label={t("workout.sets.weight")}
+                                        className="mt-0.5 w-full bg-transparent py-1 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/28"
+                                        data-workout-set-input="true"
+                                        inputMode="decimal"
+                                        onBlur={handleStrengthSetInputBlur}
+                                        onChange={(event) =>
+                                          updateStrengthSetWeight(
+                                            index,
+                                            event.target.value,
+                                          )
+                                        }
+                                        onFocus={() => setSetsInputFocused(true)}
+                                        placeholder={t("workout.sets.weightPlaceholder")}
+                                        value={
+                                          set.loadType === "assisted"
+                                            ? set.assistedWeightKg != null &&
+                                              set.assistedWeightKg > 0
+                                              ? String(set.assistedWeightKg)
+                                              : ""
+                                            : set.weightKg != null &&
+                                                set.weightKg > 0
+                                              ? String(set.weightKg)
+                                              : ""
+                                        }
+                                      />
+                                    ) : (
+                                      <p className="truncate py-1 text-center text-[10px] font-black text-white/65">
+                                        {set.loadType === "bodyweight"
+                                          ? t("workout.sets.loadTypes.bodyweight")
+                                          : t("workout.sets.loadTypes.notProvided")}
+                                      </p>
+                                    )}
+                                  </div>
+                                    <div className="flex items-center justify-end gap-1">
                                     <button
                                       aria-label={
                                         setCompleted
@@ -2138,7 +2394,15 @@ export function WebWorkoutScreen({
                                     >
                                       <X size={14} strokeWidth={2.6} />
                                     </button>
+                                    </div>
                                   </div>
+                                  <WorkoutSetAdvancedFields
+                                    onPatch={(patch) =>
+                                      patchStrengthSet(index, patch)
+                                    }
+                                    set={set}
+                                    setNumber={setIndex + 1}
+                                  />
                                 </div>
                               );
                             })}
@@ -2152,6 +2416,18 @@ export function WebWorkoutScreen({
                             <Plus size={16} strokeWidth={2.8} />
                             {t("workout.sets.addToExercise")}
                           </button>
+
+                          {!group.completed ? (
+                            <button
+                              className="gc-pressable order-2 mt-2 flex h-10 w-full items-center justify-center rounded-full text-[11.5px] font-black text-white/42"
+                              onClick={() =>
+                                skipStrengthExercise(group, groupIndex)
+                              }
+                              type="button"
+                            >
+                              {t("workout.sets.skipExercise")}
+                            </button>
+                          ) : null}
 
                           <button
                             className="gc-pressable order-2 mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-35"

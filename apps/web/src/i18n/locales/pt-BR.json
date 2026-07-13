@@ -130,6 +130,18 @@
       "durationMode": "Por tempo",
       "failureMode": "Até a falha",
       "failureWeightHint": "Registre as repetições até a falha e a carga usada, se houver.",
+      "loadType": "Tipo de carga",
+      "loadTypes": {
+        "external": "Carga",
+        "bodyweight": "Peso corporal",
+        "assisted": "Assistido",
+        "notProvided": "Sem carga"
+      },
+      "advancedForSet": "Avançado · série {{number}}",
+      "restSeconds": "Descanso (s)",
+      "note": "Nota",
+      "notePlaceholder": "Execução, desconforto ou ajuste para a próxima vez",
+      "effortHint": "RPE mede esforço de 1 a 10. RIR é quantas repetições ainda sobrariam.",
       "status": "Status",
       "completeSet": "Concluir",
       "markIncomplete": "Marcar como pendente",
@@ -137,6 +149,7 @@
       "exerciseCompleted": "Exercício concluído",
       "nextExercise": "Próximo exercício",
       "previousExercise": "Anterior",
+      "skipExercise": "Pular exercício",
       "goToExercise": "Ir para o exercício {{current}}",
       "add": "Adicionar série",
       "addToExercise": "Adicionar série aqui",
@@ -148,7 +161,26 @@
       "create": "Criar treino",
       "loadError": "Não foi possível carregar seus treinos.",
       "emptyTitle": "Crie seu primeiro treino",
-      "emptyHint": "Monte um treino salvo ou comece livre agora."
+      "emptyHint": "Monte um treino salvo ou comece livre agora.",
+      "timesUsed_one": "feito {{count}} vez",
+      "timesUsed_other": "feito {{count}} vezes",
+      "averageDuration": "média {{duration}}",
+      "averageCompletion": "{{percent}}% concluído",
+      "addFavorite": "Adicionar aos favoritos",
+      "removeFavorite": "Remover dos favoritos"
+    },
+    "recommendation": {
+      "title": "Sugestão de hoje",
+      "reasons": {
+        "weekday-pattern": "Você costuma fazer este treino hoje",
+        "sequence-pattern": "É o próximo da sua sequência",
+        "favorite": "Um dos seus favoritos",
+        "frequent": "Um dos seus treinos mais feitos",
+        "well-rested": "Está há alguns dias sem fazer",
+        "no-history-favorite": "Começando pelo seu favorito",
+        "no-history-recent": "Começando pelo treino mais recente",
+        "limited-history": "Aprendendo sua rotina"
+      }
     },
     "modalities": {
       "title": "Modalidades",
@@ -222,6 +254,15 @@
       "volume": "{{value}} kg de volume",
       "duration": "{{value}} segundos no total",
       "empty": "Sem registros anteriores deste exercício."
+    },
+    "records": {
+      "newRecords": "Novos recordes",
+      "workoutRecord": "Recorde do treino",
+      "metrics": {
+        "strength_weight": "Maior carga",
+        "run_5k_time": "Melhor 5 km",
+        "run_10k_time": "Melhor 10 km"
+      }
     }
   },
   "workoutDetail": {

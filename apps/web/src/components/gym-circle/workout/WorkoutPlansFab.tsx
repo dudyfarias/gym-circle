@@ -162,7 +162,6 @@ export function WorkoutPlansFabControlled({
     error: plansError,
     refresh,
     savePlan,
-    touchPlan,
     deletePlan,
   } = plansController;
   const {
@@ -700,7 +699,6 @@ export function WorkoutPlansFabControlled({
                     disabled={plan.exercises.length === 0}
                     onClick={() => {
                       setListOpen(false);
-                      void touchPlan(plan.id).catch(() => undefined);
                       onStartPlan(plan);
                     }}
                     type="button"
