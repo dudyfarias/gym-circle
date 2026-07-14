@@ -337,6 +337,8 @@ export type WorkoutPlanExercise = {
   techniqueId?: string | null;
   techniqueName?: string | null;
   techniqueNotes?: string | null;
+  /** Default visual; séries continuam serializadas individualmente. */
+  loadType?: "external" | "bodyweight" | "assisted" | "not_provided";
 };
 
 /** Treino salvo pelo usuário (workout_plans). */
@@ -358,6 +360,16 @@ export type WorkoutPlanStats = {
   averageVolumeKg: number | null;
   maxVolumeKg: number | null;
   averageCompletionRate: number | null;
+};
+
+export type WorkoutPlanExecution = {
+  activityId: string;
+  workoutPlanId: string;
+  workoutDate: string;
+  startedAt: string | null;
+  elapsedS: number;
+  volumeKg: number;
+  completionRate: number | null;
 };
 
 export type WorkoutMuscleGroup = {
@@ -691,6 +703,13 @@ export type SocialActions = {
   publishWorkout: (input: CreateWorkoutPostInput) => void | Promise<void>;
   /** Rastreio de treino (Fase 1): fecha o treino cronometrado do web. */
   finishWebActivity?: (input: WebActivityInput) => Promise<FinishedWebActivity>;
+  updateWorkoutNotes?: (
+    activityId: string,
+    input: {
+      workoutNote?: string | null;
+      workoutExerciseContext?: WebActivityInput["workoutExerciseContext"];
+    },
+  ) => Promise<void>;
   /** Salva legenda/local/tags na ENTRADA de atividade (treino sem foto). */
   saveActivityEntry?: (
     activityId: string,

@@ -22,6 +22,14 @@ export type ExerciseHistoryActivityRow = {
         duration_seconds?: number | null;
       }>
     | null;
+  workout_exercise_context?:
+    | Array<{
+        exercise?: string | null;
+        exercise_id?: string | null;
+        exerciseId?: string | null;
+        note?: string | null;
+      }>
+    | null;
 };
 
 export type ExerciseHistorySet = {
@@ -166,6 +174,24 @@ export function buildExerciseHistory(
     }
   }
   return history;
+}
+
+/** Última nota não vazia por exercício; rows devem vir do mais recente. */
+export function buildLatestExerciseNotes(
+  rows: ExerciseHistoryActivityRow[],
+): Map<string, string> {
+  const notes = new Map<string, string>();
+  for (const row of rows) {
+    for (const context of row.workout_exercise_context ?? []) {
+      const key = exerciseHistoryKey(
+        context.exercise_id ?? context.exerciseId,
+        context.exercise,
+      );
+      const note = context.note?.trim();
+      if (key && note && !notes.has(key)) notes.set(key, note);
+    }
+  }
+  return notes;
 }
 
 /** Melhor série da sessão. Vazio quando o exercício foi apenas por duração. */

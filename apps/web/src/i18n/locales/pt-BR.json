@@ -175,6 +175,26 @@
       "addFavorite": "Adicionar aos favoritos",
       "removeFavorite": "Remover dos favoritos"
     },
+    "planDetail": {
+      "title": "Evolução do treino",
+      "open": "Detalhes",
+      "timesUsed": "Feito",
+      "lastExecution": "Última execução",
+      "averageDuration": "Duração média",
+      "averageVolume": "Volume médio",
+      "maxVolume": "Maior volume",
+      "completionRate": "Taxa de conclusão",
+      "recentExecutions": "Últimas execuções",
+      "executionCompletion": "{{percent}}% concluído",
+      "completionUnavailable": "Conclusão não disponível",
+      "empty": "Faça este treino para começar a acompanhar sua evolução.",
+      "repeat": "Repetir treino"
+    },
+    "exerciseNote": {
+      "title": "Nota do exercício",
+      "placeholder": "Execução, ajuste ou lembrete para a próxima vez",
+      "usePrevious": "Usar nota anterior"
+    },
     "recommendation": {
       "title": "Sugestão de hoje",
       "reasons": {
@@ -249,7 +269,14 @@
       "repsUnit": "reps",
       "volumeUnit": "kg de volume",
       "secondsUnit": "s",
-      "improvedIn": "Você evoluiu em: {{names}}"
+      "improvedIn": "Você evoluiu em: {{names}}",
+      "noteTitle": "Como foi o treino?",
+      "notePlaceholder": "Registre sensações, ajustes ou algo para lembrar no próximo treino.",
+      "noteHint": "A nota fica salva no histórico do treino.",
+      "noteSave": "Salvar nota",
+      "noteSaving": "Salvando…",
+      "noteSaved": "Nota salva",
+      "noteError": "Não foi possível salvar. Tente novamente."
     },
     "history": {
       "title": "Histórico do exercício",

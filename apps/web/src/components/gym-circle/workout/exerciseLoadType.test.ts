@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyExerciseLoadType,
+  inferExerciseLoadType,
   resolveExerciseLoadType,
 } from "./exerciseLoadType";
 import type { LiveStrengthSet } from "./workoutSession";
@@ -18,6 +19,39 @@ function set(
 }
 
 describe("exercise load type", () => {
+  it("infere carga externa para supino com barra", () => {
+    expect(
+      inferExerciseLoadType({
+        equipment: ["barbell", "bench"],
+        exerciseName: "Supino reto barra",
+      }),
+    ).toBe("external");
+  });
+
+  it("infere peso corporal para flexão", () => {
+    expect(
+      inferExerciseLoadType({
+        equipment: ["bodyweight"],
+        exerciseName: "Flexão",
+      }),
+    ).toBe("bodyweight");
+  });
+
+  it("prioriza assistência antes da máquina genérica", () => {
+    expect(
+      inferExerciseLoadType({
+        equipment: ["assisted pull-up machine"],
+        exerciseName: "Barra fixa no Graviton",
+      }),
+    ).toBe("assisted");
+  });
+
+  it("mantém fallback conservador para exercício desconhecido", () => {
+    expect(
+      inferExerciseLoadType({ exerciseName: "Movimento personalizado" }),
+    ).toBe("not_provided");
+  });
+
   it("usa o tipo mais frequente em sessões antigas com séries mistas", () => {
     expect(
       resolveExerciseLoadType([

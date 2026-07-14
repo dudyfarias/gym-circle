@@ -153,6 +153,13 @@ export type SupabaseSocialActions = {
   publishWorkout: (input: CreateWorkoutPostInput) => Promise<void>;
   /** Rastreio de treino (Fase 1): fecha o treino cronometrado do web. */
   finishWebActivity: (input: WebActivityInput) => Promise<FinishedWebActivity>;
+  updateWorkoutNotes: (
+    activityId: string,
+    input: {
+      workoutNote?: string | null;
+      workoutExerciseContext?: WebActivityInput["workoutExerciseContext"];
+    },
+  ) => Promise<void>;
   /** Salva legenda/local/tags na ENTRADA de atividade (treino sem foto). */
   saveActivityEntry: (
     activityId: string,

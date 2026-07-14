@@ -81,6 +81,8 @@ export type StoredWorkoutSession = {
   restTimer: RestTimerState;
   /** Série concluída à qual o descanso em andamento pertence. */
   restSetClientId: string | null;
+  workoutNote: string;
+  exerciseNotes: Record<string, string>;
   strengthSets: LiveStrengthSet[];
   completedStrengthSetIds: string[];
   routePoints: WorkoutRoutePoint[];
@@ -204,6 +206,17 @@ function readStoredStrengthSets(value: unknown): LiveStrengthSet[] {
   });
 }
 
+function readExerciseNotes(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).flatMap(([key, note]) =>
+      typeof note === "string" && note.trim()
+        ? [[key, note.slice(0, 1_000)]]
+        : [],
+    ),
+  );
+}
+
 export function readStoredWorkoutSession(userId: string): StoredWorkoutSession | null {
   if (typeof window === "undefined") return null;
   try {
@@ -268,6 +281,11 @@ export function readStoredWorkoutSession(userId: string): StoredWorkoutSession |
         validStrengthSetIds.has(parsed.restSetClientId)
           ? parsed.restSetClientId
           : null,
+      workoutNote:
+        typeof parsed.workoutNote === "string"
+          ? parsed.workoutNote.slice(0, 5_000)
+          : "",
+      exerciseNotes: readExerciseNotes(parsed.exerciseNotes),
       strengthSets,
       completedStrengthSetIds: Array.isArray(parsed.completedStrengthSetIds)
         ? Array.from(

@@ -77,6 +77,29 @@ export function activityService(client: GymCircleClient) {
       if (error) throw error;
     },
 
+    /** Atualiza notas do treino já finalizado; RLS limita ao próprio dono. */
+    async updateWorkoutNotes(
+      activityId: string,
+      patch: {
+        workoutNote?: string | null;
+        workoutExerciseContext?: unknown[];
+      },
+    ): Promise<void> {
+      const values: Record<string, unknown> = {};
+      if ("workoutNote" in patch) {
+        values.workout_note = patch.workoutNote?.trim() || null;
+      }
+      if ("workoutExerciseContext" in patch) {
+        values.workout_exercise_context = patch.workoutExerciseContext ?? [];
+      }
+      if (Object.keys(values).length === 0) return;
+      const { error } = await (client as unknown as SupabaseClient)
+        .from("activities")
+        .update(values)
+        .eq("id", activityId);
+      if (error) throw error;
+    },
+
     /** Remove uma atividade própria; o trigger recalcula dia/streak. */
     async remove(activityId: string): Promise<void> {
       const { error } = await client

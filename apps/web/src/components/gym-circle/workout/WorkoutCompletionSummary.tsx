@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Camera, Check, Share2, Trophy, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { WorkoutRouteMap } from "../design-system/WorkoutRouteMap";
@@ -13,6 +14,7 @@ import { useActivityRecordHighlights } from "./useActivityRecordHighlights";
 export type FinishedWorkoutSummary = {
   context: ComposerActivityContext;
   metrics: WorkoutSummaryMetrics;
+  workoutNote?: string;
   /** Sprint 2 — comparação com a última sessão de força (null sem histórico). */
   comparison?: WorkoutComparison | null;
 };
@@ -27,6 +29,7 @@ type WorkoutCompletionSummaryProps = {
   data: FinishedWorkoutSummary;
   onAddPhoto: () => void;
   onClose: () => void;
+  onSaveWorkoutNote?: (note: string) => Promise<void>;
   onShare: () => void;
 };
 
@@ -52,10 +55,17 @@ export function WorkoutCompletionSummary({
   data,
   onAddPhoto,
   onClose,
+  onSaveWorkoutNote,
   onShare,
 }: WorkoutCompletionSummaryProps) {
   const { i18n, t } = useTranslation();
   const { context, metrics, comparison } = data;
+  const [workoutNote, setWorkoutNote] = useState(data.workoutNote ?? "");
+  const [savedWorkoutNote, setSavedWorkoutNote] = useState(
+    data.workoutNote ?? "",
+  );
+  const [noteSaving, setNoteSaving] = useState(false);
+  const [noteError, setNoteError] = useState(false);
   const recordHighlights = useActivityRecordHighlights(context.id);
   const route = context.route?.length && context.route.length > 1 ? context.route : null;
   const comparisonDate = comparison
@@ -74,6 +84,29 @@ export function WorkoutCompletionSummary({
   const volumeLabel = metrics.totalVolumeKg.toLocaleString(i18n.language, {
     maximumFractionDigits: 1,
   });
+  const persistWorkoutNote = async () => {
+    const normalized = workoutNote.trim();
+    if (normalized === savedWorkoutNote.trim()) return true;
+    if (!onSaveWorkoutNote) {
+      setSavedWorkoutNote(normalized);
+      return true;
+    }
+    setNoteSaving(true);
+    setNoteError(false);
+    try {
+      await onSaveWorkoutNote(normalized);
+      setSavedWorkoutNote(normalized);
+      return true;
+    } catch {
+      setNoteError(true);
+      return false;
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+  const continueAfterSaving = async (action: () => void) => {
+    if (await persistWorkoutNote()) action();
+  };
 
   return (
     <div className="flex min-h-full flex-1 flex-col pb-3">
@@ -81,7 +114,7 @@ export function WorkoutCompletionSummary({
         <button
           aria-label={t("common.close")}
           className="gc-pressable grid size-10 place-items-center rounded-full bg-white/[0.07] text-white/75"
-          onClick={onClose}
+          onClick={() => void continueAfterSaving(onClose)}
           type="button"
         >
           <X size={18} strokeWidth={2.5} />
@@ -222,10 +255,46 @@ export function WorkoutCompletionSummary({
         />
       ) : null}
 
+      <section className="mt-3 rounded-[20px] border border-white/[0.06] bg-white/[0.035] p-4">
+        <label className="block">
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-white/42">
+            {t("workout.summary.noteTitle")}
+          </span>
+          <textarea
+            className="mt-2 min-h-[84px] w-full resize-none rounded-[15px] border border-white/[0.06] bg-black/20 px-3.5 py-3 text-[13px] font-semibold leading-snug text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)]/45"
+            maxLength={5000}
+            onChange={(event) => setWorkoutNote(event.target.value)}
+            placeholder={t("workout.summary.notePlaceholder")}
+            value={workoutNote}
+          />
+        </label>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <p className="text-[10.5px] font-bold text-white/34">
+            {noteError
+              ? t("workout.summary.noteError")
+              : savedWorkoutNote.trim() === workoutNote.trim()
+                ? t("workout.summary.noteSaved")
+                : t("workout.summary.noteHint")}
+          </p>
+          <button
+            className="gc-pressable shrink-0 rounded-full bg-white/[0.07] px-3.5 py-2 text-[11px] font-black text-white disabled:opacity-35"
+            disabled={
+              noteSaving || savedWorkoutNote.trim() === workoutNote.trim()
+            }
+            onClick={() => void persistWorkoutNote()}
+            type="button"
+          >
+            {noteSaving
+              ? t("workout.summary.noteSaving")
+              : t("workout.summary.noteSave")}
+          </button>
+        </div>
+      </section>
+
       <div className="mt-auto grid gap-2.5 pt-8">
         <button
           className="gc-pressable flex h-14 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[15px] font-black text-[var(--gc-brand-ink)]"
-          onClick={onShare}
+          onClick={() => void continueAfterSaving(onShare)}
           type="button"
         >
           <Share2 size={19} strokeWidth={2.6} />
@@ -233,7 +302,7 @@ export function WorkoutCompletionSummary({
         </button>
         <button
           className="gc-pressable flex h-13 items-center justify-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.055] text-[14px] font-black text-white"
-          onClick={onAddPhoto}
+          onClick={() => void continueAfterSaving(onAddPhoto)}
           type="button"
         >
           <Camera size={18} strokeWidth={2.5} />
@@ -241,7 +310,7 @@ export function WorkoutCompletionSummary({
         </button>
         <button
           className="gc-pressable py-2 text-[12px] font-black text-white/40"
-          onClick={onClose}
+          onClick={() => void continueAfterSaving(onClose)}
           type="button"
         >
           {t("workout.summary.finishLater")}

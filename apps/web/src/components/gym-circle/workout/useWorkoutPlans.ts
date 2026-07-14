@@ -39,6 +39,15 @@ type PlanHistoryRow = {
   started_at: string | null;
 };
 
+function readLoadType(value: unknown): WorkoutPlanExercise["loadType"] {
+  return value === "external" ||
+    value === "bodyweight" ||
+    value === "assisted" ||
+    value === "not_provided"
+    ? value
+    : undefined;
+}
+
 function toInt(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.round(value)
@@ -77,6 +86,7 @@ function rowToPlan(row: PlanRow, stats?: WorkoutPlanStats): WorkoutPlan {
       techniqueId: toStringOrNull(e?.technique_id ?? e?.techniqueId),
       techniqueName: toStringOrNull(e?.technique_name ?? e?.techniqueName),
       techniqueNotes: toStringOrNull(e?.technique_notes ?? e?.techniqueNotes),
+      loadType: readLoadType(e?.load_type ?? e?.loadType),
     }))
     .filter((e) => e.name.length > 0);
   return {
@@ -123,6 +133,7 @@ export function useWorkoutPlans(enabled = true) {
     }
     if (!userId) {
       setPlans([]);
+      setHistory([]);
       setError(null);
       setLoading(false);
       return;
@@ -209,6 +220,7 @@ export function useWorkoutPlans(enabled = true) {
             technique_id: e.techniqueId ?? null,
             technique_name: e.techniqueName ?? null,
             technique_notes: e.techniqueNotes ?? null,
+            load_type: e.loadType ?? null,
           }))
           .filter((e) => e.name.length > 0),
       };

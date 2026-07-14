@@ -2324,6 +2324,7 @@ export function GymCirclePreview({
                 elapsedS: input.elapsedS,
               }))
             }
+            onUpdateWorkoutNotes={social.actions.updateWorkoutNotes}
             onSessionChange={setWorkoutSessionActive}
             open={workoutOpen}
           />

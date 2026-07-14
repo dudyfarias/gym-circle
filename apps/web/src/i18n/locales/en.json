@@ -175,6 +175,26 @@
       "addFavorite": "Add to favorites",
       "removeFavorite": "Remove from favorites"
     },
+    "planDetail": {
+      "title": "Workout progress",
+      "open": "Details",
+      "timesUsed": "Completed",
+      "lastExecution": "Last workout",
+      "averageDuration": "Average duration",
+      "averageVolume": "Average volume",
+      "maxVolume": "Highest volume",
+      "completionRate": "Completion rate",
+      "recentExecutions": "Recent workouts",
+      "executionCompletion": "{{percent}}% completed",
+      "completionUnavailable": "Completion unavailable",
+      "empty": "Complete this workout to start tracking your progress.",
+      "repeat": "Repeat workout"
+    },
+    "exerciseNote": {
+      "title": "Exercise note",
+      "placeholder": "Form, adjustment, or reminder for next time",
+      "usePrevious": "Use previous note"
+    },
     "recommendation": {
       "title": "Today's suggestion",
       "reasons": {
@@ -249,7 +269,14 @@
       "repsUnit": "reps",
       "volumeUnit": "kg volume",
       "secondsUnit": "s",
-      "improvedIn": "You improved on: {{names}}"
+      "improvedIn": "You improved on: {{names}}",
+      "noteTitle": "How did the workout feel?",
+      "notePlaceholder": "Save how it felt, adjustments, or something to remember next time.",
+      "noteHint": "This note is saved to your workout history.",
+      "noteSave": "Save note",
+      "noteSaving": "Saving…",
+      "noteSaved": "Note saved",
+      "noteError": "We couldn't save it. Try again."
     },
     "history": {
       "title": "Exercise history",

@@ -2,6 +2,11 @@ import type { LiveStrengthSet } from "./workoutSession";
 
 export type ExerciseLoadType = NonNullable<LiveStrengthSet["loadType"]>;
 
+export type ExerciseLoadTypeInferenceInput = {
+  equipment?: ReadonlyArray<string> | null;
+  exerciseName?: string | null;
+};
+
 const VALID_LOAD_TYPES: ReadonlyArray<ExerciseLoadType> = [
   "external",
   "bodyweight",
@@ -15,6 +20,113 @@ function normalizeLoadType(
   return VALID_LOAD_TYPES.includes(value as ExerciseLoadType)
     ? (value as ExerciseLoadType)
     : "not_provided";
+}
+
+function searchable(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+const ASSISTED_TERMS = ["assisted", "assistida", "assistido", "graviton"];
+const BODYWEIGHT_TERMS = ["bodyweight", "peso corporal"];
+const EXTERNAL_EQUIPMENT_TERMS = [
+  "barbell",
+  "bench",
+  "cable",
+  "dumbbell",
+  "dumbbells",
+  "ez bar",
+  "free weight",
+  "halter",
+  "kettlebell",
+  "leg press",
+  "machine",
+  "maquina",
+  "plate",
+  "polia",
+  "rack",
+  "smith",
+];
+
+/**
+ * Sugere o tipo de carga inicial usando primeiro o equipamento curado do
+ * catálogo e, para exercícios legados/importados, um fallback conservador de
+ * nome. A sugestão é apenas o default da UI e continua editável pelo usuário.
+ */
+export function inferExerciseLoadType({
+  equipment,
+  exerciseName,
+}: ExerciseLoadTypeInferenceInput): ExerciseLoadType {
+  const equipmentText = (equipment ?? []).map(searchable).join(" ");
+  const normalizedName = searchable(exerciseName ?? "");
+
+  if (ASSISTED_TERMS.some((term) => equipmentText.includes(term))) {
+    return "assisted";
+  }
+  if (
+    EXTERNAL_EQUIPMENT_TERMS.some((term) => equipmentText.includes(term))
+  ) {
+    return "external";
+  }
+  if (BODYWEIGHT_TERMS.some((term) => equipmentText.includes(term))) {
+    return "bodyweight";
+  }
+
+  if (ASSISTED_TERMS.some((term) => normalizedName.includes(term))) {
+    return "assisted";
+  }
+
+  const bodyweightNameTerms = [
+    "abdominal",
+    "alongamento",
+    "barra fixa",
+    "chin-up",
+    "dip",
+    "flexao",
+    "mergulho",
+    "obliquo",
+    "plank",
+    "prancha",
+    "pull-up",
+    "push-up",
+    "sit-up",
+  ];
+  if (bodyweightNameTerms.some((term) => normalizedName.includes(term))) {
+    return "bodyweight";
+  }
+
+  const externalNameTerms = [
+    "agachamento",
+    "barra w",
+    "bench press",
+    "cadeira",
+    "crossover",
+    "curl",
+    "deadlift",
+    "desenvolvimento",
+    "extension",
+    "fly",
+    "halter",
+    "leg press",
+    "maquina",
+    "mesa flexora",
+    "polia",
+    "pulley",
+    "remada",
+    "row",
+    "rosca",
+    "shoulder press",
+    "smith",
+    "squat",
+    "supino",
+  ];
+  if (externalNameTerms.some((term) => normalizedName.includes(term))) {
+    return "external";
+  }
+
+  return "not_provided";
 }
 
 /**

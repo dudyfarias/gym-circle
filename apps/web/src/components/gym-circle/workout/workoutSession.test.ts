@@ -41,6 +41,8 @@ const base: StoredWorkoutSession = {
     endsAtMs: null,
   },
   restSetClientId: null,
+  workoutNote: "",
+  exerciseNotes: {},
   strengthSets: [],
   completedStrengthSetIds: [],
   routePoints: [],

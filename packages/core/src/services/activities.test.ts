@@ -158,6 +158,23 @@ describe("activityService.create", () => {
   });
 });
 
+describe("activityService.updateWorkoutNotes", () => {
+  it("atualiza apenas a activity filtrada e normaliza nota vazia", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+    const client = { from } as unknown as GymCircleClient;
+
+    await activityService(client).updateWorkoutNotes("activity-1", {
+      workoutNote: "  Ótimo treino  ",
+    });
+
+    expect(from).toHaveBeenCalledWith("activities");
+    expect(update).toHaveBeenCalledWith({ workout_note: "Ótimo treino" });
+    expect(eq).toHaveBeenCalledWith("id", "activity-1");
+  });
+});
+
 describe("activityService.recentForUser", () => {
   it("lista ordenado por started_at desc com limite", async () => {
     const limit = vi.fn().mockResolvedValue({ data: [baseRow], error: null });

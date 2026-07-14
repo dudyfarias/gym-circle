@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildExerciseHistory,
+  buildLatestExerciseNotes,
   buildWorkoutComparison,
   exerciseHistoryKey,
   lastPerformanceLabel,
@@ -87,6 +88,23 @@ describe("buildExerciseHistory", () => {
 
     expect(history.get("ex-duration")?.[0].totalDurationSeconds).toBe(45);
     expect(lastPerformanceLabel(history.get("ex-duration")![0])).toBe("45s");
+  });
+});
+
+describe("buildLatestExerciseNotes", () => {
+  it("preserva a nota não vazia mais recente por exercício", () => {
+    const recent = row("a2", "2026-07-10T10:00:00Z", []);
+    recent.workout_exercise_context = [
+      { exercise_id: "ex-1", exercise: "Supino", note: "Subir o banco" },
+    ];
+    const old = row("a1", "2026-07-08T10:00:00Z", []);
+    old.workout_exercise_context = [
+      { exercise_id: "ex-1", exercise: "Supino", note: "Nota antiga" },
+    ];
+
+    expect(buildLatestExerciseNotes([recent, old]).get("ex-1")).toBe(
+      "Subir o banco",
+    );
   });
 });
 

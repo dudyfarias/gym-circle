@@ -720,6 +720,18 @@ export function createSocialActions(
           elapsedS: activity.elapsedS,
         };
       },
+      async updateWorkoutNotes(
+        activityId: string,
+        input: {
+          workoutNote?: string | null;
+          workoutExerciseContext?: WebActivityInput["workoutExerciseContext"];
+        },
+      ) {
+        await services.activities.updateWorkoutNotes(activityId, {
+          workoutNote: input.workoutNote,
+          workoutExerciseContext: input.workoutExerciseContext,
+        });
+      },
       // Salva legenda/local/tags na ENTRADA de atividade (treino sem foto no
       // feed — modelo check-in↔post↔carrossel).
       async saveActivityEntry(activityId: string, input: ActivityEntryInput) {

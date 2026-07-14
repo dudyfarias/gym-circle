@@ -53,6 +53,7 @@ import { REST_TIMER_INITIAL, restTimerReducer } from "../workout/restTimer";
 import { useExerciseHistory } from "../workout/useExerciseHistory";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
+import { WorkoutPlanDetailSheet } from "../workout/WorkoutPlanDetailSheet";
 import {
   WorkoutCompletionSummary,
   type FinishedWorkoutSummary,
@@ -64,10 +65,12 @@ import {
   type WorkoutCatalogInfo,
 } from "../workout/WorkoutCatalogSheets";
 import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
+import { useWorkoutPlanExecutions } from "../workout/useWorkoutPlanExecutions";
 import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import { WorkoutSetAdvancedFields } from "../workout/WorkoutSetAdvancedFields";
 import {
   applyExerciseLoadType,
+  inferExerciseLoadType,
   resolveExerciseLoadType,
   type ExerciseLoadType,
 } from "../workout/exerciseLoadType";
@@ -111,6 +114,13 @@ type WebWorkoutScreenProps = {
   userId: string;
   onClose: () => void;
   onFinish: (input: WebActivityInput) => Promise<FinishedWebActivity>;
+  onUpdateWorkoutNotes?: (
+    activityId: string,
+    input: {
+      workoutNote?: string | null;
+      workoutExerciseContext?: WebActivityInput["workoutExerciseContext"];
+    },
+  ) => Promise<void>;
   onCompose: (activity: ComposerActivityContext) => void;
   onSessionChange?: (active: boolean) => void;
 };
@@ -212,6 +222,7 @@ export function WebWorkoutScreen({
   userId,
   onClose,
   onFinish,
+  onUpdateWorkoutNotes,
   onCompose,
   onSessionChange,
 }: WebWorkoutScreenProps) {
@@ -243,6 +254,7 @@ export function WebWorkoutScreen({
   const [historySheetKey, setHistorySheetKey] = useState<string | null>(null);
   const [historyAppliedMessage, setHistoryAppliedMessage] = useState("");
   const [renameTarget, setRenameTarget] = useState<WorkoutPlan | null>(null);
+  const [detailPlanId, setDetailPlanId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
@@ -270,6 +282,7 @@ export function WebWorkoutScreen({
     toggleFavorite,
     recommendation: workoutRecommendation,
   } = workoutPlansController;
+  const workoutPlanExecutions = useWorkoutPlanExecutions(detailPlanId);
   const suggestedWorkoutPlan = useMemo(() => {
     const id = workoutRecommendation.recommendation?.planId;
     return id
@@ -294,6 +307,9 @@ export function WebWorkoutScreen({
       })
       .slice(0, 5);
   }, [savedWorkoutPlans, workoutRecommendation.recommendation?.planId]);
+  const detailWorkoutPlan = detailPlanId
+    ? (savedWorkoutPlans.find((plan) => plan.id === detailPlanId) ?? null)
+    : null;
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
@@ -566,6 +582,8 @@ export function WebWorkoutScreen({
         restCount: 0,
         restTimer: REST_TIMER_INITIAL,
         restSetClientId: null,
+        workoutNote: "",
+        exerciseNotes: {},
         strengthSets: initialStrengthSets,
         completedStrengthSetIds: [],
         routePoints: [],
@@ -611,30 +629,39 @@ export function WebWorkoutScreen({
       // preenche reps × carga durante a sessão.
       const seeded: LiveStrengthSet[] = plan.exercises
         .flatMap((ex) => {
-        const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
-        return Array.from({ length: count }, () => {
-          const clientId = nextLiveStrengthSetId();
-          return {
-            clientId,
-            setId: clientId,
-            setStatus: "planned" as const,
-            setOrigin: "planned" as const,
-            loadType: "not_provided" as const,
-            reps: 0,
-            weightKg: null as number | null,
-            exercise: ex.name,
-            exerciseId: ex.exerciseId ?? null,
-            targetKind: ex.targetKind ?? "reps",
-            durationSeconds: null,
-            plannedReps: ex.reps ?? null,
-            plannedRepsMin: ex.reps ?? null,
-            plannedRepsMax: ex.reps ?? null,
-            plannedDurationSeconds: ex.durationSeconds ?? null,
-            techniqueId: ex.techniqueId ?? null,
-            techniqueName: ex.techniqueName ?? null,
-            techniqueNotes: ex.techniqueNotes ?? null,
-          };
-        });
+          const catalogExercise = ex.exerciseId
+            ? catalogExercises.find((item) => item.id === ex.exerciseId)
+            : null;
+          const inferredLoadType =
+            ex.loadType ??
+            inferExerciseLoadType({
+              equipment: catalogExercise?.equipment,
+              exerciseName: ex.name,
+            });
+          const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
+          return Array.from({ length: count }, () => {
+            const clientId = nextLiveStrengthSetId();
+            return {
+              clientId,
+              setId: clientId,
+              setStatus: "planned" as const,
+              setOrigin: "planned" as const,
+              loadType: inferredLoadType,
+              reps: 0,
+              weightKg: null as number | null,
+              exercise: ex.name,
+              exerciseId: ex.exerciseId ?? null,
+              targetKind: ex.targetKind ?? "reps",
+              durationSeconds: null,
+              plannedReps: ex.reps ?? null,
+              plannedRepsMin: ex.reps ?? null,
+              plannedRepsMax: ex.reps ?? null,
+              plannedDurationSeconds: ex.durationSeconds ?? null,
+              techniqueId: ex.techniqueId ?? null,
+              techniqueName: ex.techniqueName ?? null,
+              techniqueNotes: ex.techniqueNotes ?? null,
+            };
+          });
         })
         .map((set, index) => ({ ...set, setIndex: index + 1 }));
       startWorkout("strength", seeded, {
@@ -645,7 +672,7 @@ export function WebWorkoutScreen({
         startedFrom,
       });
     },
-    [startWorkout],
+    [catalogExercises, startWorkout],
   );
 
   const openRenameWorkoutPlan = useCallback((plan: WorkoutPlan) => {
@@ -753,6 +780,26 @@ export function WebWorkoutScreen({
       const completedStrengthSets = finalizedStrengthSets.filter(
         (set) => set.setStatus === "completed" || set.setStatus === "added",
       );
+      const workoutExerciseContext = Array.from(
+        new Map(
+          finalizedStrengthSets.map((set) => {
+            const key =
+              exerciseHistoryKey(set.exerciseId, set.exercise) ??
+              `name:${(
+                set.exercise?.trim() || t("workout.sets.untitledExercise")
+              ).toLocaleLowerCase()}`;
+            return [
+              key,
+              {
+                exerciseId: set.exerciseId ?? null,
+                exercise: set.exercise ?? null,
+                note: session.exerciseNotes[key]?.trim() || null,
+                targetRestS: set.targetRestS ?? null,
+              },
+            ] as const;
+          }),
+        ).values(),
+      ).filter((item) => item.note || item.targetRestS != null);
       const activity = await finishWithTimeout(
         onFinish({
           clientSessionId: session.clientSessionId,
@@ -781,6 +828,8 @@ export function WebWorkoutScreen({
             session.workoutPlan?.exercisesSnapshot ?? null,
           workoutPlanVersionSnapshot: session.workoutPlan?.version ?? null,
           workoutPlanStartedFrom: session.workoutPlan?.startedFrom ?? "free",
+          workoutNote: session.workoutNote.trim() || null,
+          workoutExerciseContext,
         }),
       );
       const context: ComposerActivityContext = {
@@ -801,6 +850,7 @@ export function WebWorkoutScreen({
       };
       setFinishedSummary({
         context,
+        workoutNote: session.workoutNote,
         metrics: buildWorkoutSummaryMetrics(
           completedStrengthSets,
           strengthSets.length,
@@ -821,6 +871,7 @@ export function WebWorkoutScreen({
       dispatchRest({ type: "reset" });
       onSessionChange?.(false);
       nativeSessionAttachedRef.current = false;
+      void refreshWorkoutPlans();
     } catch (error) {
       setFinishError(
         error instanceof Error && error.message === "workout_finish_timeout"
@@ -838,6 +889,7 @@ export function WebWorkoutScreen({
     completedStrengthSetIds,
     onFinish,
     onSessionChange,
+    refreshWorkoutPlans,
     session,
     strengthHistory.latestActivity,
     strengthSets,
@@ -1030,6 +1082,19 @@ export function WebWorkoutScreen({
       );
     },
     [],
+  );
+
+  const updateExerciseNote = useCallback(
+    (exerciseKey: string, note: string) => {
+      persistSession((current) => {
+        const exerciseNotes = { ...current.exerciseNotes };
+        const nextNote = note.slice(0, 1_000);
+        if (nextNote) exerciseNotes[exerciseKey] = nextNote;
+        else delete exerciseNotes[exerciseKey];
+        return { ...current, exerciseNotes };
+      });
+    },
+    [persistSession],
   );
 
   const patchStrengthSet = useCallback(
@@ -1484,6 +1549,18 @@ export function WebWorkoutScreen({
           onClose={() => setCatalogInfo(null)}
         />
       ) : null}
+      {detailWorkoutPlan ? (
+        <WorkoutPlanDetailSheet
+          executions={workoutPlanExecutions.executions}
+          loading={workoutPlanExecutions.loading}
+          onClose={() => setDetailPlanId(null)}
+          onRepeat={() => {
+            setDetailPlanId(null);
+            startWorkoutPlan(detailWorkoutPlan, "saved_plan");
+          }}
+          plan={detailWorkoutPlan}
+        />
+      ) : null}
       {historySheetKey ? (
         <div
           aria-label={t("workout.history.title")}
@@ -1651,6 +1728,14 @@ export function WebWorkoutScreen({
               setFinishedSummary(null);
               onClose();
             }}
+            onSaveWorkoutNote={
+              onUpdateWorkoutNotes
+                ? (note) =>
+                    onUpdateWorkoutNotes(finishedSummary.context.id, {
+                      workoutNote: note,
+                    })
+                : undefined
+            }
             onShare={() =>
               onCompose({
                 ...finishedSummary.context,
@@ -1843,19 +1928,28 @@ export function WebWorkoutScreen({
                               </button>
                             ) : null}
                           </div>
-                          <button
-                            className="gc-pressable mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[12.5px] font-black text-[var(--gc-brand-ink)]"
-                            onClick={() =>
-                              startWorkoutPlan(
-                                plan,
-                                isSuggested ? "suggested" : "saved_plan",
-                              )
-                            }
-                            type="button"
-                          >
-                            <Play fill="currentColor" size={14} />
-                            {t("workoutPlans.start")}
-                          </button>
+                          <div className="mt-3 grid grid-cols-[0.8fr_1.2fr] gap-2">
+                            <button
+                              className="gc-pressable flex h-10 items-center justify-center rounded-full bg-white/[0.07] text-[11.5px] font-black text-white/72"
+                              onClick={() => setDetailPlanId(plan.id)}
+                              type="button"
+                            >
+                              {t("workout.planDetail.open")}
+                            </button>
+                            <button
+                              className="gc-pressable flex h-10 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-[var(--gc-brand-ink)]"
+                              onClick={() =>
+                                startWorkoutPlan(
+                                  plan,
+                                  isSuggested ? "suggested" : "saved_plan",
+                                )
+                              }
+                              type="button"
+                            >
+                              <Play fill="currentColor" size={14} />
+                              {t("workoutPlans.start")}
+                            </button>
+                          </div>
                         </article>
                       );
                     })}
@@ -2073,6 +2167,12 @@ export function WebWorkoutScreen({
                           group.exerciseId,
                           group.name,
                         );
+                        const noteKey =
+                          historyKey ?? `name:${group.name.toLocaleLowerCase()}`;
+                        const previousExerciseNote = historyKey
+                          ? (strengthHistory.latestNoteByKey.get(historyKey) ??
+                            null)
+                          : null;
                         const lastEntry = historyKey
                             ? (strengthHistory.historyByKey.get(
                                 historyKey,
@@ -2262,6 +2362,42 @@ export function WebWorkoutScreen({
                               ) : null}
                             </div>
                           ) : null}
+
+                          <label className="mt-3 block rounded-[16px] border border-white/[0.055] bg-white/[0.025] px-3 py-2.5">
+                            <span className="text-[9.5px] font-black uppercase tracking-[0.11em] text-white/38">
+                              {t("workout.exerciseNote.title")}
+                            </span>
+                            <textarea
+                              className="mt-1.5 min-h-[46px] w-full resize-none bg-transparent text-[12.5px] font-semibold leading-snug text-white outline-none placeholder:text-white/28"
+                              maxLength={1000}
+                              onBlur={() => setSetsInputFocused(false)}
+                              onChange={(event) =>
+                                updateExerciseNote(noteKey, event.target.value)
+                              }
+                              onFocus={() => setSetsInputFocused(true)}
+                              placeholder={
+                                previousExerciseNote ??
+                                t("workout.exerciseNote.placeholder")
+                              }
+                              rows={2}
+                              value={session.exerciseNotes[noteKey] ?? ""}
+                            />
+                            {previousExerciseNote &&
+                            !session.exerciseNotes[noteKey] ? (
+                              <button
+                                className="gc-pressable mt-1 text-[10.5px] font-black text-[var(--gc-brand)]"
+                                onClick={() =>
+                                  updateExerciseNote(
+                                    noteKey,
+                                    previousExerciseNote,
+                                  )
+                                }
+                                type="button"
+                              >
+                                {t("workout.exerciseNote.usePrevious")}
+                              </button>
+                            ) : null}
+                          </label>
 
                           {group.targetKind === "duration" ? (
                             <p className="mt-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/35">

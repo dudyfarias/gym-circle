@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useAuth, useGymCircleClient } from "@gym-circle/core/hooks";
 import {
   buildExerciseHistory,
+  buildLatestExerciseNotes,
   type ExerciseHistoryActivityRow,
 } from "./exerciseHistory";
 
@@ -40,7 +41,9 @@ export function useExerciseHistory(enabled: boolean) {
       try {
         const { data, error: queryError } = await db
           .from("activities")
-          .select("id, started_at, ended_at, strength_sets")
+          .select(
+            "id, started_at, ended_at, strength_sets, workout_exercise_context",
+          )
           .eq("user_id", userId)
           .eq("activity_type", "strength")
           .not("strength_sets", "is", null)
@@ -79,10 +82,15 @@ export function useExerciseHistory(enabled: boolean) {
     () => buildExerciseHistory(visibleActivities),
     [visibleActivities],
   );
+  const latestNoteByKey = useMemo(
+    () => buildLatestExerciseNotes(visibleActivities),
+    [visibleActivities],
+  );
 
   return {
     activities: visibleActivities,
     historyByKey,
+    latestNoteByKey,
     /** Última sessão de força salva ANTES da atual (base da comparação). */
     latestActivity: visibleActivities[0] ?? null,
     loading: Boolean(enabled && userId && loading),
