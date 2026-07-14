@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Clock3,
   Dumbbell,
   ExternalLink,
   Info,
   Plus,
   RefreshCw,
   Search,
+  SlidersHorizontal,
+  Star,
   X,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +21,10 @@ import type {
 } from "../social/types";
 import {
   ALL_WORKOUT_GROUPS,
-  filterWorkoutCatalogExercises,
+  STANDARD_WORKOUT_EQUIPMENT_FILTERS,
+  type WorkoutCatalogAdvancedFilters,
+  type WorkoutCatalogQuickFilter,
+  rankWorkoutCatalogExercises,
   workoutCatalogEquipmentOptions,
   workoutEquipmentLabel,
 } from "./workoutCatalogFilters";
@@ -284,6 +290,9 @@ export function WorkoutExercisePicker({
   loading = false,
   error = null,
   onRetry,
+  favoriteExerciseIds = [],
+  recentExerciseIds = [],
+  onToggleFavorite,
 }: {
   muscleGroups: WorkoutMuscleGroup[];
   exercises: WorkoutExerciseCatalogItem[];
@@ -292,49 +301,218 @@ export function WorkoutExercisePicker({
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  favoriteExerciseIds?: string[];
+  recentExerciseIds?: string[];
+  onToggleFavorite?: (exerciseId: string) => void | Promise<void>;
 }) {
   const { i18n, t } = useTranslation();
-  const [group, setGroup] = useState(
-    muscleGroups[0]?.slug ?? ALL_WORKOUT_GROUPS,
-  );
+  const [group, setGroup] = useState(ALL_WORKOUT_GROUPS);
   const [query, setQuery] = useState("");
-  const [equipment, setEquipment] = useState<string | null>(null);
+  const [quickFilter, setQuickFilter] =
+    useState<WorkoutCatalogQuickFilter>("all");
+  const [filters, setFilters] = useState<WorkoutCatalogAdvancedFilters>({});
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [previewExercise, setPreviewExercise] =
     useState<WorkoutExerciseCatalogItem | null>(null);
+  const groupButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const english = i18n.language.toLowerCase().startsWith("en");
   const equipmentOptions = useMemo(
-    () => workoutCatalogEquipmentOptions(exercises, { group, query }),
+    () =>
+      Array.from(
+        new Set([
+          ...STANDARD_WORKOUT_EQUIPMENT_FILTERS,
+          ...workoutCatalogEquipmentOptions(exercises, { group, query }),
+        ]),
+      ),
     [exercises, group, query],
   );
-  const activeEquipment =
-    equipment && equipmentOptions.includes(equipment) ? equipment : null;
-  const visible = useMemo(() => {
-    return filterWorkoutCatalogExercises(exercises, {
+  const filterSource = useMemo(() => {
+    const unfilteredSections = rankWorkoutCatalogExercises(exercises, {
       group,
       query,
-      equipment: activeEquipment,
-    })
-      .sort((left, right) =>
-        localizeWorkoutExercise(left, english).name.localeCompare(
-          localizeWorkoutExercise(right, english).name,
-          english ? "en" : "pt-BR",
-        ),
-      );
-  }, [activeEquipment, english, exercises, group, query]);
+      favoriteExerciseIds,
+      recentExerciseIds,
+    });
+    const ids = new Set(
+      unfilteredSections.primary
+        .concat(unfilteredSections.secondary)
+        .map((item) => item.exercise.id),
+    );
+    return exercises.filter((exercise) => ids.has(exercise.id));
+  }, [exercises, favoriteExerciseIds, group, query, recentExerciseIds]);
+  const filterOptions = useMemo(
+    () => ({
+      loadTypes: Array.from(
+        new Set(filterSource.map((item) => item.defaultLoadType).filter(Boolean)),
+      ) as NonNullable<WorkoutExerciseCatalogItem["defaultLoadType"]>[],
+      difficulties: Array.from(
+        new Set(filterSource.map((item) => item.difficulty).filter(Boolean)),
+      ) as NonNullable<WorkoutExerciseCatalogItem["difficulty"]>[],
+      movementPatterns: Array.from(
+        new Set(filterSource.map((item) => item.movementPattern).filter(Boolean)),
+      ) as string[],
+      exerciseTypes: Array.from(
+        new Set(filterSource.map((item) => item.exerciseType).filter(Boolean)),
+      ) as NonNullable<WorkoutExerciseCatalogItem["exerciseType"]>[],
+    }),
+    [filterSource],
+  );
+  const sections = useMemo(
+    () =>
+      rankWorkoutCatalogExercises(exercises, {
+        group,
+        query,
+        quickFilter,
+        filters,
+        favoriteExerciseIds,
+        recentExerciseIds,
+        locale: english ? "en" : "pt-BR",
+      }),
+    [
+      english,
+      exercises,
+      favoriteExerciseIds,
+      filters,
+      group,
+      query,
+      quickFilter,
+      recentExerciseIds,
+    ],
+  );
+  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const visibleCount = sections.primary.length + sections.secondary.length;
+  const recentSection = useMemo(() => {
+    if (
+      group !== ALL_WORKOUT_GROUPS ||
+      query.trim() ||
+      quickFilter !== "all" ||
+      activeFilterCount > 0
+    ) {
+      return [];
+    }
+    const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
+    return recentExerciseIds
+      .map((id) => byId.get(id))
+      .filter((item): item is WorkoutExerciseCatalogItem => Boolean(item))
+      .slice(0, 5);
+  }, [
+    activeFilterCount,
+    exercises,
+    group,
+    query,
+    quickFilter,
+    recentExerciseIds,
+  ]);
+  const displayedPrimary = useMemo(() => {
+    if (recentSection.length === 0) return sections.primary;
+    const recentIds = new Set(recentSection.map((exercise) => exercise.id));
+    return sections.primary.filter((item) => !recentIds.has(item.exercise.id));
+  }, [recentSection, sections.primary]);
+
+  useEffect(() => {
+    groupButtonRefs.current.get(group)?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    });
+  }, [group]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !previewExercise) onClose();
+      if (event.key !== "Escape") return;
+      if (previewExercise) setPreviewExercise(null);
+      else if (filtersOpen) setFiltersOpen(false);
+      else onClose();
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, previewExercise]);
+  }, [filtersOpen, onClose, previewExercise]);
 
   const allLabel = t("workoutCatalog.allGroups");
-  const equipmentTitle = t("workoutCatalog.equipment");
-  const allEquipmentLabel = t("workoutCatalog.allEquipment");
   const communityLabel = t("workoutCatalog.community");
   const loadErrorLabel = t("workoutCatalog.loadError");
+
+  function filterValueLabel(kind: string, value: string) {
+    if (kind === "loadType") return t(`workoutCatalog.loadTypes.${value}`);
+    if (kind === "difficulty")
+      return t(`workoutCatalog.difficulties.${value}`);
+    if (kind === "exerciseType")
+      return t(`workoutCatalog.exerciseTypes.${value}`);
+    return workoutMovementPatternLabel(value, english);
+  }
+
+  function exerciseRow(
+    exercise: WorkoutExerciseCatalogItem,
+    options?: { compact?: boolean },
+  ) {
+    const localized = localizeWorkoutExercise(exercise, english);
+    const favorite = favoriteExerciseIds.includes(exercise.id);
+    const equipment =
+      exercise.primaryEquipment ?? exercise.compatibleEquipments[0] ?? null;
+    return (
+      <article
+        className={[
+          "flex items-center gap-2 rounded-[16px] bg-white/[0.045] px-3 transition-colors duration-200 hover:bg-white/[0.07]",
+          options?.compact ? "min-w-[260px] py-2" : "py-2.5",
+        ].join(" ")}
+        key={exercise.id}
+      >
+        <button
+          className="gc-pressable flex min-w-0 flex-1 items-center gap-3 text-left"
+          onClick={() => setPreviewExercise(exercise)}
+          type="button"
+        >
+          <span className="grid size-9 shrink-0 place-items-center rounded-[11px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+            <Dumbbell size={16} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-black text-white">
+              {localized.name}
+            </span>
+            <span className="mt-0.5 line-clamp-1 block text-[10.5px] font-semibold text-white/38">
+              {localized.description}
+            </span>
+            {equipment ? (
+              <span className="mt-0.5 block truncate text-[9.5px] font-black uppercase tracking-[0.06em] text-[var(--gc-brand)]/70">
+                {workoutEquipmentLabel(equipment, english)}
+              </span>
+            ) : null}
+            {exercise.status === "community" ? (
+              <span className="mt-1 inline-flex rounded-full bg-[var(--gc-blue)]/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-[0.08em] text-[var(--gc-blue)]">
+                {communityLabel}
+              </span>
+            ) : null}
+          </span>
+        </button>
+        {onToggleFavorite ? (
+          <button
+            aria-label={
+              favorite
+                ? t("workoutCatalog.removeFavorite")
+                : t("workoutCatalog.addFavorite")
+            }
+            aria-pressed={favorite}
+            className="gc-pressable grid size-9 shrink-0 place-items-center rounded-full text-white/42"
+            onClick={() => void onToggleFavorite(exercise.id)}
+            type="button"
+          >
+            <Star
+              className={favorite ? "fill-[var(--gc-brand)] text-[var(--gc-brand)]" : ""}
+              size={16}
+            />
+          </button>
+        ) : null}
+        <button
+          aria-label={`${t("workoutCatalog.addToWorkout")}: ${localized.name}`}
+          className="gc-pressable grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-black"
+          onClick={() => onSelect(exercise)}
+          type="button"
+        >
+          <Plus size={18} strokeWidth={3} />
+        </button>
+      </article>
+    );
+  }
 
   return (
     <>
@@ -344,13 +522,13 @@ export function WorkoutExercisePicker({
         className="fixed inset-0 z-[108] flex justify-center overflow-y-auto bg-black/94 backdrop-blur-md"
         role="dialog"
       >
-        <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+14px)]">
+        <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+12px)]">
         <header className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[19px] font-black text-white">
               {t("workoutCatalog.chooseExercise")}
             </p>
-            <p className="mt-0.5 text-[11.5px] font-bold text-white/40">
+            <p className="mt-0.5 text-[11px] font-bold text-white/40">
               {t("workoutCatalog.chooseMuscle")}
             </p>
           </div>
@@ -364,14 +542,17 @@ export function WorkoutExercisePicker({
           </button>
         </header>
 
-        <p className="mt-5 text-[10px] font-black uppercase tracking-[0.14em] text-white/38">
-          {t("workoutCatalog.muscleGroup")}
-        </p>
-        <div className="gc-scrollbar -mx-5 mt-2 flex min-h-11 shrink-0 items-center gap-2 overflow-x-auto px-5 py-1">
+        <div className="relative -mx-5 mt-3">
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-7 bg-gradient-to-r from-black to-transparent" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-7 bg-gradient-to-l from-black to-transparent" />
+          <div className="gc-scrollbar flex min-h-9 shrink-0 items-center gap-1.5 overflow-x-auto px-5 py-1">
           <button
             aria-pressed={group === ALL_WORKOUT_GROUPS}
+            ref={(node) => {
+              if (node) groupButtonRefs.current.set(ALL_WORKOUT_GROUPS, node);
+            }}
             className={[
-              "gc-pressable inline-flex h-11 shrink-0 items-center justify-center rounded-full px-4 text-[12px] font-black leading-none",
+              "gc-pressable inline-flex h-9 shrink-0 items-center justify-center rounded-full px-3.5 text-[11px] font-black leading-none transition-colors duration-200",
               group === ALL_WORKOUT_GROUPS
                 ? "bg-[var(--gc-brand)] text-black"
                 : "bg-white/[0.06] text-white/55",
@@ -384,8 +565,11 @@ export function WorkoutExercisePicker({
           {muscleGroups.map((item) => (
             <button
               aria-pressed={item.slug === group}
+              ref={(node) => {
+                if (node) groupButtonRefs.current.set(item.slug, node);
+              }}
               className={[
-                "gc-pressable inline-flex h-11 shrink-0 items-center justify-center rounded-full px-4 text-[12px] font-black leading-none",
+                "gc-pressable inline-flex h-9 shrink-0 items-center justify-center rounded-full px-3.5 text-[11px] font-black leading-none transition-colors duration-200",
                 item.slug === group
                   ? "bg-[var(--gc-brand)] text-black"
                   : "bg-white/[0.06] text-white/55",
@@ -397,57 +581,54 @@ export function WorkoutExercisePicker({
               {english ? item.nameEn : item.namePt}
             </button>
           ))}
+          </div>
         </div>
 
-        <label className="mt-4 flex shrink-0 items-center gap-2 rounded-[15px] bg-white/[0.06] px-3.5">
+        <label className="mt-3 flex shrink-0 items-center gap-2 rounded-[14px] bg-white/[0.06] px-3.5">
           <Search className="text-white/35" size={17} />
           <input
             aria-label={t("workoutCatalog.search")}
-            className="min-w-0 flex-1 bg-transparent py-3 text-[14px] font-semibold text-white outline-none placeholder:text-white/30"
+            className="min-w-0 flex-1 bg-transparent py-2.5 text-[14px] font-semibold text-white outline-none placeholder:text-white/30"
             onChange={(event) => setQuery(event.target.value)}
             placeholder={t("workoutCatalog.search")}
             value={query}
           />
         </label>
 
-        {equipmentOptions.length > 0 ? (
-          <div className="mt-4">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/38">
-              {equipmentTitle}
-            </p>
-            <div className="gc-scrollbar -mx-5 mt-2 flex min-h-11 items-center gap-2 overflow-x-auto px-5">
-              <button
-                aria-pressed={activeEquipment === null}
-                className={[
-                  "gc-pressable h-11 shrink-0 rounded-full px-4 text-[11px] font-black",
-                  activeEquipment === null
-                    ? "bg-white text-black"
-                    : "bg-white/[0.06] text-white/50",
-                ].join(" ")}
-                onClick={() => setEquipment(null)}
-                type="button"
-              >
-                {allEquipmentLabel}
-              </button>
-              {equipmentOptions.map((item) => (
-                <button
-                  aria-pressed={activeEquipment === item}
-                  className={[
-                    "gc-pressable h-11 shrink-0 rounded-full px-4 text-[11px] font-black",
-                    activeEquipment === item
-                      ? "bg-white text-black"
-                      : "bg-white/[0.06] text-white/50",
-                  ].join(" ")}
-                  key={item}
-                  onClick={() => setEquipment(item)}
-                  type="button"
-                >
-                  {workoutEquipmentLabel(item, english)}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
+        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto">
+          {(["all", "recent", "favorites"] as const).map((item) => (
+            <button
+              aria-pressed={quickFilter === item}
+              className={[
+                "gc-pressable inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[10.5px] font-black",
+                quickFilter === item
+                  ? "bg-white text-black"
+                  : "bg-white/[0.055] text-white/48",
+              ].join(" ")}
+              key={item}
+              onClick={() => setQuickFilter(item)}
+              type="button"
+            >
+              {item === "recent" ? <Clock3 size={13} /> : null}
+              {item === "favorites" ? <Star size={13} /> : null}
+              {t(`workoutCatalog.quickFilters.${item}`)}
+            </button>
+          ))}
+          <button
+            className={[
+              "gc-pressable ml-auto inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-[10.5px] font-black",
+              activeFilterCount > 0
+                ? "bg-[var(--gc-brand)] text-black"
+                : "bg-white/[0.055] text-white/55",
+            ].join(" ")}
+            onClick={() => setFiltersOpen(true)}
+            type="button"
+          >
+            <SlidersHorizontal size={14} />
+            {t("workoutCatalog.filters")}
+            {activeFilterCount > 0 ? ` · ${activeFilterCount}` : ""}
+          </button>
+        </div>
 
         {error ? (
           <div className="mt-4 rounded-[17px] border border-[var(--gc-pink)]/12 bg-[var(--gc-pink)]/[0.045] p-3 text-center">
@@ -467,84 +648,55 @@ export function WorkoutExercisePicker({
           </div>
         ) : null}
 
-        <div className="mt-4 grid gap-2">
+        <div className="mt-3 grid gap-2">
           {loading && exercises.length === 0
             ? Array.from({ length: 5 }, (_, index) => (
                 <div
                   aria-hidden="true"
-                  className="h-[88px] animate-pulse rounded-[18px] bg-white/[0.045]"
+                  className="h-[68px] animate-pulse rounded-[16px] bg-white/[0.045]"
                   key={index}
                 />
               ))
-            : visible.map((exercise) => {
-                const localized = localizeWorkoutExercise(exercise, english);
-                return (
-                  <button
-                    className="gc-pressable flex items-center gap-3 rounded-[18px] bg-white/[0.045] px-4 py-3.5 text-left"
-                    key={exercise.id}
-                    onClick={() => setPreviewExercise(exercise)}
-                    type="button"
-                  >
-                    <span className="grid size-9 shrink-0 place-items-center rounded-[12px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-                      <Dumbbell size={17} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[13.5px] font-black text-white">
-                        {localized.name}
-                      </span>
-                      {localized.usesOriginalName ? (
-                        <span className="mt-1 inline-flex rounded-full bg-white/[0.06] px-2 py-0.5 text-[8.5px] font-black uppercase tracking-[0.08em] text-white/35">
-                          {t("workoutCatalog.originalName")}
-                        </span>
-                      ) : null}
-                      {exercise.status === "community" ? (
-                        <span className="mt-1 inline-flex rounded-full bg-[var(--gc-blue)]/10 px-2 py-0.5 text-[8.5px] font-black uppercase tracking-[0.08em] text-[var(--gc-blue)]">
-                          {communityLabel}
-                        </span>
-                      ) : null}
-                      <span className="mt-0.5 line-clamp-1 block text-[10.5px] font-semibold text-white/38">
-                        {localized.description}
-                      </span>
-                      {exercise.variations.length > 0 ? (
-                        <span className="mt-2 flex flex-wrap gap-1.5">
-                          {exercise.variations.length > 0 &&
-                          exercise.movementPattern ? (
-                            <span className="rounded-full bg-[var(--gc-brand)]/10 px-2 py-0.5 text-[9px] font-black text-[var(--gc-brand)]">
-                              {workoutMovementPatternLabel(
-                                exercise.movementPattern,
-                                english,
-                              )}
-                            </span>
-                          ) : null}
-                          {exercise.variations.length > 0 ? (
-                            <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9px] font-black text-white/42">
-                              {t("workoutCatalog.variationCount", {
-                                count: exercise.variations.length,
-                              })}
-                            </span>
-                          ) : null}
-                        </span>
-                      ) : null}
-                      {exercise.equipment.length > 0 ? (
-                        <span className="mt-2 flex flex-wrap gap-1.5">
-                          {exercise.equipment.slice(0, 3).map((item) => (
-                            <span
-                              className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[9.5px] font-black uppercase tracking-[0.04em] text-white/42"
-                              key={item}
-                            >
-                              {workoutEquipmentLabel(item, english)}
-                            </span>
-                          ))}
-                        </span>
-                      ) : null}
-                    </span>
-                    <Plus className="text-[var(--gc-brand)]" size={18} />
-                  </button>
-                );
-              })}
-          {!loading && !error && visible.length === 0 ? (
+            : null}
+          {!loading && recentSection.length > 0 ? (
+            <section className="mb-1">
+              <p className="mb-2 text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
+                {t("workoutCatalog.usedRecently")}
+              </p>
+              <div className="gc-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
+                {recentSection.map((exercise) =>
+                  exerciseRow(exercise, { compact: true }),
+                )}
+              </div>
+            </section>
+          ) : null}
+          {!loading && displayedPrimary.length > 0 ? (
+            <section className="grid gap-2">
+              <p className="mt-1 text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
+                {query.trim()
+                  ? t("workoutCatalog.results")
+                  : group === ALL_WORKOUT_GROUPS
+                    ? t("workoutCatalog.exercises")
+                    : t("workoutCatalog.primaryFocus")}
+              </p>
+              {displayedPrimary.map((item) => exerciseRow(item.exercise))}
+            </section>
+          ) : null}
+          {!loading && sections.secondary.length > 0 ? (
+            <section className="mt-3 grid gap-2 border-t border-white/[0.07] pt-4">
+              <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
+                {t("workoutCatalog.alsoWorks")}
+              </p>
+              {sections.secondary.map((item) => exerciseRow(item.exercise))}
+            </section>
+          ) : null}
+          {!loading && !error && visibleCount === 0 ? (
             <p className="py-12 text-center text-[13px] font-semibold text-white/42">
-              {t("workoutCatalog.emptyGroup")}
+              {quickFilter === "favorites"
+                ? t("workoutCatalog.emptyFavorites")
+                : quickFilter === "recent"
+                  ? t("workoutCatalog.emptyRecent")
+                  : t("workoutCatalog.emptyGroup")}
             </p>
           ) : null}
           </div>
@@ -569,6 +721,122 @@ export function WorkoutExercisePicker({
             onClick: () => onSelect(previewExercise),
           }}
         />
+      ) : null}
+      {filtersOpen ? (
+        <div
+          aria-label={t("workoutCatalog.filters")}
+          aria-modal="true"
+          className="fixed inset-0 z-[120] flex items-end justify-center bg-black/72 backdrop-blur-sm"
+          role="dialog"
+        >
+          <button
+            aria-label={t("common.close")}
+            className="absolute inset-0 cursor-default"
+            onClick={() => setFiltersOpen(false)}
+            type="button"
+          />
+          <div className="relative max-h-[82dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[28px] border-t border-white/[0.08] bg-[#0b0d0e] px-5 pb-[calc(var(--gc-safe-bottom)+18px)] pt-4 shadow-2xl">
+            <header className="flex items-center justify-between">
+              <div>
+                <p className="text-[17px] font-black text-white">
+                  {t("workoutCatalog.filters")}
+                </p>
+                <p className="text-[10.5px] font-semibold text-white/38">
+                  {t("workoutCatalog.filtersHint")}
+                </p>
+              </div>
+              <button
+                aria-label={t("common.close")}
+                className="gc-pressable grid size-10 place-items-center rounded-full bg-white/[0.06] text-white/55"
+                onClick={() => setFiltersOpen(false)}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </header>
+
+            {[
+              {
+                key: "equipment" as const,
+                label: t("workoutCatalog.equipment"),
+                options: equipmentOptions,
+              },
+              {
+                key: "loadType" as const,
+                label: t("workoutCatalog.loadType"),
+                options: filterOptions.loadTypes,
+              },
+              {
+                key: "difficulty" as const,
+                label: t("workoutCatalog.difficulty"),
+                options: filterOptions.difficulties,
+              },
+              {
+                key: "movementPattern" as const,
+                label: t("workoutCatalog.movement"),
+                options: filterOptions.movementPatterns,
+              },
+              {
+                key: "exerciseType" as const,
+                label: t("workoutCatalog.exerciseType"),
+                options: filterOptions.exerciseTypes,
+              },
+            ].map((section) =>
+              section.options.length > 0 ? (
+                <section className="mt-5" key={section.key}>
+                  <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-white/38">
+                    {section.label}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {section.options.map((value) => {
+                      const active = filters[section.key] === value;
+                      return (
+                        <button
+                          aria-pressed={active}
+                          className={[
+                            "gc-pressable min-h-9 rounded-full px-3 text-[10.5px] font-black",
+                            active
+                              ? "bg-[var(--gc-brand)] text-black"
+                              : "bg-white/[0.06] text-white/50",
+                          ].join(" ")}
+                          key={value}
+                          onClick={() =>
+                            setFilters((current) => ({
+                              ...current,
+                              [section.key]: active ? null : value,
+                            }))
+                          }
+                          type="button"
+                        >
+                          {section.key === "equipment"
+                            ? workoutEquipmentLabel(value, english)
+                            : filterValueLabel(section.key, value)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null,
+            )}
+
+            <div className="sticky bottom-0 mt-6 grid grid-cols-2 gap-2 bg-[#0b0d0e] pt-2">
+              <button
+                className="gc-pressable h-12 rounded-full bg-white/[0.06] text-[12px] font-black text-white/60"
+                onClick={() => setFilters({})}
+                type="button"
+              >
+                {t("workoutCatalog.clearFilters")}
+              </button>
+              <button
+                className="gc-pressable h-12 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-black"
+                onClick={() => setFiltersOpen(false)}
+                type="button"
+              >
+                {t("workoutCatalog.showResults", { count: visibleCount })}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </>
   );

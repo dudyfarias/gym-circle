@@ -23,18 +23,41 @@ type ExerciseRow = {
   name_pt: string;
   name_en: string;
   aliases: string[] | null;
+  aliases_pt?: string[] | null;
+  aliases_en?: string[] | null;
   primary_muscle_group_slug: string;
   secondary_muscle_group_slugs: string[] | null;
   equipment: string[] | null;
+  primary_equipment?: string | null;
+  compatible_equipments?: string[] | null;
+  required_equipment?: string[] | null;
+  optional_equipment?: string[] | null;
   description_pt: string;
   description_en: string;
   instructions_pt: string[] | null;
   instructions_en: string[] | null;
+  execution_steps_pt?: string[] | null;
+  execution_steps_en?: string[] | null;
+  common_mistakes_pt?: string[] | null;
+  common_mistakes_en?: string[] | null;
   video_url: string | null;
   video_search_query: string | null;
   status: "approved" | "community";
   parent_exercise_id?: string | null;
   movement_pattern?: string | null;
+  exercise_type?: WorkoutExerciseCatalogItem["exerciseType"];
+  default_load_type?: WorkoutExerciseCatalogItem["defaultLoadType"];
+  difficulty?: WorkoutExerciseCatalogItem["difficulty"];
+  exercise_priority_score?: number | null;
+  review_status?: WorkoutExerciseCatalogItem["reviewStatus"];
+  default_rest_s?: number | null;
+  default_rpe?: number | null;
+  default_target_kind?: WorkoutExerciseCatalogItem["defaultTargetKind"];
+  default_reps?: number | null;
+  default_duration_s?: number | null;
+  default_distance_m?: number | null;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
 };
 
 type TechniqueRow = {
@@ -64,6 +87,20 @@ export function isMissingWorkoutVariationColumns(error: {
   );
 }
 
+export function isMissingWorkoutCatalogIntelligenceColumns(error: {
+  code?: string;
+  message?: string;
+} | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    /primary_equipment|compatible_equipments|exercise_type|default_load_type|review_status|exercise_priority_score/i.test(
+      error.message ?? "",
+    )
+  );
+}
+
 function mapMuscleGroup(row: MuscleGroupRow): WorkoutMuscleGroup {
   return {
     slug: row.slug,
@@ -75,22 +112,73 @@ function mapMuscleGroup(row: MuscleGroupRow): WorkoutMuscleGroup {
 }
 
 function mapExercise(row: ExerciseRow): WorkoutExerciseCatalogItem {
+  const equipment = row.equipment ?? [];
+  const aliasesPt = row.aliases_pt ?? [];
+  const aliasesEn = row.aliases_en ?? [];
+  const aliases = Array.from(
+    new Set([...(row.aliases ?? []), ...aliasesPt, ...aliasesEn]),
+  );
+  const normalizedEquipment = equipment.map((item) =>
+    item
+      .trim()
+      .toLowerCase()
+      .replace(/dumbbells$/, "dumbbell")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, ""),
+  );
+  const fallbackLoadType = equipment.includes("assisted pull-up machine")
+    ? "assisted"
+    : equipment[0] === "bodyweight"
+      ? "bodyweight"
+      : equipment.length > 0
+        ? "external"
+        : "not_provided";
   return {
     id: row.id,
     slug: row.slug,
     namePt: row.name_pt,
     nameEn: row.name_en,
-    aliases: row.aliases ?? [],
+    aliases,
+    aliasesPt,
+    aliasesEn,
     primaryMuscleGroupSlug: row.primary_muscle_group_slug,
     secondaryMuscleGroupSlugs: row.secondary_muscle_group_slugs ?? [],
-    equipment: row.equipment ?? [],
+    equipment,
+    primaryEquipment: row.primary_equipment ?? normalizedEquipment[0] ?? null,
+    compatibleEquipments:
+      row.compatible_equipments ?? normalizedEquipment,
+    requiredEquipment: row.required_equipment ?? [],
+    optionalEquipment: row.optional_equipment ?? [],
     descriptionPt: row.description_pt,
     descriptionEn: row.description_en,
-    instructionsPt: row.instructions_pt ?? [],
-    instructionsEn: row.instructions_en ?? [],
+    instructionsPt:
+      row.execution_steps_pt && row.execution_steps_pt.length > 0
+        ? row.execution_steps_pt
+        : (row.instructions_pt ?? []),
+    instructionsEn:
+      row.execution_steps_en && row.execution_steps_en.length > 0
+        ? row.execution_steps_en
+        : (row.instructions_en ?? []),
+    commonMistakesPt: row.common_mistakes_pt ?? [],
+    commonMistakesEn: row.common_mistakes_en ?? [],
     videoUrl: row.video_url,
     videoSearchQuery: row.video_search_query,
     status: row.status,
+    reviewStatus:
+      row.review_status ??
+      (row.status === "approved" ? "approved" : "needs_review"),
+    exerciseType: row.exercise_type ?? null,
+    defaultLoadType: row.default_load_type ?? fallbackLoadType,
+    difficulty: row.difficulty ?? null,
+    exercisePriorityScore: row.exercise_priority_score ?? 50,
+    defaultRestS: row.default_rest_s ?? null,
+    defaultRpe: row.default_rpe ?? null,
+    defaultTargetKind: row.default_target_kind ?? null,
+    defaultReps: row.default_reps ?? null,
+    defaultDurationS: row.default_duration_s ?? null,
+    defaultDistanceM: row.default_distance_m ?? null,
+    reviewedBy: row.reviewed_by ?? null,
+    reviewedAt: row.reviewed_at ?? null,
     parentExerciseId: row.parent_exercise_id ?? null,
     movementPattern: row.movement_pattern ?? null,
     variations: [],
@@ -207,12 +295,15 @@ function fuzzyCatalogMatch<T>(
 export function useWorkoutCatalog() {
   const client = useGymCircleClient();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const db = client as unknown as SupabaseClient;
   const [muscleGroups, setMuscleGroups] = useState<WorkoutMuscleGroup[]>([]);
   const [exercises, setExercises] = useState<WorkoutExerciseCatalogItem[]>([]);
   const [techniques, setTechniques] = useState<WorkoutTechniqueCatalogItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [favoriteExerciseIds, setFavoriteExerciseIds] = useState<string[]>([]);
+  const [recentExerciseIds, setRecentExerciseIds] = useState<string[]>([]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -227,8 +318,9 @@ export function useWorkoutCatalog() {
         db
           .from("workout_exercise_catalog")
           .select(
-            "id, slug, name_pt, name_en, aliases, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, description_pt, description_en, instructions_pt, instructions_en, video_url, video_search_query, status, parent_exercise_id, movement_pattern",
+            "id, slug, name_pt, name_en, aliases, aliases_pt, aliases_en, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, primary_equipment, compatible_equipments, required_equipment, optional_equipment, description_pt, description_en, instructions_pt, instructions_en, execution_steps_pt, execution_steps_en, common_mistakes_pt, common_mistakes_en, video_url, video_search_query, status, review_status, reviewed_by, reviewed_at, parent_exercise_id, movement_pattern, exercise_type, default_load_type, difficulty, exercise_priority_score, default_rest_s, default_rpe, default_target_kind, default_reps, default_duration_s, default_distance_m",
           )
+          .in("review_status", ["approved", "needs_review"])
           .order("name_pt", { ascending: true }),
         db
           .from("workout_technique_catalog")
@@ -239,7 +331,10 @@ export function useWorkoutCatalog() {
       ]);
       const exercisesResult =
         initialExercisesResult.error &&
-        isMissingWorkoutVariationColumns(initialExercisesResult.error)
+        (isMissingWorkoutVariationColumns(initialExercisesResult.error) ||
+          isMissingWorkoutCatalogIntelligenceColumns(
+            initialExercisesResult.error,
+          ))
           ? await db
               .from("workout_exercise_catalog")
               .select(
@@ -275,6 +370,97 @@ export function useWorkoutCatalog() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!userId) {
+      // The async branch below owns normal updates. Clearing here prevents
+      // preferences from one account appearing after logout/account switch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFavoriteExerciseIds([]);
+      setRecentExerciseIds([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const [preferencesResult, activitiesResult] = await Promise.all([
+        db
+          .from("user_workout_exercise_preferences")
+          .select("exercise_id")
+          .eq("user_id", userId)
+          .eq("is_favorite", true)
+          .order("updated_at", { ascending: false }),
+        db
+          .from("activities")
+          .select("strength_sets")
+          .eq("user_id", userId)
+          .eq("activity_type", "strength")
+          .not("strength_sets", "is", null)
+          .order("started_at", { ascending: false })
+          .limit(30),
+      ]);
+      if (cancelled) return;
+      // Missing preference table is expected until this sprint's migration is
+      // applied. Catalog browsing and recents keep working through the fallback.
+      setFavoriteExerciseIds(
+        preferencesResult.error
+          ? []
+          : (preferencesResult.data ?? []).map(
+              (row) => (row as { exercise_id: string }).exercise_id,
+            ),
+      );
+      const recent: string[] = [];
+      for (const row of activitiesResult.data ?? []) {
+        const sets = Array.isArray(row.strength_sets) ? row.strength_sets : [];
+        for (const value of sets) {
+          if (!value || typeof value !== "object") continue;
+          const exerciseId = (value as { exercise_id?: unknown }).exercise_id;
+          if (
+            typeof exerciseId === "string" &&
+            exerciseId.length > 0 &&
+            !recent.includes(exerciseId)
+          ) {
+            recent.push(exerciseId);
+          }
+        }
+      }
+      setRecentExerciseIds(recent);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, userId]);
+
+  const toggleFavoriteExercise = useCallback(
+    async (exerciseId: string) => {
+      if (!userId) return;
+      const wasFavorite = favoriteExerciseIds.includes(exerciseId);
+      setFavoriteExerciseIds((current) =>
+        wasFavorite
+          ? current.filter((id) => id !== exerciseId)
+          : [exerciseId, ...current.filter((id) => id !== exerciseId)],
+      );
+      const { error: preferenceError } = await db
+        .from("user_workout_exercise_preferences")
+        .upsert(
+          {
+            user_id: userId,
+            exercise_id: exerciseId,
+            is_favorite: !wasFavorite,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id,exercise_id" },
+        );
+      if (preferenceError) {
+        setFavoriteExerciseIds((current) =>
+          wasFavorite
+            ? [exerciseId, ...current.filter((id) => id !== exerciseId)]
+            : current.filter((id) => id !== exerciseId),
+        );
+        return;
+      }
+    },
+    [db, favoriteExerciseIds, userId],
+  );
 
   const exerciseLookup = useMemo(() => {
     const lookup = new Map<string, WorkoutExerciseCatalogItem>();
@@ -392,5 +578,8 @@ export function useWorkoutCatalog() {
     findTechnique,
     submitExercise,
     submitTechnique,
+    favoriteExerciseIds,
+    recentExerciseIds,
+    toggleFavoriteExercise,
   };
 }

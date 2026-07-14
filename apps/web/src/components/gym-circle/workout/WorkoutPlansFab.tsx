@@ -182,6 +182,9 @@ export function WorkoutPlansFabControlled({
     findTechnique,
     submitExercise,
     submitTechnique,
+    favoriteExerciseIds,
+    recentExerciseIds,
+    toggleFavoriteExercise,
   } = catalog;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handledCreateRequestKeyRef = useRef(createRequestKey);
@@ -430,19 +433,25 @@ export function WorkoutPlansFabControlled({
         <WorkoutExercisePicker
           error={catalogError}
           exercises={catalogExercises}
+          favoriteExerciseIds={favoriteExerciseIds}
           loading={catalogLoading}
           muscleGroups={muscleGroups}
           onClose={() => setCatalogPickerOpen(false)}
           onRetry={() => void refreshCatalog()}
+          onToggleFavorite={(exerciseId) =>
+            void toggleFavoriteExercise(exerciseId)
+          }
           onSelect={(exercise) => {
             const draft: DraftExercise = {
               ...emptyExercise(),
               name: english ? exercise.nameEn : exercise.namePt,
               exerciseId: exercise.id,
-              loadType: inferExerciseLoadType({
-                equipment: exercise.equipment,
-                exerciseName: english ? exercise.nameEn : exercise.namePt,
-              }),
+              loadType:
+                exercise.defaultLoadType ??
+                inferExerciseLoadType({
+                  equipment: exercise.equipment,
+                  exerciseName: english ? exercise.nameEn : exercise.namePt,
+                }),
               muscleGroupSlug: exercise.primaryMuscleGroupSlug,
             };
             setEditing((current) => {
@@ -459,6 +468,7 @@ export function WorkoutPlansFabControlled({
             });
             setCatalogPickerOpen(false);
           }}
+          recentExerciseIds={recentExerciseIds}
         />
       ) : null}
 

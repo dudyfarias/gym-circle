@@ -372,6 +372,46 @@
     "allGroups": "All",
     "equipment": "Equipment",
     "allEquipment": "All equipment",
+    "filters": "Filters",
+    "filtersHint": "Refine the list without taking up space.",
+    "clearFilters": "Clear",
+    "showResults": "Show {{count}}",
+    "loadType": "Load type",
+    "difficulty": "Difficulty",
+    "movement": "Movement",
+    "exerciseType": "Exercise type",
+    "primaryFocus": "Primary focus",
+    "alsoWorks": "Also works",
+    "usedRecently": "Recently used",
+    "results": "Results",
+    "exercises": "Exercises",
+    "addFavorite": "Favorite exercise",
+    "removeFavorite": "Remove from favorites",
+    "emptyFavorites": "Favorite exercises to find them here.",
+    "emptyRecent": "Your recent exercises will appear here.",
+    "quickFilters": {
+      "all": "All",
+      "recent": "Recent",
+      "favorites": "Favorites"
+    },
+    "loadTypes": {
+      "external": "External load",
+      "bodyweight": "Bodyweight",
+      "assisted": "Assisted",
+      "not_provided": "No load"
+    },
+    "difficulties": {
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced"
+    },
+    "exerciseTypes": {
+      "compound": "Compound",
+      "isolation": "Isolation",
+      "conditioning": "Conditioning",
+      "mobility": "Mobility",
+      "warmup": "Warm-up"
+    },
     "community": "Community",
     "originalName": "Original name",
     "original": "Original",

@@ -386,16 +386,50 @@ export type WorkoutExerciseCatalogItem = {
   namePt: string;
   nameEn: string;
   aliases: string[];
+  aliasesPt: string[];
+  aliasesEn: string[];
   primaryMuscleGroupSlug: string;
   secondaryMuscleGroupSlugs: string[];
   equipment: string[];
+  /** Canonical equipment slug used by ranking and compact picker cards. */
+  primaryEquipment: string | null;
+  /** Canonical equipment slugs; legacy `equipment` remains for old clients. */
+  compatibleEquipments: string[];
+  requiredEquipment: string[];
+  optionalEquipment: string[];
   descriptionPt: string;
   descriptionEn: string;
   instructionsPt: string[];
   instructionsEn: string[];
+  commonMistakesPt: string[];
+  commonMistakesEn: string[];
   videoUrl: string | null;
   videoSearchQuery: string | null;
   status: "approved" | "community";
+  reviewStatus: "draft" | "needs_review" | "approved" | "deprecated";
+  exerciseType:
+    | "compound"
+    | "isolation"
+    | "conditioning"
+    | "mobility"
+    | "warmup"
+    | null;
+  defaultLoadType:
+    | "external"
+    | "bodyweight"
+    | "assisted"
+    | "not_provided"
+    | null;
+  difficulty: "beginner" | "intermediate" | "advanced" | null;
+  exercisePriorityScore: number;
+  defaultRestS: number | null;
+  defaultRpe: number | null;
+  defaultTargetKind: "reps" | "failure" | "duration" | "distance" | null;
+  defaultReps: number | null;
+  defaultDurationS: number | null;
+  defaultDistanceM: number | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   /** Relação curada: null no exercício-base; aponta para a base nas variações. */
   parentExerciseId: string | null;
   /** Padrão biomecânico curado (ex.: horizontal_push, squat, hinge). */

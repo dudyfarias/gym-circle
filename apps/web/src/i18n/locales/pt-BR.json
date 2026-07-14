@@ -372,6 +372,46 @@
     "allGroups": "Todos",
     "equipment": "Equipamentos",
     "allEquipment": "Todos",
+    "filters": "Filtros",
+    "filtersHint": "Refine sem perder espaço na lista.",
+    "clearFilters": "Limpar",
+    "showResults": "Mostrar {{count}}",
+    "loadType": "Tipo de carga",
+    "difficulty": "Dificuldade",
+    "movement": "Movimento",
+    "exerciseType": "Tipo de exercício",
+    "primaryFocus": "Foco principal",
+    "alsoWorks": "Também trabalha",
+    "usedRecently": "Usados recentemente",
+    "results": "Resultados",
+    "exercises": "Exercícios",
+    "addFavorite": "Favoritar exercício",
+    "removeFavorite": "Remover dos favoritos",
+    "emptyFavorites": "Favorite exercícios para encontrá-los aqui.",
+    "emptyRecent": "Seus exercícios recentes aparecerão aqui.",
+    "quickFilters": {
+      "all": "Todos",
+      "recent": "Recentes",
+      "favorites": "Favoritos"
+    },
+    "loadTypes": {
+      "external": "Carga externa",
+      "bodyweight": "Peso corporal",
+      "assisted": "Assistido",
+      "not_provided": "Sem carga"
+    },
+    "difficulties": {
+      "beginner": "Iniciante",
+      "intermediate": "Intermediário",
+      "advanced": "Avançado"
+    },
+    "exerciseTypes": {
+      "compound": "Composto",
+      "isolation": "Isolado",
+      "conditioning": "Condicionamento",
+      "mobility": "Mobilidade",
+      "warmup": "Aquecimento"
+    },
     "community": "Comunidade",
     "originalName": "Nome original",
     "original": "Original",
