@@ -452,13 +452,15 @@ export function WorkoutExercisePicker({
     return (
       <article
         className={[
-          "flex items-center gap-2 rounded-[16px] bg-white/[0.045] px-3 transition-colors duration-200 hover:bg-white/[0.07]",
-          options?.compact ? "min-w-[260px] py-2" : "py-2.5",
+          "flex min-w-0 max-w-full items-center gap-2 overflow-hidden rounded-[16px] bg-white/[0.045] px-3 transition-colors duration-200 hover:bg-white/[0.07]",
+          options?.compact
+            ? "w-[260px] min-w-[260px] py-2"
+            : "w-full py-2.5",
         ].join(" ")}
         key={exercise.id}
       >
         <button
-          className="gc-pressable flex min-w-0 flex-1 items-center gap-3 text-left"
+          className="gc-pressable flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
           onClick={() => setPreviewExercise(exercise)}
           type="button"
         >
@@ -519,11 +521,11 @@ export function WorkoutExercisePicker({
       <div
         aria-label={t("workoutCatalog.chooseExercise")}
         aria-modal="true"
-        className="fixed inset-0 z-[108] flex justify-center overflow-y-auto bg-black/94 backdrop-blur-md"
+        className="fixed inset-0 z-[108] flex touch-pan-y justify-center overflow-x-hidden overflow-y-auto overscroll-x-none bg-black/94 backdrop-blur-md"
         role="dialog"
       >
-        <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+12px)]">
-        <header className="flex items-center gap-3">
+        <div className="flex min-h-full w-full min-w-0 max-w-[480px] flex-col overflow-x-hidden px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+12px)]">
+        <header className="flex min-w-0 items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[19px] font-black text-white">
               {t("workoutCatalog.chooseExercise")}
@@ -542,10 +544,10 @@ export function WorkoutExercisePicker({
           </button>
         </header>
 
-        <div className="relative -mx-5 mt-3">
+        <div className="relative -mx-5 mt-3 max-w-[calc(100%+2.5rem)] overflow-hidden">
           <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-7 bg-gradient-to-r from-black to-transparent" />
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-7 bg-gradient-to-l from-black to-transparent" />
-          <div className="gc-scrollbar flex min-h-9 shrink-0 items-center gap-1.5 overflow-x-auto px-5 py-1">
+          <div className="gc-scrollbar flex min-h-9 w-full max-w-full shrink-0 items-center gap-1.5 overflow-x-auto px-5 py-1">
           <button
             aria-pressed={group === ALL_WORKOUT_GROUPS}
             ref={(node) => {
@@ -584,7 +586,7 @@ export function WorkoutExercisePicker({
           </div>
         </div>
 
-        <label className="mt-3 flex shrink-0 items-center gap-2 rounded-[14px] bg-white/[0.06] px-3.5">
+        <label className="mt-3 flex w-full min-w-0 shrink-0 items-center gap-2 rounded-[14px] bg-white/[0.06] px-3.5">
           <Search className="text-white/35" size={17} />
           <input
             aria-label={t("workoutCatalog.search")}
@@ -595,7 +597,7 @@ export function WorkoutExercisePicker({
           />
         </label>
 
-        <div className="mt-2.5 flex items-center gap-1.5 overflow-x-auto">
+        <div className="mt-2.5 flex w-full min-w-0 max-w-full items-center gap-1.5 overflow-x-auto">
           {(["all", "recent", "favorites"] as const).map((item) => (
             <button
               aria-pressed={quickFilter === item}
@@ -648,7 +650,7 @@ export function WorkoutExercisePicker({
           </div>
         ) : null}
 
-        <div className="mt-3 grid gap-2">
+        <div className="mt-3 grid min-w-0 max-w-full gap-2 overflow-x-hidden">
           {loading && exercises.length === 0
             ? Array.from({ length: 5 }, (_, index) => (
                 <div
@@ -659,11 +661,11 @@ export function WorkoutExercisePicker({
               ))
             : null}
           {!loading && recentSection.length > 0 ? (
-            <section className="mb-1">
+            <section className="mb-1 min-w-0 max-w-full overflow-hidden">
               <p className="mb-2 text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
                 {t("workoutCatalog.usedRecently")}
               </p>
-              <div className="gc-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
+              <div className="gc-scrollbar -mx-5 flex max-w-[calc(100%+2.5rem)] gap-2 overflow-x-auto px-5">
                 {recentSection.map((exercise) =>
                   exerciseRow(exercise, { compact: true }),
                 )}
@@ -671,7 +673,7 @@ export function WorkoutExercisePicker({
             </section>
           ) : null}
           {!loading && displayedPrimary.length > 0 ? (
-            <section className="grid gap-2">
+            <section className="grid min-w-0 max-w-full gap-2 overflow-hidden">
               <p className="mt-1 text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
                 {query.trim()
                   ? t("workoutCatalog.results")
@@ -683,7 +685,7 @@ export function WorkoutExercisePicker({
             </section>
           ) : null}
           {!loading && sections.secondary.length > 0 ? (
-            <section className="mt-3 grid gap-2 border-t border-white/[0.07] pt-4">
+            <section className="mt-3 grid min-w-0 max-w-full gap-2 overflow-hidden border-t border-white/[0.07] pt-4">
               <p className="text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
                 {t("workoutCatalog.alsoWorks")}
               </p>
