@@ -17,6 +17,7 @@ import {
 export function useExerciseHistory(enabled: boolean) {
   const client = useGymCircleClient();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const db = client as unknown as SupabaseClient;
   const [activities, setActivities] = useState<ExerciseHistoryActivityRow[]>(
     [],
@@ -31,7 +32,7 @@ export function useExerciseHistory(enabled: boolean) {
   }, []);
 
   useEffect(() => {
-    if (!enabled || !user) return;
+    if (!enabled || !userId) return;
     let cancelled = false;
     void (async () => {
       setLoading(true);
@@ -40,7 +41,7 @@ export function useExerciseHistory(enabled: boolean) {
         const { data, error: queryError } = await db
           .from("activities")
           .select("id, started_at, ended_at, strength_sets")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .eq("activity_type", "strength")
           .not("strength_sets", "is", null)
           .order("started_at", { ascending: false })
@@ -48,12 +49,12 @@ export function useExerciseHistory(enabled: boolean) {
         if (queryError) throw queryError;
         if (!cancelled) {
           setActivities((data ?? []) as ExerciseHistoryActivityRow[]);
-          setDataUserId(user.id);
+          setDataUserId(userId);
         }
       } catch (queryError) {
         if (!cancelled) {
           setActivities([]);
-          setDataUserId(user.id);
+          setDataUserId(userId);
           setError(
             queryError instanceof Error
               ? queryError.message
@@ -67,12 +68,11 @@ export function useExerciseHistory(enabled: boolean) {
     return () => {
       cancelled = true;
     };
-  }, [db, enabled, refreshVersion, user]);
+  }, [db, enabled, refreshVersion, userId]);
 
   const visibleActivities = useMemo(
-    () =>
-      enabled && user && dataUserId === user.id ? activities : [],
-    [activities, dataUserId, enabled, user],
+    () => (enabled && userId && dataUserId === userId ? activities : []),
+    [activities, dataUserId, enabled, userId],
   );
 
   const historyByKey = useMemo(
@@ -85,8 +85,8 @@ export function useExerciseHistory(enabled: boolean) {
     historyByKey,
     /** Última sessão de força salva ANTES da atual (base da comparação). */
     latestActivity: visibleActivities[0] ?? null,
-    loading: Boolean(enabled && user && loading),
-    error: enabled && user ? error : null,
+    loading: Boolean(enabled && userId && loading),
+    error: enabled && userId ? error : null,
     refresh,
   };
 }

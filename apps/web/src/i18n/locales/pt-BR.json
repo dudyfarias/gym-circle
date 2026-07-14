@@ -131,13 +131,19 @@
       "failureMode": "Até a falha",
       "failureWeightHint": "Registre as repetições até a falha e a carga usada, se houver.",
       "loadType": "Tipo de carga",
+      "exerciseLoadType": "Carga do exercício",
       "loadTypes": {
         "external": "Carga",
         "bodyweight": "Peso corporal",
         "assisted": "Assistido",
         "notProvided": "Sem carga"
       },
+      "assistanceKg": "Assist. kg",
+      "assistanceWeight": "Assistência (kg)",
+      "assistancePlaceholder": "assistência",
       "advancedForSet": "Avançado · série {{number}}",
+      "details": "Detalhes",
+      "hasNote": "Nota",
       "restSeconds": "Descanso (s)",
       "note": "Nota",
       "notePlaceholder": "Execução, desconforto ou ajuste para a próxima vez",
@@ -223,7 +229,8 @@
       "confirm": "Descartar treino"
     },
     "errors": {
-      "finish": "Não foi possível salvar o treino. Tente de novo."
+      "finish": "Não foi possível salvar o treino. Tente de novo.",
+      "finishTimeout": "A conexão demorou demais. Seu treino continua salvo neste iPhone; tente concluir novamente."
     },
     "summary": {
       "title": "Treino concluído",

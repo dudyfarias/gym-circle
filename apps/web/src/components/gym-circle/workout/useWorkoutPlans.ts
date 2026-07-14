@@ -108,6 +108,7 @@ function localDateKey() {
 export function useWorkoutPlans(enabled = true) {
   const client = useGymCircleClient();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const db = client as unknown as SupabaseClient;
   const [plans, setPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(false);
@@ -120,7 +121,7 @@ export function useWorkoutPlans(enabled = true) {
       setLoading(false);
       return;
     }
-    if (!user) {
+    if (!userId) {
       setPlans([]);
       setError(null);
       setLoading(false);
@@ -179,7 +180,7 @@ export function useWorkoutPlans(enabled = true) {
     } finally {
       setLoading(false);
     }
-  }, [db, enabled, user]);
+  }, [db, enabled, userId]);
 
   useEffect(() => {
     // Carga inicial/quando o user muda; refresh só faz setState async.
@@ -193,7 +194,7 @@ export function useWorkoutPlans(enabled = true) {
       name: string;
       exercises: WorkoutPlanExercise[];
     }) => {
-      if (!user) throw new Error("auth_required");
+      if (!userId) throw new Error("auth_required");
       const payload = {
         name: input.name.trim() || "Treino",
         exercises: input.exercises
@@ -220,17 +221,17 @@ export function useWorkoutPlans(enabled = true) {
       } else {
         const { error: insertError } = await db
           .from("workout_plans")
-          .insert({ user_id: user.id, ...payload });
+          .insert({ user_id: userId, ...payload });
         if (insertError) throw insertError;
       }
       await refresh();
     },
-    [db, user, refresh],
+    [db, userId, refresh],
   );
 
   const toggleFavorite = useCallback(
     async (id: string) => {
-      if (!user) throw new Error("auth_required");
+      if (!userId) throw new Error("auth_required");
       const current = plans.find((plan) => plan.id === id);
       if (!current) return;
       const nextFavorite = !current.isFavorite;
@@ -252,12 +253,12 @@ export function useWorkoutPlans(enabled = true) {
         throw updateError;
       }
     },
-    [db, plans, user],
+    [db, plans, userId],
   );
 
   const deletePlan = useCallback(
     async (id: string) => {
-      if (!user) throw new Error("auth_required");
+      if (!userId) throw new Error("auth_required");
       const { error: deleteError } = await db
         .from("workout_plans")
         .delete()
@@ -265,7 +266,7 @@ export function useWorkoutPlans(enabled = true) {
       if (deleteError) throw deleteError;
       await refresh();
     },
-    [db, user, refresh],
+    [db, userId, refresh],
   );
 
   const recommendation = useMemo(

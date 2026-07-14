@@ -1101,3 +1101,20 @@ Implementação integrada concluída, com rollout aditivo e retrocompatível:
 O rollout de banco deve respeitar a ordem: canonicalização de exercise ID,
 variações, Sprint 0, A, B, C e D/G. O web só deve ser publicado após as
 migrations aditivas estarem aplicadas e validadas.
+
+## 27. Registro de QA e ativação de dados — 2026-07-13
+
+As migrations acima foram posteriormente confirmadas em produção. O baseline
+read-only mostrou que a fundação está disponível, mas ainda não houve uma
+activity real iniciada por **Meus treinos** depois do rollout: 0 de 16
+activities têm `workout_plan_id`, 0 planos estão favoritos e os campos
+avançados ainda não têm amostras reais.
+
+A inspeção encontrou uma lacuna objetiva: `actual_rest_s` existia no contrato,
+mas o timer não era associado a um set. O patch local agora guarda a série dona
+do descanso e registra o tempo ao terminar ou pular, sem migration. A ativação
+continua condicionada ao QA autenticado em iPhone e à validação read-only após
+um treino novo.
+
+Roteiro, SQL correto e critérios de aceite:
+`docs/workout-data-activation-qa-2026-07-13.md`.

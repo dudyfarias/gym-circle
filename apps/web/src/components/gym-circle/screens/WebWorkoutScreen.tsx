@@ -49,10 +49,7 @@ import {
   lastPerformanceLabel,
   type ExerciseHistoryEntry,
 } from "../workout/exerciseHistory";
-import {
-  REST_TIMER_INITIAL,
-  restTimerReducer,
-} from "../workout/restTimer";
+import { REST_TIMER_INITIAL, restTimerReducer } from "../workout/restTimer";
 import { useExerciseHistory } from "../workout/useExerciseHistory";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
@@ -70,6 +67,11 @@ import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
 import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import { WorkoutSetAdvancedFields } from "../workout/WorkoutSetAdvancedFields";
 import {
+  applyExerciseLoadType,
+  resolveExerciseLoadType,
+  type ExerciseLoadType,
+} from "../workout/exerciseLoadType";
+import {
   appendWorkoutRoutePoint,
   clearStoredWorkoutSession,
   createWorkoutClientSessionId,
@@ -78,6 +80,7 @@ import {
   formatDistance,
   pauseWorkoutSession,
   readStoredWorkoutSession,
+  recordStrengthSetActualRest,
   resumeWorkoutSession,
   shouldAutoCompleteStrengthSet,
   type LiveStrengthSet,
@@ -85,6 +88,7 @@ import {
   type WorkoutRoutePoint,
   workoutElapsedSeconds,
   workoutPausedSeconds,
+  workoutRestElapsedSeconds,
   workoutRouteCoordinates,
   writeStoredWorkoutSession,
 } from "../workout/workoutSession";
@@ -95,6 +99,7 @@ import {
   normalizeStrengthSetsForSave,
   parseOptionalWeightKg,
 } from "../workout/workoutSummary";
+import { finishWithTimeout } from "../workout/workoutFinish";
 
 type WorkoutType = WebActivityInput["activityType"];
 type RouteWorkoutType = Extract<WorkoutType, "run" | "walk" | "ride">;
@@ -115,6 +120,7 @@ type StrengthExerciseGroup = {
   completedCount: number;
   exerciseId: string | null;
   key: string;
+  loadType: ExerciseLoadType;
   name: string;
   sets: Array<{ index: number; set: LiveStrengthSet }>;
   targetKind: "reps" | "failure" | "duration";
@@ -140,7 +146,7 @@ function newStrengthSetFromTemplate(
     setId: clientId,
     setStatus: "added",
     setOrigin: "added",
-    loadType: "not_provided",
+    loadType: template?.loadType ?? "not_provided",
     reps: 0,
     weightKg: null,
     exercise: template?.exercise ?? null,
@@ -158,7 +164,11 @@ function newStrengthSetFromTemplate(
 
 const TYPE_CARDS: Array<{
   type: WorkoutType;
-  icon: ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  icon: ComponentType<{
+    size?: number;
+    strokeWidth?: number;
+    className?: string;
+  }>;
 }> = [
   { type: "strength", icon: Dumbbell },
   { type: "run", icon: MoveRight },
@@ -216,9 +226,9 @@ export function WebWorkoutScreen({
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
-  const [finishPromptElapsedS, setFinishPromptElapsedS] = useState<number | null>(
-    null,
-  );
+  const [finishPromptElapsedS, setFinishPromptElapsedS] = useState<
+    number | null
+  >(null);
   const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
   const [setsInputFocused, setSetsInputFocused] = useState(false);
   // Séries de musculação da sessão atual (só treino de força). Linhas
@@ -237,7 +247,9 @@ export function WebWorkoutScreen({
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [createPlanRequestKey, setCreatePlanRequestKey] = useState(0);
-  const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(null);
+  const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(
+    null,
+  );
   const workoutCatalog = useWorkoutCatalog();
   const {
     exercises: catalogExercises,
@@ -260,7 +272,9 @@ export function WebWorkoutScreen({
   } = workoutPlansController;
   const suggestedWorkoutPlan = useMemo(() => {
     const id = workoutRecommendation.recommendation?.planId;
-    return id ? savedWorkoutPlans.find((plan) => plan.id === id) ?? null : null;
+    return id
+      ? (savedWorkoutPlans.find((plan) => plan.id === id) ?? null)
+      : null;
   }, [savedWorkoutPlans, workoutRecommendation.recommendation?.planId]);
   const quickWorkoutPlans = useMemo(() => {
     const suggestedId = workoutRecommendation.recommendation?.planId;
@@ -305,9 +319,7 @@ export function WebWorkoutScreen({
         autoAdvancedExerciseKeysRef.current.clear();
         setSession(stored);
         setStrengthSets(stored.strengthSets);
-        setCompletedStrengthSetIds(
-          new Set(stored.completedStrengthSetIds),
-        );
+        setCompletedStrengthSetIds(new Set(stored.completedStrengthSetIds));
         dispatchRest({
           type: "restore",
           state: stored.restTimer,
@@ -348,11 +360,7 @@ export function WebWorkoutScreen({
   }, [hasSession, open, sessionPausedAtMs, stage]);
 
   const persistSession = useCallback(
-    (
-      updater: (
-        current: StoredWorkoutSession,
-      ) => StoredWorkoutSession,
-    ) => {
+    (updater: (current: StoredWorkoutSession) => StoredWorkoutSession) => {
       setSession((current) => {
         if (!current) return current;
         const updated = updater(current);
@@ -422,9 +430,8 @@ export function WebWorkoutScreen({
           return;
         }
         setGpsEngine("native");
-        const handle = await WorkoutLocationBridge.addUpdateListener(
-          applyNativeSnapshot,
-        );
+        const handle =
+          await WorkoutLocationBridge.addUpdateListener(applyNativeSnapshot);
         if (cancelled) {
           await handle.remove();
           return;
@@ -516,7 +523,9 @@ export function WebWorkoutScreen({
         persistSession((current) => appendWorkoutRoutePoint(current, point));
       },
       (error) => {
-        setGpsStatus(error.code === error.PERMISSION_DENIED ? "denied" : "weak");
+        setGpsStatus(
+          error.code === error.PERMISSION_DENIED ? "denied" : "weak",
+        );
       },
       {
         enableHighAccuracy: true,
@@ -556,6 +565,7 @@ export function WebWorkoutScreen({
         elevationGainM: 0,
         restCount: 0,
         restTimer: REST_TIMER_INITIAL,
+        restSetClientId: null,
         strengthSets: initialStrengthSets,
         completedStrengthSetIds: [],
         routePoints: [],
@@ -578,7 +588,9 @@ export function WebWorkoutScreen({
         void import("../native/WorkoutLocationBridge").then(
           async ({ WorkoutLocationBridge }) => {
             try {
-              applyNativeSnapshot(await WorkoutLocationBridge.start(activityType));
+              applyNativeSnapshot(
+                await WorkoutLocationBridge.start(activityType),
+              );
             } catch {
               nativeSessionAttachedRef.current = false;
               setGpsEngine("web");
@@ -597,7 +609,8 @@ export function WebWorkoutScreen({
     ) => {
       // Cada exercício vira N linhas (séries alvo) já rotuladas; a pessoa
       // preenche reps × carga durante a sessão.
-      const seeded: LiveStrengthSet[] = plan.exercises.flatMap((ex) => {
+      const seeded: LiveStrengthSet[] = plan.exercises
+        .flatMap((ex) => {
         const count = Math.min(Math.max(ex.sets ?? 1, 1), 12);
         return Array.from({ length: count }, () => {
           const clientId = nextLiveStrengthSetId();
@@ -622,7 +635,8 @@ export function WebWorkoutScreen({
             techniqueNotes: ex.techniqueNotes ?? null,
           };
         });
-      }).map((set, index) => ({ ...set, setIndex: index + 1 }));
+        })
+        .map((set, index) => ({ ...set, setIndex: index + 1 }));
       startWorkout("strength", seeded, {
         id: plan.id,
         name: plan.name,
@@ -713,9 +727,8 @@ export function WebWorkoutScreen({
           }
         | undefined;
       if (isRouteWorkout(session.activityType) && gpsEngine === "native") {
-        const { WorkoutLocationBridge } = await import(
-          "../native/WorkoutLocationBridge"
-        );
+        const { WorkoutLocationBridge } =
+          await import("../native/WorkoutLocationBridge");
         nativeSummary = await WorkoutLocationBridge.stop();
       }
       const route = isRouteWorkout(session.activityType)
@@ -740,33 +753,36 @@ export function WebWorkoutScreen({
       const completedStrengthSets = finalizedStrengthSets.filter(
         (set) => set.setStatus === "completed" || set.setStatus === "added",
       );
-      const activity = await onFinish({
-        clientSessionId: session.clientSessionId,
-        activityType: session.activityType,
-        startedAt: new Date(session.startedAtMs).toISOString(),
-        endedAt: new Date(endedMs).toISOString(),
-        elapsedS,
-        movingS: isRouteWorkout(session.activityType)
-          ? Math.round(nativeSummary?.movingS ?? session.movingS)
-          : elapsedS,
-        distanceM: isRouteWorkout(session.activityType)
-          ? (nativeSummary?.distanceM ?? session.distanceM)
-          : null,
-        elevationGainM: isRouteWorkout(session.activityType)
-          ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
-          : null,
-        route,
-        strengthSets:
-          session.activityType === "strength" && finalizedStrengthSets.length > 0
-            ? finalizedStrengthSets
+      const activity = await finishWithTimeout(
+        onFinish({
+          clientSessionId: session.clientSessionId,
+          activityType: session.activityType,
+          startedAt: new Date(session.startedAtMs).toISOString(),
+          endedAt: new Date(endedMs).toISOString(),
+          elapsedS,
+          movingS: isRouteWorkout(session.activityType)
+            ? Math.round(nativeSummary?.movingS ?? session.movingS)
+            : elapsedS,
+          distanceM: isRouteWorkout(session.activityType)
+            ? (nativeSummary?.distanceM ?? session.distanceM)
             : null,
-        workoutPlanId: session.workoutPlan?.id ?? null,
-        workoutPlanNameSnapshot: session.workoutPlan?.name ?? null,
-        workoutPlanExercisesSnapshot:
-          session.workoutPlan?.exercisesSnapshot ?? null,
-        workoutPlanVersionSnapshot: session.workoutPlan?.version ?? null,
-        workoutPlanStartedFrom: session.workoutPlan?.startedFrom ?? "free",
-      });
+          elevationGainM: isRouteWorkout(session.activityType)
+            ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
+            : null,
+          route,
+          strengthSets:
+            session.activityType === "strength" &&
+            finalizedStrengthSets.length > 0
+              ? finalizedStrengthSets
+              : null,
+          workoutPlanId: session.workoutPlan?.id ?? null,
+          workoutPlanNameSnapshot: session.workoutPlan?.name ?? null,
+          workoutPlanExercisesSnapshot:
+            session.workoutPlan?.exercisesSnapshot ?? null,
+          workoutPlanVersionSnapshot: session.workoutPlan?.version ?? null,
+          workoutPlanStartedFrom: session.workoutPlan?.startedFrom ?? "free",
+        }),
+      );
       const context: ComposerActivityContext = {
         id: activity.id,
         activityType: session.activityType,
@@ -807,7 +823,11 @@ export function WebWorkoutScreen({
       nativeSessionAttachedRef.current = false;
     } catch (error) {
       setFinishError(
-        error instanceof Error ? error.message : t("workout.errors.finish"),
+        error instanceof Error && error.message === "workout_finish_timeout"
+          ? t("workout.errors.finishTimeout")
+          : error instanceof Error
+            ? error.message
+            : t("workout.errors.finish"),
       );
     } finally {
       setFinishing(false);
@@ -847,15 +867,47 @@ export function WebWorkoutScreen({
     onClose();
   }, [gpsEngine, onClose, onSessionChange, session, userId]);
 
-  const startRest = useCallback(() => {
+  const startRest = useCallback(
+    (restSetClientId: string | null) => {
     if (!session || session.pausedAtMs !== null) return;
     dispatchRest({ type: "start", nowMs: Date.now() });
     persistSession((current) => ({
       ...current,
       restCount: current.restCount + 1,
+        restSetClientId,
     }));
     navigator.vibrate?.(40);
-  }, [persistSession, session]);
+    },
+    [persistSession, session],
+  );
+
+  const finishTrackedRest = useCallback(
+    (timer: typeof rest) => {
+      const restSetClientId = session?.restSetClientId ?? null;
+      if (!restSetClientId) return;
+      const actualRestS = workoutRestElapsedSeconds(timer);
+      setStrengthSets((current) =>
+        recordStrengthSetActualRest(current, restSetClientId, actualRestS),
+      );
+      persistSession((current) =>
+        current.restSetClientId === restSetClientId
+          ? { ...current, restSetClientId: null }
+          : current,
+      );
+    },
+    [persistSession, session?.restSetClientId],
+  );
+
+  useEffect(() => {
+    if (rest.status !== "done" || !session?.restSetClientId) return;
+    const id = window.setTimeout(() => finishTrackedRest(rest), 0);
+    return () => window.clearTimeout(id);
+  }, [finishTrackedRest, rest, session?.restSetClientId]);
+
+  const skipRest = useCallback(() => {
+    finishTrackedRest(rest);
+    dispatchRest({ type: "reset" });
+  }, [finishTrackedRest, rest]);
 
   const addStrengthSet = useCallback(() => {
     setStrengthSets((prev) => [
@@ -872,8 +924,7 @@ export function WebWorkoutScreen({
     });
   }, []);
 
-  const addStrengthSetForGroup = useCallback(
-    (group: StrengthExerciseGroup) => {
+  const addStrengthSetForGroup = useCallback((group: StrengthExerciseGroup) => {
       setStrengthSets((prev) => {
         const lastEntry = group.sets[group.sets.length - 1];
         const template = lastEntry ? prev[lastEntry.index] : null;
@@ -884,9 +935,7 @@ export function WebWorkoutScreen({
         const nextSet = newStrengthSetFromTemplate(template);
         return [...prev.slice(0, insertAt), nextSet, ...prev.slice(insertAt)];
       });
-    },
-    [],
-  );
+  }, []);
 
   const setStrengthSetCompleted = useCallback(
     (clientId: string, completed: boolean) => {
@@ -896,6 +945,15 @@ export function WebWorkoutScreen({
         else next.delete(clientId);
         return next;
       });
+      if (!completed) {
+        setStrengthSets((current) =>
+          current.map((set) =>
+            set.clientId === clientId && set.actualRestS != null
+              ? { ...set, actualRestS: null }
+              : set,
+          ),
+        );
+      }
     },
     [],
   );
@@ -931,7 +989,7 @@ export function WebWorkoutScreen({
   );
 
   const updateStrengthSetWeight = useCallback(
-    (index: number, raw: string) => {
+    (index: number, raw: string, loadType: ExerciseLoadType) => {
       const weightKg = parseOptionalWeightKg(raw);
       const current = strengthSets[index];
       setStrengthSets((prev) =>
@@ -939,17 +997,10 @@ export function WebWorkoutScreen({
           i === index
             ? {
                 ...set,
-                weightKg: set.loadType === "assisted" ? null : weightKg,
+                loadType,
+                weightKg: loadType === "external" ? weightKg : set.weightKg,
                 assistedWeightKg:
-                  set.loadType === "assisted" ? weightKg : null,
-                loadType:
-                  weightKg === null
-                    ? set.loadType === "assisted"
-                      ? "assisted"
-                      : "not_provided"
-                    : set.loadType === "assisted"
-                      ? "assisted"
-                      : "external",
+                  loadType === "assisted" ? weightKg : set.assistedWeightKg,
                 setStatus:
                   set.setStatus === "skipped" ? "planned" : set.setStatus,
               }
@@ -971,20 +1022,11 @@ export function WebWorkoutScreen({
     [completedStrengthSetIds, setStrengthSetCompleted, strengthSets],
   );
 
-  const updateStrengthSetLoadType = useCallback(
-    (index: number, loadType: NonNullable<LiveStrengthSet["loadType"]>) => {
+  const updateStrengthExerciseLoadType = useCallback(
+    (group: StrengthExerciseGroup, loadType: ExerciseLoadType) => {
+      const setClientIds = new Set(group.sets.map(({ set }) => set.clientId));
       setStrengthSets((current) =>
-        current.map((set, setIndex) =>
-          setIndex === index
-            ? {
-                ...set,
-                loadType,
-                weightKg: loadType === "external" ? set.weightKg : null,
-                assistedWeightKg:
-                  loadType === "assisted" ? set.assistedWeightKg : null,
-              }
-            : set,
-        ),
+        applyExerciseLoadType(current, setClientIds, loadType),
       );
     },
     [],
@@ -1033,9 +1075,7 @@ export function WebWorkoutScreen({
         current.durationSeconds ?? current.plannedDurationSeconds;
       if (!durationSeconds || durationSeconds <= 0) return;
       setStrengthSets((sets) =>
-        sets.map((set, i) =>
-          i === index ? { ...set, durationSeconds } : set,
-        ),
+        sets.map((set, i) => (i === index ? { ...set, durationSeconds } : set)),
       );
       setStrengthSetCompleted(current.clientId, true);
       navigator.vibrate?.(35);
@@ -1090,7 +1130,9 @@ export function WebWorkoutScreen({
       setStrengthSets((prev) => {
         let position = 0;
         return prev.map((set) => {
-          if (exerciseHistoryKey(set.exerciseId, set.exercise) !== exerciseKey) {
+          if (
+            exerciseHistoryKey(set.exerciseId, set.exercise) !== exerciseKey
+          ) {
             return set;
           }
           const source =
@@ -1239,7 +1281,7 @@ export function WebWorkoutScreen({
     const groups: Array<
       Omit<
         StrengthExerciseGroup,
-        "completed" | "completedCount" | "totalCount"
+        "completed" | "completedCount" | "loadType" | "totalCount"
       >
     > = [];
 
@@ -1272,13 +1314,15 @@ export function WebWorkoutScreen({
     });
 
     return groups.map((group) => {
-      const completedCount = group.sets.filter(
-        ({ set }) => completedStrengthSetIds.has(set.clientId),
+      const completedCount = group.sets.filter(({ set }) =>
+        completedStrengthSetIds.has(set.clientId),
       ).length;
       return {
         ...group,
-        completed: group.sets.length > 0 && completedCount === group.sets.length,
+        completed:
+          group.sets.length > 0 && completedCount === group.sets.length,
         completedCount,
+        loadType: resolveExerciseLoadType(group.sets.map(({ set }) => set)),
         totalCount: group.sets.length,
       };
     });
@@ -1286,10 +1330,7 @@ export function WebWorkoutScreen({
 
   const safeActiveStrengthExerciseIndex =
     strengthExerciseGroups.length > 0
-      ? Math.min(
-          activeStrengthExerciseIndex,
-          strengthExerciseGroups.length - 1,
-        )
+      ? Math.min(activeStrengthExerciseIndex, strengthExerciseGroups.length - 1)
       : 0;
 
   const goToStrengthExercise = useCallback(
@@ -1376,10 +1417,7 @@ export function WebWorkoutScreen({
 
   const handleStrengthExercisePrimaryAction = useCallback(
     (group: StrengthExerciseGroup, groupIndex: number) => {
-      if (
-        group.completed &&
-        groupIndex < strengthExerciseGroups.length - 1
-      ) {
+      if (group.completed && groupIndex < strengthExerciseGroups.length - 1) {
         goToStrengthExercise(groupIndex + 1);
         return;
       }
@@ -1394,7 +1432,8 @@ export function WebWorkoutScreen({
 
   useEffect(() => {
     if (session?.activityType !== "strength") return;
-    const currentGroup = strengthExerciseGroups[safeActiveStrengthExerciseIndex];
+    const currentGroup =
+      strengthExerciseGroups[safeActiveStrengthExerciseIndex];
     if (!currentGroup?.completed) return;
     if (safeActiveStrengthExerciseIndex >= strengthExerciseGroups.length - 1) {
       return;
@@ -1430,8 +1469,8 @@ export function WebWorkoutScreen({
         : gpsStatus === "denied"
           ? t("workout.gps.off")
           : t("workout.gps.searching");
-  const filledStrengthSetCount = strengthSets.filter(
-    (set) => completedStrengthSetIds.has(set.clientId),
+  const filledStrengthSetCount = strengthSets.filter((set) =>
+    completedStrengthSetIds.has(set.clientId),
   ).length;
 
   return (
@@ -1652,7 +1691,9 @@ export function WebWorkoutScreen({
                   </div>
                   <button
                     className="gc-pressable text-[11.5px] font-black text-[var(--gc-brand)]"
-                    onClick={() => setCreatePlanRequestKey((value) => value + 1)}
+                      onClick={() =>
+                        setCreatePlanRequestKey((value) => value + 1)
+                      }
                     type="button"
                   >
                     {t("workout.saved.create")}
@@ -1686,7 +1727,9 @@ export function WebWorkoutScreen({
                 ) : quickWorkoutPlans.length === 0 ? (
                   <button
                     className="gc-pressable mt-3 flex h-[136px] w-full items-center gap-4 rounded-[24px] border border-dashed border-[var(--gc-brand)]/22 bg-[var(--gc-brand)]/[0.045] p-4 text-left"
-                    onClick={() => setCreatePlanRequestKey((value) => value + 1)}
+                      onClick={() =>
+                        setCreatePlanRequestKey((value) => value + 1)
+                      }
                     type="button"
                   >
                     <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
@@ -1706,7 +1749,8 @@ export function WebWorkoutScreen({
                     {quickWorkoutPlans.map((plan) => {
                       const isLegacyName =
                         getWorkoutPlanDisplayName(plan.name, "") === "";
-                      const isSuggested = suggestedWorkoutPlan?.id === plan.id;
+                        const isSuggested =
+                          suggestedWorkoutPlan?.id === plan.id;
                       const planStats = [
                         plan.stats?.timesUsed
                           ? t("workout.saved.timesUsed", {
@@ -1723,7 +1767,8 @@ export function WebWorkoutScreen({
                         (plan.stats?.averageCompletionRate ?? 0) > 0
                           ? t("workout.saved.averageCompletion", {
                               percent: Math.round(
-                                (plan.stats?.averageCompletionRate ?? 0) * 100,
+                                  (plan.stats?.averageCompletionRate ?? 0) *
+                                    100,
                               ),
                             })
                           : null,
@@ -1778,8 +1823,12 @@ export function WebWorkoutScreen({
                               type="button"
                             >
                               <Star
-                                className={plan.isFavorite ? "text-[#ffd60a]" : ""}
-                                fill={plan.isFavorite ? "currentColor" : "none"}
+                                  className={
+                                    plan.isFavorite ? "text-[#ffd60a]" : ""
+                                  }
+                                  fill={
+                                    plan.isFavorite ? "currentColor" : "none"
+                                  }
                                 size={14}
                               />
                             </button>
@@ -1842,7 +1891,11 @@ export function WebWorkoutScreen({
                     </span>
                   </span>
                   <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
-                    <Play className="ml-0.5" fill="currentColor" size={16} />
+                        <Play
+                          className="ml-0.5"
+                          fill="currentColor"
+                          size={16}
+                        />
                   </span>
                 </button>
               ))}
@@ -1937,7 +1990,10 @@ export function WebWorkoutScreen({
               </section>
 
               {session.activityType === "strength" ? (
-                <section className="-mx-5 mt-5 scroll-mt-5" ref={setsSectionRef}>
+                  <section
+                    className="-mx-5 mt-5 scroll-mt-5"
+                    ref={setsSectionRef}
+                  >
                   <div className="flex items-end justify-between gap-3 px-5">
                     <div className="min-w-0">
                       <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[var(--gc-brand)]">
@@ -1991,7 +2047,11 @@ export function WebWorkoutScreen({
                           0,
                           group.totalCount - group.completedCount,
                         );
-                        const canCompleteGroup = group.sets.every(({ set }) =>
+                          const showsWeightInput =
+                            group.loadType === "external" ||
+                            group.loadType === "assisted";
+                          const canCompleteGroup = group.sets.every(
+                            ({ set }) =>
                           group.targetKind === "duration"
                             ? Boolean(
                                 set.durationSeconds ??
@@ -2001,13 +2061,22 @@ export function WebWorkoutScreen({
                         );
                         const isCurrentGroup =
                           groupIndex === safeActiveStrengthExerciseIndex;
+                          const restSetClientId =
+                            [...group.sets]
+                              .reverse()
+                              .find(
+                                ({ set }) =>
+                                  completedStrengthSetIds.has(set.clientId) &&
+                                  set.actualRestS == null,
+                              )?.set.clientId ?? null;
                         const historyKey = exerciseHistoryKey(
                           group.exerciseId,
                           group.name,
                         );
                         const lastEntry = historyKey
-                          ? (strengthHistory.historyByKey.get(historyKey)?.[0] ??
-                            null)
+                            ? (strengthHistory.historyByKey.get(
+                                historyKey,
+                              )?.[0] ?? null)
                           : null;
                         return (
                         <article
@@ -2063,9 +2132,13 @@ export function WebWorkoutScreen({
                             </div>
                             {group.exerciseId ? (
                               <button
-                                aria-label={t("workoutCatalog.aboutExercise")}
+                                    aria-label={t(
+                                      "workoutCatalog.aboutExercise",
+                                    )}
                                 className="gc-pressable grid size-8 shrink-0 place-items-center rounded-full bg-white/[0.06] text-[var(--gc-brand)]"
-                                onClick={() => openExerciseInfo(group.exerciseId)}
+                                    onClick={() =>
+                                      openExerciseInfo(group.exerciseId)
+                                    }
                                 type="button"
                               >
                                 <Info size={15} />
@@ -2100,6 +2173,40 @@ export function WebWorkoutScreen({
                             </span>
                           </div>
 
+                              {group.targetKind !== "duration" ? (
+                                <label className="mt-3 flex items-center justify-between gap-3 rounded-[15px] border border-white/[0.055] bg-white/[0.025] px-3 py-2.5">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.11em] text-white/38">
+                                    {t("workout.sets.exerciseLoadType")}
+                                  </span>
+                                  <select
+                                    aria-label={t(
+                                      "workout.sets.exerciseLoadType",
+                                    )}
+                                    className="min-w-0 max-w-[58%] rounded-full border border-white/[0.07] bg-white/[0.07] px-3 py-2 text-right text-[11px] font-black text-white outline-none focus:border-[var(--gc-brand)]"
+                                    onChange={(event) =>
+                                      updateStrengthExerciseLoadType(
+                                        group,
+                                        event.target.value as ExerciseLoadType,
+                                      )
+                                    }
+                                    value={group.loadType}
+                                  >
+                                    <option value="external">
+                                      {t("workout.sets.loadTypes.external")}
+                                    </option>
+                                    <option value="bodyweight">
+                                      {t("workout.sets.loadTypes.bodyweight")}
+                                    </option>
+                                    <option value="assisted">
+                                      {t("workout.sets.loadTypes.assisted")}
+                                    </option>
+                                    <option value="not_provided">
+                                      {t("workout.sets.loadTypes.notProvided")}
+                                    </option>
+                                  </select>
+                                </label>
+                              ) : null}
+
                           {strengthHistory.loading && isCurrentGroup ? (
                             <div
                               aria-label={t("common.loading")}
@@ -2113,14 +2220,17 @@ export function WebWorkoutScreen({
                               type="button"
                             >
                               <RefreshCw size={14} />
-                              {t("workout.history.loadError")} {t("common.retry")}
+                                  {t("workout.history.loadError")}{" "}
+                                  {t("common.retry")}
                             </button>
                           ) : lastEntry && historyKey ? (
                             <div className="mt-3 flex items-center gap-2 rounded-[16px] border border-white/[0.06] bg-white/[0.03] p-2 pl-3">
                               <button
                                 aria-label={t("workout.history.title")}
                                 className="gc-pressable flex min-w-0 flex-1 items-center gap-2 text-left"
-                                onClick={() => setHistorySheetKey(historyKey)}
+                                    onClick={() =>
+                                      setHistorySheetKey(historyKey)
+                                    }
                                 type="button"
                               >
                                 <History
@@ -2160,12 +2270,23 @@ export function WebWorkoutScreen({
                           ) : (
                             <div
                               aria-hidden="true"
-                              className="mt-4 grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px] gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35"
+                                  className={[
+                                    "mt-4 grid gap-2 px-0.5 text-center text-[9px] font-black uppercase tracking-[0.12em] text-white/35",
+                                    showsWeightInput
+                                      ? "grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,0.82fr)_58px]"
+                                      : "grid-cols-[24px_minmax(0,1fr)_58px]",
+                                  ].join(" ")}
                             >
                               <span />
                               <span>{t("workout.sets.reps")}</span>
-                              <span />
-                              <span>{t("workout.sets.kg")}</span>
+                                  {showsWeightInput ? <span /> : null}
+                                  {showsWeightInput ? (
+                                    <span>
+                                      {group.loadType === "assisted"
+                                        ? t("workout.sets.assistanceKg")
+                                        : t("workout.sets.kg")}
+                                    </span>
+                                  ) : null}
                               <span />
                             </div>
                           )}
@@ -2178,9 +2299,8 @@ export function WebWorkoutScreen({
 
                           <div className="mt-2 grid gap-2">
                             {group.sets.map(({ index, set }, setIndex) => {
-                              const setCompleted = completedStrengthSetIds.has(
-                                set.clientId,
-                              );
+                                  const setCompleted =
+                                    completedStrengthSetIds.has(set.clientId);
                               if (group.targetKind === "duration") {
                                 return (
                                   <div
@@ -2201,18 +2321,24 @@ export function WebWorkoutScreen({
                                       </span>
                                       <div className="flex items-center rounded-[13px] bg-white/[0.07] px-3">
                                         <input
-                                          aria-label={t("workout.sets.duration")}
+                                              aria-label={t(
+                                                "workout.sets.duration",
+                                              )}
                                           className="min-w-0 flex-1 bg-transparent py-3 text-center text-[17px] font-black tabular-nums text-white outline-none placeholder:text-white/30"
                                           data-workout-set-input="true"
                                           inputMode="numeric"
-                                          onBlur={handleStrengthSetInputBlur}
+                                              onBlur={
+                                                handleStrengthSetInputBlur
+                                              }
                                           onChange={(event) =>
                                             updateStrengthSetDuration(
                                               index,
                                               event.target.value,
                                             )
                                           }
-                                          onFocus={() => setSetsInputFocused(true)}
+                                              onFocus={() =>
+                                                setSetsInputFocused(true)
+                                              }
                                           placeholder={String(
                                             set.plannedDurationSeconds ??
                                               t(
@@ -2260,7 +2386,9 @@ export function WebWorkoutScreen({
                                     <button
                                       aria-label={t("workout.sets.remove")}
                                       className="gc-pressable text-white/35"
-                                      onClick={() => removeStrengthSet(index)}
+                                          onClick={() =>
+                                            removeStrengthSet(index)
+                                          }
                                       type="button"
                                     >
                                       <X size={16} strokeWidth={2.6} />
@@ -2270,10 +2398,16 @@ export function WebWorkoutScreen({
                               }
 
                               return (
-                                <div className="grid gap-1.5" key={set.clientId}>
+                                    <div
+                                      className="grid gap-1"
+                                      key={set.clientId}
+                                    >
                                   <div
                                     className={[
-                                      "grid grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,1fr)_58px] items-center gap-2 rounded-[16px] border p-2",
+                                          "grid items-center gap-2 rounded-[15px] border p-2",
+                                          showsWeightInput
+                                            ? "grid-cols-[24px_minmax(0,1fr)_12px_minmax(0,0.82fr)_58px]"
+                                            : "grid-cols-[24px_minmax(0,1fr)_58px]",
                                       setCompleted
                                         ? "border-[var(--gc-brand)]/30 bg-[var(--gc-brand)]/[0.05]"
                                         : "border-white/[0.055] bg-white/[0.02]",
@@ -2284,7 +2418,7 @@ export function WebWorkoutScreen({
                                   </span>
                                   <input
                                     aria-label={t("workout.sets.reps")}
-                                    className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-3 py-3 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
+                                          className="min-w-0 rounded-[12px] border border-white/[0.05] bg-white/[0.07] px-2.5 py-2.5 text-center text-[16px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
                                     data-workout-set-input="true"
                                     inputMode="numeric"
                                     onBlur={handleStrengthSetInputBlur}
@@ -2294,45 +2428,32 @@ export function WebWorkoutScreen({
                                         event.target.value,
                                       )
                                     }
-                                    onFocus={() => setSetsInputFocused(true)}
-                                    placeholder={String(set.plannedReps ?? t("workout.sets.reps"))}
-                                    value={set.reps > 0 ? String(set.reps) : ""}
+                                          onFocus={() =>
+                                            setSetsInputFocused(true)
+                                          }
+                                          placeholder={String(
+                                            set.plannedReps ??
+                                              t("workout.sets.reps"),
+                                          )}
+                                          value={
+                                            set.reps > 0 ? String(set.reps) : ""
+                                          }
                                   />
+                                        {showsWeightInput ? (
                                   <span className="text-center text-[13px] font-black text-white/30">
                                     ×
                                   </span>
-                                  <div className="min-w-0 rounded-[13px] border border-white/[0.05] bg-white/[0.07] px-1.5 py-1">
-                                    <select
-                                      aria-label={t("workout.sets.loadType")}
-                                      className="w-full bg-transparent text-center text-[9px] font-black uppercase text-white/55 outline-none"
-                                      onChange={(event) =>
-                                        updateStrengthSetLoadType(
-                                          index,
-                                          event.target.value as NonNullable<
-                                            LiveStrengthSet["loadType"]
-                                          >,
+                                        ) : null}
+                                        {showsWeightInput ? (
+                                          <input
+                                            aria-label={
+                                              group.loadType === "assisted"
+                                                ? t(
+                                                    "workout.sets.assistanceWeight",
                                         )
+                                                : t("workout.sets.weight")
                                       }
-                                      value={set.loadType ?? "not_provided"}
-                                    >
-                                      <option value="external">
-                                        {t("workout.sets.loadTypes.external")}
-                                      </option>
-                                      <option value="bodyweight">
-                                        {t("workout.sets.loadTypes.bodyweight")}
-                                      </option>
-                                      <option value="assisted">
-                                        {t("workout.sets.loadTypes.assisted")}
-                                      </option>
-                                      <option value="not_provided">
-                                        {t("workout.sets.loadTypes.notProvided")}
-                                      </option>
-                                    </select>
-                                    {set.loadType === "external" ||
-                                    set.loadType === "assisted" ? (
-                                      <input
-                                        aria-label={t("workout.sets.weight")}
-                                        className="mt-0.5 w-full bg-transparent py-1 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/28"
+                                            className="min-w-0 rounded-[12px] border border-white/[0.05] bg-white/[0.07] px-2 py-2.5 text-center text-[15px] font-black tabular-nums text-white outline-none placeholder:text-white/28 focus:border-[var(--gc-brand)] focus:bg-white/[0.11]"
                                         data-workout-set-input="true"
                                         inputMode="decimal"
                                         onBlur={handleStrengthSetInputBlur}
@@ -2340,13 +2461,25 @@ export function WebWorkoutScreen({
                                           updateStrengthSetWeight(
                                             index,
                                             event.target.value,
+                                                group.loadType,
+                                              )
+                                            }
+                                            onFocus={() =>
+                                              setSetsInputFocused(true)
+                                            }
+                                            placeholder={
+                                              group.loadType === "assisted"
+                                                ? t(
+                                                    "workout.sets.assistancePlaceholder",
+                                                  )
+                                                : t(
+                                                    "workout.sets.weightPlaceholder",
                                           )
                                         }
-                                        onFocus={() => setSetsInputFocused(true)}
-                                        placeholder={t("workout.sets.weightPlaceholder")}
                                         value={
-                                          set.loadType === "assisted"
-                                            ? set.assistedWeightKg != null &&
+                                              group.loadType === "assisted"
+                                                ? set.assistedWeightKg !=
+                                                    null &&
                                               set.assistedWeightKg > 0
                                               ? String(set.assistedWeightKg)
                                               : ""
@@ -2356,19 +2489,14 @@ export function WebWorkoutScreen({
                                               : ""
                                         }
                                       />
-                                    ) : (
-                                      <p className="truncate py-1 text-center text-[10px] font-black text-white/65">
-                                        {set.loadType === "bodyweight"
-                                          ? t("workout.sets.loadTypes.bodyweight")
-                                          : t("workout.sets.loadTypes.notProvided")}
-                                      </p>
-                                    )}
-                                  </div>
+                                        ) : null}
                                     <div className="flex items-center justify-end gap-1">
                                     <button
                                       aria-label={
                                         setCompleted
-                                          ? t("workout.sets.markIncomplete")
+                                                ? t(
+                                                    "workout.sets.markIncomplete",
+                                                  )
                                           : t("workout.sets.completeSet")
                                       }
                                       aria-pressed={setCompleted}
@@ -2387,9 +2515,13 @@ export function WebWorkoutScreen({
                                       <Check size={14} strokeWidth={3} />
                                     </button>
                                     <button
-                                      aria-label={t("workout.sets.remove")}
+                                            aria-label={t(
+                                              "workout.sets.remove",
+                                            )}
                                       className="gc-pressable text-white/32"
-                                      onClick={() => removeStrengthSet(index)}
+                                            onClick={() =>
+                                              removeStrengthSet(index)
+                                            }
                                       type="button"
                                     >
                                       <X size={14} strokeWidth={2.6} />
@@ -2527,9 +2659,7 @@ export function WebWorkoutScreen({
                                 rest.status === "paused" ? (
                                   <button
                                     className="gc-pressable h-10 rounded-full bg-white/[0.07] text-[12px] font-black text-white"
-                                    onClick={() =>
-                                      dispatchRest({ type: "reset" })
-                                    }
+                                        onClick={skipRest}
                                     type="button"
                                   >
                                     {t("workout.rest.skip")}
@@ -2538,7 +2668,9 @@ export function WebWorkoutScreen({
                                   <button
                                     className="gc-pressable h-10 rounded-full bg-[var(--gc-brand)] text-[12px] font-black text-[var(--gc-brand-ink)] disabled:opacity-35"
                                     disabled={isPaused}
-                                    onClick={startRest}
+                                        onClick={() =>
+                                          startRest(restSetClientId)
+                                        }
                                     type="button"
                                   >
                                     {rest.status === "done"
@@ -2619,7 +2751,10 @@ export function WebWorkoutScreen({
                     </p>
                   </div>
                   <div className="rounded-[22px] bg-[#0b0d0e] p-4">
-                    <TrendingUp className="text-[var(--gc-brand)]" size={20} />
+                      <TrendingUp
+                        className="text-[var(--gc-brand)]"
+                        size={20}
+                      />
                     <p className="mt-5 text-[11px] font-black uppercase tracking-[0.14em] text-white/40">
                       {t("workout.metrics.paused")}
                     </p>

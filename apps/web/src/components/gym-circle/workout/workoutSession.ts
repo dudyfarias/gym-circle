@@ -79,6 +79,8 @@ export type StoredWorkoutSession = {
   elevationGainM: number;
   restCount: number;
   restTimer: RestTimerState;
+  /** Série concluída à qual o descanso em andamento pertence. */
+  restSetClientId: string | null;
   strengthSets: LiveStrengthSet[];
   completedStrengthSetIds: string[];
   routePoints: WorkoutRoutePoint[];
@@ -261,6 +263,11 @@ export function readStoredWorkoutSession(userId: string): StoredWorkoutSession |
                   : null,
             }
           : REST_TIMER_INITIAL,
+      restSetClientId:
+        typeof parsed.restSetClientId === "string" &&
+        validStrengthSetIds.has(parsed.restSetClientId)
+          ? parsed.restSetClientId
+          : null,
       strengthSets,
       completedStrengthSetIds: Array.isArray(parsed.completedStrengthSetIds)
         ? Array.from(
@@ -360,6 +367,38 @@ export function workoutPausedSeconds(
     0,
     Math.floor((session.pausedTotalMs + livePauseMs) / 1000),
   );
+}
+
+/**
+ * Tempo efetivamente cumprido no descanso atual. Ajustes de +10/-10 alteram
+ * preset e restante juntos, então a diferença continua representando apenas
+ * o tempo já transcorrido, inclusive quando o usuário pula o timer.
+ */
+export function workoutRestElapsedSeconds(rest: RestTimerState) {
+  return Math.max(
+    0,
+    Math.min(7_200, Math.round(rest.presetS - rest.remainingS)),
+  );
+}
+
+/** Registra o descanso somente na série que iniciou aquele timer. */
+export function recordStrengthSetActualRest(
+  sets: LiveStrengthSet[],
+  clientId: string | null,
+  actualRestS: number,
+) {
+  if (!clientId) return sets;
+  const boundedActualRestS = Math.max(
+    0,
+    Math.min(7_200, Math.round(actualRestS)),
+  );
+  let changed = false;
+  const next = sets.map((set) => {
+    if (set.clientId !== clientId) return set;
+    changed = true;
+    return { ...set, actualRestS: boundedActualRestS };
+  });
+  return changed ? next : sets;
 }
 
 export function pauseWorkoutSession(

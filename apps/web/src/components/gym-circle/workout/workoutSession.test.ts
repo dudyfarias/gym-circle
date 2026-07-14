@@ -5,11 +5,13 @@ import {
   formatAveragePace,
   pauseWorkoutSession,
   readStoredWorkoutSession,
+  recordStrengthSetActualRest,
   resumeWorkoutSession,
   shouldAutoCompleteStrengthSet,
   type StoredWorkoutSession,
   workoutElapsedSeconds,
   workoutPausedSeconds,
+  workoutRestElapsedSeconds,
   workoutRouteCoordinates,
   writeStoredWorkoutSession,
   workoutStorageKey,
@@ -38,6 +40,7 @@ const base: StoredWorkoutSession = {
     remainingS: 60,
     endsAtMs: null,
   },
+  restSetClientId: null,
   strengthSets: [],
   completedStrengthSetIds: [],
   routePoints: [],
@@ -110,12 +113,39 @@ describe("strength set completion", () => {
   });
 });
 
+describe("strength set rest tracking", () => {
+  it("calcula o descanso cumprido mesmo quando o usuário pula o timer", () => {
+    expect(
+      workoutRestElapsedSeconds({
+        status: "running",
+        presetS: 60,
+        remainingS: 38,
+        endsAtMs: 40_000,
+      }),
+    ).toBe(22);
+  });
+
+  it("associa o descanso somente à série que iniciou o timer", () => {
+    const sets = [
+      { clientId: "set-1", reps: 10, weightKg: 20 },
+      { clientId: "set-2", reps: 8, weightKg: 25 },
+    ];
+
+    const result = recordStrengthSetActualRest(sets, "set-1", 61);
+    expect(result[0]).toEqual(
+      expect.objectContaining({ clientId: "set-1", actualRestS: 61 }),
+    );
+    expect(result[1]).toBe(sets[1]);
+  });
+});
+
 describe("workout session storage", () => {
   it("restaura séries e conclusões de uma sessão de musculação", () => {
     installStorage();
     const strengthSession: StoredWorkoutSession = {
       ...base,
       activityType: "strength",
+      restSetClientId: "set-1",
       strengthSets: [
         {
           clientId: "set-1",
@@ -135,6 +165,7 @@ describe("workout session storage", () => {
       expect.objectContaining({
         activityType: "strength",
         completedStrengthSetIds: ["set-1"],
+        restSetClientId: "set-1",
         strengthSets: [
           expect.objectContaining({
             clientId: "set-1",

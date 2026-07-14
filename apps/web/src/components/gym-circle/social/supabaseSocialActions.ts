@@ -707,8 +707,13 @@ export function createSocialActions(
           workoutNote: input.workoutNote ?? null,
           workoutExerciseContext: input.workoutExerciseContext ?? [],
         });
-        await services.stats.refreshMine();
-        await refresh();
+        // A atividade já está persistida. Atualizações secundárias não podem
+        // manter a tela de conclusão bloqueada nem transformar uma falha de
+        // refresh em falha ao salvar o treino.
+        void Promise.allSettled([
+          services.stats.refreshMine(),
+          refresh(),
+        ]);
         return {
           id: activity.id,
           workoutDate: activity.workoutDate,

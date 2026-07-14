@@ -131,13 +131,19 @@
       "failureMode": "To failure",
       "failureWeightHint": "Log the reps you reached at failure and the load used, if any.",
       "loadType": "Load type",
+      "exerciseLoadType": "Exercise load",
       "loadTypes": {
         "external": "Load",
         "bodyweight": "Bodyweight",
         "assisted": "Assisted",
         "notProvided": "No load"
       },
+      "assistanceKg": "Assist. kg",
+      "assistanceWeight": "Assistance (kg)",
+      "assistancePlaceholder": "assistance",
       "advancedForSet": "Advanced · set {{number}}",
+      "details": "Details",
+      "hasNote": "Note",
       "restSeconds": "Rest (s)",
       "note": "Note",
       "notePlaceholder": "Form, discomfort or an adjustment for next time",
@@ -223,7 +229,8 @@
       "confirm": "Discard workout"
     },
     "errors": {
-      "finish": "Couldn't save the workout. Try again."
+      "finish": "Couldn't save the workout. Try again.",
+      "finishTimeout": "The connection took too long. Your workout is still saved on this iPhone; try finishing again."
     },
     "summary": {
       "title": "Workout complete",
