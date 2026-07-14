@@ -26,6 +26,10 @@ import {
 import { useWorkoutCatalog } from "./useWorkoutCatalog";
 import { useWorkoutPlans } from "./useWorkoutPlans";
 import {
+  inferExerciseLoadType,
+  type ExerciseLoadType,
+} from "./exerciseLoadType";
+import {
   importWorkoutPlanFile,
   WorkoutPlanImportError,
   type WorkoutPlanImportProgress,
@@ -54,6 +58,7 @@ type DraftExercise = {
   sets: string;
   target: string;
   exerciseId: string | null;
+  loadType: ExerciseLoadType;
   muscleGroupSlug: string;
   techniqueId: string | null;
   techniqueName: string;
@@ -70,6 +75,7 @@ function emptyExercise(): DraftExercise {
     sets: "",
     target: "",
     exerciseId: null,
+    loadType: "not_provided",
     muscleGroupSlug: "other",
     techniqueId: null,
     techniqueName: "",
@@ -92,6 +98,7 @@ function toDraft(exercises: WorkoutPlanExercise[]): DraftExercise[] {
             ? String(e.reps)
             : "",
     exerciseId: e.exerciseId ?? null,
+    loadType: e.loadType ?? "not_provided",
     muscleGroupSlug: e.muscleGroupSlug ?? "other",
     techniqueId: e.techniqueId ?? null,
     techniqueName: e.techniqueName ?? "",
@@ -359,6 +366,15 @@ export function WorkoutPlansFabControlled({
               sets: Number.parseInt(exercise.sets, 10) || null,
               ...target,
               exerciseId: catalogExercise.id,
+              loadType:
+                exercise.loadType !== "not_provided"
+                  ? exercise.loadType
+                  : inferExerciseLoadType({
+                      equipment: catalogExercise.equipment,
+                      exerciseName: english
+                        ? catalogExercise.nameEn
+                        : catalogExercise.namePt,
+                    }),
               muscleGroupSlug: catalogExercise.primaryMuscleGroupSlug,
               techniqueId: catalogTechnique?.id ?? null,
               techniqueName:
@@ -423,6 +439,10 @@ export function WorkoutPlansFabControlled({
               ...emptyExercise(),
               name: english ? exercise.nameEn : exercise.namePt,
               exerciseId: exercise.id,
+              loadType: inferExerciseLoadType({
+                equipment: exercise.equipment,
+                exerciseName: english ? exercise.nameEn : exercise.namePt,
+              }),
               muscleGroupSlug: exercise.primaryMuscleGroupSlug,
             };
             setEditing((current) => {
