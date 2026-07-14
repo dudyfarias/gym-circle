@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle } from "lucide-react";
 
 type ConfirmTone = "destructive" | "default";
@@ -44,22 +45,26 @@ export function ConfirmSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   const confirmClass =
     tone === "destructive"
       ? "text-[var(--gc-pink)]"
       : "text-white";
 
-  return (
-    <div className="absolute inset-0 z-[90] flex flex-col justify-end bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+1rem)] pt-[calc(var(--gc-safe-top)+5rem)] backdrop-blur-md">
+  return createPortal(
+    <div
+      aria-modal="true"
+      className="fixed inset-0 z-[140] flex min-h-[100dvh] flex-col items-center justify-end overflow-hidden bg-black/72 px-4 pb-[calc(var(--gc-safe-bottom)+1rem)] pt-[calc(var(--gc-safe-top)+1rem)] backdrop-blur-md"
+      role="dialog"
+    >
       <button
         aria-label="Fechar"
         className="absolute inset-0 cursor-default"
         onClick={onClose}
         type="button"
       />
-      <div className="relative space-y-2">
+      <div className="relative w-full max-w-[448px] space-y-2">
         <div className="overflow-hidden rounded-[24px] border border-white/[0.1] bg-[#16181b] shadow-[0_28px_72px_rgba(0,0,0,0.6)]">
           <div className="border-b border-white/[0.06] px-6 py-5">
             <div className="flex items-start gap-3">
@@ -96,6 +101,7 @@ export function ConfirmSheet({
           {cancelLabel}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
