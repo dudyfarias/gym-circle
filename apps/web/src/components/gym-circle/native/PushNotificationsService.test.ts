@@ -127,6 +127,12 @@ describe("PushNotificationsService", () => {
       }),
     );
     expect(localStorage.getItem("gc-push-enabled")).toBe("true");
+    expect(window.dispatchEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "gymcircle:push-enabled-change",
+        init: { detail: { enabled: true } },
+      }),
+    );
 
     const cleanup = await PushNotificationsService.setupListeners(
       "user-1",
@@ -163,5 +169,38 @@ describe("PushNotificationsService", () => {
     ).resolves.toEqual({ status: "permission_denied" });
     expect(nativeMocks.register).not.toHaveBeenCalled();
     expect(push.saveDeviceToken).not.toHaveBeenCalled();
+  });
+
+  it("reports unsupported without attempting native registration", async () => {
+    installWindow();
+    const push = pushServiceMock();
+    nativeMocks.isPluginAvailable.mockReturnValueOnce(false);
+
+    await expect(
+      PushNotificationsService.requestPushPermission("user-4", push),
+    ).resolves.toEqual({ status: "unsupported" });
+    expect(nativeMocks.requestPermissions).not.toHaveBeenCalled();
+    expect(nativeMocks.register).not.toHaveBeenCalled();
+  });
+
+  it("preserves the native permission error for diagnostics", async () => {
+    installWindow();
+    const push = pushServiceMock();
+    nativeMocks.requestPermissions.mockRejectedValueOnce(
+      new Error("native_permission_bridge_failed"),
+    );
+
+    const result = await PushNotificationsService.requestPushPermission(
+      "user-5",
+      push,
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result).toMatchObject({
+      error: expect.objectContaining({
+        message: "native_permission_bridge_failed",
+      }),
+    });
+    expect(nativeMocks.register).not.toHaveBeenCalled();
   });
 });

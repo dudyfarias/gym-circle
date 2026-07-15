@@ -11,6 +11,8 @@ const TOKEN_KEY = "gym-circle.native-push-token.v2";
 const DEVICE_ID_KEY = "gym-circle.native-device-id.v1";
 const DEFAULT_APP_VERSION = "1.1.0";
 
+export const PUSH_ENABLED_CHANGE_EVENT = "gymcircle:push-enabled-change";
+
 export type NativePushPermissionStatus =
   | "unsupported"
   | "prompt"
@@ -113,6 +115,20 @@ function clearStoredToken() {
   } catch {
     // ignore
   }
+}
+
+function publishPushEnabledState(enabled: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem("gc-push-enabled", String(enabled));
+  } catch {
+    // O token no Supabase continua sendo o estado autoritativo.
+  }
+  window.dispatchEvent(
+    new CustomEvent(PUSH_ENABLED_CHANGE_EVENT, {
+      detail: { enabled },
+    }),
+  );
 }
 
 function stableDeviceId(): string {
@@ -238,7 +254,7 @@ export const PushNotificationsService = {
       debugLog("warn", "permission request failed", {
         error: error instanceof Error ? error.message : "unknown",
       });
-      return "unsupported";
+      throw error;
     }
   },
 
@@ -265,11 +281,7 @@ export const PushNotificationsService = {
       throw error;
     }
     storeToken(token, userId);
-    try {
-      window.localStorage.setItem("gc-push-enabled", "true");
-    } catch {
-      // Token persistido no backend continua autoritativo.
-    }
+    publishPushEnabledState(true);
     debugLog("info", "device token saved", { token: maskToken(token) });
   },
 
@@ -381,7 +393,12 @@ export const PushNotificationsService = {
     userId: string,
     push: PushService,
   ): Promise<NativePushRegisterResult> {
-    const permission = await this.requestPermissions();
+    let permission: NativePushPermissionStatus;
+    try {
+      permission = await this.requestPermissions();
+    } catch (error) {
+      return { status: "failed", error };
+    }
     if (permission === "unsupported") return { status: "unsupported" };
     if (permission !== "granted") return { status: "permission_denied" };
     return this.registerForPushNotifications(userId, push);
@@ -403,11 +420,7 @@ export const PushNotificationsService = {
         );
         await PushNotifications.unregister();
       }
-      try {
-        window.localStorage.setItem("gc-push-enabled", "false");
-      } catch {
-        // ignore
-      }
+      publishPushEnabledState(false);
     } catch (error) {
       debugLog("warn", "native unregister failed", {
         error: error instanceof Error ? error.message : "unknown",

@@ -14,7 +14,9 @@ type NativePushControllerProps = {
   userId: string;
 };
 
-const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v3";
+// v4 rearma uma única vez o CTA para quem não ativou nas campanhas anteriores.
+// Usuários já autorizados seguem pelo registro silencioso e não veem o modal.
+const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v4";
 const PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 const FOREGROUND_TOAST_MS = 5_500;
 
@@ -86,7 +88,26 @@ export function NativePushController({ userId }: NativePushControllerProps) {
           userId,
           services.push,
         );
-      if (cancelled || result.status !== "failed" || attempt >= 2) return;
+      if (cancelled) return;
+      if (result.status === "registered") {
+        setPromptOpen(false);
+        setPromptErrorKey(null);
+        setPromptErrorDetail(null);
+        return;
+      }
+      if (result.status !== "failed") return;
+
+      const detail =
+        result.error instanceof Error
+          ? result.error.message
+          : typeof result.error === "string"
+            ? result.error
+            : "unknown_error";
+      setPromptErrorDetail(detail);
+      setPromptErrorKey("failed");
+      setPromptOpen(true);
+
+      if (attempt >= 2) return;
       timer = window.setTimeout(
         () => void registerWithRetry(attempt + 1),
         attempt === 0 ? 15_000 : 45_000,
