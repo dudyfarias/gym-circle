@@ -14,11 +14,21 @@ export function activityService(client: GymCircleClient) {
     async create(userId: string, input: ActivityInput): Promise<Activity> {
       const row = activityInputToRow(input, userId);
       if (input.clientSessionId) {
+        // O RPC lê JSONB opcionais com `p_payload -> 'campo'`. Quando o
+        // cliente envia `null`, o Postgres recebe JSON `null` (não SQL NULL),
+        // o que viola constraints que aceitam somente NULL ou array. Omitir
+        // esses campos mantém a semântica correta para caminhadas/corridas e
+        // treinos livres sem snapshot de plano.
+        const rpcPayload = omitNullJsonFields(row, [
+          "route",
+          "strength_sets",
+          "workout_plan_exercises_snapshot",
+        ]);
         const { data, error } = await (
           client as unknown as SupabaseClient
         ).rpc("finalize_workout_activity", {
           p_client_session_id: input.clientSessionId,
-          p_payload: row,
+          p_payload: rpcPayload,
         });
         if (!error) {
           const result = Array.isArray(data) ? data[0] : data;
@@ -157,6 +167,17 @@ export function activityService(client: GymCircleClient) {
       if (error) throw error;
     },
   };
+}
+
+function omitNullJsonFields<T extends Record<string, unknown>>(
+  row: T,
+  fields: Array<keyof T>,
+): Partial<T> {
+  const payload: Partial<T> = { ...row };
+  for (const field of fields) {
+    if (payload[field] == null) delete payload[field];
+  }
+  return payload;
 }
 
 function isMissingFinalizeWorkoutRpc(error: unknown) {

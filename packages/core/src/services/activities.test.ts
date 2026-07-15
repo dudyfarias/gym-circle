@@ -51,6 +51,76 @@ describe("activityService.create", () => {
     expect(activity.id).toBe("a1");
   });
 
+  it.each([
+    ["strength", "session", null],
+    ["run", "route", []],
+    ["walk", "route", []],
+    ["ride", "route", []],
+    ["other", "session", null],
+  ] as const)(
+    "omite JSON nulo ao finalizar %s sem plano salvo",
+    async (activityType, mode, route) => {
+      const rpc = vi.fn().mockResolvedValue({
+        data: {
+          ...baseRow,
+          activity_type: activityType,
+          mode,
+          route,
+        },
+        error: null,
+      });
+      const client = { rpc } as unknown as GymCircleClient;
+
+      await activityService(client).create("u1", {
+        clientSessionId: "00000000-0000-4000-8000-000000000002",
+        activityType,
+        mode,
+        origin: "web_timer",
+        startedAt: "2026-07-15T13:50:00Z",
+        endedAt: "2026-07-15T14:13:00Z",
+        elapsedS: 517,
+        movingS: 517,
+        distanceM: mode === "route" ? 10 : null,
+        route,
+        strengthSets: null,
+        workoutPlanExercisesSnapshot: null,
+      });
+
+      const payload = rpc.mock.calls[0]?.[1]?.p_payload;
+      expect(payload).toMatchObject({
+        activity_type: activityType,
+        mode,
+      });
+      if (route) expect(payload).toHaveProperty("route", []);
+      else expect(payload).not.toHaveProperty("route");
+      expect(payload).not.toHaveProperty("strength_sets");
+      expect(payload).not.toHaveProperty("workout_plan_exercises_snapshot");
+    },
+  );
+
+  it("preserva snapshots e séries quando há dados", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: baseRow, error: null });
+    const client = { rpc } as unknown as GymCircleClient;
+
+    await activityService(client).create("u1", {
+      clientSessionId: "00000000-0000-4000-8000-000000000003",
+      activityType: "strength",
+      mode: "session",
+      origin: "web_timer",
+      startedAt: "2026-07-15T13:50:00Z",
+      endedAt: "2026-07-15T14:13:00Z",
+      elapsedS: 517,
+      strengthSets: [{ reps: 12, weightKg: 20 }],
+      workoutPlanExercisesSnapshot: [{ name: "Supino reto" }],
+    });
+
+    const payload = rpc.mock.calls[0]?.[1]?.p_payload;
+    expect(payload).toMatchObject({
+      strength_sets: [{ reps: 12, weight_kg: 20 }],
+      workout_plan_exercises_snapshot: [{ name: "Supino reto" }],
+    });
+  });
+
   it("faz fallback temporário se a migration do RPC ainda não chegou", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,

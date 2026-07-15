@@ -359,6 +359,8 @@ export function activityRowToDomain(row: ActivityRow): Activity {
 }
 
 export function activityInputToRow(input: ActivityInput, userId: string) {
+  const elapsedS = nonNegativeInteger(input.elapsedS);
+  const movingS = nullableNonNegativeInteger(input.movingS);
   return {
     user_id: userId,
     activity_type: input.activityType,
@@ -367,8 +369,10 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     source_app: input.sourceApp ?? null,
     started_at: input.startedAt,
     ended_at: input.endedAt,
-    elapsed_s: input.elapsedS,
-    moving_s: input.movingS ?? null,
+    elapsed_s: elapsedS,
+    // O GPS nativo pode incluir alguns segundos de uma localização em cache.
+    // Tempo em movimento nunca deve ultrapassar a duração efetiva da sessão.
+    moving_s: movingS === null ? null : Math.min(movingS, elapsedS),
     distance_m: input.distanceM ?? null,
     elevation_gain_m: input.elevationGainM ?? null,
     route: input.route ?? null,
@@ -387,6 +391,16 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     workout_note: input.workoutNote?.trim() || null,
     workout_exercise_context: input.workoutExerciseContext ?? [],
   };
+}
+
+function nonNegativeInteger(value: number) {
+  return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+}
+
+function nullableNonNegativeInteger(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, Math.round(value))
+    : null;
 }
 
 function positiveNumberOrNull(value: number | null | undefined) {

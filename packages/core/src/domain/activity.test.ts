@@ -65,6 +65,24 @@ describe("activityInputToRow", () => {
     expect(row.distance_m).toBe(8400);
     expect(row.avg_hr).toBe(154);
   });
+
+  it("limita tempo em movimento à duração da atividade", () => {
+    const row = activityInputToRow(
+      {
+        activityType: "run",
+        mode: "route",
+        origin: "web_timer",
+        startedAt: "2026-07-15T13:50:00Z",
+        endedAt: "2026-07-15T13:57:08Z",
+        elapsedS: 428,
+        movingS: 443,
+      },
+      "u1",
+    );
+
+    expect(row.elapsed_s).toBe(428);
+    expect(row.moving_s).toBe(428);
+  });
 });
 
 describe("activityRowToDomain", () => {
