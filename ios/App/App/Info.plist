@@ -52,6 +52,8 @@
 	<string>Necessária para gravar o áudio dos vídeos do seu treino, igual nos stories e posts em vídeo.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>O Gym Circle lê somente os treinos que você escolher no Apple Saúde para importar distância, duração, calorias, batimentos e rota para o seu histórico.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>O Gym Circle não grava nem altera dados no Apple Saúde. A integração atual é somente leitura para importar os treinos que você escolher.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Para registrar a distância e o mapa do seu treino enquanto ele estiver ativo.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
