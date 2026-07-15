@@ -301,25 +301,40 @@
   },
   "workoutDetail": {
     "title": "Workout details",
-    "detailsTitle": "Workout Details",
+    "detailsTitle": "Activity summary",
     "workoutTime": "Workout Time",
     "duration": "Duration",
+    "movingTime": "Moving time",
     "distance": "Distance",
     "activeCalories": "Active Calories",
     "totalCalories": "Total Calories",
     "avgPace": "Avg. Pace",
     "elevation": "Elevation Gain",
     "avgHeartRate": "Avg. Heart Rate",
+    "maxHeartRate": "Max. Heart Rate",
     "mapTitle": "Map",
+    "routeUnavailable": "Route unavailable",
+    "routeUnavailableDetail": "This activity did not receive enough GPS points. Available metrics remain valid; no route was estimated.",
+    "derivedFromRoute": "calculated from route",
+    "startedAt": "Started at {{time}}",
+    "howItWent": "How it went",
+    "sources": {
+      "gymCircle": "Recorded by Gym Circle",
+      "appleWatch": "Apple Watch",
+      "appleHealth": "Apple Health",
+      "externalApp": "External app",
+      "imported": "Imported activity"
+    },
     "setsTitle": "Sets",
     "setNumber": "Set {{number}}",
     "setReps": "{{reps}} reps",
-    "bodyweight": "bodyweight"
+    "bodyweight": "bodyweight",
+    "loadNotProvided": "load not provided"
   },
   "workoutPlans": {
     "fab": "More workout options",
     "tools": "Workouts",
-    "import": "Import workout",
+    "import": "Import from Apple Health",
     "importFile": "Import photo or PDF",
     "importHint": "We read it on your device and you review it before saving.",
     "importPrivacy": "The file never leaves your device.",
@@ -362,6 +377,53 @@
     "errors": {
       "save": "We couldn't save this workout. Try again.",
       "delete": "We couldn't delete this workout. Try again."
+    }
+  },
+  "healthImport": {
+    "title": "Import from Apple Health",
+    "subtitle": "Apple Watch, Apple Fitness, and other apps that save workouts to Health.",
+    "checking": "Checking availability…",
+    "unsupported": "Available on iPhone only",
+    "unsupportedDetail": "Open the installed Gym Circle app on iPhone to import Apple Health workouts.",
+    "permissionTitle": "Connect Apple Health",
+    "permissionDetail": "You choose what to share. Gym Circle only reads workouts, duration, distance, calories, heart rate, and route data you authorize.",
+    "authorize": "Continue in Apple Health",
+    "authorizing": "Opening authorization…",
+    "loading": "Loading your workouts…",
+    "recent": "Last 30 days",
+    "empty": "No workouts available",
+    "emptyDetail": "There may be no recent workouts or access may be disabled. Check Gym Circle in Health > Sharing > Apps.",
+    "refresh": "Refresh",
+    "back": "‹ Back to workouts",
+    "reviewPrivacy": "Only this workout will be saved to your Gym Circle history. Nothing is imported automatically.",
+    "import": "Import workout",
+    "importing": "Importing…",
+    "successTitle": "Workout imported",
+    "successDetail": "Your {{source}} data is now in your history.",
+    "share": "Share to Circle",
+    "done": "Finish without posting",
+    "types": {
+      "strength": "Strength training",
+      "running": "Run",
+      "cycling": "Ride",
+      "walking": "Walk",
+      "hiit": "HIIT",
+      "mobility": "Mobility",
+      "other": "Other workout"
+    },
+    "metrics": {
+      "duration": "Duration",
+      "distance": "Distance",
+      "calories": "Active calories",
+      "heartRate": "Average heart rate"
+    },
+    "errors": {
+      "permission": "We couldn't open Apple Health authorization.",
+      "denied": "Access wasn't granted. You can change it later in the Health app.",
+      "load": "We couldn't load your Apple Health workouts.",
+      "details": "The detailed route isn't available, but you can still import the summary.",
+      "duplicate": "This workout has already been imported to Gym Circle.",
+      "import": "We couldn't import this workout right now. Try again."
     }
   },
   "workoutCatalog": {
@@ -747,7 +809,10 @@
           "title": "Push notifications",
           "description": "Get alerts for likes, comments, and new followers on your phone.",
           "enabling": "Requesting permission...",
-          "denied": "Permission denied. Enable it in iOS Settings."
+          "enabled": "Notifications are enabled on this iPhone.",
+          "denied": "Permission was already denied on this iPhone. iOS will not show the prompt again: open Settings > Apps > Gym Circle > Notifications and enable Allow Notifications.",
+          "unsupported": "This installation could not access iPhone notifications. Close and reopen the app; if it continues, update Gym Circle.",
+          "failed": "The iPhone granted permission, but registration did not finish. Try again; the code below identifies the failed step."
         }
       },
       "privacy": {
@@ -829,6 +894,169 @@
       "cta": "Restore",
       "countdownHours": "{{count}}h left",
       "countdownMinutes": "{{count}}min left"
+    }
+  },
+  "trainer": {
+    "badge": "Personal Trainer",
+    "acceptingClients": "Accepting new clients",
+    "actions": {
+      "become": "Become a trainer on Gym Circle",
+      "becomeDescription": "Create your professional profile",
+      "edit": "Edit professional profile"
+    },
+    "workspace": {
+      "title": "Professional workspace",
+      "foundation": "Professional foundation",
+      "management": "Manage workspace",
+      "onboarding": {
+        "eyebrow": "Gym Circle Coach",
+        "title": "Organize your work in one place",
+        "body": "Your professional workspace will become the private foundation for your team, clients and workouts in future releases.",
+        "scopeNotice": "This release does not grant access to clients, activities or workouts owned by other people."
+      },
+      "actions": {
+        "create": "Create professional workspace",
+        "createDescription": "Set up the private foundation for your work",
+        "save": "Save changes"
+      },
+      "fields": {
+        "name": "Workspace name",
+        "type": "Type",
+        "role": "Your role",
+        "description": "Description",
+        "descriptionPlaceholder": "How do you present your work or team?",
+        "city": "City",
+        "state": "State"
+      },
+      "types": {
+        "individual": "Individual",
+        "advisory": "Coaching team",
+        "studio": "Studio",
+        "gym_partner": "Gym partner"
+      },
+      "typeDescriptions": {
+        "individual": "For your individual professional practice.",
+        "advisory": "For a coaching team with shared organization in a future release.",
+        "studio": "For a studio team or operation."
+      },
+      "roles": {
+        "owner": "Owner",
+        "trainer": "Trainer",
+        "assistant": "Assistant",
+        "viewer": "Viewer"
+      },
+      "statuses": {
+        "active": "Active",
+        "suspended": "Suspended",
+        "archived": "Archived"
+      },
+      "statusMessages": {
+        "suspended": "This workspace is suspended. Its data remains visible but cannot be changed.",
+        "archived": "This workspace is archived and is available for reference only."
+      },
+      "members": {
+        "title": "Members",
+        "subtitle": "Professional workspace team",
+        "noUsername": "No username",
+        "invitesLater": "Invitations and role changes will ship in a future release with their own security rules."
+      },
+      "errors": {
+        "load": "We could not load the professional workspace right now.",
+        "save": "We could not save the professional workspace. Try again.",
+        "alreadyExists": "You already own an active professional workspace.",
+        "name": "Enter a name between 2 and 100 characters.",
+        "type": "Choose a valid workspace type.",
+        "description": "The description can have up to 800 characters.",
+        "city": "Enter a valid city.",
+        "state": "Enter a valid state."
+      }
+    },
+    "verification": {
+      "verified": "Verified",
+      "ownerVerified": "Professional profile verified.",
+      "ownerPending": "Your registration is under review. The Verified badge is hidden until the review is complete.",
+      "ownerRejected": "Your verification needs changes. You can correct the information and submit it again.",
+      "ownerSuspended": "Your professional profile is suspended and is not publicly visible.",
+      "ownerUnverified": "Professional profile not verified. Add your registration to request a review."
+    },
+    "specialties": {
+      "hypertrophy": "Hypertrophy",
+      "weight_loss": "Weight loss",
+      "strength": "Strength",
+      "conditioning": "Conditioning",
+      "running": "Running",
+      "mobility": "Mobility",
+      "seniors": "Seniors",
+      "beginners": "Beginners",
+      "functional_training": "Functional training"
+    },
+    "serviceModes": {
+      "online": "Online",
+      "in_person": "In person",
+      "hybrid": "Hybrid"
+    },
+    "form": {
+      "title": "Become a trainer",
+      "editTitle": "Professional profile",
+      "step": "Step {{current}} of {{total}}",
+      "submit": "Submit profile",
+      "intro": {
+        "title": "Your work, with the Gym Circle identity",
+        "body": "Create your professional profile and get ready to support clients through Gym Circle.",
+        "noticeTitle": "Personal Trainer does not mean verified profile",
+        "noticeBody": "Your profile remains unverified until the review is complete. This first release does not include a client dashboard or workout assignments."
+      },
+      "professional": {
+        "title": "Professional details"
+      },
+      "specialties": {
+        "title": "What are your specialties?",
+        "subtitle": "Choose up to 5 areas to make your work clear.",
+        "limit": "{{count}} of 5 selected"
+      },
+      "service": {
+        "title": "How do you coach?"
+      },
+      "registration": {
+        "title": "Professional registration",
+        "subtitle": "Optional in this release. Adding it starts a manual review and never verifies the profile automatically.",
+        "privacy": "The full number is visible only to you and the review team. It is never returned with the public profile.",
+        "verifiedBody": "Protected registration {{number}}. Future changes will use a secure re-review flow."
+      },
+      "review": {
+        "title": "Review your profile",
+        "notice": "By submitting, you confirm that the professional information is accurate. Gym Circle never grants the Verified badge automatically."
+      },
+      "fields": {
+        "professionalName": "Professional name",
+        "headline": "Headline",
+        "headlinePlaceholder": "Example: Simple and consistent hypertrophy coaching",
+        "professionalBio": "Professional bio",
+        "bioPlaceholder": "Share your experience, approach and who your coaching is for.",
+        "city": "City",
+        "state": "State",
+        "yearsExperience": "Years of experience",
+        "acceptsNewClients": "I accept new clients",
+        "contactCtaEnabled": "Allow contact by message",
+        "profilePublic": "Show the professional section on my profile",
+        "registrationNumber": "Registration number",
+        "registrationRegion": "Region / council",
+        "registrationRegionPlaceholder": "Example: CREF-SP"
+      },
+      "errors": {
+        "load": "We could not load the professional profile right now.",
+        "save": "We could not save the professional profile. Try again.",
+        "professional": "Add a name, headline and a bio with at least 20 characters.",
+        "professionalName": "Add your professional name.",
+        "headline": "Add a professional headline.",
+        "professionalBio": "The professional bio needs at least 20 characters.",
+        "specialties": "Choose at least one specialty.",
+        "specialtiesLimit": "Choose no more than 5 specialties.",
+        "serviceMode": "Choose a coaching mode.",
+        "registration": "Add both registration number and region, or leave both empty.",
+        "registrationPair": "Add both registration number and region, or leave both empty.",
+        "yearsExperience": "Enter years of experience between 0 and 80."
+      }
     }
   },
   "orientation": {

@@ -10,6 +10,7 @@ import {
 
 function fullProfile(input: Partial<ProfileRow> & Pick<ProfileRow, "user_id">): ProfileRow {
   return {
+    account_type: "regular",
     id: input.id ?? `real-${input.user_id}`,
     user_id: input.user_id,
     username: input.username ?? "dudy",

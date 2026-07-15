@@ -5,12 +5,20 @@ import type { LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { WorkoutDetail } from "../social/types";
 import {
+  normalizeActivitySource,
+  normalizedMovingSeconds,
+  resolveActivityRoute,
+  resolveActivityTime,
+} from "../workout/activityDetail";
+import {
   formatApplePace,
   formatElapsed,
   formatKm,
   paceFromDistance,
 } from "../workout/workoutElapsed";
-import { WorkoutRouteMap } from "./WorkoutRouteMap";
+import { ActivityMetricGrid } from "./ActivityMetricGrid";
+import { ActivitySourceBadge } from "./ActivitySourceBadge";
+import { OutdoorActivityHero } from "./OutdoorActivityHero";
 
 type WorkoutDetailOverlayProps = {
   workout: WorkoutDetail;
@@ -25,37 +33,30 @@ const TYPE_META: Record<string, { key: string; icon: LucideIcon }> = {
   other: { key: "workout.types.other", icon: Play },
 };
 
-// Paleta Apple Atividades (número colorido por métrica).
+const OUTDOOR_TYPES = new Set(["run", "walk", "ride"]);
+
 const TONE = {
   time: "#FFD60A",
   distance: "#33C7FF",
   calories: "#FF3B5F",
-  pace: "var(--gc-blue)",
-  heart: "#FF453A",
-  elevation: "#4CD964",
+  pace: "#65E8F4",
+  heart: "#FF5A49",
+  elevation: "#5DE17E",
 } as const;
 
-function spTime(iso: string | null): string {
+function longDate(
+  iso: string | null,
+  locale: string,
+  timeZone: string,
+): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Sao_Paulo",
-  }).format(d);
-}
-
-function spLongDate(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("pt-BR", {
-    weekday: "short",
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
-    month: "short",
-    timeZone: "America/Sao_Paulo",
-  }).format(d);
+    month: "long",
+    timeZone,
+  }).format(date);
 }
 
 function formatRecordValue(value: number, unit: string): string {
@@ -66,66 +67,81 @@ function formatRecordValue(value: number, unit: string): string {
   return `${formatted} ${unit}`.trim();
 }
 
-/**
- * Detalhe do treino estilo Apple Atividades — abre ao tocar nos stats de uma
- * entrada de atividade OU no header de um post promovido de treino. Mostra o
- * que temos (grid de métricas coloridas + mini-mapa da rota). Parciais/
- * segmentos/série de FC ficam de fora (não gravamos série temporal).
- */
 export function WorkoutDetailOverlay({
   workout,
   onClose,
 }: WorkoutDetailOverlayProps) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
+  const locale = i18n.language?.startsWith("en") ? "en-US" : "pt-BR";
+  const timeZone =
+    Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
   const meta = TYPE_META[workout.activityType] ?? TYPE_META.other;
   const Icon = meta.icon;
   const typeLabel = t(meta.key);
+  const isOutdoor = OUTDOOR_TYPES.has(workout.activityType);
   const start = workout.startedAt ?? workout.endedAt;
-  const timeRange = [spTime(workout.startedAt), spTime(workout.endedAt)]
-    .filter(Boolean)
-    .join(" – ");
   const locationLabel = workout.gymName ?? workout.locationName;
-
-  const pace =
-    (workout.distanceM ?? 0) > 0
-      ? paceFromDistance(
-          workout.distanceM ?? 0,
-          workout.movingS ?? workout.elapsedS,
-        )
-      : null;
-
-  const stats: Array<{ label: string; value: string; color: string }> = [];
-  if (workout.movingS && workout.movingS > 0) {
-    stats.push({
-      label: t("workoutDetail.workoutTime"),
-      value: formatElapsed(workout.movingS),
-      color: TONE.time,
-    });
-  }
-  stats.push({
-    label: t("workoutDetail.duration"),
-    value: formatElapsed(workout.elapsedS),
-    color: TONE.time,
+  const routeResolution = resolveActivityRoute({
+    route: workout.route,
+    distanceM: workout.distanceM,
   });
-  if ((workout.distanceM ?? 0) > 0) {
+  const time = resolveActivityTime({
+    startedAt: workout.startedAt,
+    endedAt: workout.endedAt,
+    elapsedS: workout.elapsedS,
+    locale,
+    timeZone,
+  });
+  const timeLabel = time.rangeIsConsistent && time.startLabel && time.endLabel
+    ? `${time.startLabel} – ${time.endLabel}`
+    : time.startLabel
+      ? t("workoutDetail.startedAt", { time: time.startLabel })
+      : null;
+  const movingS = normalizedMovingSeconds(workout.movingS, workout.elapsedS);
+  const pace = routeResolution.distanceM
+    ? paceFromDistance(
+        routeResolution.distanceM,
+        movingS ?? workout.elapsedS,
+      )
+    : null;
+  const sourceKind = normalizeActivitySource({
+    origin: workout.origin,
+    sourceApp: workout.sourceApp,
+  });
+  const sourceBadge = (
+    <ActivitySourceBadge
+      externalLabel={workout.sourceApp}
+      kind={sourceKind}
+      labels={{
+        gym_circle: t("workoutDetail.sources.gymCircle"),
+        apple_watch: t("workoutDetail.sources.appleWatch"),
+        apple_health: t("workoutDetail.sources.appleHealth"),
+        external_app: t("workoutDetail.sources.externalApp"),
+        imported: t("workoutDetail.sources.imported"),
+      }}
+    />
+  );
+
+  const stats: Array<{
+    label: string;
+    value: string;
+    color: string;
+    hint?: string | null;
+  }> = [
+    {
+      label: t("workoutDetail.duration"),
+      value: formatElapsed(workout.elapsedS),
+      color: TONE.time,
+    },
+  ];
+  if (routeResolution.distanceM) {
     stats.push({
       label: t("workoutDetail.distance"),
-      value: formatKm(workout.distanceM ?? 0),
+      value: formatKm(routeResolution.distanceM),
       color: TONE.distance,
-    });
-  }
-  if (workout.activeCalories != null) {
-    stats.push({
-      label: t("workoutDetail.activeCalories"),
-      value: `${Math.round(workout.activeCalories)} cal`,
-      color: TONE.calories,
-    });
-  }
-  if (workout.totalCalories != null) {
-    stats.push({
-      label: t("workoutDetail.totalCalories"),
-      value: `${Math.round(workout.totalCalories)} cal`,
-      color: TONE.calories,
+      hint: routeResolution.distanceDerivedFromRoute
+        ? t("workoutDetail.derivedFromRoute")
+        : null,
     });
   }
   if (pace != null) {
@@ -135,6 +151,13 @@ export function WorkoutDetailOverlay({
       color: TONE.pace,
     });
   }
+  if (movingS && Math.abs(movingS - workout.elapsedS) >= 30) {
+    stats.push({
+      label: t("workoutDetail.movingTime"),
+      value: formatElapsed(movingS),
+      color: TONE.time,
+    });
+  }
   if ((workout.elevationGainM ?? 0) >= 1) {
     stats.push({
       label: t("workoutDetail.elevation"),
@@ -142,10 +165,31 @@ export function WorkoutDetailOverlay({
       color: TONE.elevation,
     });
   }
-  if (workout.avgHr != null) {
+  if ((workout.activeCalories ?? 0) > 0) {
+    stats.push({
+      label: t("workoutDetail.activeCalories"),
+      value: `${Math.round(workout.activeCalories ?? 0)} kcal`,
+      color: TONE.calories,
+    });
+  }
+  if ((workout.totalCalories ?? 0) > 0) {
+    stats.push({
+      label: t("workoutDetail.totalCalories"),
+      value: `${Math.round(workout.totalCalories ?? 0)} kcal`,
+      color: TONE.calories,
+    });
+  }
+  if ((workout.avgHr ?? 0) > 0) {
     stats.push({
       label: t("workoutDetail.avgHeartRate"),
-      value: `${workout.avgHr} bpm`,
+      value: `${Math.round(workout.avgHr ?? 0)} bpm`,
+      color: TONE.heart,
+    });
+  }
+  if ((workout.maxHr ?? 0) > 0) {
+    stats.push({
+      label: t("workoutDetail.maxHeartRate"),
+      value: `${Math.round(workout.maxHr ?? 0)} bpm`,
       color: TONE.heart,
     });
   }
@@ -154,66 +198,65 @@ export function WorkoutDetailOverlay({
     <div
       aria-label={t("workoutDetail.title")}
       aria-modal="true"
-      className="fixed inset-0 z-[96] flex justify-center overflow-y-auto bg-black/92 backdrop-blur-md"
+      className="fixed inset-0 z-[96] flex justify-center overflow-y-auto overscroll-contain bg-black/94 backdrop-blur-md"
       role="dialog"
     >
-      <div className="flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+14px)]">
-        <header className="mb-5 flex items-center justify-between">
-          <p className="text-[15px] font-black text-white">
-            {spLongDate(start)}
-          </p>
-          <button
-            aria-label={t("common.close")}
-            className="gc-pressable grid size-9 place-items-center rounded-full border border-white/[0.08] bg-white/[0.08] text-white/82"
-            onClick={onClose}
-            type="button"
-          >
-            <X size={17} strokeWidth={2.4} />
-          </button>
-        </header>
+      <div className="relative flex min-h-full w-full max-w-[480px] flex-col px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+14px)]">
+        <button
+          aria-label={t("common.close")}
+          className="gc-pressable fixed right-[max(20px,calc((100vw_-_480px)/2_+_20px))] top-[calc(var(--gc-safe-top)+14px)] z-10 grid size-10 place-items-center rounded-full border border-white/[0.12] bg-black/55 text-white/88 backdrop-blur-xl"
+          onClick={onClose}
+          type="button"
+        >
+          <X size={18} strokeWidth={2.5} />
+        </button>
 
-        {/* Cabeçalho: ícone + tipo + horário + local */}
-        <div className="mb-6 flex items-center gap-3.5">
-          <div className="grid size-16 shrink-0 place-items-center rounded-full bg-[var(--gc-blue)]/14 text-[var(--gc-blue)]">
-            <Icon size={26} strokeWidth={2.6} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[22px] font-black leading-tight text-white">
-              {typeLabel}
-            </p>
-            {timeRange ? (
-              <p className="text-[14px] font-semibold text-white/50">
-                {timeRange}
-              </p>
-            ) : null}
-            {locationLabel ? (
-              <p className="flex items-center gap-1 text-[13px] font-semibold text-white/50">
-                <MapPin size={11} strokeWidth={2.6} />
-                <span className="truncate">{locationLabel}</span>
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Grid de métricas (Detalhes do Exercício) */}
-        <h3 className="mb-3 text-[19px] font-black text-white">
-          {t("workoutDetail.detailsTitle")}
-        </h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-5 rounded-[22px] bg-white/[0.04] p-5">
-          {stats.map((stat) => (
-            <div key={stat.label} className="min-w-0">
-              <p className="truncate text-[13.5px] font-semibold text-white/62">
-                {stat.label}
-              </p>
-              <p
-                className="text-[25px] font-black leading-tight"
-                style={{ color: stat.color }}
-              >
-                {stat.value}
-              </p>
+        {isOutdoor ? (
+          <OutdoorActivityHero
+            activityType={workout.activityType}
+            dateLabel={longDate(start, locale, timeZone)}
+            distanceLabel={
+              routeResolution.distanceM
+                ? formatKm(routeResolution.distanceM)
+                : null
+            }
+            locationLabel={locationLabel}
+            mapLabel={t("workoutDetail.mapTitle")}
+            mapUnavailableLabel={t("workoutDetail.routeUnavailable")}
+            route={routeResolution.route}
+            sourceBadge={sourceBadge}
+            timeLabel={timeLabel}
+            title={typeLabel}
+          />
+        ) : (
+          <header className="mb-6 mt-10 flex items-center gap-3.5">
+            <div className="grid size-16 shrink-0 place-items-center rounded-full bg-[var(--gc-blue)]/14 text-[var(--gc-blue)]">
+              <Icon size={26} strokeWidth={2.6} />
             </div>
-          ))}
-        </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[22px] font-black leading-tight text-white">
+                {typeLabel}
+              </p>
+              {timeLabel ? (
+                <p className="text-[13px] font-semibold text-white/50">{timeLabel}</p>
+              ) : null}
+              {locationLabel ? (
+                <p className="flex items-center gap-1 text-[12px] font-semibold text-white/50">
+                  <MapPin size={11} strokeWidth={2.6} />
+                  <span className="truncate">{locationLabel}</span>
+                </p>
+              ) : null}
+              <div className="mt-2">{sourceBadge}</div>
+            </div>
+          </header>
+        )}
+
+        <section className="mt-6">
+          <h3 className="mb-3 text-[18px] font-black text-white">
+            {t("workoutDetail.detailsTitle")}
+          </h3>
+          <ActivityMetricGrid metrics={stats} />
+        </section>
 
         {workout.recordHighlights && workout.recordHighlights.length > 0 ? (
           <section className="mt-4 rounded-[22px] border border-[#FFD60A]/18 bg-[#FFD60A]/[0.055] p-4">
@@ -248,10 +291,9 @@ export function WorkoutDetailOverlay({
           </section>
         ) : null}
 
-        {/* Séries de musculação (só treino de força) */}
         {workout.strengthSets && workout.strengthSets.length > 0 ? (
-          <>
-            <h3 className="mb-3 mt-6 text-[19px] font-black text-white">
+          <section className="mt-6">
+            <h3 className="mb-3 text-[18px] font-black text-white">
               {t("workoutDetail.setsTitle")}
             </h3>
             <div className="overflow-hidden rounded-[22px] bg-white/[0.04]">
@@ -260,14 +302,18 @@ export function WorkoutDetailOverlay({
                 const showExercise =
                   set.exercise != null &&
                   set.exercise !== (sets[index - 1]?.exercise ?? null);
-                // Numeração por exercício quando há treino salvo; global senão.
                 const setNum = set.exercise
                   ? sets
                       .slice(0, index + 1)
-                      .filter((s) => s.exercise === set.exercise).length
+                      .filter((item) => item.exercise === set.exercise).length
                   : index + 1;
+                const loadLabel = set.weightKg
+                  ? `${set.weightKg} kg`
+                  : set.loadType === "bodyweight"
+                    ? t("workoutDetail.bodyweight")
+                    : t("workoutDetail.loadNotProvided");
                 return (
-                  <div key={`${index}-${set.reps}-${set.weightKg ?? "bw"}`}>
+                  <div key={set.setId ?? `${index}-${set.reps}-${loadLabel}`}>
                     {showExercise ? (
                       <p className="border-b border-white/[0.06] px-5 pb-1.5 pt-3.5 text-[13.5px] font-black text-white">
                         {set.exercise}
@@ -278,44 +324,33 @@ export function WorkoutDetailOverlay({
                         {t("workoutDetail.setNumber", { number: setNum })}
                       </span>
                       <span className="text-[15px] font-black text-white">
-                        {t("workoutDetail.setReps", { reps: set.reps })}
-                        {set.weightKg != null ? (
-                          <span className="text-[var(--gc-blue)]">
-                            {` · ${set.weightKg} kg`}
-                          </span>
-                        ) : (
-                          <span className="text-white/50">
-                            {` · ${t("workoutDetail.bodyweight")}`}
-                          </span>
-                        )}
+                        {set.targetKind === "duration"
+                          ? formatElapsed(set.durationSeconds ?? 0)
+                          : t("workoutDetail.setReps", { reps: set.reps })}
+                        <span className="text-[var(--gc-blue)]">{` · ${loadLabel}`}</span>
                       </span>
                     </div>
                   </div>
                 );
               })}
             </div>
-          </>
-        ) : null}
-
-        {/* Mapa geográfico da rota */}
-        {workout.route && workout.route.length >= 2 ? (
-          <>
-            <h3 className="mb-3 mt-6 text-[19px] font-black text-white">
-              {t("workoutDetail.mapTitle")}
-            </h3>
-            <div className="overflow-hidden rounded-[22px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.05]">
-              <WorkoutRouteMap
-                className="h-52 w-full"
-                label={t("workoutDetail.mapTitle")}
-                route={workout.route}
-              />
-            </div>
-          </>
+          </section>
         ) : null}
 
         {workout.caption ? (
-          <p className="mt-5 text-[14px] font-semibold leading-snug text-white/80">
-            {workout.caption}
+          <section className="mt-6 rounded-[22px] border border-white/[0.055] bg-white/[0.035] p-5">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.11em] text-white/42">
+              {t("workoutDetail.howItWent")}
+            </h3>
+            <p className="mt-2 whitespace-pre-wrap text-[14px] font-semibold leading-relaxed text-white/82">
+              {workout.caption}
+            </p>
+          </section>
+        ) : null}
+
+        {isOutdoor && !routeResolution.route ? (
+          <p className="mt-5 rounded-[18px] border border-white/[0.05] bg-white/[0.025] px-4 py-3 text-[11px] font-semibold leading-relaxed text-white/42">
+            {t("workoutDetail.routeUnavailableDetail")}
           </p>
         ) : null}
       </div>

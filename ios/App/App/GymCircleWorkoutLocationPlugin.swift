@@ -58,6 +58,7 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
     }
 
     private let manager = CLLocationManager()
+    private let maximumHorizontalAccuracyM = 100.0
     private let storageKey = "gc.capacitor.workoutLocation.v1"
     private var state = StoredState(
         activityType: "walk",
@@ -168,6 +169,20 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
     }
 
     private func startManager() {
+        if manager.accuracyAuthorization == .reducedAccuracy {
+            manager.requestTemporaryFullAccuracyAuthorization(
+                withPurposeKey: "WorkoutRoute"
+            ) { [weak self] _ in
+                DispatchQueue.main.async {
+                    self?.startLocationUpdates()
+                }
+            }
+            return
+        }
+        startLocationUpdates()
+    }
+
+    private func startLocationUpdates() {
         manager.allowsBackgroundLocationUpdates = true
         manager.pausesLocationUpdatesAutomatically = false
         manager.showsBackgroundLocationIndicator = true
@@ -206,7 +221,8 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
     }
 
     private func accept(_ location: CLLocation) {
-        guard location.horizontalAccuracy > 0, location.horizontalAccuracy <= 50 else { return }
+        guard location.horizontalAccuracy > 0,
+              location.horizontalAccuracy <= maximumHorizontalAccuracyM else { return }
         guard abs(location.timestamp.timeIntervalSinceNow) < 30 else { return }
 
         guard let previous = state.lastAccepted?.location else {
@@ -227,7 +243,7 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
 
         let segment = location.distance(from: previous)
         let averageAccuracy = (previous.horizontalAccuracy + location.horizontalAccuracy) / 2
-        let minimumSegment = max(2, min(6, averageAccuracy * 0.25))
+        let minimumSegment = max(2, min(15, averageAccuracy * 0.25))
         // Não avança a âncora: passos pequenos acumulam até superar o limiar.
         guard segment >= minimumSegment else { return }
 

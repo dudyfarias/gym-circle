@@ -1985,11 +1985,15 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             endedAt: row.ended_at ?? null,
             elapsedS: row.elapsed_s,
             avgHr: row.avg_hr ?? null,
+            maxHr: row.max_hr ?? null,
+            activeCalories: row.active_calories ?? null,
             totalCalories: row.total_calories ?? null,
             distanceM: row.distance_m ?? null,
             movingS: row.moving_s ?? null,
             elevationGainM: row.elevation_gain_m ?? null,
             route: row.route ?? null,
+            origin: row.origin ?? null,
+            sourceApp: row.source_app ?? null,
             strengthSets:
               (
                 row.strength_sets as

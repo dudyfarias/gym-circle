@@ -301,25 +301,40 @@
   },
   "workoutDetail": {
     "title": "Detalhes do treino",
-    "detailsTitle": "Detalhes do Exercício",
+    "detailsTitle": "Resumo da atividade",
     "workoutTime": "Tempo de Exercício",
     "duration": "Duração",
+    "movingTime": "Tempo em movimento",
     "distance": "Distância",
     "activeCalories": "Calorias Ativas",
     "totalCalories": "Total de Calorias",
     "avgPace": "Ritmo Médio",
     "elevation": "Ganho de Elevação",
     "avgHeartRate": "Batimentos Médios",
+    "maxHeartRate": "Batimentos Máximos",
     "mapTitle": "Mapa",
+    "routeUnavailable": "Trajeto indisponível",
+    "routeUnavailableDetail": "Esta atividade não recebeu pontos de GPS suficientes. As métricas disponíveis continuam válidas; nenhum trajeto foi estimado.",
+    "derivedFromRoute": "calculado da rota",
+    "startedAt": "Início às {{time}}",
+    "howItWent": "Como foi",
+    "sources": {
+      "gymCircle": "Registrado pelo Gym Circle",
+      "appleWatch": "Apple Watch",
+      "appleHealth": "Apple Saúde",
+      "externalApp": "Aplicativo externo",
+      "imported": "Atividade importada"
+    },
     "setsTitle": "Séries",
     "setNumber": "Série {{number}}",
     "setReps": "{{reps}} reps",
-    "bodyweight": "peso do corpo"
+    "bodyweight": "peso do corpo",
+    "loadNotProvided": "carga não informada"
   },
   "workoutPlans": {
     "fab": "Mais opções de treino",
     "tools": "Treinos",
-    "import": "Importar treino",
+    "import": "Importar do Apple Saúde",
     "importFile": "Importar foto ou PDF",
     "importHint": "Lemos o arquivo no aparelho e você revisa antes de salvar.",
     "importPrivacy": "O arquivo não sai do seu aparelho.",
@@ -362,6 +377,53 @@
     "errors": {
       "save": "Não foi possível salvar o treino. Tente novamente.",
       "delete": "Não foi possível apagar o treino. Tente novamente."
+    }
+  },
+  "healthImport": {
+    "title": "Importar do Apple Saúde",
+    "subtitle": "Apple Watch, Apple Fitness e outros apps que salvam treinos no Saúde.",
+    "checking": "Verificando disponibilidade…",
+    "unsupported": "Disponível somente no iPhone",
+    "unsupportedDetail": "Abra o Gym Circle instalado no iPhone para importar seus treinos do Apple Saúde.",
+    "permissionTitle": "Conectar ao Apple Saúde",
+    "permissionDetail": "Você escolhe o que compartilhar. O Gym Circle lê apenas treinos, duração, distância, calorias, batimentos e rota autorizados por você.",
+    "authorize": "Continuar no Apple Saúde",
+    "authorizing": "Abrindo autorização…",
+    "loading": "Carregando seus treinos…",
+    "recent": "Últimos 30 dias",
+    "empty": "Nenhum treino disponível",
+    "emptyDetail": "Talvez não existam treinos recentes ou o acesso esteja desativado. Confira o Gym Circle em Saúde > Compartilhamento > Apps.",
+    "refresh": "Atualizar",
+    "back": "‹ Voltar aos treinos",
+    "reviewPrivacy": "Só este treino será salvo no seu histórico do Gym Circle. Nada é importado automaticamente.",
+    "import": "Importar treino",
+    "importing": "Importando…",
+    "successTitle": "Treino importado",
+    "successDetail": "Os dados de {{source}} já estão no seu histórico.",
+    "share": "Compartilhar no Circle",
+    "done": "Concluir sem publicar",
+    "types": {
+      "strength": "Musculação",
+      "running": "Corrida",
+      "cycling": "Bike",
+      "walking": "Caminhada",
+      "hiit": "HIIT",
+      "mobility": "Mobilidade",
+      "other": "Outro treino"
+    },
+    "metrics": {
+      "duration": "Duração",
+      "distance": "Distância",
+      "calories": "Calorias ativas",
+      "heartRate": "Batimentos médios"
+    },
+    "errors": {
+      "permission": "Não foi possível abrir a autorização do Apple Saúde.",
+      "denied": "O acesso não foi liberado. Você pode alterá-lo depois no app Saúde.",
+      "load": "Não foi possível carregar os treinos do Apple Saúde.",
+      "details": "A rota detalhada não ficou disponível, mas você ainda pode importar o resumo.",
+      "duplicate": "Esse treino já foi importado para o Gym Circle.",
+      "import": "Não foi possível importar esse treino agora. Tente novamente."
     }
   },
   "workoutCatalog": {
@@ -747,7 +809,10 @@
           "title": "Notificações push",
           "description": "Receba avisos de likes, comentários e novos seguidores no seu celular.",
           "enabling": "Pedindo permissão...",
-          "denied": "Permissão negada. Reative nas Configurações do iOS."
+          "enabled": "Notificações ativadas neste iPhone.",
+          "denied": "A permissão já foi negada neste iPhone. O iOS não mostra o pedido novamente: abra Ajustes > Apps > Gym Circle > Notificações e ative Permitir Notificações.",
+          "unsupported": "Esta instalação não conseguiu acessar as notificações do iPhone. Feche e reabra o app; se continuar, atualize o Gym Circle.",
+          "failed": "O iPhone autorizou, mas não foi possível concluir o registro. Tente novamente; o código abaixo identifica a etapa que falhou."
         }
       },
       "privacy": {
@@ -829,6 +894,169 @@
       "cta": "Restaurar",
       "countdownHours": "Restam {{count}}h",
       "countdownMinutes": "Restam {{count}}min"
+    }
+  },
+  "trainer": {
+    "badge": "Personal Trainer",
+    "acceptingClients": "Aceitando novos alunos",
+    "actions": {
+      "become": "Tornar-se personal no Gym Circle",
+      "becomeDescription": "Crie seu perfil profissional",
+      "edit": "Editar perfil profissional"
+    },
+    "workspace": {
+      "title": "Espaço profissional",
+      "foundation": "Base profissional",
+      "management": "Gerenciar espaço",
+      "onboarding": {
+        "eyebrow": "Gym Circle Coach",
+        "title": "Organize seu trabalho em um só espaço",
+        "body": "Seu espaço profissional será a base privada para equipe, alunos e treinos nas próximas etapas.",
+        "scopeNotice": "Nesta versão, o espaço não dá acesso a alunos, atividades ou treinos de outras pessoas."
+      },
+      "actions": {
+        "create": "Criar espaço profissional",
+        "createDescription": "Configure a base privada do seu trabalho",
+        "save": "Salvar alterações"
+      },
+      "fields": {
+        "name": "Nome do espaço",
+        "type": "Tipo",
+        "role": "Seu papel",
+        "description": "Descrição",
+        "descriptionPlaceholder": "Como você apresenta seu trabalho ou equipe?",
+        "city": "Cidade",
+        "state": "Estado"
+      },
+      "types": {
+        "individual": "Individual",
+        "advisory": "Assessoria",
+        "studio": "Estúdio",
+        "gym_partner": "Academia parceira"
+      },
+      "typeDescriptions": {
+        "individual": "Para seu atendimento profissional individual.",
+        "advisory": "Para uma assessoria com organização compartilhada futura.",
+        "studio": "Para equipe ou operação de um estúdio."
+      },
+      "roles": {
+        "owner": "Owner",
+        "trainer": "Personal",
+        "assistant": "Assistente",
+        "viewer": "Leitura"
+      },
+      "statuses": {
+        "active": "Ativo",
+        "suspended": "Suspenso",
+        "archived": "Arquivado"
+      },
+      "statusMessages": {
+        "suspended": "Este espaço está suspenso. Os dados continuam visíveis, mas não podem ser alterados.",
+        "archived": "Este espaço está arquivado e disponível apenas para consulta."
+      },
+      "members": {
+        "title": "Membros",
+        "subtitle": "Equipe profissional do espaço",
+        "noUsername": "Sem username",
+        "invitesLater": "Convites e mudanças de papel serão liberados em uma próxima etapa, com regras próprias de segurança."
+      },
+      "errors": {
+        "load": "Não foi possível carregar o espaço profissional agora.",
+        "save": "Não foi possível salvar o espaço profissional. Tente novamente.",
+        "alreadyExists": "Você já possui um espaço profissional ativo.",
+        "name": "Informe um nome entre 2 e 100 caracteres.",
+        "type": "Escolha um tipo de espaço válido.",
+        "description": "A descrição pode ter no máximo 800 caracteres.",
+        "city": "Informe uma cidade válida.",
+        "state": "Informe um estado válido."
+      }
+    },
+    "verification": {
+      "verified": "Verificado",
+      "ownerVerified": "Perfil profissional verificado.",
+      "ownerPending": "Seu registro está em análise. Até a revisão, o perfil não exibe o selo Verificado.",
+      "ownerRejected": "A verificação precisa ser revisada. Você pode corrigir os dados e enviar novamente.",
+      "ownerSuspended": "O perfil profissional está suspenso e não aparece publicamente.",
+      "ownerUnverified": "Perfil profissional não verificado. Informe seu registro para solicitar análise."
+    },
+    "specialties": {
+      "hypertrophy": "Hipertrofia",
+      "weight_loss": "Emagrecimento",
+      "strength": "Força",
+      "conditioning": "Condicionamento",
+      "running": "Corrida",
+      "mobility": "Mobilidade",
+      "seniors": "Terceira idade",
+      "beginners": "Iniciantes",
+      "functional_training": "Treinamento funcional"
+    },
+    "serviceModes": {
+      "online": "Online",
+      "in_person": "Presencial",
+      "hybrid": "Híbrido"
+    },
+    "form": {
+      "title": "Tornar-se personal",
+      "editTitle": "Perfil profissional",
+      "step": "Etapa {{current}} de {{total}}",
+      "submit": "Enviar perfil",
+      "intro": {
+        "title": "Seu trabalho, com a identidade do Gym Circle",
+        "body": "Crie seu perfil profissional e prepare-se para acompanhar alunos pelo Gym Circle.",
+        "noticeTitle": "Personal Trainer não significa perfil verificado",
+        "noticeBody": "Seu perfil será exibido como não verificado até a conclusão da análise. Nesta primeira etapa, não há painel de alunos nem envio de treinos."
+      },
+      "professional": {
+        "title": "Dados profissionais"
+      },
+      "specialties": {
+        "title": "Em que você é especialista?",
+        "subtitle": "Escolha até 5 áreas. Elas ajudam as pessoas a entender seu trabalho.",
+        "limit": "{{count}} de 5 selecionadas"
+      },
+      "service": {
+        "title": "Como você atende?"
+      },
+      "registration": {
+        "title": "Registro profissional",
+        "subtitle": "Opcional nesta fase. Informar o registro inicia uma análise manual e não o torna verificado automaticamente.",
+        "privacy": "O número completo fica visível somente para você e para a equipe de revisão. O perfil público nunca recebe esse dado.",
+        "verifiedBody": "Registro protegido {{number}}. Alterações futuras serão tratadas em um fluxo seguro de nova análise."
+      },
+      "review": {
+        "title": "Revise seu perfil",
+        "notice": "Ao enviar, você confirma que as informações profissionais são verdadeiras. O Gym Circle não concede o selo Verificado automaticamente."
+      },
+      "fields": {
+        "professionalName": "Nome profissional",
+        "headline": "Headline",
+        "headlinePlaceholder": "Ex: Hipertrofia com treino simples e consistente",
+        "professionalBio": "Bio profissional",
+        "bioPlaceholder": "Conte sua experiência, abordagem e para quem é seu trabalho.",
+        "city": "Cidade",
+        "state": "Estado",
+        "yearsExperience": "Anos de experiência",
+        "acceptsNewClients": "Aceito novos alunos",
+        "contactCtaEnabled": "Permitir contato por mensagem",
+        "profilePublic": "Exibir seção profissional no perfil",
+        "registrationNumber": "Número do registro",
+        "registrationRegion": "Região / conselho",
+        "registrationRegionPlaceholder": "Ex: CREF-SP"
+      },
+      "errors": {
+        "load": "Não foi possível carregar o perfil profissional agora.",
+        "save": "Não foi possível salvar o perfil profissional. Tente novamente.",
+        "professional": "Preencha nome, headline e uma bio com pelo menos 20 caracteres.",
+        "professionalName": "Informe seu nome profissional.",
+        "headline": "Informe uma headline profissional.",
+        "professionalBio": "A bio profissional precisa ter pelo menos 20 caracteres.",
+        "specialties": "Escolha pelo menos uma especialidade.",
+        "specialtiesLimit": "Escolha no máximo 5 especialidades.",
+        "serviceMode": "Escolha uma modalidade de atendimento.",
+        "registration": "Informe número e região juntos, ou deixe ambos vazios.",
+        "registrationPair": "Informe número e região juntos, ou deixe ambos vazios.",
+        "yearsExperience": "Informe anos de experiência entre 0 e 80."
+      }
     }
   },
   "orientation": {

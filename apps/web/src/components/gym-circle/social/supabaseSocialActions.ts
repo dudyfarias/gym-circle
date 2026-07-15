@@ -688,7 +688,9 @@ export function createSocialActions(
             input.activityType === "ride"
               ? "route"
               : "session",
-          origin: "web_timer",
+          origin: input.origin ?? "web_timer",
+          externalId: input.externalId ?? null,
+          sourceApp: input.sourceApp ?? null,
           startedAt: input.startedAt,
           endedAt: input.endedAt,
           elapsedS: input.elapsedS,
@@ -696,6 +698,10 @@ export function createSocialActions(
           distanceM: input.distanceM ?? null,
           elevationGainM: input.elevationGainM ?? null,
           route: input.route ?? null,
+          avgHr: input.avgHr ?? null,
+          maxHr: input.maxHr ?? null,
+          activeCalories: input.activeCalories ?? null,
+          totalCalories: input.totalCalories ?? null,
           strengthSets: input.strengthSets ?? null,
           workoutPlanId: input.workoutPlanId ?? null,
           workoutPlanNameSnapshot: input.workoutPlanNameSnapshot ?? null,

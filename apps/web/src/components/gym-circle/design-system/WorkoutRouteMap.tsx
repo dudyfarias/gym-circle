@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 type WorkoutRouteMapProps = {
   route: number[][];
   className?: string;
   label: string;
   showAttribution?: boolean;
+  fallbackLabel?: string;
 };
 
 const WIDTH = 420;
@@ -41,7 +42,9 @@ export function WorkoutRouteMap({
   className,
   label,
   showAttribution = true,
+  fallbackLabel,
 }: WorkoutRouteMapProps) {
+  const [tileFailure, setTileFailure] = useState({ path: "", count: 0 });
   const geometry = useMemo(() => {
     const coordinates = route.filter(
       (point) =>
@@ -124,6 +127,8 @@ export function WorkoutRouteMap({
   }, [route]);
 
   if (!geometry?.start || !geometry.end) return null;
+  const failedTiles =
+    tileFailure.path === geometry.path ? tileFailure.count : 0;
 
   return (
     <div
@@ -133,6 +138,7 @@ export function WorkoutRouteMap({
         .join(" ")}
       role="img"
     >
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.025)_1px,transparent_1px)] bg-[size:28px_28px]" />
       <svg
         aria-hidden="true"
         className="absolute inset-0 size-full"
@@ -144,6 +150,12 @@ export function WorkoutRouteMap({
             height={TILE_SIZE}
             href={tile.url}
             key={tile.key}
+            onError={() =>
+              setTileFailure((current) => ({
+                path: geometry.path,
+                count: current.path === geometry.path ? current.count + 1 : 1,
+              }))
+            }
             width={TILE_SIZE}
             x={tile.left}
             y={tile.top}
@@ -184,6 +196,11 @@ export function WorkoutRouteMap({
           strokeWidth={2}
         />
       </svg>
+      {fallbackLabel && failedTiles >= geometry.tiles.length ? (
+        <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-black text-white/62 backdrop-blur-md">
+          {fallbackLabel}
+        </span>
+      ) : null}
       {showAttribution ? (
         <a
           className="absolute bottom-1 right-1 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-bold text-white/75"

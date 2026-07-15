@@ -270,12 +270,16 @@ export type EnrichedActivity = {
   endedAt: string | null;
   elapsedS: number;
   avgHr: number | null;
+  maxHr: number | null;
+  activeCalories: number | null;
   totalCalories: number | null;
   distanceM: number | null;
   movingS: number | null;
   elevationGainM: number | null;
   /** Polyline [[lat, lng], ...] downsampled — só pro sketch do mini-mapa. */
   route: number[][] | null;
+  origin: string | null;
+  sourceApp: string | null;
   strengthSets: StrengthSet[] | null;
   workoutDate: string;
   createdAt: string;
@@ -468,9 +472,12 @@ export type WorkoutDetail = {
   distanceM: number | null;
   elevationGainM: number | null;
   avgHr: number | null;
+  maxHr?: number | null;
   activeCalories?: number | null;
   totalCalories: number | null;
   route: number[][] | null;
+  origin?: string | null;
+  sourceApp?: string | null;
   strengthSets: StrengthSet[] | null;
   gymName: string | null;
   locationName: string | null;
@@ -615,14 +622,22 @@ export type CreateWorkoutPostInput = {
  */
 export type WebActivityInput = {
   /** ID estável criado no começo da sessão para finalização idempotente. */
-  clientSessionId: string;
+  clientSessionId?: string;
   activityType: "strength" | "run" | "walk" | "ride" | "other";
+  /** Importações do Apple Saúde usam a mesma persistência, mas outra origem. */
+  origin?: "web_timer" | "imported";
+  externalId?: string | null;
+  sourceApp?: string | null;
   startedAt: string;
   endedAt: string;
   elapsedS: number;
   movingS?: number | null;
   distanceM?: number | null;
   elevationGainM?: number | null;
+  avgHr?: number | null;
+  maxHr?: number | null;
+  activeCalories?: number | null;
+  totalCalories?: number | null;
   /** Polyline reduzida no formato persistido em activities.route. */
   route?: number[][] | null;
   /** Séries de musculação (só treino de força). */

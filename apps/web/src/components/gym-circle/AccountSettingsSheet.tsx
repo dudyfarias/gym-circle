@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   Bell,
+  BriefcaseBusiness,
   Check,
   ChevronRight,
   FileText,
@@ -37,8 +38,18 @@ type AccountSettingsSheetProps = {
    * requestPermission (true) / revoke token (false).
    */
   pushEnabled?: boolean;
-  onTogglePush?: (next: boolean) => void | Promise<void>;
+  onTogglePush?: (
+    next: boolean,
+  ) => void | PushToggleResult | Promise<void | PushToggleResult>;
+  onOpenTrainerProfile?: () => void;
 };
+
+export type PushToggleResult =
+  | { status: "registered" }
+  | { status: "disabled" }
+  | { status: "permission_denied" }
+  | { status: "unsupported" }
+  | { status: "failed"; errorDetail?: string };
 
 export function AccountSettingsSheet({
   open,
@@ -50,6 +61,7 @@ export function AccountSettingsSheet({
   onTogglePrivate,
   pushEnabled,
   onTogglePush,
+  onOpenTrainerProfile,
 }: AccountSettingsSheetProps) {
   // Sprint 4.3: i18n + language picker.
   const { t } = useTranslation();
@@ -104,6 +116,22 @@ export function AccountSettingsSheet({
             isPrivate={isPrivate ?? false}
             onToggle={onTogglePrivate}
           />
+        ) : null}
+
+        {onOpenTrainerProfile ? (
+          <div className="mt-3 overflow-hidden rounded-[24px] border border-[var(--gc-brand)]/14 bg-[var(--gc-brand)]/[0.055]">
+            <SettingsButton
+              icon={<BriefcaseBusiness size={18} />}
+              onClick={onOpenTrainerProfile}
+            >
+              <span className="block">
+                <span className="block">{t("trainer.actions.become")}</span>
+                <span className="mt-0.5 block text-[11px] font-bold text-white/38">
+                  {t("trainer.actions.becomeDescription")}
+                </span>
+              </span>
+            </SettingsButton>
+          </div>
         ) : null}
 
         {/* Sobre (links públicos) */}
@@ -251,20 +279,41 @@ function NotificationsSection({
   onToggle,
 }: {
   enabled: boolean;
-  onToggle: (next: boolean) => void | Promise<void>;
+  onToggle: (
+    next: boolean,
+  ) => void | PushToggleResult | Promise<void | PushToggleResult>;
 }) {
   const { t } = useTranslation();
   const [pending, setPending] = useState(false);
+  const [feedback, setFeedback] = useState<PushToggleResult | null>(null);
 
   async function handleToggle() {
     if (pending) return;
     setPending(true);
+    setFeedback(null);
     try {
-      await onToggle(!enabled);
+      const result = await onToggle(!enabled);
+      if (result) setFeedback(result);
+    } catch (error) {
+      setFeedback({
+        status: "failed",
+        errorDetail: error instanceof Error ? error.message : "unknown_error",
+      });
     } finally {
       setPending(false);
     }
   }
+
+  const feedbackMessage =
+    feedback?.status === "registered"
+      ? t("settings.sections.notifications.push.enabled")
+      : feedback?.status === "permission_denied"
+        ? t("settings.sections.notifications.push.denied")
+        : feedback?.status === "unsupported"
+          ? t("settings.sections.notifications.push.unsupported")
+          : feedback?.status === "failed"
+            ? t("settings.sections.notifications.push.failed")
+            : null;
 
   return (
     <div className="mb-3">
@@ -281,6 +330,24 @@ function NotificationsSection({
           onToggle={handleToggle}
           title={t("settings.sections.notifications.push.title")}
         />
+        {feedbackMessage ? (
+          <div
+            className={[
+              "border-t px-4 py-3 text-[12px] font-bold leading-5",
+              feedback?.status === "registered"
+                ? "border-[var(--gc-brand)]/16 bg-[var(--gc-brand)]/[0.06] text-[var(--gc-brand)]"
+                : "border-[#ff365f]/18 bg-[#ff365f]/[0.08] text-[#ff6a87]",
+            ].join(" ")}
+            role={feedback?.status === "registered" ? "status" : "alert"}
+          >
+            <p>{feedbackMessage}</p>
+            {feedback?.status === "failed" && feedback.errorDetail ? (
+              <p className="mt-1 break-all font-mono text-[10px] font-semibold text-white/42">
+                {feedback.errorDetail}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -434,7 +501,7 @@ function SettingsButton({
   icon,
   onClick,
 }: {
-  children: string;
+  children: ReactNode;
   destructive?: boolean;
   icon: ReactNode;
   onClick: () => void;
@@ -458,7 +525,7 @@ function SettingsButton({
       >
         {icon}
       </span>
-      <span className="min-w-0 flex-1 truncate">{children}</span>
+      <span className="min-w-0 flex-1">{children}</span>
       <ChevronRight className="text-white/30" size={17} strokeWidth={2.4} />
     </button>
   );

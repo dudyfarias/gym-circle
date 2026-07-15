@@ -51,6 +51,7 @@ describe("activityInputToRow", () => {
         mode: "session",
         origin: "imported",
         sourceApp: "Strava",
+        externalId: "hk-workout-1",
         startedAt: "2026-07-01T10:00:00Z",
         endedAt: "2026-07-01T11:00:00Z",
         elapsedS: 3600,
@@ -62,6 +63,7 @@ describe("activityInputToRow", () => {
     );
     expect(row.workout_date).toBe("2026-06-30");
     expect(row.source_app).toBe("Strava");
+    expect(row.external_id).toBe("hk-workout-1");
     expect(row.distance_m).toBe(8400);
     expect(row.avg_hr).toBe(154);
   });
@@ -94,6 +96,7 @@ describe("activityRowToDomain", () => {
       mode: "session",
       origin: "web_timer",
       source_app: null,
+      external_id: null,
       started_at: "2026-07-02T21:00:00Z",
       ended_at: "2026-07-02T21:58:00Z",
       elapsed_s: 3480,
@@ -117,6 +120,7 @@ describe("activityRowToDomain", () => {
       mode: "session",
       origin: "web_timer",
       sourceApp: null,
+      externalId: null,
       startedAt: "2026-07-02T21:00:00Z",
       endedAt: "2026-07-02T21:58:00Z",
       elapsedS: 3480,

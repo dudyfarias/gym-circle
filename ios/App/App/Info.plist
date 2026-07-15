@@ -50,8 +50,15 @@
 	<string>Para salvar a foto ou vídeo do seu treino na galeria depois que publicar.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Necessária para gravar o áudio dos vídeos do seu treino, igual nos stories e posts em vídeo.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>O Gym Circle lê somente os treinos que você escolher no Apple Saúde para importar distância, duração, calorias, batimentos e rota para o seu histórico.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Para registrar a distância e o mapa do seu treino enquanto ele estiver ativo.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>WorkoutRoute</key>
+		<string>O Gym Circle precisa da localização precisa durante o treino para calcular distância, ritmo e rota corretamente.</string>
+	</dict>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Para continuar registrando a distância e o mapa enquanto o treino estiver ativo e o app estiver em segundo plano.</string>
 	<key>UIBackgroundModes</key>

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendWorkoutRoutePoint,
+  bestWorkoutRouteSummary,
   distanceBetweenRoutePoints,
   formatAveragePace,
+  mergeWorkoutRouteSnapshot,
   pauseWorkoutSession,
   readStoredWorkoutSession,
   recordStrengthSetActualRest,
@@ -276,6 +278,26 @@ describe("workout route metrics", () => {
     expect(session.movingS).toBeGreaterThan(0);
   });
 
+  it("aceita leitura moderada de até 100 m sem contar ruído curto", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      timestampMs: 1_000,
+    });
+    const second = appendWorkoutRoutePoint(first, {
+      latitude: -23.5358,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      timestampMs: 11_000,
+    });
+
+    expect(second.distanceM).toBeGreaterThan(20);
+    expect(second.movingS).toBe(10);
+  });
+
   it("contabiliza ida e volta pelo mesmo caminho e gera a polyline", () => {
     const latitudes = [-23.536, -23.5358, -23.536];
     const session = latitudes.reduce(
@@ -291,5 +313,58 @@ describe("workout route metrics", () => {
     );
     expect(session.distanceM).toBeGreaterThan(40);
     expect(workoutRouteCoordinates(session)?.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("mantém a medição web quando o snapshot nativo chega zerado", () => {
+    const webSession = {
+      ...base,
+      distanceM: 651,
+      movingS: 521,
+      elevationGainM: 16,
+    };
+
+    expect(
+      mergeWorkoutRouteSnapshot(webSession, {
+        distanceM: 0,
+        movingS: 0,
+        elevationGainM: 0,
+        route: [],
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        distanceM: 651,
+        movingS: 521,
+        elevationGainM: 16,
+      }),
+    );
+  });
+
+  it("usa a melhor fonte sem somar distância nativa e web", () => {
+    const webSession = {
+      ...base,
+      distanceM: 640,
+      movingS: 500,
+      elevationGainM: 10,
+    };
+
+    expect(
+      bestWorkoutRouteSummary(webSession, {
+        distanceM: 651,
+        movingS: 521,
+        elevationGainM: 16,
+        route: [
+          [-23.53, -46.67],
+          [-23.52, -46.66],
+        ],
+      }),
+    ).toEqual({
+      distanceM: 651,
+      movingS: 521,
+      elevationGainM: 16,
+      route: [
+        [-23.53, -46.67],
+        [-23.52, -46.66],
+      ],
+    });
   });
 });

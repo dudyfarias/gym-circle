@@ -481,9 +481,12 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
               distanceM: row.workout_distance_m ?? null,
               elevationGainM: row.workout_elevation_gain_m ?? null,
               avgHr: row.workout_avg_hr ?? null,
+              maxHr: null,
               activeCalories: row.workout_active_calories ?? null,
               totalCalories: row.workout_total_calories ?? null,
               route: row.workout_route ?? null,
+              origin: null,
+              sourceApp: null,
               strengthSets:
                 row.workout_strength_sets?.map((s) => ({
                   reps: s.reps,

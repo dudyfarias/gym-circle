@@ -1,0 +1,74 @@
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+export type HealthKitPermissionState =
+  | "unsupported"
+  | "not-requested"
+  | "granted"
+  | "denied";
+
+export type HealthKitWorkoutType =
+  | "strength"
+  | "running"
+  | "cycling"
+  | "walking"
+  | "hiit"
+  | "mobility"
+  | "other";
+
+export type HealthKitWorkout = {
+  provider: "apple-healthkit";
+  externalId: string;
+  sourceApp: string;
+  sourceBundleId: string;
+  startedAt: string;
+  endedAt: string;
+  workoutType: HealthKitWorkoutType;
+  elapsedS: number;
+  distanceM?: number | null;
+  activeCalories?: number | null;
+  avgHr?: number | null;
+  maxHr?: number | null;
+  route?: number[][] | null;
+};
+
+interface HealthKitPlugin {
+  isAvailable(): Promise<{ available: boolean }>;
+  permissionState(): Promise<{ state: HealthKitPermissionState }>;
+  requestHealthPermissions(): Promise<{ state: HealthKitPermissionState }>;
+  listWorkouts(options: {
+    from: string;
+    to: string;
+    limit?: number;
+  }): Promise<{ workouts: HealthKitWorkout[] }>;
+  getWorkout(options: { externalId: string }): Promise<HealthKitWorkout>;
+}
+
+const NativeHealthKit = registerPlugin<HealthKitPlugin>("GymCircleHealthKit");
+
+export const HealthKitBridge = {
+  async isAvailable() {
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== "ios") {
+      return false;
+    }
+    try {
+      return (await NativeHealthKit.isAvailable()).available;
+    } catch {
+      return false;
+    }
+  },
+  async permissionState() {
+    if (!(await this.isAvailable())) return "unsupported" as const;
+    return (await NativeHealthKit.permissionState()).state;
+  },
+  async requestPermissions() {
+    if (!(await this.isAvailable())) return "unsupported" as const;
+    return (await NativeHealthKit.requestHealthPermissions()).state;
+  },
+  async listWorkouts(input: { from: string; to: string; limit?: number }) {
+    if (!(await this.isAvailable())) return [];
+    return (await NativeHealthKit.listWorkouts(input)).workouts;
+  },
+  getWorkout(externalId: string) {
+    return NativeHealthKit.getWorkout({ externalId });
+  },
+};

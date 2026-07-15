@@ -20,6 +20,7 @@ import {
   VideoThumbnail,
 } from "./design-system";
 import type { EnrichedPost, EnrichedUser } from "./social/types";
+import { TrainerProfileSection } from "./trainer/TrainerProfileSection";
 
 /**
  * ProfileSheet — overlay ao clicar em outro user no feed/etc.
@@ -189,6 +190,8 @@ export function ProfileSheet({
               ) : undefined
             }
           />
+
+          <TrainerProfileSection userId={user.id} />
 
           {!canSeePosts ? (
             <div className="mt-6">

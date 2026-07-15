@@ -100,6 +100,22 @@ const EditProfileSheet = dynamic(
   () => import("./EditProfileSheet").then((module) => module.EditProfileSheet),
   { ssr: false },
 );
+const TrainerProfileForm = dynamic(
+  () =>
+    import("./trainer/TrainerProfileForm").then(
+      (module) => module.TrainerProfileForm,
+    ),
+  { ssr: false },
+);
+const TrainerWorkspaceSheet = dynamic(
+  () =>
+    import("./trainer/TrainerWorkspaceSheet").then(
+      (module) => module.TrainerWorkspaceSheet,
+    ),
+  { ssr: false },
+);
+const TRAINER_PROFILES_ENABLED =
+  process.env.NEXT_PUBLIC_TRAINER_PROFILES_ENABLED === "true";
 const EditPostSheet = dynamic(
   () => import("./EditPostSheet").then((module) => module.EditPostSheet),
   { ssr: false },
@@ -268,6 +284,11 @@ export function GymCirclePreview({
     Record<string, MonthlyChallengeData[]>
   >({});
   const [editOpen, setEditOpen] = useState(false);
+  const [trainerProfileOpen, setTrainerProfileOpen] = useState(false);
+  const [trainerProfileRefreshKey, setTrainerProfileRefreshKey] = useState(0);
+  const [trainerWorkspaceOpen, setTrainerWorkspaceOpen] = useState(false);
+  const [trainerWorkspaceRefreshKey, setTrainerWorkspaceRefreshKey] =
+    useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -281,6 +302,23 @@ export function GymCirclePreview({
       return false;
     }
   });
+  useEffect(() => {
+    const handlePushEnabledChange = (event: Event) => {
+      const enabled = (event as CustomEvent<{ enabled?: unknown }>).detail
+        ?.enabled;
+      if (typeof enabled === "boolean") setPushEnabled(enabled);
+    };
+    window.addEventListener(
+      "gymcircle:push-enabled-change",
+      handlePushEnabledChange,
+    );
+    return () => {
+      window.removeEventListener(
+        "gymcircle:push-enabled-change",
+        handlePushEnabledChange,
+      );
+    };
+  }, []);
   const [monthlyRecapOpen, setMonthlyRecapOpen] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [postMenuId, setPostMenuId] = useState<string | null>(null);
@@ -1990,6 +2028,18 @@ export function GymCirclePreview({
             monthDays={social.socialStats.monthDays}
             nearbyUsers={social.nearbyUsers}
             onEditProfile={handleEditProfile}
+            onEditTrainerProfile={
+              TRAINER_PROFILES_ENABLED
+                ? () => setTrainerProfileOpen(true)
+                : undefined
+            }
+            trainerProfileRefreshKey={trainerProfileRefreshKey}
+            onOpenTrainerWorkspace={
+              TRAINER_PROFILES_ENABLED
+                ? () => setTrainerWorkspaceOpen(true)
+                : undefined
+            }
+            trainerWorkspaceRefreshKey={trainerWorkspaceRefreshKey}
             onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenFollowers={() => void openFollowListOverlay("followers")}
@@ -2199,6 +2249,8 @@ export function GymCirclePreview({
     onUploadImage,
     onUploadChatImage,
     handleEditProfile,
+    trainerProfileRefreshKey,
+    trainerWorkspaceRefreshKey,
     toggleFollowIgnoringResult,
     openAdmin,
     openProfile,
@@ -2675,6 +2727,28 @@ export function GymCirclePreview({
               open={editOpen}
             />
           ) : null}
+          {TRAINER_PROFILES_ENABLED ? (
+            <>
+              <TrainerProfileForm
+                fallbackName={social.currentUser.name}
+                onClose={() => setTrainerProfileOpen(false)}
+                onSaved={() => {
+                  setTrainerProfileRefreshKey((current) => current + 1);
+                }}
+                open={trainerProfileOpen}
+                userId={social.currentUser.id}
+              />
+              <TrainerWorkspaceSheet
+                fallbackName={social.currentUser.name}
+                onChanged={() => {
+                  setTrainerWorkspaceRefreshKey((current) => current + 1);
+                }}
+                onClose={() => setTrainerWorkspaceOpen(false)}
+                open={trainerWorkspaceOpen}
+                userId={social.currentUser.id}
+              />
+            </>
+          ) : null}
           <NotificationsSheet
             currentUserId={social.currentUser.id}
             onAcceptFollowRequest={social.actions.acceptFollowRequest}
@@ -2702,6 +2776,14 @@ export function GymCirclePreview({
           <AccountSettingsSheet
             isPrivate={social.currentUser.isPrivate}
             onClose={() => setSettingsOpen(false)}
+            onOpenTrainerProfile={
+              TRAINER_PROFILES_ENABLED
+                ? () => {
+                    setSettingsOpen(false);
+                    setTrainerProfileOpen(true);
+                  }
+                : undefined
+            }
             onDeleteAccount={
               social.actions.requestAccountDeletion
                 ? () => {
@@ -2763,11 +2845,29 @@ export function GymCirclePreview({
                     } catch {
                       /* localStorage indisponível — silencioso */
                     }
+                    return { status: "registered" as const };
                   } else {
                     setPushEnabled(false);
+                    if (result.status === "failed") {
+                      return {
+                        status: "failed" as const,
+                        errorDetail:
+                          result.error instanceof Error
+                            ? result.error.message
+                            : typeof result.error === "string"
+                              ? result.error
+                              : "unknown_error",
+                      };
+                    }
+                    return { status: result.status };
                   }
-                } catch {
+                } catch (error) {
                   setPushEnabled(false);
+                  return {
+                    status: "failed" as const,
+                    errorDetail:
+                      error instanceof Error ? error.message : "unknown_error",
+                  };
                 }
               } else {
                 await PushNotificationsService.unregisterDeviceToken(
@@ -2780,6 +2880,7 @@ export function GymCirclePreview({
                 } catch {
                   /* idem */
                 }
+                return { status: "disabled" as const };
               }
             }}
             open={settingsOpen}

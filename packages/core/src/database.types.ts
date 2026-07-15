@@ -874,6 +874,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          account_type: string
           account_status: string
           alpha_terms_accepted_at: string | null
           avatar_url: string | null
@@ -903,6 +904,7 @@ export type Database = {
           username: string
         }
         Insert: {
+          account_type?: string
           account_status?: string
           alpha_terms_accepted_at?: string | null
           avatar_url?: string | null
@@ -932,6 +934,7 @@ export type Database = {
           username: string
         }
         Update: {
+          account_type?: string
           account_status?: string
           alpha_terms_accepted_at?: string | null
           avatar_url?: string | null
@@ -1290,6 +1293,120 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "streak_restore_events"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      trainer_profiles: {
+        Row: {
+          accepts_new_clients: boolean
+          city: string | null
+          contact_cta_enabled: boolean
+          created_at: string
+          headline: string
+          in_person_service: boolean
+          online_service: boolean
+          professional_bio: string
+          professional_name: string
+          profile_visibility: string
+          service_modes: string[]
+          specialties: string[]
+          state: string | null
+          updated_at: string
+          user_id: string
+          verification_status: string
+          years_experience: number | null
+        }
+        Insert: {
+          accepts_new_clients?: boolean
+          city?: string | null
+          contact_cta_enabled?: boolean
+          created_at?: string
+          headline: string
+          professional_bio: string
+          professional_name: string
+          profile_visibility?: string
+          service_modes: string[]
+          specialties: string[]
+          state?: string | null
+          updated_at?: string
+          user_id: string
+          verification_status?: string
+          years_experience?: number | null
+        }
+        Update: {
+          accepts_new_clients?: boolean
+          city?: string | null
+          contact_cta_enabled?: boolean
+          created_at?: string
+          headline?: string
+          professional_bio?: string
+          professional_name?: string
+          profile_visibility?: string
+          service_modes?: string[]
+          specialties?: string[]
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_status?: string
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trainer_profiles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      trainer_verification_requests: {
+        Row: {
+          created_at: string
+          id: string
+          registration_number: string
+          registration_region: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          registration_number: string
+          registration_region: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          registration_number?: string
+          registration_region?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trainer_verification_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "trainer_profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }

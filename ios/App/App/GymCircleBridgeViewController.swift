@@ -4,5 +4,6 @@ import Capacitor
 final class GymCircleBridgeViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(GymCircleWorkoutLocationPlugin())
+        bridge?.registerPluginInstance(GymCircleHealthKitPlugin())
     }
 }

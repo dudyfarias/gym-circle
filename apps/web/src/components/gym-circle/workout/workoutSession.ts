@@ -35,6 +35,13 @@ export type WorkoutRoutePoint = {
   timestampMs: number;
 };
 
+export type WorkoutRouteSnapshot = {
+  distanceM: number;
+  movingS: number;
+  elevationGainM: number;
+  route?: number[][];
+};
+
 /** Estado editável de uma série durante o treino. Campos `planned*` são só UI. */
 export type LiveStrengthSet = StrengthSet & {
   clientId: string;
@@ -510,7 +517,7 @@ export function appendWorkoutRoutePoint(
 ): StoredWorkoutSession {
   if (!isValidRoutePoint(point)) return session;
   const accuracy = point.accuracyM;
-  if (typeof accuracy === "number" && (accuracy <= 0 || accuracy > 50)) {
+  if (typeof accuracy === "number" && (accuracy <= 0 || accuracy > 100)) {
     return session;
   }
 
@@ -536,7 +543,7 @@ export function appendWorkoutRoutePoint(
   const segmentM = distanceBetweenRoutePoints(previous, point);
   const averageAccuracy =
     ((previous.accuracyM ?? 8) + (point.accuracyM ?? 8)) / 2;
-  const minimumSegmentM = Math.max(2, Math.min(6, averageAccuracy * 0.25));
+  const minimumSegmentM = Math.max(2, Math.min(15, averageAccuracy * 0.25));
 
   // Mantém a âncora anterior para que pequenos passos se acumulem.
   if (segmentM < minimumSegmentM) return session;
@@ -579,6 +586,68 @@ export function appendWorkoutRoutePoint(
     routePoints: withKeptRoutePoint(session.routePoints, point),
     lastRoutePoint: point,
   };
+}
+
+/**
+ * Combina métricas absolutas de motores independentes sem somar a mesma rota.
+ * Distância, movimento e elevação são monotônicos durante uma sessão; por isso
+ * o maior valor é o fallback seguro quando o Core Location ou o GPS web atrasa.
+ */
+export function mergeWorkoutRouteSnapshot(
+  session: StoredWorkoutSession,
+  snapshot: WorkoutRouteSnapshot,
+): StoredWorkoutSession {
+  return {
+    ...session,
+    distanceM: Math.max(session.distanceM, finiteNonNegative(snapshot.distanceM)),
+    movingS: Math.max(session.movingS, finiteNonNegative(snapshot.movingS)),
+    elevationGainM: Math.max(
+      session.elevationGainM,
+      finiteNonNegative(snapshot.elevationGainM),
+    ),
+  };
+}
+
+export function bestWorkoutRouteSummary(
+  session: StoredWorkoutSession,
+  nativeSnapshot?: WorkoutRouteSnapshot,
+): WorkoutRouteSnapshot {
+  const merged = nativeSnapshot
+    ? mergeWorkoutRouteSnapshot(session, nativeSnapshot)
+    : session;
+  const webRoute = workoutRouteCoordinates(session) ?? [];
+  const nativeRoute = validCoordinateRoute(nativeSnapshot?.route);
+  const useNativeRoute =
+    nativeRoute.length >= 2 &&
+    finiteNonNegative(nativeSnapshot?.distanceM) >= session.distanceM;
+
+  return {
+    distanceM: merged.distanceM,
+    movingS: merged.movingS,
+    elevationGainM: merged.elevationGainM,
+    route: useNativeRoute ? nativeRoute : webRoute,
+  };
+}
+
+function finiteNonNegative(value: number | null | undefined) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(0, value)
+    : 0;
+}
+
+function validCoordinateRoute(value: number[][] | undefined) {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (point) =>
+      Array.isArray(point) &&
+      point.length >= 2 &&
+      Number.isFinite(point[0]) &&
+      Number.isFinite(point[1]) &&
+      point[0] >= -90 &&
+      point[0] <= 90 &&
+      point[1] >= -180 &&
+      point[1] <= 180,
+  );
 }
 
 /** Polyline compacta para o Supabase, sempre incluindo o ponto final. */

@@ -33,6 +33,7 @@ import {
 import type { EnrichedPost, EnrichedUser } from "../social/types";
 import { TopBar } from "../TopBar";
 import { PersonalRecordsLauncher } from "../workout/PersonalRecordsLauncher";
+import { TrainerProfileSection } from "../trainer/TrainerProfileSection";
 
 type ProfileScreenProps = {
   currentUser: EnrichedUser;
@@ -50,6 +51,10 @@ type ProfileScreenProps = {
   nearbyUsers: EnrichedUser[];
   onToggleFollow: (userId: string) => void | Promise<void>;
   onEditProfile?: () => void;
+  onEditTrainerProfile?: () => void;
+  trainerProfileRefreshKey?: number;
+  onOpenTrainerWorkspace?: () => void;
+  trainerWorkspaceRefreshKey?: number;
   onSelectUser?: (userId: string) => void;
   onOpenAdmin?: () => void;
   onOpenSettings?: () => void;
@@ -101,6 +106,10 @@ export function ProfileScreen({
   currentUser,
   posts,
   onEditProfile,
+  onEditTrainerProfile,
+  trainerProfileRefreshKey,
+  onOpenTrainerWorkspace,
+  trainerWorkspaceRefreshKey,
   onOpenAdmin,
   onOpenSettings,
   onOpenFollowers,
@@ -224,6 +233,15 @@ export function ProfileScreen({
           }
         />
       </div>
+
+      <TrainerProfileSection
+        isOwnProfile
+        onEdit={onEditTrainerProfile}
+        onOpenWorkspace={onOpenTrainerWorkspace}
+        refreshKey={trainerProfileRefreshKey}
+        workspaceRefreshKey={trainerWorkspaceRefreshKey}
+        userId={currentUser.id}
+      />
 
       {/* Sprint 7.5.5 — Conquistas em destaque (Section 13 do brief).
           Row horizontal com até 3 achievements priorizados (Relic > Trophy

@@ -235,6 +235,7 @@ export type Activity = {
   mode: ActivityMode;
   origin: ActivityOrigin;
   sourceApp: string | null;
+  externalId: string | null;
   startedAt: string;
   endedAt: string;
   elapsedS: number;
@@ -268,6 +269,8 @@ export type ActivityInput = {
   endedAt: string;
   elapsedS: number;
   sourceApp?: string | null;
+  /** Identificador imutável da fonte externa (ex.: UUID do HKWorkout). */
+  externalId?: string | null;
   movingS?: number | null;
   distanceM?: number | null;
   elevationGainM?: number | null;
@@ -297,6 +300,7 @@ export type ActivityRow = {
   mode: string;
   origin: string;
   source_app: string | null;
+  external_id?: string | null;
   started_at: string;
   ended_at: string;
   elapsed_s: number;
@@ -328,6 +332,7 @@ export function activityRowToDomain(row: ActivityRow): Activity {
     mode: row.mode as ActivityMode,
     origin: row.origin as ActivityOrigin,
     sourceApp: row.source_app,
+    externalId: row.external_id ?? null,
     startedAt: row.started_at,
     endedAt: row.ended_at,
     elapsedS: row.elapsed_s,
@@ -367,6 +372,7 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     mode: input.mode,
     origin: input.origin,
     source_app: input.sourceApp ?? null,
+    external_id: input.externalId?.trim() || null,
     started_at: input.startedAt,
     ended_at: input.endedAt,
     elapsed_s: elapsedS,

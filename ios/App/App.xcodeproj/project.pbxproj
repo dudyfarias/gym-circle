@@ -17,6 +17,7 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		A7C410012E20000100C0FFEE /* GymCircleWorkoutLocationPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C410022E20000100C0FFEE /* GymCircleWorkoutLocationPlugin.swift */; };
 		A7C410032E20000100C0FFEE /* GymCircleBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C410042E20000100C0FFEE /* GymCircleBridgeViewController.swift */; };
+		A7C410052E20000100C0FFEE /* GymCircleHealthKitPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7C410062E20000100C0FFEE /* GymCircleHealthKitPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -33,6 +34,7 @@
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A7C410022E20000100C0FFEE /* GymCircleWorkoutLocationPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleWorkoutLocationPlugin.swift; sourceTree = "<group>"; };
 		A7C410042E20000100C0FFEE /* GymCircleBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleBridgeViewController.swift; sourceTree = "<group>"; };
+		A7C410062E20000100C0FFEE /* GymCircleHealthKitPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GymCircleHealthKitPlugin.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +74,7 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				A7C410022E20000100C0FFEE /* GymCircleWorkoutLocationPlugin.swift */,
 				A7C410042E20000100C0FFEE /* GymCircleBridgeViewController.swift */,
+				A7C410062E20000100C0FFEE /* GymCircleHealthKitPlugin.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -120,6 +123,9 @@
 						LastSwiftMigration = 1100;
 						ProvisioningStyle = Automatic;
 						SystemCapabilities = {
+							com.apple.HealthKit = {
+								enabled = 1;
+							};
 							com.apple.Push = {
 								enabled = 1;
 							};
@@ -172,6 +178,7 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				A7C410012E20000100C0FFEE /* GymCircleWorkoutLocationPlugin.swift in Sources */,
 				A7C410032E20000100C0FFEE /* GymCircleBridgeViewController.swift in Sources */,
+				A7C410052E20000100C0FFEE /* GymCircleHealthKitPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

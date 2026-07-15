@@ -47,6 +47,8 @@ const PERMISSIONS = {
     "Para salvar a foto ou vídeo do seu treino na galeria depois que publicar.",
   NSMicrophoneUsageDescription:
     "Necessária para gravar o áudio dos vídeos do seu treino, igual nos stories e posts em vídeo.",
+  NSHealthShareUsageDescription:
+    "O Gym Circle lê somente os treinos que você escolher no Apple Saúde para importar distância, duração, calorias, batimentos e rota para o seu histórico.",
   NSLocationWhenInUseUsageDescription:
     "Para registrar a distância e o mapa do seu treino enquanto ele estiver ativo.",
   NSLocationAlwaysAndWhenInUseUsageDescription:

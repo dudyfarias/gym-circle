@@ -53,6 +53,7 @@ import { REST_TIMER_INITIAL, restTimerReducer } from "../workout/restTimer";
 import { useExerciseHistory } from "../workout/useExerciseHistory";
 import { formatElapsed } from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
+import { HealthKitImportSheet } from "../workout/HealthKitImportSheet";
 import { WorkoutPlanDetailSheet } from "../workout/WorkoutPlanDetailSheet";
 import {
   WorkoutCompletionSummary,
@@ -76,11 +77,13 @@ import {
 } from "../workout/exerciseLoadType";
 import {
   appendWorkoutRoutePoint,
+  bestWorkoutRouteSummary,
   clearStoredWorkoutSession,
   createWorkoutClientSessionId,
   formatAveragePace,
   formatAverageSpeed,
   formatDistance,
+  mergeWorkoutRouteSnapshot,
   pauseWorkoutSession,
   readStoredWorkoutSession,
   recordStrengthSetActualRest,
@@ -92,7 +95,6 @@ import {
   workoutElapsedSeconds,
   workoutPausedSeconds,
   workoutRestElapsedSeconds,
-  workoutRouteCoordinates,
   writeStoredWorkoutSession,
 } from "../workout/workoutSession";
 import {
@@ -236,6 +238,7 @@ export function WebWorkoutScreen({
   const [gpsEngine, setGpsEngine] = useState<GpsEngine>("checking");
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
+  const [healthImportOpen, setHealthImportOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [finishPromptElapsedS, setFinishPromptElapsedS] = useState<
     number | null
@@ -423,13 +426,12 @@ export function WebWorkoutScreen({
       movingS: number;
       elevationGainM: number;
     }) => {
-      setGpsStatus("strong");
-      persistSession((current) => ({
-        ...current,
-        distanceM: snapshot.distanceM,
-        movingS: snapshot.movingS,
-        elevationGainM: snapshot.elevationGainM,
-      }));
+      if (snapshot.distanceM > 0 || snapshot.movingS > 0) {
+        setGpsStatus("strong");
+      }
+      persistSession((current) =>
+        mergeWorkoutRouteSnapshot(current, snapshot),
+      );
     },
     [persistSession],
   );
@@ -501,7 +503,6 @@ export function WebWorkoutScreen({
     const routeActivityType = session?.activityType;
     const pausedAtMs = session?.pausedAtMs;
     if (
-      gpsEngine !== "web" ||
       stage !== "live" ||
       !routeActivityType ||
       !isRouteWorkout(routeActivityType)
@@ -554,7 +555,6 @@ export function WebWorkoutScreen({
       navigator.geolocation.clearWatch(watchId);
     };
   }, [
-    gpsEngine,
     persistSession,
     session?.activityType,
     session?.pausedAtMs,
@@ -758,9 +758,10 @@ export function WebWorkoutScreen({
           await import("../native/WorkoutLocationBridge");
         nativeSummary = await WorkoutLocationBridge.stop();
       }
-      const route = isRouteWorkout(session.activityType)
-        ? (nativeSummary?.route ?? workoutRouteCoordinates(session))
+      const routeSummary = isRouteWorkout(session.activityType)
+        ? bestWorkoutRouteSummary(session, nativeSummary)
         : null;
+      const route = routeSummary?.route ?? null;
       const finalizedStrengthSets = normalizeStrengthSetsForSave(
         strengthSets.map((set, index) => {
           const completed = completedStrengthSetIds.has(set.clientId);
@@ -808,13 +809,13 @@ export function WebWorkoutScreen({
           endedAt: new Date(endedMs).toISOString(),
           elapsedS,
           movingS: isRouteWorkout(session.activityType)
-            ? Math.round(nativeSummary?.movingS ?? session.movingS)
+            ? Math.round(routeSummary?.movingS ?? session.movingS)
             : elapsedS,
           distanceM: isRouteWorkout(session.activityType)
-            ? (nativeSummary?.distanceM ?? session.distanceM)
+            ? (routeSummary?.distanceM ?? session.distanceM)
             : null,
           elevationGainM: isRouteWorkout(session.activityType)
-            ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
+            ? (routeSummary?.elevationGainM ?? session.elevationGainM)
             : null,
           route,
           strengthSets:
@@ -837,13 +838,13 @@ export function WebWorkoutScreen({
         activityType: session.activityType,
         elapsedS: activity.elapsedS,
         movingS: isRouteWorkout(session.activityType)
-          ? Math.round(nativeSummary?.movingS ?? session.movingS)
+          ? Math.round(routeSummary?.movingS ?? session.movingS)
           : activity.elapsedS,
         distanceM: isRouteWorkout(session.activityType)
-          ? (nativeSummary?.distanceM ?? session.distanceM)
+          ? (routeSummary?.distanceM ?? session.distanceM)
           : null,
         elevationGainM: isRouteWorkout(session.activityType)
-          ? (nativeSummary?.elevationGainM ?? session.elevationGainM)
+          ? (routeSummary?.elevationGainM ?? session.elevationGainM)
           : null,
         route,
         workoutDate: activity.workoutDate,
@@ -1998,6 +1999,7 @@ export function WebWorkoutScreen({
             <WorkoutPlansFabControlled
               catalog={workoutCatalog}
               createRequestKey={createPlanRequestKey}
+              onImport={() => setHealthImportOpen(true)}
               onStartPlan={startWorkoutPlan}
               plansController={workoutPlansController}
               triggerPlacement="inline"
@@ -3021,6 +3023,15 @@ export function WebWorkoutScreen({
         ) : null}
       </div>
       </div>
+      <HealthKitImportSheet
+        onClose={() => setHealthImportOpen(false)}
+        onImport={onFinish}
+        onShare={(activity) => {
+          setHealthImportOpen(false);
+          onCompose(activity);
+        }}
+        open={healthImportOpen}
+      />
     </>
   );
 }
