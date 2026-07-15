@@ -79,6 +79,28 @@ describe("authService.signInWithOAuth", () => {
     });
   });
 
+  it.each(["dudy", "Dudy", "DUDY", "@DuDy"])(
+    "envia %s ao backend sempre como username minúsculo",
+    async (identifier) => {
+      const invoke = vi.fn().mockResolvedValue({
+        data: { session: { access_token: "at-1", refresh_token: "rt-1" } },
+        error: null,
+      });
+      const client = {
+        auth: {
+          setSession: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        },
+        functions: { invoke },
+      } as unknown as GymCircleClient;
+
+      await authService(client).signInWithPassword(identifier, "senha123");
+
+      expect(invoke).toHaveBeenCalledWith("login-with-username", {
+        body: { username: "dudy", password: "senha123" },
+      });
+    },
+  );
+
   it("falha de username/senha vira erro genérico (anti-enumeração)", async () => {
     const client = {
       auth: { setSession: vi.fn() },

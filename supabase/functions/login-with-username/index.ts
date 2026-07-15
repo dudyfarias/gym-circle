@@ -9,6 +9,7 @@
 // o mesmo erro genérico.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { cleanUsername, escapeIlikeLiteral } from "./username.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -25,15 +26,6 @@ function json(status: number, body: unknown): Response {
 
 // Mesmo erro pra qualquer falha de credencial — sem oráculo de existência.
 const invalidCredentials = () => json(400, { error: "invalid_credentials" });
-
-// Espelha o cleanUsername do packages/core/src/services/auth.ts.
-function cleanUsername(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/^@/, "")
-    .replace(/[^a-z0-9_.]/g, "");
-}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -61,7 +53,10 @@ Deno.serve(async (req: Request) => {
   const { data: profile } = await admin
     .from("profiles")
     .select("user_id")
-    .eq("username", username)
+    // Não delega case-sensitivity à resolução implícita de operadores do
+    // PostgREST/citext. ILIKE torna Dudy, dudy e DUDY equivalentes. O padrão é
+    // escapado para que '_' de um username seja literal, não wildcard SQL.
+    .ilike("username", escapeIlikeLiteral(username))
     .maybeSingle();
   if (!profile?.user_id) return invalidCredentials();
 
