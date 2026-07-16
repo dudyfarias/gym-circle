@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2, Route, Timer, X } from "lucide-react";
+import { ChevronRight, HeartPulse, Loader2, Route, Timer, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MergeableActivity } from "@gym-circle/core";
 import {
@@ -17,6 +17,7 @@ type IntegrateWorkoutSheetProps = {
   /** id da atividade sendo integrada (spinner na linha). */
   integratingId: string | null;
   onSelect: (activityId: string) => void;
+  onImportFromAppleHealth?: () => void;
   onClose: () => void;
 };
 
@@ -39,6 +40,7 @@ export function IntegrateWorkoutSheet({
   activities,
   integratingId,
   onSelect,
+  onImportFromAppleHealth,
   onClose,
 }: IntegrateWorkoutSheetProps) {
   const { t } = useTranslation();
@@ -148,6 +150,29 @@ export function IntegrateWorkoutSheet({
             })}
           </div>
         )}
+
+        {!loading && onImportFromAppleHealth ? (
+          <div className="mt-4 border-t border-white/[0.07] pt-4">
+            <button
+              className="gc-pressable flex w-full items-center gap-3.5 rounded-[20px] border border-[#ff375f]/18 bg-[#ff375f]/[0.07] p-3.5 text-left"
+              onClick={onImportFromAppleHealth}
+              type="button"
+            >
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-[#ff375f]/15 text-[#ff5b77]">
+                <HeartPulse size={20} strokeWidth={2.6} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-black text-white">
+                  {t("integrateWorkout.importAppleHealth")}
+                </span>
+                <span className="mt-0.5 block text-[12px] font-semibold leading-snug text-white/46">
+                  {t("integrateWorkout.importAppleHealthDetail")}
+                </span>
+              </span>
+              <ChevronRight className="shrink-0 text-white/30" size={18} />
+            </button>
+          </div>
+        ) : null}
       </section>
     </div>
   );

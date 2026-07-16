@@ -13,6 +13,7 @@ import {
 import { RefreshCw } from "lucide-react";
 import { ToastFeedback, WorkoutDetailOverlay } from "./design-system";
 import { IntegrateWorkoutSheet } from "./IntegrateWorkoutSheet";
+import { HealthKitImportSheet } from "./workout/HealthKitImportSheet";
 import { preloadImage } from "./design-system/imageCache";
 import { BottomNav, type ScreenKey } from "./BottomNav";
 import { CreateHubSheet } from "./CreateHubSheet";
@@ -54,6 +55,7 @@ import type {
   EnrichedUser,
   MergeableActivity,
   SocialBundle,
+  WebActivityInput,
   WorkoutDetail,
 } from "./social/types";
 import { getAdjacentStoryId } from "./social/stories";
@@ -251,6 +253,8 @@ export function GymCirclePreview({
   const [detailWorkout, setDetailWorkout] = useState<WorkoutDetail | null>(null);
   // "Integrar treino": juntar um treino do mesmo dia ao post do menu.
   const [integratePostId, setIntegratePostId] = useState<string | null>(null);
+  const [integrateWorkoutDate, setIntegrateWorkoutDate] = useState<string | null>(null);
+  const [integrateHealthOpen, setIntegrateHealthOpen] = useState(false);
   const [mergeableActivities, setMergeableActivities] = useState<MergeableActivity[]>([]);
   const [mergeableLoading, setMergeableLoading] = useState(false);
   const [integratingId, setIntegratingId] = useState<string | null>(null);
@@ -912,6 +916,8 @@ export function GymCirclePreview({
     setPostMenuId(null);
     if (!target) return;
     setIntegratePostId(target.id);
+    setIntegrateWorkoutDate(target.workoutDate);
+    setIntegrateHealthOpen(false);
     setMergeableActivities([]);
     setMergeableLoading(true);
     void (async () => {
@@ -934,12 +940,53 @@ export function GymCirclePreview({
         try {
           await social.actions.integrateWorkoutIntoPost?.(postId, activityId);
           setIntegratePostId(null);
+          setIntegrateWorkoutDate(null);
         } finally {
           setIntegratingId(null);
         }
       })();
     },
     [integratePostId, social.actions],
+  );
+
+  const handleImportedHealthWorkout = useCallback(
+    async (activity: { id: string }) => {
+      const postId = integratePostId;
+      const integrate = social.actions.integrateWorkoutIntoPost;
+      if (!postId || !integrate) {
+        throw new Error("Workout integration is unavailable");
+      }
+      try {
+        await integrate(postId, activity.id);
+        setIntegrateHealthOpen(false);
+        setIntegratePostId(null);
+        setIntegrateWorkoutDate(null);
+      } catch (error) {
+        if (integrateWorkoutDate) {
+          const list =
+            (await social.actions.fetchMergeableActivities?.(
+              integrateWorkoutDate,
+            )) ?? [];
+          setMergeableActivities(list);
+        }
+        throw error;
+      }
+    },
+    [integratePostId, integrateWorkoutDate, social.actions],
+  );
+
+  const importHealthWorkout = useCallback(
+    (input: WebActivityInput) => {
+      if (social.actions.finishWebActivity) {
+        return social.actions.finishWebActivity(input);
+      }
+      return Promise.resolve({
+        id: `demo-${Date.now()}`,
+        workoutDate: input.endedAt.slice(0, 10),
+        elapsedS: input.elapsedS,
+      });
+    },
+    [social.actions],
   );
   const entryMenuCheckin: EnrichedCheckin | null = useMemo(() => {
     if (entryMenuTarget?.kind !== "checkin") return null;
@@ -2943,9 +2990,21 @@ export function GymCirclePreview({
             activities={mergeableActivities}
             integratingId={integratingId}
             loading={mergeableLoading}
-            onClose={() => setIntegratePostId(null)}
+            onClose={() => {
+              setIntegratePostId(null);
+              setIntegrateWorkoutDate(null);
+            }}
+            onImportFromAppleHealth={() => setIntegrateHealthOpen(true)}
             onSelect={handleIntegrateSelect}
-            open={integratePostId !== null}
+            open={integratePostId !== null && !integrateHealthOpen}
+          />
+          <HealthKitImportSheet
+            completionMode="integrate"
+            onClose={() => setIntegrateHealthOpen(false)}
+            onImport={importHealthWorkout}
+            onImported={handleImportedHealthWorkout}
+            open={integrateHealthOpen}
+            requestPermissionOnOpen
           />
           {editPost ? (
             <EditPostSheet

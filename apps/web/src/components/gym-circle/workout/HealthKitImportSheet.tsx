@@ -12,7 +12,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   ComposerActivityContext,
@@ -26,13 +26,23 @@ import {
 } from "../native/HealthKitBridge";
 import { formatElapsed } from "./workoutElapsed";
 import { formatDistance } from "./workoutSession";
+import {
+  HealthKitPostIntegrationError,
+  importHealthKitWorkout,
+} from "./healthKitImportFlow";
 import { healthKitWorkoutToActivityInput } from "./healthKitImport";
 
 type HealthKitImportSheetProps = {
   open: boolean;
   onClose: () => void;
   onImport: (input: WebActivityInput) => Promise<FinishedWebActivity>;
-  onShare: (activity: ComposerActivityContext) => void;
+  onShare?: (activity: ComposerActivityContext) => void;
+  onImported?: (
+    activity: FinishedWebActivity,
+    workout: HealthKitWorkout,
+  ) => Promise<void>;
+  completionMode?: "share" | "integrate";
+  requestPermissionOnOpen?: boolean;
 };
 
 type ImportedResult = {
@@ -45,6 +55,9 @@ export function HealthKitImportSheet({
   onClose,
   onImport,
   onShare,
+  onImported,
+  completionMode = "share",
+  requestPermissionOnOpen = false,
 }: HealthKitImportSheetProps) {
   const { i18n, t } = useTranslation();
   const [supported, setSupported] = useState<boolean | null>(null);
@@ -58,6 +71,7 @@ export function HealthKitImportSheet({
   const [importing, setImporting] = useState(false);
   const [imported, setImported] = useState<ImportedResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const autoPermissionRequestedRef = useRef(false);
 
   const loadWorkouts = useCallback(async () => {
     setLoading(true);
@@ -80,8 +94,26 @@ export function HealthKitImportSheet({
     }
   }, [t]);
 
+  const requestPermission = useCallback(async () => {
+    setRequesting(true);
+    setError(null);
+    try {
+      const state = await HealthKitBridge.requestPermissions();
+      setPermission(state);
+      if (state === "granted") await loadWorkouts();
+      if (state === "denied") setError(t("healthImport.errors.denied"));
+    } catch {
+      setError(t("healthImport.errors.permission"));
+    } finally {
+      setRequesting(false);
+    }
+  }, [loadWorkouts, t]);
+
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      autoPermissionRequestedRef.current = false;
+      return;
+    }
     let active = true;
     void (async () => {
       const available = await HealthKitBridge.isAvailable();
@@ -98,7 +130,18 @@ export function HealthKitImportSheet({
         const state = await HealthKitBridge.permissionState();
         if (!active) return;
         setPermission(state);
-        if (state === "granted") await loadWorkouts();
+        if (state === "granted") {
+          await loadWorkouts();
+          return;
+        }
+        if (
+          state === "not-requested" &&
+          requestPermissionOnOpen &&
+          !autoPermissionRequestedRef.current
+        ) {
+          autoPermissionRequestedRef.current = true;
+          await requestPermission();
+        }
       } catch {
         if (active) setError(t("healthImport.errors.permission"));
       }
@@ -106,22 +149,7 @@ export function HealthKitImportSheet({
     return () => {
       active = false;
     };
-  }, [loadWorkouts, open, t]);
-
-  const requestPermission = useCallback(async () => {
-    setRequesting(true);
-    setError(null);
-    try {
-      const state = await HealthKitBridge.requestPermissions();
-      setPermission(state);
-      if (state === "granted") await loadWorkouts();
-      if (state === "denied") setError(t("healthImport.errors.denied"));
-    } catch {
-      setError(t("healthImport.errors.permission"));
-    } finally {
-      setRequesting(false);
-    }
-  }, [loadWorkouts, t]);
+  }, [loadWorkouts, open, requestPermission, requestPermissionOnOpen, t]);
 
   const selectWorkout = useCallback(
     async (workout: HealthKitWorkout) => {
@@ -144,20 +172,29 @@ export function HealthKitImportSheet({
     setImporting(true);
     setError(null);
     try {
-      const activity = await onImport(
-        healthKitWorkoutToActivityInput(selected),
-      );
-      setImported({ activity, workout: selected });
+      const result = await importHealthKitWorkout({
+        workout: selected,
+        importActivity: onImport,
+        afterImport: onImported,
+      });
+      setImported(result);
     } catch (caught) {
+      if (caught instanceof HealthKitPostIntegrationError) {
+        setImported(caught.imported);
+        setError(t("healthImport.errors.integrate"));
+        setImporting(false);
+        return;
+      }
       setError(
         isDuplicateError(caught)
           ? t("healthImport.errors.duplicate")
           : t("healthImport.errors.import"),
       );
-    } finally {
       setImporting(false);
+      return;
     }
-  }, [importing, onImport, selected, t]);
+    setImporting(false);
+  }, [importing, onImport, onImported, selected, t]);
 
   const selectedMetrics = useMemo(
     () => (selected ? workoutMetrics(selected, t) : []),
@@ -248,19 +285,21 @@ export function HealthKitImportSheet({
                   source: imported.workout.sourceApp,
                 })}
               </p>
+              {completionMode === "share" && onShare ? (
+                <button
+                  className="gc-pressable mt-5 h-13 w-full rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-[var(--gc-brand-ink)]"
+                  onClick={() => {
+                    onShare(
+                      composerActivity(imported.activity, imported.workout),
+                    );
+                  }}
+                  type="button"
+                >
+                  {t("healthImport.share")}
+                </button>
+              ) : null}
               <button
-                className="gc-pressable mt-5 h-13 w-full rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-[var(--gc-brand-ink)]"
-                onClick={() => {
-                  onShare(
-                    composerActivity(imported.activity, imported.workout),
-                  );
-                }}
-                type="button"
-              >
-                {t("healthImport.share")}
-              </button>
-              <button
-                className="gc-pressable mt-2 h-12 w-full rounded-full border border-white/[0.09] text-[13px] font-black text-white/78"
+                className="gc-pressable mt-5 h-12 w-full rounded-full border border-white/[0.09] text-[13px] font-black text-white/78"
                 onClick={onClose}
                 type="button"
               >
@@ -312,7 +351,11 @@ export function HealthKitImportSheet({
                 >
                   {importing
                     ? t("healthImport.importing")
-                    : t("healthImport.import")}
+                    : t(
+                        completionMode === "integrate"
+                          ? "healthImport.importAndIntegrate"
+                          : "healthImport.import",
+                      )}
                 </button>
               </div>
             </div>

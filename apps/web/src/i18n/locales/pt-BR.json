@@ -397,6 +397,7 @@
     "back": "‹ Voltar aos treinos",
     "reviewPrivacy": "Só este treino será salvo no seu histórico do Gym Circle. Nada é importado automaticamente.",
     "import": "Importar treino",
+    "importAndIntegrate": "Importar e integrar ao post",
     "importing": "Importando…",
     "successTitle": "Treino importado",
     "successDetail": "Os dados de {{source}} já estão no seu histórico.",
@@ -423,7 +424,8 @@
       "load": "Não foi possível carregar os treinos do Apple Saúde.",
       "details": "A rota detalhada não ficou disponível, mas você ainda pode importar o resumo.",
       "duplicate": "Esse treino já foi importado para o Gym Circle.",
-      "import": "Não foi possível importar esse treino agora. Tente novamente."
+      "import": "Não foi possível importar esse treino agora. Tente novamente.",
+      "integrate": "O treino foi importado, mas não foi vinculado ao post. Toque em Concluir e selecione-o na lista."
     }
   },
   "workoutCatalog": {
@@ -618,7 +620,9 @@
   "integrateWorkout": {
     "title": "Integrar treino",
     "subtitle": "Escolha um treino deste dia para juntar ao post. As estatísticas aparecem no post e o treino sai do feed.",
-    "empty": "Nenhum treino livre neste dia."
+    "empty": "Nenhum treino do Gym Circle livre neste dia.",
+    "importAppleHealth": "Importar do Apple Saúde",
+    "importAppleHealthDetail": "Autorize o acesso e escolha um treino do Apple Watch, Fitness ou outro app."
   },
   "feed": {
     "title": "Gym Circle",
