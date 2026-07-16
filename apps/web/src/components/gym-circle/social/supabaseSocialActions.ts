@@ -950,6 +950,15 @@ export function createSocialActions(
         showFeedback("brand", "Marcação recusada");
       },
       async catalogPlace(place) {
+        const isOpenStreetMapResult =
+          place.provider === "nominatim" || place.provider === "overpass";
+        const externalProvider = isOpenStreetMapResult
+          ? "openstreetmap"
+          : place.provider === "google" ||
+              place.provider === "apple" ||
+              place.provider === "mapbox"
+            ? place.provider
+            : null;
         // 1) Insert no catálogo (ou retorna o existente se outro user já cadastrou)
         const gym = await services.gyms.findOrCreateFromPlace({
           name: place.name,
@@ -958,6 +967,10 @@ export function createSocialActions(
           state: place.state ?? null,
           latitude: place.latitude,
           longitude: place.longitude,
+          provider: externalProvider ?? "manual",
+          externalId: externalProvider ? place.providerId : null,
+          sourceService: isOpenStreetMapResult ? place.provider : null,
+          providerCategory: externalProvider ? place.kind : null,
         });
         // 2) Vincula ao perfil do user (idempotente — upsert por (user, gym))
         await services.gyms

@@ -107,6 +107,131 @@ describe("buildEnrichedUsers", () => {
     expect(friend?.isFollowing).toBe(true);
     expect(friend?.followStatus).toBe("accepted");
   });
+
+  it("não expõe academia principal de perfil privado não seguido", () => {
+    const agg = aggWith({
+      profiles: [
+        makeProfile({ user_id: "me" }),
+        makeProfile({ user_id: "private", is_private: true, main_gym_id: "gym-1" }),
+      ],
+      gyms: [
+        {
+          id: "gym-1",
+          name: "Academia privada",
+          address: null,
+          city: "São Paulo",
+          state: "SP",
+          latitude: -23.5,
+          longitude: -46.6,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const profile = buildEnrichedUsers(agg, "me", new Set()).get("private");
+    expect(profile?.mainGymId).toBeNull();
+    expect(profile?.gyms).toEqual([]);
+    expect(profile?.location).toBe("");
+  });
+
+  it("não usa main_gym_id bruto de terceiros sem a view limitada", () => {
+    const agg = aggWith({
+      profiles: [
+        makeProfile({ user_id: "me" }),
+        makeProfile({ user_id: "public", main_gym_id: "gym-1" }),
+      ],
+      gyms: [
+        {
+          id: "gym-1",
+          name: "Academia sem surface",
+          address: null,
+          city: "São Paulo",
+          state: "SP",
+          latitude: -23.5,
+          longitude: -46.6,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const profile = buildEnrichedUsers(agg, "me", new Set()).get("public");
+    expect(profile?.mainGymId).toBeNull();
+    expect(profile?.gyms).toEqual([]);
+  });
+
+  it("mostra somente a academia principal quando o perfil é visível", () => {
+    const agg = aggWith({
+      profiles: [
+        makeProfile({ user_id: "me" }),
+        makeProfile({ user_id: "public", main_gym_id: "gym-1" }),
+      ],
+      gyms: [
+        {
+          id: "gym-1",
+          name: "Academia pública",
+          address: null,
+          city: "São Paulo",
+          state: "SP",
+          latitude: -23.5,
+          longitude: -46.6,
+          created_at: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+      userGyms: [
+        {
+          id: "visible:public:gym-1",
+          user_id: "public",
+          gym_id: "gym-1",
+          is_main: true,
+          preferred_days: [],
+          preferred_times: [],
+          created_at: "1970-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const profile = buildEnrichedUsers(agg, "me", new Set()).get("public");
+    expect(profile?.mainGymId).toBe("gym-1");
+    expect(profile?.gyms).toEqual(["Academia pública"]);
+  });
+
+  it("mostra academia principal de perfil privado para follower aceito", () => {
+    const gym = {
+      id: "gym-1",
+      name: "Academia seguida",
+      address: null,
+      city: "Osasco",
+      state: "SP",
+      latitude: -23.5,
+      longitude: -46.7,
+      created_at: "2026-01-01T00:00:00.000Z",
+    };
+    const agg = aggWith({
+      profiles: [
+        makeProfile({ user_id: "me" }),
+        makeProfile({ user_id: "friend", is_private: true, main_gym_id: gym.id }),
+      ],
+      follows: [
+        { follower_id: "me", following_id: "friend", status: "accepted", created_at: "x" },
+      ] as AggregateState["follows"],
+      gyms: [gym],
+      userGyms: [
+        {
+          id: `visible:friend:${gym.id}`,
+          user_id: "friend",
+          gym_id: gym.id,
+          is_main: true,
+          preferred_days: [],
+          preferred_times: [],
+          created_at: "1970-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    const profile = buildEnrichedUsers(agg, "me", new Set()).get("friend");
+    expect(profile?.mainGymId).toBe(gym.id);
+    expect(profile?.gyms).toEqual([gym.name]);
+  });
 });
 
 function makeStory(overrides: Partial<StoryRow> & { id: string; user_id: string }): StoryRow {

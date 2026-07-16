@@ -16,7 +16,10 @@ export type NormalizedPlace = {
 
 export type LocationProvider = {
   getCurrentPosition(): Promise<Coordinates>;
-  searchPlaces(query: string, coords?: Coordinates | null): Promise<NormalizedPlace[]>;
+  searchPlaces(
+    query: string,
+    coords?: Coordinates | null,
+  ): Promise<NormalizedPlace[]>;
   nearbyPlaces(coords: Coordinates): Promise<NormalizedPlace[]>;
   reverseGeocode(coords: Coordinates): Promise<NormalizedPlace | null>;
   normalizePlace(place: unknown): NormalizedPlace | null;
@@ -39,7 +42,8 @@ function normalizePlace(place: unknown): NormalizedPlace | null {
 
   return {
     provider: candidate.provider === "apple-maps" ? "apple-maps" : "web",
-    providerId: candidate.providerId || `${candidate.latitude},${candidate.longitude}`,
+    providerId:
+      candidate.providerId || `${candidate.latitude},${candidate.longitude}`,
     name: candidate.name,
     address: candidate.address || "",
     city: candidate.city || "",
@@ -70,15 +74,24 @@ function getCurrentPosition(): Promise<Coordinates> {
 }
 
 async function searchPlaces(query: string, coords?: Coordinates | null) {
-  const params = new URLSearchParams({ q: query });
+  const trimmed = query.trim();
+  if (trimmed.length < 3) return [];
+  const params = new URLSearchParams({ q: trimmed });
   if (coords) {
     params.set("lat", String(coords.latitude));
     params.set("lng", String(coords.longitude));
   }
-  const response = await fetch(`/api/places/search?${params.toString()}`);
+  const response = await fetch(`/api/places/search?${params.toString()}`, {
+    headers: { "X-GymCircle-Search-Intent": "explicit" },
+  });
   if (!response.ok) return [];
-  const payload = (await response.json()) as { places?: unknown[] };
-  return (payload.places ?? []).map(normalizePlace).filter(Boolean) as NormalizedPlace[];
+  const payload = (await response.json()) as {
+    places?: unknown[];
+    results?: unknown[];
+  };
+  return (payload.results ?? payload.places ?? [])
+    .map(normalizePlace)
+    .filter(Boolean) as NormalizedPlace[];
 }
 
 async function nearbyPlaces(coords: Coordinates) {
@@ -89,7 +102,9 @@ async function nearbyPlaces(coords: Coordinates) {
   const response = await fetch(`/api/places/nearby?${params.toString()}`);
   if (!response.ok) return [];
   const payload = (await response.json()) as { places?: unknown[] };
-  return (payload.places ?? []).map(normalizePlace).filter(Boolean) as NormalizedPlace[];
+  return (payload.places ?? [])
+    .map(normalizePlace)
+    .filter(Boolean) as NormalizedPlace[];
 }
 
 export const CurrentWebLocationProvider: LocationProvider = {

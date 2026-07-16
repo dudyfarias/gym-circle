@@ -447,6 +447,53 @@ export type Database = {
         }
         Relationships: []
       }
+      gym_place_external_refs: {
+        Row: {
+          cache_expires_at: string | null
+          created_at: string
+          created_by: string | null
+          external_id: string
+          gym_id: string
+          id: string
+          last_verified_at: string | null
+          provider: string
+          provider_category: string | null
+          source_service: string | null
+        }
+        Insert: {
+          cache_expires_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_id: string
+          gym_id: string
+          id?: string
+          last_verified_at?: string | null
+          provider: string
+          provider_category?: string | null
+          source_service?: string | null
+        }
+        Update: {
+          cache_expires_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          external_id?: string
+          gym_id?: string
+          id?: string
+          last_verified_at?: string | null
+          provider?: string
+          provider_category?: string | null
+          source_service?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gym_place_external_refs_gym_id_fkey"
+            columns: ["gym_id"]
+            isOneToOne: false
+            referencedRelation: "gyms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       legal_acceptances: {
         Row: {
           accepted_at: string
@@ -1598,6 +1645,16 @@ export type Database = {
           },
         ]
       }
+      visible_profile_main_gyms: {
+        Row: {
+          city: string | null
+          gym_id: string | null
+          name: string | null
+          state: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
       feed_posts: {
         Row: {
           author_badge_active: boolean | null
@@ -1658,6 +1715,30 @@ export type Database = {
         Args: {
           p_gym_id: string
           p_post_id: string
+        }
+        Returns: string
+      }
+      get_visible_profile_gym: {
+        Args: { p_user_id: string }
+        Returns: {
+          city: string | null
+          gym_id: string
+          name: string
+          state: string | null
+        }[]
+      }
+      register_external_gym: {
+        Args: {
+          p_address?: string | null
+          p_city: string
+          p_external_id: string
+          p_latitude: number
+          p_longitude: number
+          p_name: string
+          p_provider: string
+          p_provider_category?: string | null
+          p_source_service?: string | null
+          p_state?: string | null
         }
         Returns: string
       }

@@ -127,8 +127,9 @@ export function mergeProfileRows(rows: ProfileRow[], nextRows: ProfileRow[]): Pr
 export function getMainUserGymForProfile(
   profile: Pick<ProfileRow, "main_gym_id">,
   userGyms: UserGymRow[],
+  includeProfileMainGym = true,
 ): UserGymRow | undefined {
-  if (profile.main_gym_id) {
+  if (includeProfileMainGym && profile.main_gym_id) {
     const byProfileMainGym = userGyms.find((ug) => ug.gym_id === profile.main_gym_id);
     if (byProfileMainGym) return byProfileMainGym;
   }
@@ -139,6 +140,7 @@ export function getOrderedGymNamesForProfile(
   profile: Pick<ProfileRow, "main_gym_id">,
   userGyms: UserGymRow[],
   gymsById: Map<string, GymRow>,
+  includeProfileMainGym = true,
 ): string[] {
   const seen = new Set<string>();
   const orderedGymIds: string[] = [];
@@ -149,7 +151,7 @@ export function getOrderedGymNamesForProfile(
     orderedGymIds.push(gymId);
   }
 
-  add(profile.main_gym_id);
+  if (includeProfileMainGym) add(profile.main_gym_id);
   add(userGyms.find((ug) => ug.is_main)?.gym_id);
   for (const userGym of userGyms) add(userGym.gym_id);
 

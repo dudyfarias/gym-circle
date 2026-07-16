@@ -1,7 +1,12 @@
-import type { EnrichedPost, GymLocationOption, PostLocationSource } from "./types";
+import type {
+  EnrichedPost,
+  GymLocationOption,
+  PostLocationSource,
+} from "./types";
+import type { PlaceProvider } from "./placeProvider";
 
 export type PlaceCandidate = {
-  provider: "registered" | "nominatim" | "overpass" | "manual" | "current";
+  provider: PlaceProvider;
   providerId: string;
   gymId?: string;
   locationId?: string | null;
@@ -20,6 +25,19 @@ export type PlaceCandidate = {
 export type LocatedPlaceCandidate = PlaceCandidate & {
   latitude: number;
   longitude: number;
+};
+
+export type PlaceMatchClassification =
+  | "same_external_ref"
+  | "exact_match"
+  | "likely_match"
+  | "manual_review"
+  | "distinct";
+
+export type PlaceProviderAttribution = {
+  sourceLabel: string;
+  attributionLabel: string | null;
+  attributionUrl: string | null;
 };
 
 export type LocationUsage = Pick<
@@ -91,83 +109,194 @@ function getPrimaryLocationId(candidate: PlaceCandidate): string | null {
 }
 
 function getPlaceId(candidate: PlaceCandidate): string | null {
-  if (candidate.placeId) return candidate.placeId;
+  if (candidate.placeId) return `${candidate.provider}:${candidate.placeId}`;
   if (
     candidate.provider !== "manual" &&
     candidate.provider !== "current" &&
     candidate.providerId &&
     !candidate.providerId.startsWith("registered/")
   ) {
-    return candidate.providerId;
+    return `${candidate.provider}:${candidate.providerId}`;
   }
   return null;
 }
 
 export function getSearchText(candidate: PlaceCandidate): string {
   return normalizeText(
-    [candidate.name, candidate.address, candidate.neighborhood, candidate.city, candidate.state]
+    [
+      candidate.name,
+      candidate.address,
+      candidate.neighborhood,
+      candidate.city,
+      candidate.state,
+    ]
       .filter(Boolean)
       .join(" "),
   );
 }
 
 export function getSourceLabel(candidate: PlaceCandidate): string {
-  if (candidate.provider === "registered") return "Cadastrada";
-  if (candidate.provider === "overpass") return "Próxima";
-  if (candidate.provider === "nominatim") return "Google/Localização";
-  if (candidate.provider === "current") return "Atual";
-  return "Manual";
+  return getProviderAttribution(candidate.provider).sourceLabel;
 }
 
-export function isSameApproxPlace(a: PlaceCandidate, b: PlaceCandidate): boolean {
+export function getProviderAttribution(
+  provider: PlaceCandidate["provider"],
+): PlaceProviderAttribution {
+  if (provider === "registered") {
+    return {
+      sourceLabel: "Gym Circle",
+      attributionLabel: null,
+      attributionUrl: null,
+    };
+  }
+  if (provider === "nominatim" || provider === "overpass") {
+    return {
+      sourceLabel: "OpenStreetMap",
+      attributionLabel: "© OpenStreetMap contributors",
+      attributionUrl: "https://www.openstreetmap.org/copyright",
+    };
+  }
+  if (provider === "current") {
+    return {
+      sourceLabel: "Localização atual",
+      attributionLabel: null,
+      attributionUrl: null,
+    };
+  }
+  if (provider === "google") {
+    return {
+      sourceLabel: "Google Maps",
+      attributionLabel: "Google Maps",
+      attributionUrl: "https://maps.google.com/",
+    };
+  }
+  if (provider === "apple") {
+    return {
+      sourceLabel: "Apple Maps",
+      attributionLabel: "Apple Maps",
+      attributionUrl: "https://www.apple.com/maps/",
+    };
+  }
+  if (provider === "mapbox") {
+    return {
+      sourceLabel: "Mapbox",
+      attributionLabel: "© Mapbox",
+      attributionUrl: "https://www.mapbox.com/about/maps/",
+    };
+  }
+  if (provider === "community") {
+    return {
+      sourceLabel: "Comunidade Gym Circle",
+      attributionLabel: null,
+      attributionUrl: null,
+    };
+  }
+  return {
+    sourceLabel: "Contribuição",
+    attributionLabel: null,
+    attributionUrl: null,
+  };
+}
+
+function getDistanceBetweenCandidates(
+  a: PlaceCandidate,
+  b: PlaceCandidate,
+): number | null {
+  if (
+    typeof a.latitude !== "number" ||
+    typeof a.longitude !== "number" ||
+    typeof b.latitude !== "number" ||
+    typeof b.longitude !== "number"
+  ) {
+    return null;
+  }
+  return calculateDistanceKm(
+    { lat: a.latitude, lng: a.longitude },
+    { lat: b.latitude, lng: b.longitude },
+  );
+}
+
+function locationsConflict(a: PlaceCandidate, b: PlaceCandidate): boolean {
+  const aCity = normalizeText(a.city);
+  const bCity = normalizeText(b.city);
+  if (aCity && bCity && aCity !== bCity) return true;
+
+  const aAddress = normalizeText(a.address);
+  const bAddress = normalizeText(b.address);
+  return Boolean(aAddress && bAddress && aAddress !== bAddress);
+}
+
+/**
+ * Classificação conservadora usada antes de remover um candidato duplicado.
+ * Proximidade sozinha nunca prova que dois locais são o mesmo lugar: redes
+ * podem ter unidades próximas e um shopping pode conter várias academias.
+ */
+export function classifyPlaceMatch(
+  a: PlaceCandidate,
+  b: PlaceCandidate,
+): PlaceMatchClassification {
   const aPrimaryId = getPrimaryLocationId(a);
   const bPrimaryId = getPrimaryLocationId(b);
-  if (aPrimaryId && bPrimaryId) return aPrimaryId === bPrimaryId;
+  if (aPrimaryId && bPrimaryId && aPrimaryId === bPrimaryId)
+    return "exact_match";
 
   const aPlaceId = getPlaceId(a);
   const bPlaceId = getPlaceId(b);
-  if (aPlaceId && bPlaceId) return aPlaceId === bPlaceId;
+  if (aPlaceId && bPlaceId && aPlaceId === bPlaceId) return "same_external_ref";
 
   const aName = normalizeText(a.name);
   const bName = normalizeText(b.name);
-  if (!aName || !bName) return false;
+  if (!aName || !bName) return "distinct";
+
+  const aAddress = normalizeText(a.address);
+  const bAddress = normalizeText(b.address);
+  const sameAddress = Boolean(aAddress && bAddress && aAddress === bAddress);
+  const distanceKm = getDistanceBetweenCandidates(a, b);
+  const nearby = distanceKm !== null && distanceKm <= 0.25;
+
+  if (aName === bName && sameAddress && !locationsConflict(a, b)) {
+    return "exact_match";
+  }
+
+  // Endereços completos diferentes são evidência suficiente para manter
+  // unidades separadas, mesmo quando pertencem à mesma rede e ficam próximas.
+  if (aName === bName && locationsConflict(a, b)) return "distinct";
 
   const nameLooksSame =
     aName === bName ||
     (aName.length > 6 && bName.includes(aName)) ||
     (bName.length > 6 && aName.includes(bName));
-  if (!nameLooksSame) return false;
+  if (nameLooksSame && sameAddress && !locationsConflict(a, b))
+    return "likely_match";
+  if (nameLooksSame && nearby && !locationsConflict(a, b))
+    return "manual_review";
 
-  const aAddress = normalizeText(a.address);
-  const bAddress = normalizeText(b.address);
-  const sameAddress =
-    Boolean(aAddress && bAddress && aAddress === bAddress) ||
-    Boolean(aAddress && bAddress && aAddress.includes(bAddress)) ||
-    Boolean(aAddress && bAddress && bAddress.includes(aAddress));
-  if (sameAddress) return true;
+  // Mesmo endereço com nomes diferentes pode ser renomeação, mas também pode
+  // representar dois estabelecimentos no mesmo prédio. Nunca mesclar sozinho.
+  if (sameAddress && nearby) return "manual_review";
 
-  if (
-    typeof a.latitude === "number" &&
-    typeof a.longitude === "number" &&
-    typeof b.latitude === "number" &&
-    typeof b.longitude === "number"
-  ) {
-    return (
-      calculateDistanceKm(
-        { lat: a.latitude, lng: a.longitude },
-        { lat: b.latitude, lng: b.longitude },
-      ) <= 0.25
-    );
-  }
-
-  return false;
+  return "distinct";
 }
 
-export function dedupeCandidates(candidates: PlaceCandidate[]): PlaceCandidate[] {
+export function isSameApproxPlace(
+  a: PlaceCandidate,
+  b: PlaceCandidate,
+): boolean {
+  const classification = classifyPlaceMatch(a, b);
+  return (
+    classification === "same_external_ref" || classification === "exact_match"
+  );
+}
+
+export function dedupeCandidates(
+  candidates: PlaceCandidate[],
+): PlaceCandidate[] {
   const deduped: PlaceCandidate[] = [];
 
   for (const candidate of candidates) {
-    const duplicateIndex = deduped.findIndex((item) => isSameApproxPlace(item, candidate));
+    const duplicateIndex = deduped.findIndex((item) =>
+      isSameApproxPlace(item, candidate),
+    );
     if (duplicateIndex === -1) {
       deduped.push(candidate);
       continue;
@@ -193,10 +322,25 @@ export function withoutDuplicateCandidates(
   );
 }
 
-function dedupeRecentCandidates(candidates: PlaceCandidate[]): PlaceCandidate[] {
+function dedupeRecentCandidates(
+  candidates: PlaceCandidate[],
+): PlaceCandidate[] {
   const deduped: PlaceCandidate[] = [];
   for (const candidate of candidates) {
-    if (!deduped.some((item) => isSameApproxPlace(item, candidate))) {
+    const duplicate = deduped.some((item) => {
+      const classification = classifyPlaceMatch(item, candidate);
+      return (
+        classification === "same_external_ref" ||
+        classification === "exact_match" ||
+        // Isso só elimina repetição visual no histórico recente. Não faz
+        // merge persistente de unidades sem endereço confirmado.
+        (classification === "manual_review" &&
+          normalizeText(item.name) === normalizeText(candidate.name) &&
+          !normalizeText(item.address) &&
+          !normalizeText(candidate.address))
+      );
+    });
+    if (!duplicate) {
       deduped.push(candidate);
     }
   }
@@ -285,7 +429,10 @@ export function getRecentPostLocations(
   const candidates = usages
     .filter((usage) => usage.userId === userId)
     .filter((usage) => usage.locationSource !== "none")
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
     .map((usage) => usageToCandidate(usage, gymsById))
     .filter((candidate): candidate is PlaceCandidate => Boolean(candidate));
 

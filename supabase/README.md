@@ -130,7 +130,7 @@ npm --workspace packages/core run test
 | --------------------- | ------------ | --------------------- | --------------------- | ------------------- |
 | profiles              | público      | self (auth.uid)       | self                  | —                   |
 | gyms                  | público      | authenticated         | —                     | —                   |
-| user_gyms             | público      | self                  | self                  | self                |
+| user_gyms             | self; academia principal por RPC/view limitada | self | self | self |
 | posts                 | público      | self                  | self                  | self                |
 | stories               | público (não-expirados ou self) | self    | —                     | self                |
 | post_likes            | público      | self                  | —                     | self                |

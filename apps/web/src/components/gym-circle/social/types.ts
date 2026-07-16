@@ -4,6 +4,7 @@ import type {
   RankingPeriod,
   RankingScope,
 } from "./supabaseSocialTypes";
+import type { CatalogPlaceInput } from "./placeProvider";
 
 export type { MergeableActivity };
 
@@ -854,15 +855,7 @@ export type SocialActions = {
    * o registro da academia pra uso imediato (selecionar no PostScreen,
    * mostrar no CheckInScreen, etc).
    */
-  catalogPlace?: (place: {
-    name: string;
-    address?: string | null;
-    neighborhood?: string | null;
-    city: string;
-    state?: string | null;
-    latitude: number;
-    longitude: number;
-  }) => Promise<GymLocationOption>;
+  catalogPlace?: (place: CatalogPlaceInput) => Promise<GymLocationOption>;
   requestAccountDeletion?: (reason?: string) => Promise<void>;
   suspendAccount?: () => Promise<void>;
   sendReactivationEmail?: () => Promise<void>;

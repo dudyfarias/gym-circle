@@ -16,6 +16,10 @@
  */
 
 import { NextResponse } from "next/server";
+import {
+  canRunExternalPlaceSearch,
+  EXTERNAL_PLACE_SEARCH_MIN_LENGTH,
+} from "../../../../lib/places/externalSearchPolicy";
 
 type NominatimResult = {
   place_id: number;
@@ -61,6 +65,34 @@ export type PlaceCandidate = {
 };
 
 const EARTH_RADIUS_KM = 6371;
+const EXPLICIT_SEARCH_HEADER = "x-gymcircle-search-intent";
+const SERVER_RATE_LIMIT_MS = 2_000;
+const RATE_LIMIT_ENTRY_TTL_MS = 60_000;
+const lastSearchByClient = new Map<string, number>();
+
+function getClientKey(request: Request): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    "unknown-client"
+  );
+}
+
+function getRateLimitRetryAfterMs(request: Request, now = Date.now()): number {
+  for (const [key, lastRequestAt] of lastSearchByClient) {
+    if (now - lastRequestAt > RATE_LIMIT_ENTRY_TTL_MS)
+      lastSearchByClient.delete(key);
+  }
+
+  const clientKey = getClientKey(request);
+  const lastRequestAt = lastSearchByClient.get(clientKey) ?? 0;
+  const retryAfterMs = Math.max(
+    0,
+    SERVER_RATE_LIMIT_MS - (now - lastRequestAt),
+  );
+  if (retryAfterMs === 0) lastSearchByClient.set(clientKey, now);
+  return retryAfterMs;
+}
 
 function toRadians(value: number): number {
   return (value * Math.PI) / 180;
@@ -76,7 +108,9 @@ function distanceKm(
   const dLng = toRadians(toLng - fromLng);
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLng / 2) ** 2;
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(dLng / 2) ** 2;
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
@@ -89,7 +123,8 @@ function getPlaceKindScore(result: NominatimResult): number {
   const tags = [result.class, result.type].filter(Boolean) as string[];
   const joined = tags.join(":").toLowerCase();
   if (joined.includes("gym") || joined.includes("fitness_centre")) return 100;
-  if (joined.includes("sports_centre") || joined.includes("sports_hall")) return 80;
+  if (joined.includes("sports_centre") || joined.includes("sports_hall"))
+    return 80;
   if (joined.includes("stadium") || joined.includes("pitch")) return 60;
   if (joined.includes("park") || joined.includes("track")) return 40;
   if (joined.includes("leisure")) return 30;
@@ -109,24 +144,31 @@ function mapResult(
     address.municipality ??
     address.city_district ??
     "";
-  const neighborhood = address.suburb ?? address.neighbourhood ?? address.city_district ?? null;
+  const neighborhood =
+    address.suburb ?? address.neighbourhood ?? address.city_district ?? null;
   const state = address.state ?? address.state_code ?? null;
 
   // Endereço sintetizado pro display — sem repetir cidade/UF que já vão
   // como chips menores na UI.
-  const street = [address.road, address.house_number].filter(Boolean).join(", ");
+  const street = [address.road, address.house_number]
+    .filter(Boolean)
+    .join(", ");
   const addressLine = [street, neighborhood].filter(Boolean).join(" · ");
 
   // Nome — Nominatim às vezes não tem `name` (POIs amplos). Cai pro
   // primeiro segmento do display_name nesses casos.
-  const fallbackName = result.display_name?.split(",")[0]?.trim() ?? "Lugar sem nome";
+  const fallbackName =
+    result.display_name?.split(",")[0]?.trim() ?? "Lugar sem nome";
   const name = (result.name?.trim() || fallbackName).slice(0, 120);
 
   return {
     provider: "nominatim",
     providerId: `${result.osm_type}/${result.osm_id}`,
     name,
-    address: addressLine || result.display_name?.split(",").slice(1, 3).join(", ") || "",
+    address:
+      addressLine ||
+      result.display_name?.split(",").slice(1, 3).join(", ") ||
+      "",
     neighborhood,
     city,
     state,
@@ -140,10 +182,32 @@ function mapResult(
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const query = url.searchParams.get("q")?.trim();
-  if (!query || query.length < 2) {
+  if (!query || !canRunExternalPlaceSearch(query)) {
     return NextResponse.json(
-      { error: "query parameter `q` is required (min 2 chars)" },
+      {
+        error: `query parameter \`q\` is required (min ${EXTERNAL_PLACE_SEARCH_MIN_LENGTH} chars)`,
+      },
       { status: 400 },
+    );
+  }
+
+  if (request.headers.get(EXPLICIT_SEARCH_HEADER) !== "explicit") {
+    return NextResponse.json(
+      { error: "A busca externa exige uma ação explícita do usuário." },
+      { status: 400 },
+    );
+  }
+
+  const retryAfterMs = getRateLimitRetryAfterMs(request);
+  if (retryAfterMs > 0) {
+    return NextResponse.json(
+      { error: "Aguarde um instante antes de fazer outra busca externa." },
+      {
+        headers: {
+          "Retry-After": String(Math.max(1, Math.ceil(retryAfterMs / 1_000))),
+        },
+        status: 429,
+      },
     );
   }
 
@@ -181,8 +245,7 @@ export async function GET(request: Request) {
     nominatimResponse = await fetch(nominatimUrl, {
       headers: {
         // User-Agent é exigência da política de uso do Nominatim.
-        "User-Agent":
-          "GymCircle/1.0 (https://gym-circle-rust.vercel.app; contact: dudy.cappia@gmail.com)",
+        "User-Agent": "GymCircle/1.0 (+https://gym-circle-rust.vercel.app)",
         "Accept-Language": "pt-BR",
       },
       // Cache leve no edge da Vercel — evita martelar Nominatim com a
@@ -191,7 +254,10 @@ export async function GET(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Não conseguimos contatar o serviço de busca. Tente de novo em alguns segundos." },
+      {
+        error:
+          "Não conseguimos contatar o serviço de busca. Tente de novo em alguns segundos.",
+      },
       { status: 502 },
     );
   }
@@ -226,15 +292,24 @@ export async function GET(request: Request) {
   // Ordenação: kind score (gym > stadium > park > outros) → distância
   const sorted = mapped.sort((a, b) => {
     const aScore = getPlaceKindScore(
-      raw.find((r) => `${r.osm_type}/${r.osm_id}` === a.providerId) ?? ({} as NominatimResult),
+      raw.find((r) => `${r.osm_type}/${r.osm_id}` === a.providerId) ??
+        ({} as NominatimResult),
     );
     const bScore = getPlaceKindScore(
-      raw.find((r) => `${r.osm_type}/${r.osm_id}` === b.providerId) ?? ({} as NominatimResult),
+      raw.find((r) => `${r.osm_type}/${r.osm_id}` === b.providerId) ??
+        ({} as NominatimResult),
     );
     if (aScore !== bScore) return bScore - aScore;
     if (a.distanceKm == null || b.distanceKm == null) return 0;
     return a.distanceKm - b.distanceKm;
   });
 
-  return NextResponse.json({ results: sorted.slice(0, 8) });
+  return NextResponse.json({
+    attribution: {
+      label: "© OpenStreetMap contributors",
+      provider: "openstreetmap",
+      url: "https://www.openstreetmap.org/copyright",
+    },
+    results: sorted.slice(0, 8),
+  });
 }

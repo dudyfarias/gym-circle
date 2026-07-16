@@ -33,6 +33,7 @@ import type {
 
 
 import { simulateHaptic } from "./haptics";
+import type { CatalogPlaceInput } from "./placeProvider";
 import { markPerf, measurePerf } from "../performance";
 import {
   mergeProfileRows,
@@ -182,15 +183,7 @@ export type SupabaseSocialActions = {
    * possa usar o id imediatamente. Idempotente — se outro user já
    * catalogou a mesma gym, retorna a existente.
    */
-  catalogPlace: (place: {
-    name: string;
-    address?: string | null;
-    neighborhood?: string | null;
-    city: string;
-    state?: string | null;
-    latitude: number;
-    longitude: number;
-  }) => Promise<GymLocationOption>;
+  catalogPlace: (place: CatalogPlaceInput) => Promise<GymLocationOption>;
   editPost: (postId: string, input: EditPostInput) => Promise<void>;
   promoteCheckin: (
     checkinId: string,
@@ -783,6 +776,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           suggestionsRes,
           gymsRes,
           userGymsRes,
+          visibleProfileGymsRes,
           myActivityRes,
           checkinsTodayRes,
           storyLikesRes,
@@ -797,7 +791,11 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             .select("id,name,address,city,state,latitude,longitude,created_at"),
           services.client
             .from("user_gyms")
-            .select("id,user_id,gym_id,is_main,preferred_days,preferred_times,created_at"),
+            .select("id,user_id,gym_id,is_main,preferred_days,preferred_times,created_at")
+            .eq("user_id", currentUserId),
+          services.client
+            .from("visible_profile_main_gyms")
+            .select("user_id,gym_id,name,city,state"),
           services.client
             .from("user_activity_days")
             .select("id,user_id,activity_date,source_type,source_id,has_photo,created_at")
@@ -879,7 +877,30 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           ),
           suggestedUserIds: suggestionRows.map((row) => row.user_id),
           gyms: (gymsRes.data ?? []) as unknown as GymRow[],
-          userGyms: (userGymsRes.data ?? []) as unknown as UserGymRow[],
+          userGyms: mergeRowsByKey(
+            (userGymsRes.data ?? []) as unknown as UserGymRow[],
+            visibleProfileGymsRes.error
+              ? []
+              : ((visibleProfileGymsRes.data ?? [])
+                  .filter(
+                    (row): row is typeof row & { user_id: string; gym_id: string } =>
+                      Boolean(
+                        row.user_id &&
+                          row.gym_id &&
+                          row.user_id !== currentUserId,
+                      ),
+                  )
+                  .map((row) => ({
+                    id: `visible:${row.user_id}:${row.gym_id}`,
+                    user_id: row.user_id,
+                    gym_id: row.gym_id,
+                    is_main: true,
+                    preferred_days: [],
+                    preferred_times: [],
+                    created_at: new Date(0).toISOString(),
+                  })) as UserGymRow[]),
+            (row) => `${row.user_id}:${row.gym_id}`,
+          ),
           storyLikes: [
             ...current.storyLikes.filter(
               (like) =>

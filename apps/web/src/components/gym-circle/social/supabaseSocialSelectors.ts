@@ -140,14 +140,35 @@ export function buildEnrichedUsers(
     const stats = statsByUser.get(profile.user_id);
     const birthDate = profile.birth_date ?? null;
     const userGyms = userGymsByUser.get(profile.user_id) ?? [];
-    const gymNames = getOrderedGymNamesForProfile(profile, userGyms, gymsById);
-    const mainUserGym = getMainUserGymForProfile(profile, userGyms);
+    const followStatus =
+      myFollowStatusByTarget.get(profile.user_id) ?? "none";
+    const canViewProfileGym =
+      profile.user_id === currentUserId ||
+      !profile.is_private ||
+      followStatus === "accepted";
+    // `profiles.main_gym_id` is a legacy raw field. For third parties, the
+    // only accepted source is the privacy-filtered view/RPC materialized in
+    // `agg.userGyms`; never trust the raw profile field client-side.
+    const canUseRawProfileMainGym = profile.user_id === currentUserId;
+    const gymNames = getOrderedGymNamesForProfile(
+      profile,
+      userGyms,
+      gymsById,
+      canUseRawProfileMainGym,
+    );
+    const mainUserGym = getMainUserGymForProfile(
+      profile,
+      userGyms,
+      canUseRawProfileMainGym,
+    );
     const preferredTimes =
       profile.preferred_training_times?.length
         ? profile.preferred_training_times
         : mainUserGym?.preferred_times ?? [];
-    const followStatus =
-      myFollowStatusByTarget.get(profile.user_id) ?? "none";
+    const visibleMainGymId = canViewProfileGym
+      ? (mainUserGym?.gym_id ??
+        (canUseRawProfileMainGym ? profile.main_gym_id : null))
+      : null;
     const enriched: EnrichedUser = {
       id: profile.user_id,
       createdAt: profile.created_at,
@@ -173,8 +194,8 @@ export function buildEnrichedUsers(
       suspendedAt: profile.suspended_at ?? null,
       reactivationSentAt: profile.reactivation_sent_at ?? null,
       reactivationExpiresAt: profile.reactivation_expires_at ?? null,
-      mainGymId: profile.main_gym_id ?? null,
-      location: gymsById.get(profile.main_gym_id ?? "")?.city ?? "",
+      mainGymId: visibleMainGymId ?? null,
+      location: gymsById.get(visibleMainGymId ?? "")?.city ?? "",
       gyms: gymNames,
       preferredTimes,
       currentStreak: stats?.current_streak ?? 0,

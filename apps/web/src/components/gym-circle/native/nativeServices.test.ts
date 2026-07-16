@@ -47,9 +47,9 @@ describe("Native Feel services", () => {
 
     writeNativeCache(key, { ids: ["post-1"] }, 1000, { now: 100, storage });
 
-    expect(readNativeCache<{ ids: string[] }>(key, { now: 500, storage })?.ids).toEqual([
-      "post-1",
-    ]);
+    expect(
+      readNativeCache<{ ids: string[] }>(key, { now: 500, storage })?.ids,
+    ).toEqual(["post-1"]);
     expect(readNativeCache(key, { now: 1200, storage })).toBeNull();
 
     writeNativeCache(key, { ids: ["post-2"] }, 1000, { now: 1300, storage });
@@ -59,7 +59,9 @@ describe("Native Feel services", () => {
 
   it("falls back safely when native media picker is unavailable", async () => {
     await expect(NativeMediaPickerService.takePhoto()).resolves.toBeNull();
-    await expect(NativeMediaPickerService.pickWorkoutMedia()).resolves.toBeNull();
+    await expect(
+      NativeMediaPickerService.pickWorkoutMedia(),
+    ).resolves.toBeNull();
   });
 
   it("normalizes native camera media through Filesystem when webPath fetch fails", async () => {
@@ -166,5 +168,33 @@ describe("Native Feel services", () => {
         { latitude: -23.57, longitude: -46.65 },
       ),
     ).toBeGreaterThan(1);
+  });
+
+  it("does not call external place search for fewer than three characters", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      CurrentWebLocationProvider.searchPlaces("SP"),
+    ).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("marks native provider searches as explicit", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ results: [] }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await CurrentWebLocationProvider.searchPlaces("Smart Fit");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/places/search?q=Smart+Fit",
+      expect.objectContaining({
+        headers: { "X-GymCircle-Search-Intent": "explicit" },
+      }),
+    );
   });
 });

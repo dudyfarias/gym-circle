@@ -14,15 +14,25 @@ import {
 } from "lucide-react";
 import type { GymLocationOption } from "./social/types";
 import {
+  canRunExternalPlaceSearch,
+  EXTERNAL_PLACE_SEARCH_CACHE_TTL_MS,
+  getExternalPlaceSearchCooldownMs,
+  normalizeExternalPlaceSearchQuery,
+} from "../../lib/places/externalSearchPolicy";
+import {
   buildLocationResultSections,
   formatDistance,
   getKindLabel,
+  getProviderAttribution,
   getSourceLabel,
   isSameApproxPlace,
   type PlaceCandidate,
 } from "./social/locationSearch";
 
-export type { LocatedPlaceCandidate, PlaceCandidate } from "./social/locationSearch";
+export type {
+  LocatedPlaceCandidate,
+  PlaceCandidate,
+} from "./social/locationSearch";
 
 type GymSearchSheetProps = {
   open: boolean;
@@ -49,7 +59,8 @@ type ReverseAddress = {
  * 1) Mostra academias cadastradas no banco.
  * 2) Se o usuário tocar em "Usar minha localização", busca próximos em
  *    /api/places/nearby e mistura com a base cadastrada.
- * 3) Se digita, debounced text search via /api/places/search.
+ * 3) Digitar filtra apenas a base própria; a busca externa só roda depois
+ *    de ação explícita (Enter ou botão) e nunca funciona como autocomplete.
  * 4) Cadastro manual exige GPS ativo, porque academia nova precisa ter
  *    latitude/longitude para entrar no catálogo.
  */
@@ -67,7 +78,10 @@ export function GymSearchSheet({
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [externalSearchQuery, setExternalSearchQuery] = useState("");
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const [status, setStatus] = useState<Status>("idle");
   const [selecting, setSelecting] = useState(false);
 
@@ -77,23 +91,63 @@ export function GymSearchSheet({
   const [registerKind, setRegisterKind] = useState("gym");
   const [registerManualAddress, setRegisterManualAddress] = useState("");
   const [registerManualCity, setRegisterManualCity] = useState("");
-  const [registerAddress, setRegisterAddress] = useState<ReverseAddress | null>(null);
+  const [registerAddress, setRegisterAddress] = useState<ReverseAddress | null>(
+    null,
+  );
   const [registerLoading, setRegisterLoading] = useState(false);
   const [registerError, setRegisterError] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const lastExternalSearchAtRef = useRef(0);
+  const externalSearchCacheRef = useRef(
+    new Map<string, { cachedAt: number; results: PlaceCandidate[] }>(),
+  );
 
   const runSearch = useCallback(
     async (searchTerm: string) => {
+      const trimmed = searchTerm.trim();
+      if (!canRunExternalPlaceSearch(trimmed)) {
+        setSearchError(
+          "Digite pelo menos 3 caracteres para buscar locais externos.",
+        );
+        return;
+      }
+
+      const normalizedTerm = normalizeExternalPlaceSearchQuery(trimmed);
+      const now = Date.now();
+      const cached = externalSearchCacheRef.current.get(normalizedTerm);
+      if (
+        cached &&
+        now - cached.cachedAt <= EXTERNAL_PLACE_SEARCH_CACHE_TTL_MS
+      ) {
+        setExternalSearchQuery(normalizedTerm);
+        setResults(cached.results);
+        setSearchError(null);
+        return;
+      }
+
+      const cooldownMs = getExternalPlaceSearchCooldownMs(
+        lastExternalSearchAtRef.current,
+        now,
+      );
+      if (cooldownMs > 0) {
+        setSearchError(
+          "Aguarde um instante antes de fazer outra busca externa.",
+        );
+        return;
+      }
+      lastExternalSearchAtRef.current = now;
+
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
 
       setSearching(true);
       setSearchError(null);
+      setExternalSearchQuery(normalizedTerm);
 
-      const params = new URLSearchParams({ q: searchTerm });
+      const params = new URLSearchParams({ q: trimmed });
       if (coords) {
         params.set("lat", String(coords.lat));
         params.set("lng", String(coords.lng));
@@ -101,20 +155,27 @@ export function GymSearchSheet({
 
       try {
         const res = await fetch(`/api/places/search?${params.toString()}`, {
+          headers: { "X-GymCircle-Search-Intent": "explicit" },
           signal: controller.signal,
         });
         if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          const body = (await res.json().catch(() => ({}))) as {
+            error?: string;
+          };
           throw new Error(body.error ?? "Busca falhou");
         }
         const data = (await res.json()) as { results: PlaceCandidate[] };
+        externalSearchCacheRef.current.set(normalizedTerm, {
+          cachedAt: Date.now(),
+          results: data.results,
+        });
         setResults(data.results);
       } catch (err) {
         if ((err as { name?: string }).name === "AbortError") return;
         setSearchError(err instanceof Error ? err.message : "Erro ao buscar.");
         setResults([]);
       } finally {
-        setSearching(false);
+        if (abortRef.current === controller) setSearching(false);
       }
     },
     [coords],
@@ -123,7 +184,9 @@ export function GymSearchSheet({
   const runNearby = useCallback(async (lat: number, lng: number) => {
     setNearbyLoading(true);
     try {
-      const res = await fetch(`/api/places/nearby?lat=${lat}&lng=${lng}&radius=2500`);
+      const res = await fetch(
+        `/api/places/nearby?lat=${lat}&lng=${lng}&radius=2500`,
+      );
       if (!res.ok) {
         setNearby([]);
         return;
@@ -184,7 +247,9 @@ export function GymSearchSheet({
   const loadReverseAddress = useCallback(async () => {
     if (!coords || registerAddress) return;
     try {
-      const res = await fetch(`/api/places/reverse?lat=${coords.lat}&lng=${coords.lng}`);
+      const res = await fetch(
+        `/api/places/reverse?lat=${coords.lat}&lng=${coords.lng}`,
+      );
       if (!res.ok) return;
       const data = (await res.json()) as ReverseAddress;
       setRegisterAddress(data);
@@ -201,7 +266,9 @@ export function GymSearchSheet({
     }
 
     if (!coords) {
-      setRegisterError("Para cadastrar uma academia, use sua localização primeiro.");
+      setRegisterError(
+        "Para cadastrar uma academia, use sua localização primeiro.",
+      );
       return;
     }
 
@@ -211,7 +278,9 @@ export function GymSearchSheet({
     let resolvedAddress = registerAddress;
     if (!resolvedAddress) {
       try {
-        const res = await fetch(`/api/places/reverse?lat=${coords.lat}&lng=${coords.lng}`);
+        const res = await fetch(
+          `/api/places/reverse?lat=${coords.lat}&lng=${coords.lng}`,
+        );
         if (res.ok) resolvedAddress = (await res.json()) as ReverseAddress;
       } catch {
         // continua sem reverse
@@ -228,7 +297,11 @@ export function GymSearchSheet({
       address: manualAddress || resolvedAddress?.address || "",
       neighborhood: manualCity || resolvedAddress?.neighborhood || null,
       // RLS exige city >= 2 chars — fallback amplo se reverse falhar
-      city: manualCity || resolvedAddress?.city || resolvedAddress?.neighborhood || "Brasil",
+      city:
+        manualCity ||
+        resolvedAddress?.city ||
+        resolvedAddress?.neighborhood ||
+        "Brasil",
       state: resolvedAddress?.state ?? null,
       latitude: coords.lat,
       longitude: coords.lng,
@@ -242,7 +315,9 @@ export function GymSearchSheet({
       setRegisterOpen(false);
       setRegisterName("");
     } catch (err) {
-      setRegisterError(err instanceof Error ? err.message : "Não foi possível cadastrar.");
+      setRegisterError(
+        err instanceof Error ? err.message : "Não foi possível cadastrar.",
+      );
     } finally {
       setRegisterLoading(false);
     }
@@ -262,6 +337,7 @@ export function GymSearchSheet({
     queueMicrotask(() => {
       setQuery("");
       setResults([]);
+      setExternalSearchQuery("");
       setSearchError(null);
       setRegisterOpen(false);
       setRegisterName("");
@@ -303,25 +379,6 @@ export function GymSearchSheet({
     queueMicrotask(() => void loadReverseAddress());
   }, [registerOpen, loadReverseAddress]);
 
-  // Debounced text search
-  useEffect(() => {
-    if (!open) return;
-    const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      queueMicrotask(() => {
-        setResults([]);
-        setSearchError(null);
-      });
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      void runSearch(trimmed);
-    }, 280);
-
-    return () => window.clearTimeout(timer);
-  }, [query, open, runSearch]);
-
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
@@ -356,14 +413,28 @@ export function GymSearchSheet({
   const sections = useMemo(
     () =>
       buildLocationResultSections({
-        apiResults: query.trim().length >= 2 ? results : nearby,
+        apiResults:
+          query.trim().length === 0
+            ? nearby
+            : normalizeExternalPlaceSearchQuery(query) === externalSearchQuery
+              ? results
+              : [],
         coords,
         currentLocationCandidate,
         query,
         recentCandidates,
         registeredGyms,
       }),
-    [coords, currentLocationCandidate, nearby, query, recentCandidates, registeredGyms, results],
+    [
+      coords,
+      currentLocationCandidate,
+      externalSearchQuery,
+      nearby,
+      query,
+      recentCandidates,
+      registeredGyms,
+      results,
+    ],
   );
 
   const visibleResults = sections.isSearching
@@ -386,8 +457,8 @@ export function GymSearchSheet({
       kind: registerKind,
     };
     return (
-      [...sections.recent, ...sections.nearby, ...sections.search].find((item) =>
-        isSameApproxPlace(item, candidate),
+      [...sections.recent, ...sections.nearby, ...sections.search].find(
+        (item) => isSameApproxPlace(item, candidate),
       ) ?? null
     );
   }, [
@@ -407,6 +478,22 @@ export function GymSearchSheet({
     setRegisterName((current) => current || query.trim());
     setRegisterOpen(true);
   }, [query]);
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      abortRef.current?.abort();
+      setSearching(false);
+      setQuery(value);
+      setSearchError(null);
+      if (normalizeExternalPlaceSearchQuery(value) !== externalSearchQuery) {
+        setExternalSearchQuery("");
+        setResults([]);
+      }
+    },
+    [externalSearchQuery],
+  );
+  const handleExternalSearch = useCallback(() => {
+    void runSearch(query);
+  }, [query, runSearch]);
 
   if (!open) return null;
 
@@ -431,24 +518,51 @@ export function GymSearchSheet({
         </header>
 
         <div className="border-b border-white/[0.06] p-4">
-          <div className="flex h-12 items-center gap-3 rounded-full bg-white/[0.06] px-4">
-            <Search className="text-white/52" size={17} strokeWidth={2.4} />
-            <input
-              autoCapitalize="none"
-              autoComplete="off"
-              autoCorrect="off"
-              className="w-full bg-transparent text-[15px] font-bold text-white outline-none placeholder:text-white/36"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Bluefit, Pacaembu, sua academia..."
-              ref={inputRef}
-              spellCheck={false}
-              type="search"
-              value={query}
-            />
-            {searching ? (
-              <Loader2 className="animate-spin text-white/52" size={16} strokeWidth={2.4} />
-            ) : null}
-          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleExternalSearch();
+            }}
+          >
+            <div className="flex h-12 items-center gap-3 rounded-full bg-white/[0.06] px-4">
+              <Search className="text-white/52" size={17} strokeWidth={2.4} />
+              <input
+                autoCapitalize="none"
+                autoComplete="off"
+                autoCorrect="off"
+                className="w-full bg-transparent text-[15px] font-bold text-white outline-none placeholder:text-white/36"
+                onChange={(event) => handleQueryChange(event.target.value)}
+                placeholder="Bluefit, Pacaembu, sua academia..."
+                ref={inputRef}
+                spellCheck={false}
+                type="search"
+                value={query}
+              />
+              {searching ? (
+                <Loader2
+                  className="animate-spin text-white/52"
+                  size={16}
+                  strokeWidth={2.4}
+                />
+              ) : null}
+            </div>
+            <button
+              className="gc-pressable mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] text-[12px] font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={!canRunExternalPlaceSearch(query) || searching}
+              type="submit"
+            >
+              {searching ? (
+                <Loader2 className="animate-spin" size={14} strokeWidth={2.4} />
+              ) : (
+                <Search size={14} strokeWidth={2.4} />
+              )}
+              {searching ? "Buscando..." : "Buscar locais externos"}
+            </button>
+          </form>
+          <p className="mt-2 px-1 text-[11px] font-bold leading-4 text-white/34">
+            Ao digitar, buscamos primeiro nos locais do Gym Circle. A busca
+            externa só acontece quando você tocar no botão ou pressionar Enter.
+          </p>
           <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] font-bold text-white/42">
             <LocateFixed size={11} strokeWidth={2.4} />
             {statusLabel}
@@ -475,8 +589,8 @@ export function GymSearchSheet({
             </button>
           ) : null}
           <p className="mt-2 px-1 text-[11px] font-bold leading-4 text-white/34">
-            Usamos sua localização apenas para encontrar academias próximas. Você pode
-            escolher sem liberar GPS.
+            Usamos sua localização apenas para encontrar academias próximas.
+            Você pode escolher sem liberar GPS.
           </p>
         </div>
 
@@ -517,7 +631,10 @@ export function GymSearchSheet({
           ) : null}
 
           {/* Loading nearby (1ª vez ainda buscando) */}
-          {!registerOpen && !isSearching && nearbyLoading && nearby.length === 0 ? (
+          {!registerOpen &&
+          !isSearching &&
+          nearbyLoading &&
+          nearby.length === 0 ? (
             <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
               <Loader2
                 aria-hidden
@@ -532,7 +649,10 @@ export function GymSearchSheet({
           ) : null}
 
           {/* Empty state da search por texto */}
-          {!registerOpen && isSearching && !searching && visibleResults.length === 0 ? (
+          {!registerOpen &&
+          isSearching &&
+          !searching &&
+          visibleResults.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <p className="text-[13px] font-bold text-white/52">
                 Nada encontrado pra &ldquo;{query.trim()}&rdquo;.
@@ -560,7 +680,8 @@ export function GymSearchSheet({
                 Nenhum lugar mapeado no seu entorno.
               </p>
               <p className="mt-1 text-[12px] font-bold text-white/40">
-                Pode cadastrar o seu — vai ficar fixo aqui pra outros encontrarem.
+                Pode cadastrar o seu — vai ficar fixo aqui pra outros
+                encontrarem.
               </p>
             </div>
           ) : null}
@@ -635,10 +756,18 @@ export function GymSearchSheet({
                   onChange={(event) => setRegisterKind(event.target.value)}
                   value={registerKind}
                 >
-                  <option className="bg-black" value="gym">Academia</option>
-                  <option className="bg-black" value="park">Parque</option>
-                  <option className="bg-black" value="studio">Estúdio</option>
-                  <option className="bg-black" value="place">Outro</option>
+                  <option className="bg-black" value="gym">
+                    Academia
+                  </option>
+                  <option className="bg-black" value="park">
+                    Parque
+                  </option>
+                  <option className="bg-black" value="studio">
+                    Estúdio
+                  </option>
+                  <option className="bg-black" value="place">
+                    Outro
+                  </option>
                 </select>
               </div>
 
@@ -651,7 +780,9 @@ export function GymSearchSheet({
                     autoCapitalize="words"
                     className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
                     maxLength={90}
-                    onChange={(event) => setRegisterManualAddress(event.target.value)}
+                    onChange={(event) =>
+                      setRegisterManualAddress(event.target.value)
+                    }
                     placeholder="Opcional"
                     value={registerManualAddress}
                   />
@@ -664,7 +795,9 @@ export function GymSearchSheet({
                     autoCapitalize="words"
                     className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.05] px-3 text-[14px] font-bold text-white outline-none placeholder:text-white/30"
                     maxLength={60}
-                    onChange={(event) => setRegisterManualCity(event.target.value)}
+                    onChange={(event) =>
+                      setRegisterManualCity(event.target.value)
+                    }
                     placeholder="Opcional"
                     value={registerManualCity}
                   />
@@ -699,19 +832,35 @@ export function GymSearchSheet({
                       Vai ficar pinado{" "}
                       <span className="text-white">
                         {registerAddress?.displayName
-                          ? registerAddress.displayName.split(",").slice(0, 2).join(",")
+                          ? registerAddress.displayName
+                              .split(",")
+                              .slice(0, 2)
+                              .join(",")
                           : "na sua localização atual"}
                       </span>
-                      . Outros usuários nessa região vão achar quando pesquisarem.
+                      . Outros usuários nessa região vão achar quando
+                      pesquisarem.
                     </>
                   ) : (
                     <>
                       Para cadastrar uma academia nova, primeiro toque em{" "}
-                      <span className="text-white">Usar minha localização</span>.
+                      <span className="text-white">Usar minha localização</span>
+                      .
                     </>
                   )}
                 </p>
               </div>
+
+              {registerAddress ? (
+                <a
+                  className="inline-block text-[10px] font-bold text-white/36 underline decoration-white/20 underline-offset-2"
+                  href={getProviderAttribution("nominatim").attributionUrl ?? undefined}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  {getProviderAttribution("nominatim").attributionLabel}
+                </a>
+              ) : null}
 
               {!coords ? (
                 <button
@@ -721,11 +870,17 @@ export function GymSearchSheet({
                   type="button"
                 >
                   {status === "locating" ? (
-                    <Loader2 className="animate-spin" size={15} strokeWidth={2.4} />
+                    <Loader2
+                      className="animate-spin"
+                      size={15}
+                      strokeWidth={2.4}
+                    />
                   ) : (
                     <LocateFixed size={15} strokeWidth={2.4} />
                   )}
-                  {status === "locating" ? "Localizando..." : "Usar localização para cadastrar"}
+                  {status === "locating"
+                    ? "Localizando..."
+                    : "Usar localização para cadastrar"}
                 </button>
               ) : null}
 
@@ -738,12 +893,18 @@ export function GymSearchSheet({
               <div className="grid grid-cols-[1fr_auto] gap-2">
                 <button
                   className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-black disabled:opacity-50"
-                  disabled={registerLoading || registerName.trim().length < 3 || !coords}
+                  disabled={
+                    registerLoading || registerName.trim().length < 3 || !coords
+                  }
                   onClick={() => void handleRegister()}
                   type="button"
                 >
                   {registerLoading ? (
-                    <Loader2 className="animate-spin" size={15} strokeWidth={2.4} />
+                    <Loader2
+                      className="animate-spin"
+                      size={15}
+                      strokeWidth={2.4}
+                    />
                   ) : (
                     <Check size={15} strokeWidth={2.6} />
                   )}
@@ -779,6 +940,14 @@ function CandidateSection({
   title: string;
 }) {
   if (candidates.length === 0) return null;
+  const attributions = Array.from(
+    new Map(
+      candidates
+        .map((candidate) => getProviderAttribution(candidate.provider))
+        .filter((item) => item.attributionLabel && item.attributionUrl)
+        .map((item) => [item.attributionUrl, item]),
+    ).values(),
+  );
 
   return (
     <section>
@@ -805,7 +974,8 @@ function CandidateSection({
                   <span
                     className={[
                       "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                      candidate.provider === "registered" || candidate.provider === "current"
+                      candidate.provider === "registered" ||
+                      candidate.provider === "current"
                         ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
                         : "bg-white/[0.05] text-white/52",
                     ].join(" ")}
@@ -822,7 +992,9 @@ function CandidateSection({
                   ) : null}
                   {candidate.address || candidate.city ? (
                     <span className="truncate">
-                      {[candidate.address, candidate.city].filter(Boolean).join(" · ")}
+                      {[candidate.address, candidate.city]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </span>
                   ) : null}
                 </span>
@@ -831,6 +1003,21 @@ function CandidateSection({
           </li>
         ))}
       </ul>
+      {attributions.length > 0 ? (
+        <p className="px-5 pb-3 pt-2 text-[10px] font-bold text-white/36">
+          {attributions.map((attribution) => (
+            <a
+              className="underline decoration-white/20 underline-offset-2"
+              href={attribution.attributionUrl ?? undefined}
+              key={attribution.attributionUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {attribution.attributionLabel}
+            </a>
+          ))}
+        </p>
+      ) : null}
     </section>
   );
 }

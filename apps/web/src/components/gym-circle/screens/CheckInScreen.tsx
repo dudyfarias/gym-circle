@@ -32,7 +32,11 @@ import type {
   GymUser,
 } from "../social/types";
 import { TopBar } from "../TopBar";
-import { calculateDistanceKm, formatDistance } from "../social/locationSearch";
+import {
+  calculateDistanceKm,
+  formatDistance,
+  getProviderAttribution,
+} from "../social/locationSearch";
 
 type CheckInScreenProps = {
   currentUser: EnrichedUser;
@@ -617,42 +621,54 @@ function NearbyPlacesList({
       ) : null}
 
       {places.length > 0 ? (
-        <ul className="mt-3 space-y-2">
-          {places.slice(0, 5).map((place) => (
-            <li key={place.providerId}>
-              <button
-                className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
-                onClick={() => void onSelect(place)}
-                type="button"
-              >
-                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72">
-                  <MapPin size={15} strokeWidth={2.2} />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] font-black text-white">
-                    {place.name}
+        <>
+          <ul className="mt-3 space-y-2">
+            {places.slice(0, 5).map((place) => (
+              <li key={place.providerId}>
+                <button
+                  className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-white/[0.04] p-3 text-left"
+                  onClick={() => void onSelect(place)}
+                  type="button"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-white/[0.06] text-white/72">
+                    <MapPin size={15} strokeWidth={2.2} />
                   </span>
-                  <span className="mt-0.5 flex items-center gap-2 text-[11px] font-bold text-white/52">
-                    {place.distanceKm !== null ? (
-                      <span className="text-[var(--gc-brand)]">
-                        {place.distanceKm < 0.1
-                          ? t("checkInScreen.nearby.here")
-                          : place.distanceKm < 1
-                            ? `${Math.round(place.distanceKm * 1000)}m`
-                            : `${place.distanceKm.toFixed(1).replace(".", ",")}km`}
-                      </span>
-                    ) : null}
-                    {place.address || place.city ? (
-                      <span className="truncate">
-                        {[place.address, place.city].filter(Boolean).join(" · ")}
-                      </span>
-                    ) : null}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-black text-white">
+                      {place.name}
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-2 text-[11px] font-bold text-white/52">
+                      {place.distanceKm !== null ? (
+                        <span className="text-[var(--gc-brand)]">
+                          {place.distanceKm < 0.1
+                            ? t("checkInScreen.nearby.here")
+                            : place.distanceKm < 1
+                              ? `${Math.round(place.distanceKm * 1000)}m`
+                              : `${place.distanceKm.toFixed(1).replace(".", ",")}km`}
+                        </span>
+                      ) : null}
+                      {place.address || place.city ? (
+                        <span className="truncate">
+                          {[place.address, place.city].filter(Boolean).join(" · ")}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {places.some((place) => place.provider === "overpass") ? (
+            <a
+              className="mt-2 inline-block text-[10px] font-bold text-white/36 underline decoration-white/20 underline-offset-2"
+              href={getProviderAttribution("overpass").attributionUrl ?? undefined}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {getProviderAttribution("overpass").attributionLabel}
+            </a>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

@@ -10,6 +10,9 @@ export default defineConfig({
       "**/dist/**",
       "**/build/**",
       "**/coverage/**",
+      // Harness isolado usa `node:test` para não depender do app/Vitest.
+      // Ele é validado por `node --test scripts/places-benchmark/*.test.mjs`.
+      "**/scripts/places-benchmark/**/*.test.mjs",
     ],
   },
 });

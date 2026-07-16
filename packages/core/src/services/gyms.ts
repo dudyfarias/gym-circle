@@ -13,6 +13,10 @@ export type PlaceCandidate = {
   state?: string | null;
   latitude: number;
   longitude: number;
+  provider?: "google" | "apple" | "openstreetmap" | "mapbox" | "manual" | null;
+  externalId?: string | null;
+  sourceService?: "nominatim" | "overpass" | string | null;
+  providerCategory?: string | null;
 };
 
 /**
@@ -107,6 +111,39 @@ export function gymService(client: GymCircleClient) {
      */
     async findOrCreateFromPlace(place: PlaceCandidate): Promise<GymRow> {
       ensurePlaceHasCoordinates(place);
+
+      if (
+        place.provider &&
+        place.provider !== "manual" &&
+        place.externalId?.trim()
+      ) {
+        const { data: gymId, error: registerError } = await client.rpc(
+          "register_external_gym",
+          {
+            p_address: place.address?.trim() || null,
+            p_city: normalizeCityForInsert(place),
+            p_external_id: place.externalId.trim(),
+            p_latitude: place.latitude,
+            p_longitude: place.longitude,
+            p_name: place.name.trim(),
+            p_provider: place.provider,
+            p_provider_category: place.providerCategory?.trim() || null,
+            p_source_service: place.sourceService?.trim() || null,
+            p_state: place.state?.trim() || null,
+          },
+        );
+        if (registerError) throw registerError;
+        if (!gymId) throw new Error("Falha ao preservar a origem do local externo.");
+
+        const { data: gym, error: gymError } = await client
+          .from("gyms")
+          .select("*")
+          .eq("id", gymId)
+          .single();
+        if (gymError) throw gymError;
+        return gym;
+      }
+
       // 1. Match por proximidade — bbox de ±100m no lat/lng
       const { data: nearby, error: nearbyErr } = await client
         .from("gyms")
