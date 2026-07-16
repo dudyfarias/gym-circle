@@ -1489,6 +1489,7 @@ export function PostScreen({
       )}
 
       <GymSearchSheet
+        context="post_location"
         onClose={() => setSearchOpen(false)}
         recentCandidates={recentLocations}
         registeredGyms={searchableGyms}

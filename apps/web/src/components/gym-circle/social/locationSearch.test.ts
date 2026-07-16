@@ -8,6 +8,7 @@ import {
   getProviderAttribution,
   getRecentPostLocations,
   getSourceLabel,
+  rankPlaceCandidates,
   type LocationUsage,
   type PlaceCandidate,
 } from "./locationSearch";
@@ -271,6 +272,136 @@ describe("post location search", () => {
     ]);
   });
 
+  it("coloca resultado externo mais próximo antes de Gym Circle distante", () => {
+    const distantGym: GymLocationOption = {
+      ...gym,
+      id: "gym-distant",
+      latitude: -23.61,
+      longitude: -46.7,
+      name: "Academia Gym Circle distante",
+    };
+    const closeExternal = apiCandidate({
+      distanceKm: null,
+      latitude: -23.5615,
+      longitude: -46.656,
+      name: "Academia próxima",
+    });
+
+    const sections = buildLocationResultSections({
+      apiResults: [closeExternal],
+      context: "checkin",
+      coords: { lat: -23.561, lng: -46.656 },
+      query: "",
+      recentCandidates: [],
+      registeredGyms: [distantGym],
+    });
+
+    expect(sections.nearby.map((item) => item.name)).toEqual([
+      "Academia próxima",
+      "Academia Gym Circle distante",
+    ]);
+  });
+
+  it("busca textual prioriza nome exato e ordena unidades equivalentes por distância", () => {
+    const candidates = rankPlaceCandidates({
+      candidates: [
+        apiCandidate({
+          name: "Academia genérica",
+          latitude: -23.5611,
+          longitude: -46.656,
+        }),
+        apiCandidate({
+          name: "Bluefit",
+          providerId: "bluefit-far",
+          latitude: -23.59,
+          longitude: -46.68,
+        }),
+        apiCandidate({
+          name: "Bluefit Pacaembu",
+          providerId: "bluefit-near",
+          latitude: -23.562,
+          longitude: -46.656,
+        }),
+      ],
+      context: "post_location",
+      coords: { lat: -23.561, lng: -46.656 },
+      query: "Bluefit",
+    });
+
+    expect(candidates.map((item) => item.name)).toEqual([
+      "Bluefit",
+      "Bluefit Pacaembu",
+      "Academia genérica",
+    ]);
+    expect(candidates[0]?.textMatchScore).toBe(100);
+  });
+
+  it("mantém recentes separados e trata localização atual como ação", () => {
+    const current = apiCandidate({
+      kind: "current",
+      name: "Localização atual",
+      provider: "current",
+      providerId: "current/1",
+    });
+    const recent = apiCandidate({
+      name: "Academia recente",
+      providerId: "recent/1",
+    });
+    const sections = buildLocationResultSections({
+      apiResults: [apiCandidate({ name: "Academia próxima" })],
+      coords: { lat: -23.561, lng: -46.656 },
+      currentLocationCandidate: current,
+      query: "",
+      recentCandidates: [recent],
+      registeredGyms: [],
+    });
+
+    expect(sections.currentLocationAction?.provider).toBe("current");
+    expect(sections.recent.map((item) => item.name)).toEqual([
+      "Academia recente",
+    ]);
+    expect(sections.nearby).not.toContainEqual(
+      expect.objectContaining({ provider: "current" }),
+    );
+    expect(sections.nearby).not.toContainEqual(
+      expect.objectContaining({ name: "Academia recente" }),
+    );
+
+    const checkinSections = buildLocationResultSections({
+      apiResults: [],
+      context: "checkin",
+      coords: { lat: -23.561, lng: -46.656 },
+      currentLocationCandidate: current,
+      query: "",
+      recentCandidates: [],
+      registeredGyms: [],
+    });
+    expect(checkinSections.currentLocationAction).toBeNull();
+  });
+
+  it("usa a mesma engine para check-in e localização de post", () => {
+    const input = {
+      apiResults: [apiCandidate()],
+      coords: { lat: -23.561, lng: -46.656 },
+      query: "",
+      recentCandidates: [],
+      registeredGyms: [gym],
+    };
+
+    const checkin = buildLocationResultSections({
+      ...input,
+      context: "checkin" as const,
+    });
+    const post = buildLocationResultSections({
+      ...input,
+      context: "post_location" as const,
+    });
+
+    expect(checkin.nearby.map((item) => item.providerId)).toEqual(
+      post.nearby.map((item) => item.providerId),
+    );
+  });
+
   it("busca manual retorna resultados por texto e prioriza cadastradas em duplicatas", () => {
     const sections = buildLocationResultSections({
       apiResults: [
@@ -333,14 +464,30 @@ describe("post location search", () => {
   it("não confunde IDs iguais vindos de providers diferentes", () => {
     expect(
       classifyPlaceMatch(
-        apiCandidate({ provider: "nominatim", providerId: "123", name: "Local A" }),
-        apiCandidate({ provider: "google", providerId: "123", name: "Local B" }),
+        apiCandidate({
+          provider: "nominatim",
+          providerId: "123",
+          name: "Local A",
+        }),
+        apiCandidate({
+          provider: "google",
+          providerId: "123",
+          name: "Local B",
+        }),
       ),
     ).toBe("manual_review");
     expect(
       dedupeCandidates([
-        apiCandidate({ provider: "nominatim", providerId: "123", name: "Local A" }),
-        apiCandidate({ provider: "google", providerId: "123", name: "Local B" }),
+        apiCandidate({
+          provider: "nominatim",
+          providerId: "123",
+          name: "Local A",
+        }),
+        apiCandidate({
+          provider: "google",
+          providerId: "123",
+          name: "Local B",
+        }),
       ]),
     ).toHaveLength(2);
   });
@@ -398,6 +545,15 @@ describe("post location search", () => {
         }),
       ),
     ).toBe("distinct");
+  });
+
+  it("não deduplica nome e endereço iguais quando as cidades divergem", () => {
+    expect(
+      dedupeCandidates([
+        apiCandidate({ city: "São Paulo", providerId: "sp" }),
+        apiCandidate({ city: "Osasco", providerId: "osasco" }),
+      ]),
+    ).toHaveLength(2);
   });
 
   it("envia academia renomeada no mesmo endereço para revisão manual", () => {

@@ -32,6 +32,7 @@ Supabase and defaults to dry-run mode.
 
 ```sh
 node scripts/places-benchmark/validateCases.mjs
+node scripts/places-benchmark/prioritySubset.mjs
 node --test scripts/places-benchmark/*.test.mjs
 node scripts/places-benchmark/runBenchmark.mjs --dry-run
 ```
@@ -66,11 +67,19 @@ coordinates and includes a controlled `review_status` enum:
 - `duplicate`: must be resolved before the complete run;
 - `remove`: excluded candidate pending removal.
 
-The 95 cases that could not be independently verified without using a paid
+The 87 cases that could not be independently verified without using a paid
 provider as ground truth are deliberately marked `uncertain`; they are not
 silently promoted to approved. Each row also records `review_method` and a
 non-empty `review_note`, so the blocker is auditable instead of being inferred
 from the former draft label.
+
+## Controlled P0.6 subset
+
+`p0-6-priority-cases.json` contains exactly ten approved cases and primary
+evidence URLs. It remains execution-locked. The current runner would send ten
+name-search requests per configured provider; a future four-query matrix would
+send 40 requests per provider. Validate it with `prioritySubset.mjs` before any
+authorized run.
 
 ## Cost model
 

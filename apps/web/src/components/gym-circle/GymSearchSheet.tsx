@@ -27,6 +27,7 @@ import {
   getSourceLabel,
   isSameApproxPlace,
   type PlaceCandidate,
+  type PlaceSearchContext,
 } from "./social/locationSearch";
 
 export type {
@@ -41,6 +42,7 @@ type GymSearchSheetProps = {
   onClose: () => void;
   onSelect: (candidate: PlaceCandidate) => void | Promise<void>;
   title?: string;
+  context?: PlaceSearchContext;
 };
 
 type Status = "idle" | "locating" | "ready" | "denied" | "unsupported";
@@ -71,11 +73,13 @@ export function GymSearchSheet({
   onClose,
   onSelect,
   title = "Onde você treinou?",
+  context = "post_location",
 }: GymSearchSheetProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PlaceCandidate[]>([]);
   const [nearby, setNearby] = useState<PlaceCandidate[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyDegraded, setNearbyDegraded] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [externalSearchQuery, setExternalSearchQuery] = useState("");
@@ -99,6 +103,7 @@ export function GymSearchSheet({
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const nearbyAbortRef = useRef<AbortController | null>(null);
   const lastExternalSearchAtRef = useRef(0);
   const externalSearchCacheRef = useRef(
     new Map<string, { cachedAt: number; results: PlaceCandidate[] }>(),
@@ -182,21 +187,37 @@ export function GymSearchSheet({
   );
 
   const runNearby = useCallback(async (lat: number, lng: number) => {
+    nearbyAbortRef.current?.abort();
+    const controller = new AbortController();
+    nearbyAbortRef.current = controller;
     setNearbyLoading(true);
+    setNearbyDegraded(false);
     try {
       const res = await fetch(
         `/api/places/nearby?lat=${lat}&lng=${lng}&radius=2500`,
+        { signal: controller.signal },
       );
       if (!res.ok) {
-        setNearby([]);
+        setNearbyDegraded(true);
         return;
       }
-      const data = (await res.json()) as { results: PlaceCandidate[] };
+      const data = (await res.json()) as {
+        degraded?: boolean;
+        results: PlaceCandidate[];
+      };
+      if (data.degraded) {
+        setNearbyDegraded(true);
+        return;
+      }
       setNearby(data.results);
-    } catch {
-      setNearby([]);
+    } catch (error) {
+      if ((error as { name?: string }).name !== "AbortError") {
+        setNearbyDegraded(true);
+      }
     } finally {
-      setNearbyLoading(false);
+      if (nearbyAbortRef.current === controller) {
+        setNearbyLoading(false);
+      }
     }
   }, []);
 
@@ -346,6 +367,7 @@ export function GymSearchSheet({
       setRegisterError(null);
       setRegisterAddress(null);
       setNearby([]);
+      setNearbyDegraded(false);
     });
     const id = window.setTimeout(() => inputRef.current?.focus(), 80);
     return () => window.clearTimeout(id);
@@ -382,6 +404,7 @@ export function GymSearchSheet({
   useEffect(() => {
     return () => {
       abortRef.current?.abort();
+      nearbyAbortRef.current?.abort();
     };
   }, []);
 
@@ -424,6 +447,7 @@ export function GymSearchSheet({
         query,
         recentCandidates,
         registeredGyms,
+        context,
       }),
     [
       coords,
@@ -434,6 +458,7 @@ export function GymSearchSheet({
       recentCandidates,
       registeredGyms,
       results,
+      context,
     ],
   );
 
@@ -612,6 +637,31 @@ export function GymSearchSheet({
             />
           ) : null}
 
+          {!registerOpen && sections.currentLocationAction ? (
+            <section className="border-b border-white/[0.05] px-5 py-3">
+              <button
+                className="gc-pressable flex w-full items-center gap-3 rounded-[16px] bg-[var(--gc-brand)]/8 px-3 py-3 text-left disabled:opacity-50"
+                disabled={selecting}
+                onClick={() =>
+                  void handleSelect(sections.currentLocationAction!)
+                }
+                type="button"
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]">
+                  <LocateFixed size={16} strokeWidth={2.4} />
+                </span>
+                <span>
+                  <span className="block text-[14px] font-black text-white">
+                    Usar localização atual
+                  </span>
+                  <span className="block text-[11px] font-bold text-white/46">
+                    Publicar sem associar uma academia ou local conhecido
+                  </span>
+                </span>
+              </button>
+            </section>
+          ) : null}
+
           {!registerOpen && !isSearching && sections.recent.length > 0 ? (
             <CandidateSection
               candidates={sections.recent}
@@ -621,7 +671,10 @@ export function GymSearchSheet({
             />
           ) : null}
 
-          {!registerOpen && !isSearching && sections.nearby.length > 0 ? (
+          {!registerOpen &&
+          !isSearching &&
+          !nearbyLoading &&
+          sections.nearby.length > 0 ? (
             <CandidateSection
               candidates={sections.nearby}
               onSelect={handleSelect}
@@ -630,11 +683,16 @@ export function GymSearchSheet({
             />
           ) : null}
 
+          {!registerOpen && !isSearching && nearbyDegraded ? (
+            <p className="px-5 pb-2 text-[11px] font-bold leading-4 text-white/42">
+              A busca pública está temporariamente indisponível. Continuamos
+              mostrando os locais do Gym Circle e você ainda pode buscar ou
+              cadastrar manualmente.
+            </p>
+          ) : null}
+
           {/* Loading nearby (1ª vez ainda buscando) */}
-          {!registerOpen &&
-          !isSearching &&
-          nearbyLoading &&
-          nearby.length === 0 ? (
+          {!registerOpen && !isSearching && nearbyLoading ? (
             <div className="flex flex-col items-center gap-3 px-5 py-12 text-center">
               <Loader2
                 aria-hidden
@@ -971,20 +1029,7 @@ function CandidateSection({
                   {candidate.name}
                 </span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] font-bold text-white/52">
-                  <span
-                    className={[
-                      "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide",
-                      candidate.provider === "registered" ||
-                      candidate.provider === "current"
-                        ? "bg-[var(--gc-brand)]/14 text-[var(--gc-brand)]"
-                        : "bg-white/[0.05] text-white/52",
-                    ].join(" ")}
-                  >
-                    {getSourceLabel(candidate)}
-                  </span>
-                  <span className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-white/52">
-                    {getKindLabel(candidate.kind)}
-                  </span>
+                  <span>{getKindLabel(candidate.kind)}</span>
                   {candidate.distanceKm !== null ? (
                     <span className="text-[var(--gc-brand)]">
                       {formatDistance(candidate.distanceKm)}
@@ -997,6 +1042,9 @@ function CandidateSection({
                         .join(" · ")}
                     </span>
                   ) : null}
+                  <span className="text-[10px] font-black uppercase tracking-wide text-white/34">
+                    {getSourceLabel(candidate)}
+                  </span>
                 </span>
               </span>
             </button>

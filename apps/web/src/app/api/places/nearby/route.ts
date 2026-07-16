@@ -39,6 +39,15 @@ type NearbyPlace = {
 };
 
 const EARTH_RADIUS_KM = 6371;
+const OVERPASS_TIMEOUT_MS = 6_000;
+const OVERPASS_CACHE_TTL_MS = 5 * 60_000;
+const OVERPASS_FAILURE_COOLDOWN_MS = 60_000;
+const OVERPASS_CACHE_MAX_ENTRIES = 100;
+const nearbyCache = new Map<
+  string,
+  { cachedAt: number; results: NearbyPlace[] }
+>();
+let circuitOpenUntil = 0;
 
 function toRadians(value: number): number {
   return (value * Math.PI) / 180;
@@ -110,6 +119,35 @@ function getState(tags: Record<string, string>): string | null {
   return tags["addr:state"] || tags["is_in:state"] || null;
 }
 
+function getCacheKey(lat: number, lng: number, radiusMeters: number): string {
+  return `${lat.toFixed(3)}:${lng.toFixed(3)}:${radiusMeters}`;
+}
+
+function cacheNearbyResults(key: string, results: NearbyPlace[]): void {
+  if (nearbyCache.size >= OVERPASS_CACHE_MAX_ENTRIES) {
+    const oldestKey = nearbyCache.keys().next().value;
+    if (oldestKey) nearbyCache.delete(oldestKey);
+  }
+  nearbyCache.set(key, { cachedAt: Date.now(), results });
+}
+
+function degradedNearbyResponse(reason: string, retryAfterSeconds = 60) {
+  return NextResponse.json(
+    {
+      degraded: true,
+      reason,
+      results: [],
+    },
+    {
+      headers: {
+        "Cache-Control": "private, no-store",
+        "Retry-After": String(retryAfterSeconds),
+      },
+      status: 200,
+    },
+  );
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const latParam = url.searchParams.get("lat");
@@ -123,34 +161,41 @@ export async function GET(request: Request) {
     );
   }
 
-  const radiusMeters = Math.min(
-    parseInt(url.searchParams.get("radius") ?? "1500", 10) || 1500,
-    5000,
+  const radiusMeters = Math.max(
+    100,
+    Math.min(
+      parseInt(url.searchParams.get("radius") ?? "1500", 10) || 1500,
+      2500,
+    ),
   );
+  const cacheKey = getCacheKey(lat, lng, radiusMeters);
+  const now = Date.now();
+  const cached = nearbyCache.get(cacheKey);
+  if (cached && now - cached.cachedAt <= OVERPASS_CACHE_TTL_MS) {
+    return NextResponse.json({ cached: true, results: cached.results });
+  }
+  if (now < circuitOpenUntil) {
+    return degradedNearbyResponse(
+      "nearby_temporarily_unavailable",
+      Math.max(1, Math.ceil((circuitOpenUntil - now) / 1000)),
+    );
+  }
 
   // Overpass QL — busca nodes + ways em paralelo. Limita por radius.
   // `out center tags` retorna lat/lng do centroide (importante pra ways)
   // junto com todas as tags do elemento.
   const query = `
-    [out:json][timeout:10];
+    [out:json][timeout:5];
     (
-      node["leisure"="fitness_centre"](around:${radiusMeters},${lat},${lng});
-      node["leisure"="sports_centre"](around:${radiusMeters},${lat},${lng});
-      node["leisure"="sports_hall"](around:${radiusMeters},${lat},${lng});
-      node["amenity"="gym"](around:${radiusMeters},${lat},${lng});
-      node["leisure"="stadium"](around:${radiusMeters},${lat},${lng});
-      node["leisure"="track"](around:${radiusMeters},${lat},${lng});
-      node["leisure"="park"](around:${radiusMeters},${lat},${lng});
-      node["leisure"="pitch"](around:${radiusMeters},${lat},${lng});
-      way["leisure"="fitness_centre"](around:${radiusMeters},${lat},${lng});
-      way["leisure"="sports_centre"](around:${radiusMeters},${lat},${lng});
-      way["leisure"="sports_hall"](around:${radiusMeters},${lat},${lng});
-      way["amenity"="gym"](around:${radiusMeters},${lat},${lng});
-      way["leisure"="stadium"](around:${radiusMeters},${lat},${lng});
-      way["leisure"="track"](around:${radiusMeters},${lat},${lng});
-      way["leisure"="park"](around:${radiusMeters},${lat},${lng});
+      nwr["leisure"="fitness_centre"](around:${radiusMeters},${lat},${lng});
+      nwr["leisure"="sports_centre"](around:${radiusMeters},${lat},${lng});
+      nwr["leisure"="sports_hall"](around:${radiusMeters},${lat},${lng});
+      nwr["amenity"="gym"](around:${radiusMeters},${lat},${lng});
+      nwr["leisure"="stadium"](around:${radiusMeters},${lat},${lng});
+      nwr["leisure"="track"](around:${radiusMeters},${lat},${lng});
+      nwr["leisure"="park"](around:${radiusMeters},${lat},${lng});
     );
-    out center tags 30;
+    out center tags 24;
   `.trim();
 
   const overpassUrl = "https://overpass-api.de/api/interpreter";
@@ -160,26 +205,21 @@ export async function GET(request: Request) {
     overpassResponse = await fetch(overpassUrl, {
       method: "POST",
       headers: {
-        "User-Agent":
-          "GymCircle/1.0 (https://gym-circle-rust.vercel.app; contact: dudy.cappia@gmail.com)",
+        "User-Agent": "GymCircle/1.0 (+https://gym-circle-rust.vercel.app)",
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: `data=${encodeURIComponent(query)}`,
-      // Cache: lugares próximos são estáveis por horas. 5min é seguro.
-      next: { revalidate: 300 },
+      cache: "no-store",
+      signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS),
     });
   } catch {
-    return NextResponse.json(
-      { error: "Não conseguimos contatar o serviço de mapas." },
-      { status: 502 },
-    );
+    circuitOpenUntil = Date.now() + OVERPASS_FAILURE_COOLDOWN_MS;
+    return degradedNearbyResponse("nearby_timeout");
   }
 
   if (!overpassResponse.ok) {
-    return NextResponse.json(
-      { error: "Serviço de mapas temporariamente indisponível." },
-      { status: overpassResponse.status },
-    );
+    circuitOpenUntil = Date.now() + OVERPASS_FAILURE_COOLDOWN_MS;
+    return degradedNearbyResponse("nearby_upstream_error");
   }
 
   type OverpassResponse = { elements?: OverpassElement[] };
@@ -187,10 +227,8 @@ export async function GET(request: Request) {
   try {
     raw = (await overpassResponse.json()) as OverpassResponse;
   } catch {
-    return NextResponse.json(
-      { error: "Resposta inválida do serviço de mapas." },
-      { status: 502 },
-    );
+    circuitOpenUntil = Date.now() + OVERPASS_FAILURE_COOLDOWN_MS;
+    return degradedNearbyResponse("nearby_invalid_response");
   }
 
   const places: NearbyPlace[] = [];
@@ -237,12 +275,15 @@ export async function GET(request: Request) {
     }
   }
 
-  // Ordena: kind score → distância
+  // Distância é a fonte de verdade; categoria serve apenas de desempate.
   const sorted = Array.from(dedupedByName.values()).sort((a, b) => {
-    const scoreDiff = getKindScore(b.kind) - getKindScore(a.kind);
-    if (scoreDiff !== 0) return scoreDiff;
-    return a.distanceKm - b.distanceKm;
+    const distanceDiff = a.distanceKm - b.distanceKm;
+    if (distanceDiff !== 0) return distanceDiff;
+    return getKindScore(b.kind) - getKindScore(a.kind);
   });
 
-  return NextResponse.json({ results: sorted.slice(0, 12) });
+  const results = sorted.slice(0, 16);
+  cacheNearbyResults(cacheKey, results);
+  circuitOpenUntil = 0;
+  return NextResponse.json({ results });
 }

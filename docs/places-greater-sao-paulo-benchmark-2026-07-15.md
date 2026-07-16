@@ -603,3 +603,28 @@ Detalhes: [Places P0.5](./places-p0-5-remediation-readiness-2026-07-16.md).
 6. obter proposta OSM comercial/self-host e confirmação Apple de quota;
 7. fazer revisão jurídica final;
 8. então atualizar o ADR de `Proposed` para `Accepted`.
+
+## 21. Addendum P0.7 — estabilização, ranking e amostra controlada
+
+Em 2026-07-16 a P0.7 foi implementada localmente, sem benchmark externo:
+
+- o nearby Overpass passou a degradar sem bloquear check-in ou post;
+- resultados próprios e externos entram no mesmo ranking;
+- sem query, distância crescente é dominante;
+- com query, exact/prefix/token match precedem distância;
+- Recentes ficam em seção própria;
+- Localização atual virou ação especial para post;
+- check-in, post e academia do perfil compartilham a engine;
+- oito casos prioritários foram confirmados/corrigidos com fontes primárias;
+- revisão atual: 73 `approved` e 87 `uncertain`;
+- o subset `p0-6-priority-cases.json` contém dez casos approved e continua com
+  `execution_allowed: false`.
+
+Chamadas previstas no subset:
+
+- runner atual de busca por nome: 10 por provedor;
+- matriz de quatro tipos de consulta: 40 por provedor;
+- quatro provedores: 160 no cenário completo.
+
+O benchmark de 160 casos continua bloqueado. Detalhes:
+[Places P0.7](./places-p0-7-stabilization-ranking-2026-07-16.md).

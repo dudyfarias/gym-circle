@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   buildGoogleMapsSearchUrl,
@@ -33,9 +33,11 @@ import type {
 } from "../social/types";
 import { TopBar } from "../TopBar";
 import {
+  buildLocationResultSections,
   calculateDistanceKm,
   formatDistance,
   getProviderAttribution,
+  gymToCandidate,
 } from "../social/locationSearch";
 
 type CheckInScreenProps = {
@@ -113,6 +115,8 @@ export function CheckInScreen({
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [nearbyPlaces, setNearbyPlaces] = useState<PlaceCandidate[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyDegraded, setNearbyDegraded] = useState(false);
+  const nearbyAbortRef = useRef<AbortController | null>(null);
 
   const allGyms = useMemo<GymLocationOption[]>(() => {
     const merged = new Map<string, GymLocationOption>();
@@ -142,6 +146,18 @@ export function CheckInScreen({
   );
 
   const isViewingDetail = Boolean(selectedGym);
+
+  const rankedNearbyPlaces = useMemo(() => {
+    const recentCandidates = lastGym ? [gymToCandidate(lastGym, coords)] : [];
+    return buildLocationResultSections({
+      apiResults: nearbyPlaces,
+      context: "checkin",
+      coords,
+      query: "",
+      recentCandidates,
+      registeredGyms: allGyms,
+    }).nearby;
+  }, [allGyms, coords, lastGym, nearbyPlaces]);
 
   const distanceForGym = useCallback(
     (gym: GymLocationOption | null) => {
@@ -261,19 +277,37 @@ export function CheckInScreen({
   }, []);
 
   const fetchNearby = useCallback(async (lat: number, lng: number) => {
+    nearbyAbortRef.current?.abort();
+    const controller = new AbortController();
+    nearbyAbortRef.current = controller;
     setNearbyLoading(true);
+    setNearbyDegraded(false);
     try {
-      const res = await fetch(`/api/places/nearby?lat=${lat}&lng=${lng}&radius=1500`);
+      const res = await fetch(
+        `/api/places/nearby?lat=${lat}&lng=${lng}&radius=1500`,
+        { signal: controller.signal },
+      );
       if (!res.ok) {
-        setNearbyPlaces([]);
+        setNearbyDegraded(true);
         return;
       }
-      const data = (await res.json()) as { results: PlaceCandidate[] };
+      const data = (await res.json()) as {
+        degraded?: boolean;
+        results: PlaceCandidate[];
+      };
+      if (data.degraded) {
+        setNearbyDegraded(true);
+        return;
+      }
       setNearbyPlaces(data.results);
-    } catch {
-      setNearbyPlaces([]);
+    } catch (error) {
+      if ((error as { name?: string }).name !== "AbortError") {
+        setNearbyDegraded(true);
+      }
     } finally {
-      setNearbyLoading(false);
+      if (nearbyAbortRef.current === controller) {
+        setNearbyLoading(false);
+      }
     }
   }, []);
 
@@ -281,6 +315,13 @@ export function CheckInScreen({
     if (!coords || isViewingDetail) return;
     queueMicrotask(() => void fetchNearby(coords.lat, coords.lng));
   }, [coords, fetchNearby, isViewingDetail]);
+
+  useEffect(
+    () => () => {
+      nearbyAbortRef.current?.abort();
+    },
+    [],
+  );
 
   async function handleCatalogPlace(place: PlaceCandidate) {
     if (!onCatalogPlace || cataloging) return;
@@ -363,7 +404,8 @@ export function CheckInScreen({
           lastGym={lastGym}
           lastGymDistance={distanceForGym(lastGym)}
           nearbyLoading={nearbyLoading}
-          nearbyPlaces={nearbyPlaces}
+          nearbyDegraded={nearbyDegraded}
+          nearbyPlaces={rankedNearbyPlaces}
           onCheckInLast={(gym) => void handleCheckIn(gym)}
           onOpenLastDetail={() => lastGym && openGymDetail(lastGym.id)}
           onOpenSearch={() => setSearchOpen(true)}
@@ -374,6 +416,7 @@ export function CheckInScreen({
       )}
 
       <GymSearchSheet
+        context="checkin"
         onClose={() => setSearchOpen(false)}
         registeredGyms={allGyms}
         onSelect={handleCatalogPlace}
@@ -393,6 +436,7 @@ type DefaultViewProps = {
   lastGymDistance: string | null;
   nearbyPlaces: PlaceCandidate[];
   nearbyLoading: boolean;
+  nearbyDegraded: boolean;
   friendsAtLastGym: Array<{ user: GymUser; lastPost: EnrichedPost }>;
   searchEnabled: boolean;
   checkinPending: boolean;
@@ -409,6 +453,7 @@ function DefaultView({
   lastGymDistance,
   nearbyPlaces,
   nearbyLoading,
+  nearbyDegraded,
   friendsAtLastGym,
   searchEnabled,
   checkinPending,
@@ -438,6 +483,7 @@ function DefaultView({
       )}
 
       <NearbyPlacesList
+        degraded={nearbyDegraded}
         loading={nearbyLoading}
         onOpenSearch={onOpenSearch}
         onSelect={onSelectNearby}
@@ -568,12 +614,14 @@ function EmptyHero({
 function NearbyPlacesList({
   places,
   loading,
+  degraded,
   onSelect,
   onOpenSearch,
   searchEnabled,
 }: {
   places: PlaceCandidate[];
   loading: boolean;
+  degraded: boolean;
   onSelect: (place: PlaceCandidate) => void | Promise<void>;
   onOpenSearch: () => void;
   searchEnabled: boolean;
@@ -596,7 +644,7 @@ function NearbyPlacesList({
         ) : null}
       </div>
 
-      {loading && places.length === 0 ? (
+      {loading ? (
         <div className="mt-3 flex items-center justify-center gap-2 rounded-[16px] bg-white/[0.04] py-6 text-[12px] font-bold text-white/52">
           <Loader2 className="animate-spin" size={14} strokeWidth={2.4} />
           {t("checkInScreen.nearby.loading")}
@@ -620,7 +668,14 @@ function NearbyPlacesList({
         </div>
       ) : null}
 
-      {places.length > 0 ? (
+      {degraded ? (
+        <p className="mt-2 text-[11px] font-bold leading-4 text-white/42">
+          A busca pública está indisponível agora. Os locais do Gym Circle
+          continuam disponíveis e você pode buscar ou cadastrar manualmente.
+        </p>
+      ) : null}
+
+      {!loading && places.length > 0 ? (
         <>
           <ul className="mt-3 space-y-2">
             {places.slice(0, 5).map((place) => (

@@ -180,6 +180,21 @@ Negativas:
   truth;
 - ausência de credenciais/quota impede medir cobertura, latência e falhas.
 
+### Addendum P0.7
+
+A estabilização local não altera a decisão de provider:
+
+- preferências e catálogo precisaram de capability detection porque o frontend
+  estava adiantado em relação ao schema remoto;
+- Overpass público permanece apenas fallback temporário, agora com timeout de
+  6 s, cache curto, zero retry e circuit breaker;
+- origem foi removida como fator dominante do ranking;
+- o subset P0.6 tem dez casos aprovados, mas não foi executado;
+- 87 casos seguem `uncertain`.
+
+O ADR permanece **Proposed**. O subset controlado mede a arquitetura temporária;
+ele não autoriza P1 nem define provider principal.
+
 ## 11. Critérios para `Accepted`
 
 - casos aprovados, corrigidos ou removidos, sem `uncertain` no lote final;

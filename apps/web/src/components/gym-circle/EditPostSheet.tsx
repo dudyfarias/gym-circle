@@ -837,6 +837,7 @@ export function EditPostSheet({
         </div>
       </div>
       <GymSearchSheet
+        context="post_location"
         onClose={() => setSearchOpen(false)}
         onSelect={handlePlace}
         open={searchOpen}

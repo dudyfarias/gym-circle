@@ -20,7 +20,18 @@ export type PlaceCandidate = {
   longitude: number | null;
   distanceKm: number | null;
   kind: string;
+  aliases?: string[];
+  isRecent?: boolean;
+  isMainGym?: boolean;
+  isVerified?: boolean;
+  checkinCount?: number;
+  textMatchScore?: number;
+  proximityScore?: number;
+  relevanceScore?: number;
+  dedupeKey?: string;
 };
+
+export type PlaceSearchContext = "checkin" | "post_location" | "profile_gym";
 
 export type LocatedPlaceCandidate = PlaceCandidate & {
   latitude: number;
@@ -129,10 +140,161 @@ export function getSearchText(candidate: PlaceCandidate): string {
       candidate.neighborhood,
       candidate.city,
       candidate.state,
+      ...(candidate.aliases ?? []),
     ]
       .filter(Boolean)
       .join(" "),
   );
+}
+
+function getTextMatchScore(candidate: PlaceCandidate, query: string): number {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return 0;
+
+  const normalizedName = normalizeText(candidate.name);
+  if (normalizedName === normalizedQuery) return 100;
+  if (
+    normalizedName.startsWith(normalizedQuery) ||
+    normalizedQuery.startsWith(normalizedName)
+  ) {
+    return 75;
+  }
+
+  const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+  const nameTokens = new Set(normalizedName.split(" ").filter(Boolean));
+  if (
+    queryTokens.length > 0 &&
+    queryTokens.every((token) => nameTokens.has(token))
+  ) {
+    return 55;
+  }
+
+  const searchText = getSearchText(candidate);
+  if (searchText.includes(normalizedQuery)) return 45;
+  if (
+    queryTokens.length > 0 &&
+    queryTokens.every((token) => searchText.includes(token))
+  ) {
+    return 30;
+  }
+  return 0;
+}
+
+function getProximityScore(
+  distanceKm: number | null,
+  maxScore: number,
+): number {
+  if (distanceKm === null || !Number.isFinite(distanceKm)) return 0;
+  if (distanceKm <= 0.25) return maxScore;
+  if (distanceKm <= 0.75) return maxScore * 0.85;
+  if (distanceKm <= 2) return maxScore * 0.65;
+  if (distanceKm <= 8) return maxScore * 0.35;
+  return Math.max(0, maxScore * (1 - Math.min(distanceKm, 25) / 25) * 0.2);
+}
+
+function withCalculatedDistance(
+  candidate: PlaceCandidate,
+  coords: { lat: number; lng: number } | null,
+): PlaceCandidate {
+  if (
+    !coords ||
+    typeof candidate.latitude !== "number" ||
+    typeof candidate.longitude !== "number"
+  ) {
+    return candidate;
+  }
+  return {
+    ...candidate,
+    distanceKm: calculateDistanceKm(coords, {
+      lat: candidate.latitude,
+      lng: candidate.longitude,
+    }),
+  };
+}
+
+function getContextBoost(
+  candidate: PlaceCandidate,
+  context: PlaceSearchContext,
+): number {
+  const recentBoost = candidate.isRecent ? 12 : 0;
+  const mainGymBoost = candidate.isMainGym ? 8 : 0;
+  const verifiedBoost = candidate.isVerified ? 5 : 0;
+  const popularityBoost = Math.min(candidate.checkinCount ?? 0, 20) / 4;
+  if (context === "profile_gym")
+    return recentBoost + mainGymBoost * 1.5 + verifiedBoost;
+  if (context === "post_location")
+    return recentBoost + mainGymBoost + verifiedBoost;
+  return recentBoost + mainGymBoost * 0.5 + verifiedBoost + popularityBoost;
+}
+
+/**
+ * Ordena uma lista já normalizada e deduplicada. Sem texto, coordenada e
+ * distância são a fonte de verdade. Com texto, o nível de correspondência do
+ * nome vem antes da proximidade. A origem só aparece no último desempate.
+ */
+export function rankPlaceCandidates({
+  candidates,
+  context,
+  coords,
+  query,
+}: {
+  candidates: PlaceCandidate[];
+  context: PlaceSearchContext;
+  coords: { lat: number; lng: number } | null;
+  query: string;
+}): PlaceCandidate[] {
+  const normalizedQuery = normalizeText(query);
+  const ranked = dedupeCandidates(
+    candidates
+      .filter((candidate) => candidate.provider !== "current")
+      .map((candidate) => withCalculatedDistance(candidate, coords)),
+  ).map((candidate) => {
+    const textMatchScore = getTextMatchScore(candidate, normalizedQuery);
+    const proximityScore = getProximityScore(
+      candidate.distanceKm,
+      normalizedQuery ? 40 : 65,
+    );
+    const relevanceScore =
+      textMatchScore +
+      proximityScore +
+      getContextBoost(candidate, context) +
+      (candidate.provider === "registered" ? 0.1 : 0);
+    return {
+      ...candidate,
+      textMatchScore,
+      proximityScore,
+      relevanceScore,
+    };
+  });
+
+  return ranked.sort((a, b) => {
+    if (normalizedQuery) {
+      const textDiff = (b.textMatchScore ?? 0) - (a.textMatchScore ?? 0);
+      if (textDiff !== 0) return textDiff;
+      const relevanceDiff = (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0);
+      if (relevanceDiff !== 0) return relevanceDiff;
+    } else {
+      const aHasDistance = a.distanceKm !== null;
+      const bHasDistance = b.distanceKm !== null;
+      if (aHasDistance !== bHasDistance) return aHasDistance ? -1 : 1;
+      if (a.distanceKm !== null && b.distanceKm !== null) {
+        const distanceDiff = a.distanceKm - b.distanceKm;
+        if (Math.abs(distanceDiff) > 0.005) return distanceDiff;
+      }
+      const relevanceDiff = (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0);
+      if (relevanceDiff !== 0) return relevanceDiff;
+    }
+
+    if (a.distanceKm !== null && b.distanceKm !== null) {
+      const distanceDiff = a.distanceKm - b.distanceKm;
+      if (distanceDiff !== 0) return distanceDiff;
+    }
+    if (a.provider !== b.provider) {
+      if (a.provider === "registered") return -1;
+      if (b.provider === "registered") return 1;
+    }
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
 }
 
 export function getSourceLabel(candidate: PlaceCandidate): string {
@@ -292,13 +454,36 @@ export function dedupeCandidates(
   candidates: PlaceCandidate[],
 ): PlaceCandidate[] {
   const deduped: PlaceCandidate[] = [];
+  const indexByStrongKey = new Map<string, number>();
+
+  const getStrongKeys = (candidate: PlaceCandidate): string[] => {
+    const keys: string[] = [];
+    const primaryId = getPrimaryLocationId(candidate);
+    const externalId = getPlaceId(candidate);
+    const normalizedName = normalizeText(candidate.name);
+    const normalizedAddress = normalizeText(candidate.address);
+    const normalizedCity = normalizeText(candidate.city);
+
+    if (primaryId) keys.push(`internal:${primaryId}`);
+    if (externalId) keys.push(`external:${externalId}`);
+    if (normalizedName && normalizedAddress) {
+      keys.push(
+        `identity:${normalizedName}:${normalizedAddress}:${normalizedCity}`,
+      );
+    }
+    return keys;
+  };
 
   for (const candidate of candidates) {
-    const duplicateIndex = deduped.findIndex((item) =>
-      isSameApproxPlace(item, candidate),
-    );
-    if (duplicateIndex === -1) {
+    const keys = getStrongKeys(candidate);
+    const duplicateIndex = keys
+      .map((key) => indexByStrongKey.get(key))
+      .find((index): index is number => index !== undefined);
+
+    if (duplicateIndex === undefined) {
+      const nextIndex = deduped.length;
       deduped.push(candidate);
+      for (const key of keys) indexByStrongKey.set(key, nextIndex);
       continue;
     }
 
@@ -308,6 +493,7 @@ export function dedupeCandidates(
     ) {
       deduped[duplicateIndex] = candidate;
     }
+    for (const key of keys) indexByStrongKey.set(key, duplicateIndex);
   }
 
   return deduped;
@@ -436,7 +622,9 @@ export function getRecentPostLocations(
     .map((usage) => usageToCandidate(usage, gymsById))
     .filter((candidate): candidate is PlaceCandidate => Boolean(candidate));
 
-  return dedupeRecentCandidates(candidates).slice(0, max);
+  return dedupeRecentCandidates(candidates)
+    .map((candidate) => ({ ...candidate, isRecent: true }))
+    .slice(0, max);
 }
 
 export function getRegisteredSearchCandidates({
@@ -480,6 +668,7 @@ export function buildLocationResultSections({
   query,
   recentCandidates,
   registeredGyms,
+  context = "post_location",
 }: {
   apiResults: PlaceCandidate[];
   coords: { lat: number; lng: number } | null;
@@ -487,6 +676,7 @@ export function buildLocationResultSections({
   query: string;
   recentCandidates: PlaceCandidate[];
   registeredGyms: GymLocationOption[];
+  context?: PlaceSearchContext;
 }) {
   const trimmed = query.trim();
   const isSearching = trimmed.length >= 2;
@@ -497,24 +687,37 @@ export function buildLocationResultSections({
   });
 
   if (isSearching) {
+    const search = rankPlaceCandidates({
+      candidates: [...registeredCandidates, ...apiResults],
+      context,
+      coords,
+      query: trimmed,
+    }).filter((candidate) => (candidate.textMatchScore ?? 0) > 0);
     return {
       isSearching,
+      currentLocationAction:
+        context === "post_location" ? (currentLocationCandidate ?? null) : null,
       nearby: [],
       recent: [],
-      search: dedupeCandidates([...registeredCandidates, ...apiResults]),
+      search,
     };
   }
 
-  const recent = dedupeCandidates(recentCandidates).slice(0, 3);
-  const nearbyBase = dedupeCandidates([
-    ...(currentLocationCandidate ? [currentLocationCandidate] : []),
-    ...registeredCandidates,
-    ...apiResults,
-  ]);
+  const recent = dedupeCandidates(
+    recentCandidates.map((candidate) => ({ ...candidate, isRecent: true })),
+  ).slice(0, 3);
+  const nearbyBase = rankPlaceCandidates({
+    candidates: [...registeredCandidates, ...apiResults],
+    context,
+    coords,
+    query: "",
+  });
 
   return {
     isSearching,
     nearby: withoutDuplicateCandidates(nearbyBase, recent),
+    currentLocationAction:
+      context === "post_location" ? (currentLocationCandidate ?? null) : null,
     recent,
     search: [],
   };

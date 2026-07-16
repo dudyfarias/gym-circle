@@ -75,6 +75,40 @@ type TechniqueRow = {
   status: "approved" | "community";
 };
 
+const localFavoriteStorageKey = (userId: string) =>
+  `gymcircle:workout-favorites:${userId}`;
+
+export function hasWorkoutCatalogIntelligenceSchema(rows: unknown[]): boolean {
+  return rows.some(
+    (row) =>
+      Boolean(row) &&
+      typeof row === "object" &&
+      Object.prototype.hasOwnProperty.call(row, "review_status"),
+  );
+}
+
+function readLocalFavoriteExerciseIds(userId: string): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const value = JSON.parse(
+      window.localStorage.getItem(localFavoriteStorageKey(userId)) ?? "[]",
+    ) as unknown;
+    return Array.isArray(value)
+      ? value.filter((item): item is string => typeof item === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalFavoriteExerciseIds(userId: string, ids: string[]): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    localFavoriteStorageKey(userId),
+    JSON.stringify(ids),
+  );
+}
+
 export function isMissingWorkoutVariationColumns(error: {
   code?: string;
   message?: string;
@@ -304,53 +338,53 @@ export function useWorkoutCatalog() {
   const [error, setError] = useState<string | null>(null);
   const [favoriteExerciseIds, setFavoriteExerciseIds] = useState<string[]>([]);
   const [recentExerciseIds, setRecentExerciseIds] = useState<string[]>([]);
+  const [catalogIntelligenceAvailable, setCatalogIntelligenceAvailable] =
+    useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [groupsResult, initialExercisesResult, techniquesResult] =
+      const [groupsResult, exercisesResult, techniquesResult] =
         await Promise.all([
-        db
-          .from("workout_muscle_groups")
-          .select("slug, name_pt, name_en, icon_key, sort_order")
-          .order("sort_order", { ascending: true }),
-        db
-          .from("workout_exercise_catalog")
-          .select(
-            "id, slug, name_pt, name_en, aliases, aliases_pt, aliases_en, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, primary_equipment, compatible_equipments, required_equipment, optional_equipment, description_pt, description_en, instructions_pt, instructions_en, execution_steps_pt, execution_steps_en, common_mistakes_pt, common_mistakes_en, video_url, video_search_query, status, review_status, reviewed_by, reviewed_at, parent_exercise_id, movement_pattern, exercise_type, default_load_type, difficulty, exercise_priority_score, default_rest_s, default_rpe, default_target_kind, default_reps, default_duration_s, default_distance_m",
-          )
-          .in("review_status", ["approved", "needs_review"])
-          .order("name_pt", { ascending: true }),
-        db
-          .from("workout_technique_catalog")
-          .select(
-            "id, slug, name_pt, name_en, aliases, summary_pt, summary_en, instructions_pt, instructions_en, video_url, video_search_query, status",
-          )
-          .order("name_pt", { ascending: true }),
-      ]);
-      const exercisesResult =
-        initialExercisesResult.error &&
-        (isMissingWorkoutVariationColumns(initialExercisesResult.error) ||
-          isMissingWorkoutCatalogIntelligenceColumns(
-            initialExercisesResult.error,
-          ))
-          ? await db
-              .from("workout_exercise_catalog")
-              .select(
-                "id, slug, name_pt, name_en, aliases, primary_muscle_group_slug, secondary_muscle_group_slugs, equipment, description_pt, description_en, instructions_pt, instructions_en, video_url, video_search_query, status",
-              )
-              .order("name_pt", { ascending: true })
-          : initialExercisesResult;
+          db
+            .from("workout_muscle_groups")
+            .select("slug, name_pt, name_en, icon_key, sort_order")
+            .order("sort_order", { ascending: true }),
+          db
+            .from("workout_exercise_catalog")
+            // O schema de produção pode ainda não ter a migration de Catalog
+            // Intelligence. `*` evita uma primeira request 400 e o mapper já
+            // possui fallbacks seguros para colunas aditivas ausentes.
+            .select("*")
+            .order("name_pt", { ascending: true }),
+          db
+            .from("workout_technique_catalog")
+            .select(
+              "id, slug, name_pt, name_en, aliases, summary_pt, summary_en, instructions_pt, instructions_en, video_url, video_search_query, status",
+            )
+            .order("name_pt", { ascending: true }),
+        ]);
       if (groupsResult.error) throw groupsResult.error;
       if (exercisesResult.error) throw exercisesResult.error;
       if (techniquesResult.error) throw techniquesResult.error;
+      const rawExerciseRows = (exercisesResult.data ?? []) as ExerciseRow[];
+      const hasIntelligenceSchema =
+        hasWorkoutCatalogIntelligenceSchema(rawExerciseRows);
+      setCatalogIntelligenceAvailable(hasIntelligenceSchema);
       setMuscleGroups(
         ((groupsResult.data ?? []) as MuscleGroupRow[]).map(mapMuscleGroup),
       );
       setExercises(
         linkWorkoutCatalogVariations(
-          ((exercisesResult.data ?? []) as ExerciseRow[]).map(mapExercise),
+          rawExerciseRows
+            .filter(
+              (row) =>
+                !hasIntelligenceSchema ||
+                row.review_status === "approved" ||
+                row.review_status === "needs_review",
+            )
+            .map(mapExercise),
         ),
       );
       setTechniques(
@@ -383,12 +417,14 @@ export function useWorkoutCatalog() {
     let cancelled = false;
     void (async () => {
       const [preferencesResult, activitiesResult] = await Promise.all([
-        db
-          .from("user_workout_exercise_preferences")
-          .select("exercise_id")
-          .eq("user_id", userId)
-          .eq("is_favorite", true)
-          .order("updated_at", { ascending: false }),
+        catalogIntelligenceAvailable
+          ? db
+              .from("user_workout_exercise_preferences")
+              .select("exercise_id")
+              .eq("user_id", userId)
+              .eq("is_favorite", true)
+              .order("updated_at", { ascending: false })
+          : Promise.resolve({ data: null, error: null }),
         db
           .from("activities")
           .select("strength_sets")
@@ -402,11 +438,13 @@ export function useWorkoutCatalog() {
       // Missing preference table is expected until this sprint's migration is
       // applied. Catalog browsing and recents keep working through the fallback.
       setFavoriteExerciseIds(
-        preferencesResult.error
-          ? []
-          : (preferencesResult.data ?? []).map(
-              (row) => (row as { exercise_id: string }).exercise_id,
-            ),
+        !catalogIntelligenceAvailable
+          ? readLocalFavoriteExerciseIds(userId)
+          : preferencesResult.error
+            ? []
+            : (preferencesResult.data ?? []).map(
+                (row) => (row as { exercise_id: string }).exercise_id,
+              ),
       );
       const recent: string[] = [];
       for (const row of activitiesResult.data ?? []) {
@@ -428,17 +466,23 @@ export function useWorkoutCatalog() {
     return () => {
       cancelled = true;
     };
-  }, [db, userId]);
+  }, [catalogIntelligenceAvailable, db, userId]);
 
   const toggleFavoriteExercise = useCallback(
     async (exerciseId: string) => {
       if (!userId) return;
       const wasFavorite = favoriteExerciseIds.includes(exerciseId);
-      setFavoriteExerciseIds((current) =>
-        wasFavorite
-          ? current.filter((id) => id !== exerciseId)
-          : [exerciseId, ...current.filter((id) => id !== exerciseId)],
-      );
+      const nextFavoriteExerciseIds = wasFavorite
+        ? favoriteExerciseIds.filter((id) => id !== exerciseId)
+        : [
+            exerciseId,
+            ...favoriteExerciseIds.filter((id) => id !== exerciseId),
+          ];
+      setFavoriteExerciseIds(nextFavoriteExerciseIds);
+      if (!catalogIntelligenceAvailable) {
+        writeLocalFavoriteExerciseIds(userId, nextFavoriteExerciseIds);
+        return;
+      }
       const { error: preferenceError } = await db
         .from("user_workout_exercise_preferences")
         .upsert(
@@ -459,7 +503,7 @@ export function useWorkoutCatalog() {
         return;
       }
     },
-    [db, favoriteExerciseIds, userId],
+    [catalogIntelligenceAvailable, db, favoriteExerciseIds, userId],
   );
 
   const exerciseLookup = useMemo(() => {
@@ -581,5 +625,6 @@ export function useWorkoutCatalog() {
     favoriteExerciseIds,
     recentExerciseIds,
     toggleFavoriteExercise,
+    catalogIntelligenceAvailable,
   };
 }

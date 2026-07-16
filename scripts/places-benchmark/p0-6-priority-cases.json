@@ -1,0 +1,64 @@
+{
+  "version": "2026-07-16",
+  "scope": "Greater Sao Paulo controlled P0.6 sample",
+  "execution_allowed": false,
+  "notes": "Ground truth was reviewed from first-party operator or government sources. No paid provider request was executed.",
+  "estimated_calls": {
+    "current_name_search_runner_per_provider": 10,
+    "full_four_query_matrix_per_provider": 40,
+    "providers": 4,
+    "full_matrix_all_providers": 160
+  },
+  "cases": [
+    {
+      "benchmark_case_id": "GSP-160",
+      "role": "ironberg_barra_funda",
+      "evidence_url": "https://www.ironberg.com.br/sao-paulo.html"
+    },
+    {
+      "benchmark_case_id": "GSP-001",
+      "role": "smart_fit_nearby_1",
+      "evidence_url": "https://www.smartfit.com.br/academias/shopping-light"
+    },
+    {
+      "benchmark_case_id": "GSP-002",
+      "role": "smart_fit_nearby_2",
+      "evidence_url": "https://www.smartfit.com.br/academias/liberdade"
+    },
+    {
+      "benchmark_case_id": "GSP-026",
+      "role": "bluefit",
+      "evidence_url": "https://www.bluefit.com.br/unidade/leopoldina"
+    },
+    {
+      "benchmark_case_id": "GSP-014",
+      "role": "bio_ritmo",
+      "evidence_url": "https://www.bioritmo.com.br/unidades/paulista"
+    },
+    {
+      "benchmark_case_id": "GSP-013",
+      "role": "gavioes",
+      "evidence_url": "https://www.academiagavioes.com.br/unidades/item/paulista"
+    },
+    {
+      "benchmark_case_id": "GSP-033",
+      "role": "large_park",
+      "evidence_url": "https://prefeitura.sp.gov.br/web/meio_ambiente/w/parques/regiao_sul/14062"
+    },
+    {
+      "benchmark_case_id": "GSP-032",
+      "role": "neighborhood_park",
+      "evidence_url": "https://legislacao.prefeitura.sp.gov.br/leis/decreto-50425-de-12-de-fevereiro-de-2009/consolidado"
+    },
+    {
+      "benchmark_case_id": "GSP-029",
+      "role": "independent_gym",
+      "evidence_url": "https://www.crossfit.com/gym/7695/crossfit-79"
+    },
+    {
+      "benchmark_case_id": "GSP-039",
+      "role": "public_sports_center",
+      "evidence_url": "https://prefeitura.sp.gov.br/web/esportes/centro_olimpico/apresentacao"
+    }
+  ]
+}

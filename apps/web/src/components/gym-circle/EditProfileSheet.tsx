@@ -463,6 +463,7 @@ export function EditProfileSheet({
         </div>
       </div>
       <GymSearchSheet
+        context="profile_gym"
         onClose={() => setGymSearchOpen(false)}
         onSelect={handleSelectGym}
         open={gymSearchOpen}

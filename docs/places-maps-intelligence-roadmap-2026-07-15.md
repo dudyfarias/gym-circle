@@ -115,9 +115,19 @@ P0.5 concluída e aprovada no release gate:
 - dedupe conservador;
 - dry-run com flags pagas, call cap e custos híbridos.
 
+P0.7 implementada localmente e aguardando aprovação de publicação:
+
+- 404 de preferências e 400 do catálogo eliminados pela detecção do schema
+  realmente disponível;
+- nearby/Overpass possui timeout, cache curto, circuit breaker e fallback;
+- check-in, post e academia do perfil usam a mesma engine de ranking;
+- origem não supera distância ou correspondência textual;
+- 73 casos estão `approved`, 87 permanecem `uncertain`;
+- subset P0.6 com dez casos approved e execução bloqueada foi criado.
+
 Pendente para P0.6:
 
-- confirmação independente de 95 casos `uncertain`;
+- confirmação independente dos 87 casos `uncertain`;
 - credenciais/quota aprovadas;
 - benchmark real e p50/p95;
 - proposta OSM e revisão jurídica;
@@ -173,12 +183,22 @@ Somente após catálogo de lugares, equipamentos e exercícios estar aprovado.
 
 ## 9. Próxima ação
 
-Manter os contratos validados da migration P0.5, confirmar o gabarito
-`uncertain`, provisionar credenciais de benchmark com quotas mínimas, executar
-5–10 casos por provider e fazer review de compliance antes do lote aprovado.
+Publicar a P0.7 somente após QA autenticado. Depois, provisionar credenciais de
+benchmark com quotas mínimas e executar exclusivamente o subset controlado de
+dez casos da P0.6. O lote completo continua bloqueado pelos 87 casos
+`uncertain` e pelo ADR `Proposed`.
+
+Ordem oficial:
+
+1. Places P0.7 — Stabilization & Intelligent Ranking;
+2. Places P0.6 — dez casos controlados;
+3. ADR Accepted ou nova rodada;
+4. Places P1 — Hybrid Search Foundation;
+5. Place Profile & Hero Experience.
 
 Documentos:
 
 - [Benchmark P0](./places-greater-sao-paulo-benchmark-2026-07-15.md)
 - [Remediação/readiness P0.5](./places-p0-5-remediation-readiness-2026-07-16.md)
+- [Estabilização/ranking P0.7](./places-p0-7-stabilization-ranking-2026-07-16.md)
 - [ADR provider Grande São Paulo](./adr/ADR-places-provider-greater-sao-paulo.md)
