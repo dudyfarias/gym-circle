@@ -132,6 +132,27 @@ export function activityService(client: GymCircleClient) {
     },
 
     /**
+     * Hidratação sob demanda do detalhe. A RPC usa RLS das activities/posts;
+     * evita carregar séries de FC e metadata HealthKit no feed inteiro.
+     */
+    async detail(input: {
+      activityId?: string | null;
+      postId?: string | null;
+    }): Promise<Activity | null> {
+      if (!input.activityId && !input.postId) return null;
+      const { data, error } = await (client as unknown as SupabaseClient).rpc(
+        "get_activity_detail_v2",
+        {
+          p_activity_id: input.activityId ?? null,
+          p_post_id: input.postId ?? null,
+        },
+      );
+      if (error) throw error;
+      const result = Array.isArray(data) ? data[0] : data;
+      return result ? activityRowToDomain(result as ActivityRow) : null;
+    },
+
+    /**
      * "Integrar treino": treinos do próprio user num dia (mesma data do post),
      * ainda não vinculados a nenhum post. Alimenta o picker de integração.
      */

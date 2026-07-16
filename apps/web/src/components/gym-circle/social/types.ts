@@ -1,4 +1,7 @@
-import type { MergeableActivity } from "@gym-circle/core";
+import type {
+  ActivityHealthMetadata,
+  MergeableActivity,
+} from "@gym-circle/core";
 import type {
   CircleRankingRow,
   RankingPeriod,
@@ -274,6 +277,7 @@ export type EnrichedActivity = {
   maxHr: number | null;
   activeCalories: number | null;
   totalCalories: number | null;
+  healthMetadata?: ActivityHealthMetadata | null;
   distanceM: number | null;
   movingS: number | null;
   elevationGainM: number | null;
@@ -465,6 +469,8 @@ export type WorkoutTechniqueCatalogItem = {
 };
 
 export type WorkoutDetail = {
+  activityId?: string | null;
+  postId?: string | null;
   activityType: string;
   startedAt: string | null;
   endedAt: string | null;
@@ -476,12 +482,15 @@ export type WorkoutDetail = {
   maxHr?: number | null;
   activeCalories?: number | null;
   totalCalories: number | null;
+  healthMetadata?: ActivityHealthMetadata | null;
   route: number[][] | null;
   origin?: string | null;
   sourceApp?: string | null;
   strengthSets: StrengthSet[] | null;
   gymName: string | null;
   locationName: string | null;
+  locationLatitude?: number | null;
+  locationLongitude?: number | null;
   caption: string | null;
   recordHighlights?: WorkoutRecordHighlight[] | null;
 };
@@ -639,6 +648,7 @@ export type WebActivityInput = {
   maxHr?: number | null;
   activeCalories?: number | null;
   totalCalories?: number | null;
+  healthMetadata?: ActivityHealthMetadata | null;
   /** Polyline reduzida no formato persistido em activities.route. */
   route?: number[][] | null;
   /** Séries de musculação (só treino de força). */
@@ -769,6 +779,10 @@ export type SocialActions = {
   fetchMergeableActivities?: (
     workoutDate: string,
   ) => Promise<MergeableActivity[]>;
+  fetchWorkoutDetail?: (input: {
+    activityId?: string | null;
+    postId?: string | null;
+  }) => Promise<WorkoutDetail | null>;
   /** Vincula o treino ao post (source_activity_id); some do feed. */
   integrateWorkoutIntoPost?: (
     postId: string,

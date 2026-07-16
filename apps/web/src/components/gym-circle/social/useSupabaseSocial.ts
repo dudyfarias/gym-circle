@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  activityHealthMetadataFromRow,
   getGymCircleDateKey,
   SOCIAL_BELL_NOTIFICATION_KINDS,
 } from "@gym-circle/core";
@@ -64,6 +65,7 @@ import type {
   PromoteCheckinInput,
   SendChatMessageInput,
   WebActivityInput,
+  WorkoutDetail,
   StoryGroup,
 } from "./types";
 
@@ -170,6 +172,10 @@ export type SupabaseSocialActions = {
   fetchMergeableActivities: (
     workoutDate: string,
   ) => Promise<MergeableActivity[]>;
+  fetchWorkoutDetail: (input: {
+    activityId?: string | null;
+    postId?: string | null;
+  }) => Promise<WorkoutDetail | null>;
   /** Vincula o treino ao post (source_activity_id); some do feed. */
   integrateWorkoutIntoPost: (
     postId: string,
@@ -1969,7 +1975,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const feedCheckins = useMemo<EnrichedCheckin[]>(
     () =>
       agg.feedCheckins
-        .map((row) => {
+        .map((row): EnrichedCheckin | null => {
           const author = enrichedAll.get(row.user_id);
           if (!author) return null;
           return {
@@ -1995,7 +2001,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
   const feedActivities = useMemo<EnrichedActivity[]>(
     () =>
       agg.feedActivities
-        .map((row) => {
+        .map((row): EnrichedActivity | null => {
           const author = enrichedAll.get(row.user_id);
           if (!author) return null;
           return {
@@ -2009,6 +2015,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             maxHr: row.max_hr ?? null,
             activeCalories: row.active_calories ?? null,
             totalCalories: row.total_calories ?? null,
+            healthMetadata: activityHealthMetadataFromRow(row.health_metadata),
             distanceM: row.distance_m ?? null,
             movingS: row.moving_s ?? null,
             elevationGainM: row.elevation_gain_m ?? null,

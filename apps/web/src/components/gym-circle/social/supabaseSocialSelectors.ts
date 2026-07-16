@@ -9,7 +9,10 @@ import type {
   UserGymRow,
   UserStatsRow,
 } from "@gym-circle/core";
-import { getGymCircleDateKey } from "@gym-circle/core";
+import {
+  activityHealthMetadataFromRow,
+  getGymCircleDateKey,
+} from "@gym-circle/core";
 import {
   calculateAgeFromBirthDate,
   isBirthdayFromBirthDate,
@@ -494,6 +497,7 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
         // overlay de detalhes no header do post promovido.
         workout: row.workout_activity_type
           ? {
+              postId: row.id,
               activityType: row.workout_activity_type,
               startedAt: row.workout_started_at ?? null,
               endedAt: row.workout_ended_at ?? null,
@@ -502,12 +506,15 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
               distanceM: row.workout_distance_m ?? null,
               elevationGainM: row.workout_elevation_gain_m ?? null,
               avgHr: row.workout_avg_hr ?? null,
-              maxHr: null,
+              maxHr: row.workout_max_hr ?? null,
               activeCalories: row.workout_active_calories ?? null,
               totalCalories: row.workout_total_calories ?? null,
+              healthMetadata: activityHealthMetadataFromRow(
+                row.workout_health_metadata,
+              ),
               route: row.workout_route ?? null,
-              origin: null,
-              sourceApp: null,
+              origin: row.workout_origin ?? null,
+              sourceApp: row.workout_source_app ?? null,
               strengthSets:
                 row.workout_strength_sets?.map((s) => ({
                   reps: s.reps,
@@ -522,6 +529,8 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
                 })) ?? null,
               gymName: row.location_name ?? null,
               locationName: row.location_name ?? null,
+              locationLatitude: row.location_latitude ?? null,
+              locationLongitude: row.location_longitude ?? null,
               caption: row.caption ?? null,
               recordHighlights:
                 row.workout_record_highlights?.map((highlight) => ({

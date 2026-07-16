@@ -53,13 +53,52 @@ export function healthKitWorkoutToActivityInput(
     elapsedS,
     movingS: isRoute ? elapsedS : null,
     distanceM,
-    elevationGainM: null,
+    elevationGainM: finitePositiveNumber(workout.elevationGainM),
     route: sanitizeHealthKitRoute(workout.route),
     avgHr: finitePositiveIntegerOrNull(workout.avgHr),
     maxHr: finitePositiveIntegerOrNull(workout.maxHr),
     activeCalories: finitePositiveNumber(workout.activeCalories),
-    totalCalories: null,
+    totalCalories: finitePositiveNumber(workout.totalCalories),
+    healthMetadata: {
+      heartRateSamples: sanitizeHeartRateSamples(workout.heartRateSamples),
+      minHr: finitePositiveIntegerOrNull(workout.minHr),
+      workoutEffort: finiteBoundedNumberOrNull(workout.workoutEffort, 1, 10),
+      temperatureC: finiteBoundedNumberOrNull(workout.temperatureC, -80, 80),
+      humidityPercent: finiteBoundedNumberOrNull(
+        workout.humidityPercent,
+        0,
+        100,
+      ),
+      weatherCondition: workout.weatherCondition?.trim().slice(0, 80) || null,
+      averageMets: finiteBoundedNumberOrNull(workout.averageMets, 0, 50),
+      isIndoor:
+        typeof workout.isIndoor === "boolean" ? workout.isIndoor : null,
+      sourceDevice: workout.sourceDevice?.trim().slice(0, 160) || null,
+      workoutBrandName:
+        workout.workoutBrandName?.trim().slice(0, 160) || null,
+      totalCaloriesEstimated: workout.totalCaloriesEstimated === true,
+    },
   };
+}
+
+export function sanitizeHeartRateSamples(
+  samples: HealthKitWorkout["heartRateSamples"],
+) {
+  if (!Array.isArray(samples)) return [];
+  return samples.flatMap((sample) => {
+    if (
+      !sample ||
+      typeof sample.timestamp !== "string" ||
+      Number.isNaN(Date.parse(sample.timestamp)) ||
+      typeof sample.bpm !== "number" ||
+      !Number.isFinite(sample.bpm) ||
+      sample.bpm < 20 ||
+      sample.bpm > 260
+    ) {
+      return [];
+    }
+    return [{ timestamp: sample.timestamp, bpm: Math.round(sample.bpm) }];
+  }).slice(0, 300);
 }
 
 function finitePositiveInteger(value: number | null | undefined) {
@@ -75,6 +114,19 @@ function finitePositiveIntegerOrNull(value: number | null | undefined) {
 
 function finitePositiveNumber(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
+function finiteBoundedNumberOrNull(
+  value: number | null | undefined,
+  minimum: number,
+  maximum: number,
+) {
+  return typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= minimum &&
+    value <= maximum
     ? value
     : null;
 }

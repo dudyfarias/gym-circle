@@ -198,6 +198,7 @@ export type SurfaceActivityRow = {
   max_hr?: number | null;
   active_calories?: number | null;
   total_calories?: number | null;
+  health_metadata?: Record<string, unknown> | null;
   distance_m?: number | null;
   moving_s?: number | null;
   elevation_gain_m?: number | null;

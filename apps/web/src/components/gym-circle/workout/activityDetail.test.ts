@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   distanceFromActivityRoute,
   normalizeActivitySource,
+  mergeHydratedWorkoutDetail,
   normalizedMovingSeconds,
   resolveActivityRoute,
   resolveActivityTime,
   sanitizeActivityRoute,
 } from "./activityDetail";
+import type { WorkoutDetail } from "../social/types";
 
 describe("activity detail outdoor metrics", () => {
   it("sanitizes a real route and derives its distance without changing storage", () => {
@@ -85,4 +87,58 @@ describe("activity detail outdoor metrics", () => {
     ).toBe("apple_watch");
     expect(normalizeActivitySource({ origin: "web_timer" })).toBe("gym_circle");
   });
+
+  it("usa métricas do Saúde sem sobrescrever o local do Gym Circle", () => {
+    const current = workoutDetail({
+      gymName: "Saint Thomas",
+      locationName: "Saint Thomas",
+      locationLatitude: -23.55,
+      locationLongitude: -46.63,
+      activeCalories: 100,
+      origin: null,
+    });
+    const hydrated = workoutDetail({
+      gymName: null,
+      locationName: null,
+      locationLatitude: null,
+      locationLongitude: null,
+      activeCalories: 176,
+      origin: "imported",
+      sourceApp: "Apple Watch",
+    });
+
+    expect(mergeHydratedWorkoutDetail(current, hydrated)).toMatchObject({
+      gymName: "Saint Thomas",
+      locationName: "Saint Thomas",
+      locationLatitude: -23.55,
+      locationLongitude: -46.63,
+      activeCalories: 176,
+      origin: "imported",
+      sourceApp: "Apple Watch",
+    });
+  });
 });
+
+function workoutDetail(patch: Partial<WorkoutDetail>): WorkoutDetail {
+  return {
+    activityType: "other",
+    startedAt: "2026-07-16T19:47:00.000Z",
+    endedAt: "2026-07-16T20:13:00.000Z",
+    elapsedS: 1_560,
+    movingS: null,
+    distanceM: null,
+    elevationGainM: null,
+    avgHr: 117,
+    maxHr: 161,
+    activeCalories: 175,
+    totalCalories: 222,
+    route: null,
+    origin: "imported",
+    sourceApp: "Apple Watch",
+    strengthSets: null,
+    gymName: null,
+    locationName: null,
+    caption: null,
+    ...patch,
+  };
+}

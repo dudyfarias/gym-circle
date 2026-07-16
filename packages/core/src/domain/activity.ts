@@ -248,6 +248,7 @@ export type Activity = {
   maxHr: number | null;
   activeCalories: number | null;
   totalCalories: number | null;
+  healthMetadata: ActivityHealthMetadata;
   workoutDate: string;
   createdAt: string;
   workoutPlanId: string | null;
@@ -282,6 +283,8 @@ export type ActivityInput = {
   maxHr?: number | null;
   activeCalories?: number | null;
   totalCalories?: number | null;
+  /** Dados opcionais, explícitos e sanitizados da fonte de saúde. */
+  healthMetadata?: ActivityHealthMetadata | null;
   /** Default: derivado de startedAt em America/Sao_Paulo. */
   workoutDate?: string;
   workoutPlanId?: string | null;
@@ -313,6 +316,7 @@ export type ActivityRow = {
   max_hr: number | null;
   active_calories: number | null;
   total_calories: number | null;
+  health_metadata?: ActivityHealthMetadataRow | null;
   workout_date: string;
   created_at: string;
   workout_plan_id?: string | null;
@@ -345,6 +349,7 @@ export function activityRowToDomain(row: ActivityRow): Activity {
     maxHr: row.max_hr,
     activeCalories: row.active_calories,
     totalCalories: row.total_calories,
+    healthMetadata: activityHealthMetadataFromRow(row.health_metadata),
     workoutDate: row.workout_date,
     createdAt: row.created_at,
     workoutPlanId: row.workout_plan_id ?? null,
@@ -387,6 +392,7 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     max_hr: input.maxHr ?? null,
     active_calories: input.activeCalories ?? null,
     total_calories: input.totalCalories ?? null,
+    health_metadata: activityHealthMetadataToRow(input.healthMetadata),
     workout_date:
       input.workoutDate ?? getGymCircleDateKey(new Date(input.startedAt)),
     workout_plan_id: input.workoutPlanId ?? null,
@@ -397,6 +403,151 @@ export function activityInputToRow(input: ActivityInput, userId: string) {
     workout_note: input.workoutNote?.trim() || null,
     workout_exercise_context: input.workoutExerciseContext ?? [],
   };
+}
+
+export type ActivityHeartRateSample = {
+  timestamp: string;
+  bpm: number;
+};
+
+export type ActivityHealthMetadata = {
+  heartRateSamples: ActivityHeartRateSample[];
+  minHr: number | null;
+  workoutEffort: number | null;
+  temperatureC: number | null;
+  humidityPercent: number | null;
+  weatherCondition: string | null;
+  averageMets: number | null;
+  isIndoor: boolean | null;
+  sourceDevice: string | null;
+  workoutBrandName: string | null;
+  totalCaloriesEstimated: boolean;
+};
+
+export type ActivityHealthMetadataRow = {
+  schema_version?: number;
+  heart_rate_samples?: Array<{ timestamp?: unknown; bpm?: unknown }>;
+  min_hr?: unknown;
+  workout_effort?: unknown;
+  temperature_c?: unknown;
+  humidity_percent?: unknown;
+  weather_condition?: unknown;
+  average_mets?: unknown;
+  is_indoor?: unknown;
+  source_device?: unknown;
+  workout_brand_name?: unknown;
+  total_calories_estimated?: unknown;
+};
+
+const EMPTY_HEALTH_METADATA: ActivityHealthMetadata = {
+  heartRateSamples: [],
+  minHr: null,
+  workoutEffort: null,
+  temperatureC: null,
+  humidityPercent: null,
+  weatherCondition: null,
+  averageMets: null,
+  isIndoor: null,
+  sourceDevice: null,
+  workoutBrandName: null,
+  totalCaloriesEstimated: false,
+};
+
+export function activityHealthMetadataFromRow(
+  row: ActivityHealthMetadataRow | null | undefined,
+): ActivityHealthMetadata {
+  if (!row || typeof row !== "object") return { ...EMPTY_HEALTH_METADATA };
+  const samples = Array.isArray(row.heart_rate_samples)
+    ? row.heart_rate_samples.flatMap((sample) => {
+        const timestamp =
+          typeof sample?.timestamp === "string" ? sample.timestamp : "";
+        const bpm = finiteNumberOrNull(sample?.bpm, 20, 260);
+        if (!timestamp || bpm === null || Number.isNaN(Date.parse(timestamp))) {
+          return [];
+        }
+        return [{ timestamp, bpm: Math.round(bpm) }];
+      })
+    : [];
+  return {
+    heartRateSamples: samples.slice(0, 300),
+    minHr: roundedFiniteNumberOrNull(row.min_hr, 20, 260),
+    workoutEffort: finiteNumberOrNull(row.workout_effort, 1, 10),
+    temperatureC: finiteNumberOrNull(row.temperature_c, -80, 80),
+    humidityPercent: finiteNumberOrNull(row.humidity_percent, 0, 100),
+    weatherCondition:
+      typeof row.weather_condition === "string" && row.weather_condition.trim()
+        ? row.weather_condition.trim().slice(0, 80)
+        : null,
+    averageMets: finiteNumberOrNull(row.average_mets, 0, 50),
+    isIndoor: typeof row.is_indoor === "boolean" ? row.is_indoor : null,
+    sourceDevice:
+      typeof row.source_device === "string" && row.source_device.trim()
+        ? row.source_device.trim().slice(0, 160)
+        : null,
+    workoutBrandName:
+      typeof row.workout_brand_name === "string" && row.workout_brand_name.trim()
+        ? row.workout_brand_name.trim().slice(0, 160)
+        : null,
+    totalCaloriesEstimated: row.total_calories_estimated === true,
+  };
+}
+
+export function activityHealthMetadataToRow(
+  metadata: ActivityHealthMetadata | null | undefined,
+): ActivityHealthMetadataRow {
+  const normalized = activityHealthMetadataFromRow(
+    metadata
+      ? {
+          heart_rate_samples: metadata.heartRateSamples,
+          min_hr: metadata.minHr,
+          workout_effort: metadata.workoutEffort,
+          temperature_c: metadata.temperatureC,
+          humidity_percent: metadata.humidityPercent,
+          weather_condition: metadata.weatherCondition,
+          average_mets: metadata.averageMets,
+          is_indoor: metadata.isIndoor,
+          source_device: metadata.sourceDevice,
+          workout_brand_name: metadata.workoutBrandName,
+          total_calories_estimated: metadata.totalCaloriesEstimated,
+        }
+      : null,
+  );
+  return {
+    schema_version: 1,
+    heart_rate_samples: normalized.heartRateSamples,
+    min_hr: normalized.minHr,
+    workout_effort: normalized.workoutEffort,
+    temperature_c: normalized.temperatureC,
+    humidity_percent: normalized.humidityPercent,
+    weather_condition: normalized.weatherCondition,
+    average_mets: normalized.averageMets,
+    is_indoor: normalized.isIndoor,
+    source_device: normalized.sourceDevice,
+    workout_brand_name: normalized.workoutBrandName,
+    total_calories_estimated: normalized.totalCaloriesEstimated,
+  };
+}
+
+function finiteNumberOrNull(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): number | null {
+  return typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= minimum &&
+    value <= maximum
+    ? value
+    : null;
+}
+
+function roundedFiniteNumberOrNull(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+) {
+  const normalized = finiteNumberOrNull(value, minimum, maximum);
+  return normalized === null ? null : Math.round(normalized);
 }
 
 function nonNegativeInteger(value: number) {

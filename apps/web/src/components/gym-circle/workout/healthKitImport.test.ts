@@ -3,6 +3,7 @@ import type { HealthKitWorkout } from "../native/HealthKitBridge";
 import {
   healthKitWorkoutActivityType,
   healthKitWorkoutToActivityInput,
+  sanitizeHeartRateSamples,
   sanitizeHealthKitRoute,
 } from "./healthKitImport";
 
@@ -19,6 +20,18 @@ const walkingWorkout: HealthKitWorkout = {
   activeCalories: 42.5,
   avgHr: 112.4,
   maxHr: 138.2,
+  minHr: 88,
+  heartRateSamples: [
+    { timestamp: "2026-07-15T13:38:30.000Z", bpm: 92.4 },
+    { timestamp: "2026-07-15T13:39:30.000Z", bpm: 108.8 },
+  ],
+  workoutEffort: 3,
+  temperatureC: 14,
+  humidityPercent: 68,
+  isIndoor: false,
+  sourceDevice: "Apple Watch",
+  totalCalories: 60,
+  totalCaloriesEstimated: true,
   route: [
     [-23.5, -46.6],
     [-23.5002, -46.6003],
@@ -42,8 +55,34 @@ describe("healthKitWorkoutToActivityInput", () => {
       avgHr: 112,
       maxHr: 138,
       activeCalories: 42.5,
-      totalCalories: null,
+      totalCalories: 60,
+      healthMetadata: {
+        heartRateSamples: [
+          { timestamp: "2026-07-15T13:38:30.000Z", bpm: 92 },
+          { timestamp: "2026-07-15T13:39:30.000Z", bpm: 109 },
+        ],
+        minHr: 88,
+        workoutEffort: 3,
+        temperatureC: 14,
+        humidityPercent: 68,
+        weatherCondition: null,
+        averageMets: null,
+        isIndoor: false,
+        sourceDevice: "Apple Watch",
+        workoutBrandName: null,
+        totalCaloriesEstimated: true,
+      },
     });
+  });
+
+  it("descarta amostras de FC inválidas sem inventar gráfico", () => {
+    expect(
+      sanitizeHeartRateSamples([
+        { timestamp: "inválido", bpm: 100 },
+        { timestamp: "2026-07-15T13:38:30.000Z", bpm: 500 },
+        { timestamp: "2026-07-15T13:39:30.000Z", bpm: 117.4 },
+      ]),
+    ).toEqual([{ timestamp: "2026-07-15T13:39:30.000Z", bpm: 117 }]);
   });
 
   it("mapeia modalidades suportadas e degrada as demais para outro", () => {

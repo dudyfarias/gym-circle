@@ -228,6 +228,51 @@ describe("activityService.create", () => {
   });
 });
 
+describe("activityService.detail", () => {
+  it("hidrata o detalhe uma vez por activity/post via RPC sob RLS", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        ...baseRow,
+        origin: "imported",
+        source_app: "Apple Watch",
+        health_metadata: {
+          schema_version: 1,
+          workout_effort: 3,
+          heart_rate_samples: [
+            { timestamp: "2026-07-16T19:47:00.000Z", bpm: 117 },
+          ],
+        },
+      },
+      error: null,
+    });
+    const client = { rpc } as unknown as GymCircleClient;
+
+    const detail = await activityService(client).detail({ postId: "post-1" });
+
+    expect(rpc).toHaveBeenCalledWith("get_activity_detail_v2", {
+      p_activity_id: null,
+      p_post_id: "post-1",
+    });
+    expect(detail).toMatchObject({
+      origin: "imported",
+      sourceApp: "Apple Watch",
+      healthMetadata: {
+        workoutEffort: 3,
+        heartRateSamples: [
+          { timestamp: "2026-07-16T19:47:00.000Z", bpm: 117 },
+        ],
+      },
+    });
+  });
+
+  it("não faz request sem identificador", async () => {
+    const rpc = vi.fn();
+    const client = { rpc } as unknown as GymCircleClient;
+    await expect(activityService(client).detail({})).resolves.toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("activityService.updateWorkoutNotes", () => {
   it("atualiza apenas a activity filtrada e normaliza nota vazia", async () => {
     const eq = vi.fn().mockResolvedValue({ error: null });

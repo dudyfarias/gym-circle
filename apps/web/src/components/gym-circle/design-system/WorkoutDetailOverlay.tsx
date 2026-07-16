@@ -1,11 +1,12 @@
 "use client";
 
-import { Bike, Dumbbell, Footprints, MapPin, Play, Trophy, X } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { CloudSun, Gauge, Trophy, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { WorkoutDetail } from "../social/types";
 import {
   normalizeActivitySource,
+  mergeHydratedWorkoutDetail,
   normalizedMovingSeconds,
   resolveActivityRoute,
   resolveActivityTime,
@@ -18,19 +19,24 @@ import {
 } from "../workout/workoutElapsed";
 import { ActivityMetricGrid } from "./ActivityMetricGrid";
 import { ActivitySourceBadge } from "./ActivitySourceBadge";
-import { OutdoorActivityHero } from "./OutdoorActivityHero";
+import { ActivityHeartRateSection } from "./ActivityHeartRateSection";
+import { ActivityHero } from "./ActivityHero";
 
 type WorkoutDetailOverlayProps = {
   workout: WorkoutDetail;
   onClose: () => void;
+  loadWorkoutDetail?: (input: {
+    activityId?: string | null;
+    postId?: string | null;
+  }) => Promise<WorkoutDetail | null>;
 };
 
-const TYPE_META: Record<string, { key: string; icon: LucideIcon }> = {
-  strength: { key: "workout.types.strength", icon: Dumbbell },
-  run: { key: "workout.types.run", icon: Footprints },
-  walk: { key: "workout.types.walk", icon: Footprints },
-  ride: { key: "workout.types.ride", icon: Bike },
-  other: { key: "workout.types.other", icon: Play },
+const TYPE_META: Record<string, { key: string }> = {
+  strength: { key: "workout.types.strength" },
+  run: { key: "workout.types.run" },
+  walk: { key: "workout.types.walk" },
+  ride: { key: "workout.types.ride" },
+  other: { key: "workout.types.other" },
 };
 
 const OUTDOOR_TYPES = new Set(["run", "walk", "ride"]);
@@ -68,19 +74,56 @@ function formatRecordValue(value: number, unit: string): string {
 }
 
 export function WorkoutDetailOverlay({
-  workout,
+  workout: initialWorkout,
   onClose,
+  loadWorkoutDetail,
 }: WorkoutDetailOverlayProps) {
+  const [workout, setWorkout] = useState(initialWorkout);
+  const requestedDetailKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = initialWorkout.activityId
+      ? `activity:${initialWorkout.activityId}`
+      : initialWorkout.postId
+        ? `post:${initialWorkout.postId}`
+        : null;
+    if (!key || !loadWorkoutDetail || requestedDetailKeyRef.current === key) {
+      return;
+    }
+    requestedDetailKeyRef.current = key;
+    let cancelled = false;
+    void loadWorkoutDetail({
+      activityId: initialWorkout.activityId,
+      postId: initialWorkout.postId,
+    })
+      .then((hydrated) => {
+        if (!hydrated || cancelled) return;
+        setWorkout((current) => mergeHydratedWorkoutDetail(current, hydrated));
+      })
+      .catch(() => {
+        // O resumo já possui os campos leves do feed. Falha de hidratação não
+        // bloqueia fechar/navegar e não agenda retry automático.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialWorkout, loadWorkoutDetail]);
+
   const { i18n, t } = useTranslation();
   const locale = i18n.language?.startsWith("en") ? "en-US" : "pt-BR";
   const timeZone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
   const meta = TYPE_META[workout.activityType] ?? TYPE_META.other;
-  const Icon = meta.icon;
   const typeLabel = t(meta.key);
   const isOutdoor = OUTDOOR_TYPES.has(workout.activityType);
   const start = workout.startedAt ?? workout.endedAt;
   const locationLabel = workout.gymName ?? workout.locationName;
+  const locationCoordinate =
+    typeof workout.locationLatitude === "number" &&
+    Number.isFinite(workout.locationLatitude) &&
+    typeof workout.locationLongitude === "number" &&
+    Number.isFinite(workout.locationLongitude)
+      ? ([workout.locationLatitude, workout.locationLongitude] as [number, number])
+      : null;
   const routeResolution = resolveActivityRoute({
     route: workout.route,
     distanceM: workout.distanceM,
@@ -98,6 +141,7 @@ export function WorkoutDetailOverlay({
       ? t("workoutDetail.startedAt", { time: time.startLabel })
       : null;
   const movingS = normalizedMovingSeconds(workout.movingS, workout.elapsedS);
+  const healthMetadata = workout.healthMetadata ?? null;
   const pace = routeResolution.distanceM
     ? paceFromDistance(
         routeResolution.distanceM,
@@ -177,8 +221,28 @@ export function WorkoutDetailOverlay({
       label: t("workoutDetail.totalCalories"),
       value: `${Math.round(workout.totalCalories ?? 0)} kcal`,
       color: TONE.calories,
+      hint: healthMetadata?.totalCaloriesEstimated
+        ? t("workoutDetail.estimatedFromHealth")
+        : null,
     });
   }
+
+  const primaryMetric = routeResolution.distanceM
+    ? formatKm(routeResolution.distanceM)
+    : (workout.activeCalories ?? 0) > 0
+      ? `${Math.round(workout.activeCalories ?? 0)} kcal`
+      : formatElapsed(workout.elapsedS);
+  const hasConditions = Boolean(
+    healthMetadata?.weatherCondition ||
+      healthMetadata?.temperatureC != null ||
+      healthMetadata?.humidityPercent != null,
+  );
+  const hasContext = Boolean(
+    healthMetadata?.isIndoor != null ||
+      healthMetadata?.averageMets != null ||
+      healthMetadata?.sourceDevice ||
+      healthMetadata?.workoutBrandName,
+  );
   if ((workout.avgHr ?? 0) > 0) {
     stats.push({
       label: t("workoutDetail.avgHeartRate"),
@@ -211,45 +275,19 @@ export function WorkoutDetailOverlay({
           <X size={18} strokeWidth={2.5} />
         </button>
 
-        {isOutdoor ? (
-          <OutdoorActivityHero
-            activityType={workout.activityType}
-            dateLabel={longDate(start, locale, timeZone)}
-            distanceLabel={
-              routeResolution.distanceM
-                ? formatKm(routeResolution.distanceM)
-                : null
-            }
-            locationLabel={locationLabel}
-            mapLabel={t("workoutDetail.mapTitle")}
-            mapUnavailableLabel={t("workoutDetail.routeUnavailable")}
-            route={routeResolution.route}
-            sourceBadge={sourceBadge}
-            timeLabel={timeLabel}
-            title={typeLabel}
-          />
-        ) : (
-          <header className="mb-6 mt-10 flex items-center gap-3.5">
-            <div className="grid size-16 shrink-0 place-items-center rounded-full bg-[var(--gc-blue)]/14 text-[var(--gc-blue)]">
-              <Icon size={26} strokeWidth={2.6} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[22px] font-black leading-tight text-white">
-                {typeLabel}
-              </p>
-              {timeLabel ? (
-                <p className="text-[13px] font-semibold text-white/50">{timeLabel}</p>
-              ) : null}
-              {locationLabel ? (
-                <p className="flex items-center gap-1 text-[12px] font-semibold text-white/50">
-                  <MapPin size={11} strokeWidth={2.6} />
-                  <span className="truncate">{locationLabel}</span>
-                </p>
-              ) : null}
-              <div className="mt-2">{sourceBadge}</div>
-            </div>
-          </header>
-        )}
+        <ActivityHero
+          activityType={workout.activityType}
+          dateLabel={longDate(start, locale, timeZone)}
+          locationCoordinate={locationCoordinate}
+          locationLabel={locationLabel}
+          mapLabel={t("workoutDetail.mapTitle")}
+          mapUnavailableLabel={t("workoutDetail.mapUnavailable")}
+          primaryMetric={primaryMetric}
+          route={routeResolution.route}
+          sourceBadge={sourceBadge}
+          timeLabel={timeLabel}
+          title={typeLabel}
+        />
 
         <section className="mt-6">
           <h3 className="mb-3 text-[18px] font-black text-white">
@@ -257,6 +295,104 @@ export function WorkoutDetailOverlay({
           </h3>
           <ActivityMetricGrid metrics={stats} />
         </section>
+
+        {healthMetadata?.workoutEffort ? (
+          <section className="mt-4 flex items-center justify-between gap-4 rounded-[24px] border border-white/[0.055] bg-white/[0.045] px-5 py-4">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.11em] text-white/42">
+                {t("workoutDetail.effort")}
+              </p>
+              <p className="mt-1 text-[22px] font-black text-[var(--gc-blue)]">
+                {healthMetadata.workoutEffort.toLocaleString(locale, {
+                  maximumFractionDigits: 1,
+                })}
+                <span className="ml-2 text-[15px] text-white/62">
+                  {effortLabel(healthMetadata.workoutEffort, t)}
+                </span>
+              </p>
+            </div>
+            <Gauge className="text-[var(--gc-blue)]" size={32} strokeWidth={2.2} />
+          </section>
+        ) : null}
+
+        {healthMetadata?.heartRateSamples &&
+        healthMetadata.heartRateSamples.length >= 2 ? (
+          <ActivityHeartRateSection
+            average={workout.avgHr}
+            labels={{
+              title: t("workoutDetail.heartRateTitle"),
+              average: t("workoutDetail.averageShort"),
+              minimum: t("workoutDetail.minimumShort"),
+              maximum: t("workoutDetail.maximumShort"),
+            }}
+            locale={locale}
+            maximum={workout.maxHr ?? null}
+            minimum={healthMetadata.minHr}
+            samples={healthMetadata.heartRateSamples}
+            timeZone={timeZone}
+          />
+        ) : null}
+
+        {hasConditions || hasContext ? (
+          <section className="mt-6 rounded-[24px] border border-white/[0.055] bg-white/[0.035] p-5">
+            <div className="flex items-center gap-2">
+              <CloudSun className="text-[var(--gc-blue)]" size={18} />
+              <h3 className="text-[17px] font-black text-white">
+                {t("workoutDetail.contextTitle")}
+              </h3>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-4">
+              {healthMetadata?.temperatureC != null ? (
+                <ContextValue
+                  label={t("workoutDetail.temperature")}
+                  value={`${Math.round(healthMetadata.temperatureC)}°C`}
+                />
+              ) : null}
+              {healthMetadata?.humidityPercent != null ? (
+                <ContextValue
+                  label={t("workoutDetail.humidity")}
+                  value={`${Math.round(healthMetadata.humidityPercent)}%`}
+                />
+              ) : null}
+              {healthMetadata?.weatherCondition ? (
+                <ContextValue
+                  label={t("workoutDetail.weather")}
+                  value={humanizeHealthValue(healthMetadata.weatherCondition)}
+                />
+              ) : null}
+              {healthMetadata?.isIndoor != null ? (
+                <ContextValue
+                  label={t("workoutDetail.environment")}
+                  value={t(
+                    healthMetadata.isIndoor
+                      ? "workoutDetail.indoor"
+                      : "workoutDetail.outdoor",
+                  )}
+                />
+              ) : null}
+              {healthMetadata?.averageMets != null ? (
+                <ContextValue
+                  label={t("workoutDetail.averageMets")}
+                  value={healthMetadata.averageMets.toLocaleString(locale, {
+                    maximumFractionDigits: 1,
+                  })}
+                />
+              ) : null}
+              {healthMetadata?.sourceDevice ? (
+                <ContextValue
+                  label={t("workoutDetail.device")}
+                  value={healthMetadata.sourceDevice}
+                />
+              ) : null}
+              {healthMetadata?.workoutBrandName ? (
+                <ContextValue
+                  label={t("workoutDetail.source")}
+                  value={healthMetadata.workoutBrandName}
+                />
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         {workout.recordHighlights && workout.recordHighlights.length > 0 ? (
           <section className="mt-4 rounded-[22px] border border-[#FFD60A]/18 bg-[#FFD60A]/[0.055] p-4">
@@ -356,4 +492,31 @@ export function WorkoutDetailOverlay({
       </div>
     </div>
   );
+}
+
+function ContextValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] font-black uppercase tracking-[0.08em] text-white/38">
+        {label}
+      </p>
+      <p className="mt-1 break-words text-[14px] font-black text-white/82">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function effortLabel(value: number, translate: (key: string) => string) {
+  if (value <= 3) return translate("workoutDetail.effortEasy");
+  if (value <= 5) return translate("workoutDetail.effortModerate");
+  if (value <= 7) return translate("workoutDetail.effortHard");
+  return translate("workoutDetail.effortVeryHard");
+}
+
+function humanizeHealthValue(value: string) {
+  return value
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/^\w/, (letter) => letter.toUpperCase());
 }

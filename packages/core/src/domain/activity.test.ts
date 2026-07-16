@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activityInputToRow,
+  activityHealthMetadataFromRow,
   activityRowToDomain,
   strengthSetsFromRow,
   strengthSetsToRow,
@@ -8,6 +9,24 @@ import {
 } from "./activity";
 
 describe("activityInputToRow", () => {
+  it("sanitiza metadata do Saúde e limita a série de FC", () => {
+    const metadata = activityHealthMetadataFromRow({
+      heart_rate_samples: [
+        { timestamp: "2026-07-16T19:47:00.000Z", bpm: 117.4 },
+        { timestamp: "inválido", bpm: 999 },
+      ],
+      workout_effort: 3,
+      total_calories_estimated: true,
+    });
+    expect(metadata).toMatchObject({
+      heartRateSamples: [
+        { timestamp: "2026-07-16T19:47:00.000Z", bpm: 117 },
+      ],
+      workoutEffort: 3,
+      totalCaloriesEstimated: true,
+    });
+  });
+
   it("sessão web_timer: só tempo, sem gps/hr", () => {
     const row = activityInputToRow(
       {
@@ -133,6 +152,19 @@ describe("activityRowToDomain", () => {
       maxHr: 168,
       activeCalories: 480,
       totalCalories: 512,
+      healthMetadata: {
+        heartRateSamples: [],
+        minHr: null,
+        workoutEffort: null,
+        temperatureC: null,
+        humidityPercent: null,
+        weatherCondition: null,
+        averageMets: null,
+        isIndoor: null,
+        sourceDevice: null,
+        workoutBrandName: null,
+        totalCaloriesEstimated: false,
+      },
       workoutDate: "2026-07-02",
       createdAt: "2026-07-02T21:58:01Z",
       workoutPlanId: null,

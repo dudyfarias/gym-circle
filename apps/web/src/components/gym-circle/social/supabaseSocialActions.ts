@@ -61,6 +61,7 @@ import type {
   SendChatMessageInput,
   StoryGroup,
   WebActivityInput,
+  WorkoutDetail,
 } from "./types";
 import type { SupabaseSocialActions } from "./useSupabaseSocial";
 
@@ -702,6 +703,7 @@ export function createSocialActions(
           maxHr: input.maxHr ?? null,
           activeCalories: input.activeCalories ?? null,
           totalCalories: input.totalCalories ?? null,
+          healthMetadata: input.healthMetadata ?? null,
           strengthSets: input.strengthSets ?? null,
           workoutPlanId: input.workoutPlanId ?? null,
           workoutPlanNameSnapshot: input.workoutPlanNameSnapshot ?? null,
@@ -756,6 +758,39 @@ export function createSocialActions(
       },
       async fetchMergeableActivities(workoutDate: string) {
         return services.activities.mergeableForDate(workoutDate);
+      },
+      async fetchWorkoutDetail(input: {
+        activityId?: string | null;
+        postId?: string | null;
+      }): Promise<WorkoutDetail | null> {
+        const activity = await services.activities.detail(input);
+        if (!activity) return null;
+        return {
+          activityId: activity.id,
+          postId: input.postId ?? null,
+          activityType: activity.activityType,
+          startedAt: activity.startedAt,
+          endedAt: activity.endedAt,
+          elapsedS: activity.elapsedS,
+          movingS: activity.movingS,
+          distanceM: activity.distanceM,
+          elevationGainM: activity.elevationGainM,
+          avgHr: activity.avgHr,
+          maxHr: activity.maxHr,
+          activeCalories: activity.activeCalories,
+          totalCalories: activity.totalCalories,
+          healthMetadata: activity.healthMetadata,
+          route: activity.route,
+          origin: activity.origin,
+          sourceApp: activity.sourceApp,
+          strengthSets: activity.strengthSets,
+          gymName: null,
+          locationName: null,
+          locationLatitude: null,
+          locationLongitude: null,
+          caption: null,
+          recordHighlights: null,
+        };
       },
       async integrateWorkoutIntoPost(postId: string, activityId: string) {
         const post = aggRef.current.feedPosts.find((row) => row.id === postId);

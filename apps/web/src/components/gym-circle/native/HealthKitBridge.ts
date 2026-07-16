@@ -28,6 +28,19 @@ export type HealthKitWorkout = {
   activeCalories?: number | null;
   avgHr?: number | null;
   maxHr?: number | null;
+  minHr?: number | null;
+  heartRateSamples?: Array<{ timestamp: string; bpm: number }> | null;
+  workoutEffort?: number | null;
+  temperatureC?: number | null;
+  humidityPercent?: number | null;
+  weatherCondition?: string | null;
+  averageMets?: number | null;
+  isIndoor?: boolean | null;
+  sourceDevice?: string | null;
+  workoutBrandName?: string | null;
+  totalCalories?: number | null;
+  totalCaloriesEstimated?: boolean;
+  elevationGainM?: number | null;
   route?: number[][] | null;
 };
 

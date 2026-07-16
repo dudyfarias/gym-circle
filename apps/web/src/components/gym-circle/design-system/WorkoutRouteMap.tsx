@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 
 type WorkoutRouteMapProps = {
-  route: number[][];
+  route?: number[][] | null;
+  center?: [number, number] | null;
   className?: string;
   label: string;
   showAttribution?: boolean;
@@ -39,6 +40,7 @@ function worldPoint(latitude: number, longitude: number, zoom: number) {
  */
 export function WorkoutRouteMap({
   route,
+  center,
   className,
   label,
   showAttribution = true,
@@ -46,7 +48,7 @@ export function WorkoutRouteMap({
 }: WorkoutRouteMapProps) {
   const [tileFailure, setTileFailure] = useState({ path: "", count: 0 });
   const geometry = useMemo(() => {
-    const coordinates = route.filter(
+    const routeCoordinates = (route ?? []).filter(
       (point) =>
         Array.isArray(point) &&
         point.length >= 2 &&
@@ -55,13 +57,28 @@ export function WorkoutRouteMap({
         Math.abs(point[0]) <= 90 &&
         Math.abs(point[1]) <= 180,
     );
-    if (coordinates.length < 2) return null;
+    const centerCoordinate =
+      Array.isArray(center) &&
+      center.length >= 2 &&
+      Number.isFinite(center[0]) &&
+      Number.isFinite(center[1]) &&
+      Math.abs(center[0]) <= 90 &&
+      Math.abs(center[1]) <= 180
+        ? center
+        : null;
+    const coordinates =
+      routeCoordinates.length >= 2
+        ? routeCoordinates
+        : centerCoordinate
+          ? [centerCoordinate]
+          : [];
+    if (coordinates.length === 0) return null;
 
-    let zoom = 18;
+    let zoom = coordinates.length === 1 ? 16 : 18;
     let projected = coordinates.map(([latitude, longitude]) =>
       worldPoint(latitude, longitude, zoom),
     );
-    while (zoom > 3) {
+    while (coordinates.length > 1 && zoom > 3) {
       const xs = projected.map((point) => point.x);
       const ys = projected.map((point) => point.y);
       if (
@@ -114,17 +131,21 @@ export function WorkoutRouteMap({
       y: point.y - originY,
     }));
     return {
-      path: screenPoints
-        .map(
-          (point, index) =>
-            `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
-        )
-        .join(" "),
+      path:
+        screenPoints.length >= 2
+          ? screenPoints
+              .map(
+                (point, index) =>
+                  `${index === 0 ? "M" : "L"}${point.x.toFixed(1)} ${point.y.toFixed(1)}`,
+              )
+              .join(" ")
+          : `P${screenPoints[0]?.x.toFixed(1)} ${screenPoints[0]?.y.toFixed(1)}`,
       start: screenPoints[0],
       end: screenPoints.at(-1),
+      hasRoute: screenPoints.length >= 2,
       tiles,
     };
-  }, [route]);
+  }, [center, route]);
 
   if (!geometry?.start || !geometry.end) return null;
   const failedTiles =
@@ -162,48 +183,54 @@ export function WorkoutRouteMap({
           />
         ))}
         <rect fill="black" fillOpacity="0.12" height={HEIGHT} width={WIDTH} />
-        <path
-          d={geometry.path}
-          fill="none"
-          stroke="#061118"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeOpacity="0.62"
-          strokeWidth={7}
-        />
-        <path
-          d={geometry.path}
-          fill="none"
-          stroke="var(--gc-blue)"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={4}
-        />
+        {geometry.hasRoute ? (
+          <>
+            <path
+              d={geometry.path}
+              fill="none"
+              stroke="#061118"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeOpacity="0.62"
+              strokeWidth={7}
+            />
+            <path
+              d={geometry.path}
+              fill="none"
+              stroke="var(--gc-blue)"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={4}
+            />
+          </>
+        ) : null}
         <circle
           cx={geometry.start.x}
           cy={geometry.start.y}
           fill="var(--gc-blue)"
-          r={6}
+          r={geometry.hasRoute ? 6 : 9}
           stroke="white"
           strokeWidth={2}
         />
-        <circle
-          cx={geometry.end.x}
-          cy={geometry.end.y}
-          fill="white"
-          r={6}
-          stroke="#071116"
-          strokeWidth={2}
-        />
+        {geometry.hasRoute ? (
+          <circle
+            cx={geometry.end.x}
+            cy={geometry.end.y}
+            fill="white"
+            r={6}
+            stroke="#071116"
+            strokeWidth={2}
+          />
+        ) : null}
       </svg>
       {fallbackLabel && failedTiles >= geometry.tiles.length ? (
-        <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-black text-white/62 backdrop-blur-md">
+        <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-black/55 px-2.5 py-1 text-[9px] font-black text-white/62 backdrop-blur-md">
           {fallbackLabel}
         </span>
       ) : null}
       {showAttribution ? (
         <a
-          className="absolute bottom-1 right-1 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-bold text-white/75"
+          className="absolute left-1 top-1 z-10 rounded bg-black/65 px-1.5 py-0.5 text-[8px] font-bold text-white/75"
           href="https://www.openstreetmap.org/copyright"
           rel="noreferrer"
           target="_blank"

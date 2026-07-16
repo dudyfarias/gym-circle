@@ -1,3 +1,5 @@
+import type { WorkoutDetail } from "../social/types";
+
 export type ActivityRouteResolution = {
   route: number[][] | null;
   distanceM: number | null;
@@ -146,4 +148,24 @@ export function normalizeActivitySource(input: {
   if (/apple\s*watch/i.test(source)) return "apple_watch" as const;
   if (/health|sa[uú]de/i.test(source)) return "apple_health" as const;
   return source ? ("external_app" as const) : ("imported" as const);
+}
+
+/**
+ * Saúde vence para métricas; o local escolhido no Gym Circle é a única
+ * exceção. Também preserva legenda e PRs, que pertencem à camada social.
+ */
+export function mergeHydratedWorkoutDetail(
+  current: WorkoutDetail,
+  hydrated: WorkoutDetail,
+): WorkoutDetail {
+  return {
+    ...current,
+    ...hydrated,
+    gymName: current.gymName ?? hydrated.gymName,
+    locationName: current.locationName ?? hydrated.locationName,
+    locationLatitude: current.locationLatitude ?? hydrated.locationLatitude,
+    locationLongitude: current.locationLongitude ?? hydrated.locationLongitude,
+    caption: current.caption ?? hydrated.caption,
+    recordHighlights: current.recordHighlights ?? hydrated.recordHighlights,
+  };
 }

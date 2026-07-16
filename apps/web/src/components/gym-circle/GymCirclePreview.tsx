@@ -2231,7 +2231,9 @@ export function GymCirclePreview({
             feedPosts={feedPosts}
             formatTime={social.formatPostClock}
             onAddActivityPhoto={openActivityComposer}
-            onOpenActivityDetails={(activity) => setDetailWorkout(activity)}
+            onOpenActivityDetails={(activity) =>
+              setDetailWorkout({ ...activity, activityId: activity.id })
+            }
             onOpenPostWorkoutDetail={setDetailWorkout}
             hasDistancePosts={hasDistancePosts}
             headerHidden={scrollState === "down"}
@@ -2982,6 +2984,12 @@ export function GymCirclePreview({
           />
           {detailWorkout ? (
             <WorkoutDetailOverlay
+              key={
+                detailWorkout.activityId ??
+                detailWorkout.postId ??
+                `${detailWorkout.activityType}:${detailWorkout.startedAt ?? "unknown"}`
+              }
+              loadWorkoutDetail={social.actions.fetchWorkoutDetail}
               workout={detailWorkout}
               onClose={() => setDetailWorkout(null)}
             />

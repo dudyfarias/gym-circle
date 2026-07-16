@@ -139,8 +139,14 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("Treino não encontrado no Apple Saúde")
                 return
             }
-            self.loadRoute(for: workout) { route in
-                call.resolve(self.payload(for: workout, route: route))
+            self.loadDetails(for: workout) { details in
+                call.resolve(self.payload(
+                    for: workout,
+                    route: details.route,
+                    heartRateSamples: details.heartRateSamples,
+                    restingCalories: details.restingCalories,
+                    workoutEffort: details.workoutEffort
+                ))
             }
         }
         healthStore.execute(query)
@@ -154,6 +160,7 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
         let identifiers: [HKQuantityTypeIdentifier] = [
             .heartRate,
             .activeEnergyBurned,
+            .basalEnergyBurned,
             .distanceWalkingRunning,
             .distanceCycling,
             .distanceSwimming,
@@ -164,10 +171,20 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
                 types.insert(type)
             }
         }
+        if #available(iOS 18.0, *),
+           let effortType = HKObjectType.quantityType(forIdentifier: .workoutEffortScore) {
+            types.insert(effortType)
+        }
         return types
     }
 
-    private func payload(for workout: HKWorkout, route: [[Double]]?) -> [String: Any] {
+    private func payload(
+        for workout: HKWorkout,
+        route: [[Double]]?,
+        heartRateSamples: [[String: Any]]? = nil,
+        restingCalories: Double? = nil,
+        workoutEffort: Double? = nil
+    ) -> [String: Any] {
         var result: [String: Any] = [
             "provider": "apple-healthkit",
             "externalId": workout.uuid.uuidString.lowercased(),
@@ -188,6 +205,13 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
             unit: .kilocalorie()
         ), calories > 0 {
             result["activeCalories"] = calories
+            if let restingCalories, restingCalories > 0 {
+                result["totalCalories"] = calories + restingCalories
+                // O Apple Saúde não expõe o valor visual de "Calorias totais"
+                // do Fitness diretamente. A soma usa amostras reais de energia
+                // ativa + basal no intervalo e fica marcada como estimativa.
+                result["totalCaloriesEstimated"] = true
+            }
         }
         let bpm = HKUnit.count().unitDivided(by: .minute())
         if let averageHeartRate = quantity(
@@ -206,10 +230,65 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
         ), maximumHeartRate > 0 {
             result["maxHr"] = maximumHeartRate
         }
+        if let heartRateSamples, !heartRateSamples.isEmpty {
+            result["heartRateSamples"] = heartRateSamples
+            let values = heartRateSamples.compactMap { $0["bpm"] as? Double }
+            if let minimum = values.min(), minimum > 0 {
+                result["minHr"] = minimum
+            }
+        }
+        if let workoutEffort, workoutEffort >= 1, workoutEffort <= 10 {
+            result["workoutEffort"] = workoutEffort
+        }
+        appendWorkoutMetadata(workout, to: &result)
         if let route, route.count >= 2 {
             result["route"] = route
         }
         return result
+    }
+
+    private func appendWorkoutMetadata(
+        _ workout: HKWorkout,
+        to result: inout [String: Any]
+    ) {
+        let metadata = workout.metadata ?? [:]
+        if let temperature = metadata[HKMetadataKeyWeatherTemperature] as? HKQuantity {
+            result["temperatureC"] = temperature.doubleValue(for: .degreeCelsius())
+        }
+        if let humidity = metadata[HKMetadataKeyWeatherHumidity] as? HKQuantity {
+            result["humidityPercent"] = humidity.doubleValue(for: .percent()) * 100
+        } else if let humidity = metadata[HKMetadataKeyWeatherHumidity] as? NSNumber {
+            let raw = humidity.doubleValue
+            result["humidityPercent"] = raw <= 1 ? raw * 100 : raw
+        }
+        if let rawCondition = metadata[HKMetadataKeyWeatherCondition] as? NSNumber,
+           let condition = HKWeatherCondition(rawValue: rawCondition.intValue) {
+            result["weatherCondition"] = String(describing: condition)
+        }
+        if let indoor = metadata[HKMetadataKeyIndoorWorkout] as? NSNumber {
+            result["isIndoor"] = indoor.boolValue
+        }
+        if let brand = metadata[HKMetadataKeyWorkoutBrandName] as? String,
+           !brand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            result["workoutBrandName"] = brand
+        }
+        if let mets = metadata[HKMetadataKeyAverageMETs] as? HKQuantity {
+            result["averageMets"] = mets.doubleValue(for: HKUnit(from: "MET"))
+        }
+        if let elevation = metadata[HKMetadataKeyElevationAscended] as? HKQuantity {
+            let meters = elevation.doubleValue(for: .meter())
+            if meters > 0 { result["elevationGainM"] = meters }
+        }
+        if let device = workout.device {
+            let components = [device.name, device.model]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            if !components.isEmpty {
+                result["sourceDevice"] = Array(NSOrderedSet(array: components))
+                    .compactMap { $0 as? String }
+                    .joined(separator: " · ")
+            }
+        }
     }
 
     private func workoutType(_ type: HKWorkoutActivityType) -> String {
@@ -293,6 +372,144 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
             return workout.totalDistance?.doubleValue(for: unit)
         }
         return nil
+    }
+
+    private struct WorkoutDetails {
+        var route: [[Double]]?
+        var heartRateSamples: [[String: Any]]?
+        var restingCalories: Double?
+        var workoutEffort: Double?
+    }
+
+    private func loadDetails(
+        for workout: HKWorkout,
+        completion: @escaping (WorkoutDetails) -> Void
+    ) {
+        let group = DispatchGroup()
+        let lock = NSLock()
+        var details = WorkoutDetails()
+
+        group.enter()
+        loadRoute(for: workout) { route in
+            lock.lock(); details.route = route; lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        loadHeartRateSamples(for: workout) { samples in
+            lock.lock(); details.heartRateSamples = samples; lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        loadRestingCalories(for: workout) { calories in
+            lock.lock(); details.restingCalories = calories; lock.unlock()
+            group.leave()
+        }
+
+        group.enter()
+        loadWorkoutEffort(for: workout) { effort in
+            lock.lock(); details.workoutEffort = effort; lock.unlock()
+            group.leave()
+        }
+
+        group.notify(queue: .global(qos: .userInitiated)) {
+            lock.lock(); let resolved = details; lock.unlock()
+            completion(resolved)
+        }
+    }
+
+    private func loadHeartRateSamples(
+        for workout: HKWorkout,
+        completion: @escaping ([[String: Any]]?) -> Void
+    ) {
+        guard let heartRateType = HKObjectType.quantityType(forIdentifier: .heartRate) else {
+            completion(nil)
+            return
+        }
+        let query = HKSampleQuery(
+            sampleType: heartRateType,
+            predicate: HKQuery.predicateForObjects(from: workout),
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [NSSortDescriptor(
+                key: HKSampleSortIdentifierStartDate,
+                ascending: true
+            )]
+        ) { [weak self] _, samples, _ in
+            guard let self else { completion(nil); return }
+            let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+            let values = (samples as? [HKQuantitySample] ?? []).compactMap { sample -> (Date, Double)? in
+                let bpm = sample.quantity.doubleValue(for: bpmUnit)
+                return bpm >= 20 && bpm <= 260 ? (sample.startDate, bpm) : nil
+            }
+            guard !values.isEmpty else { completion(nil); return }
+            let maximumPoints = 240
+            let step = max(1, Int(ceil(Double(values.count) / Double(maximumPoints))))
+            var compact = stride(from: 0, to: values.count, by: step).map { index in
+                [
+                    "timestamp": self.isoString(values[index].0),
+                    "bpm": values[index].1,
+                ] as [String: Any]
+            }
+            if let last = values.last,
+               (compact.last?["timestamp"] as? String) != self.isoString(last.0) {
+                compact.append([
+                    "timestamp": self.isoString(last.0),
+                    "bpm": last.1,
+                ])
+            }
+            completion(compact)
+        }
+        healthStore.execute(query)
+    }
+
+    private func loadRestingCalories(
+        for workout: HKWorkout,
+        completion: @escaping (Double?) -> Void
+    ) {
+        guard let type = HKObjectType.quantityType(forIdentifier: .basalEnergyBurned) else {
+            completion(nil)
+            return
+        }
+        let predicate = HKQuery.predicateForSamples(
+            withStart: workout.startDate,
+            end: workout.endDate,
+            options: []
+        )
+        let query = HKStatisticsQuery(
+            quantityType: type,
+            quantitySamplePredicate: predicate,
+            options: .cumulativeSum
+        ) { _, statistics, _ in
+            let calories = statistics?.sumQuantity()?.doubleValue(for: .kilocalorie())
+            completion(calories.flatMap { $0 > 0 ? $0 : nil })
+        }
+        healthStore.execute(query)
+    }
+
+    private func loadWorkoutEffort(
+        for workout: HKWorkout,
+        completion: @escaping (Double?) -> Void
+    ) {
+        guard #available(iOS 18.0, *),
+              let effortType = HKObjectType.quantityType(forIdentifier: .workoutEffortScore) else {
+            completion(nil)
+            return
+        }
+        let query = HKSampleQuery(
+            sampleType: effortType,
+            predicate: HKQuery.predicateForObjects(from: workout),
+            limit: 1,
+            sortDescriptors: [NSSortDescriptor(
+                key: HKSampleSortIdentifierStartDate,
+                ascending: false
+            )]
+        ) { _, samples, _ in
+            let effort = (samples as? [HKQuantitySample])?.first?.quantity
+                .doubleValue(for: .count())
+            completion(effort.flatMap { $0 >= 1 && $0 <= 10 ? $0 : nil })
+        }
+        healthStore.execute(query)
     }
 
     private func loadRoute(for workout: HKWorkout, completion: @escaping ([[Double]]?) -> Void) {
