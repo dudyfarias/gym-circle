@@ -524,7 +524,14 @@ export function WorkoutExercisePicker({
         className="fixed inset-0 z-[108] flex touch-pan-y justify-center overflow-x-hidden overflow-y-auto overscroll-x-none bg-black/94 backdrop-blur-md"
         role="dialog"
       >
-        <div className="flex min-h-full w-full min-w-0 max-w-[480px] flex-col overflow-x-hidden px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+12px)]">
+        {/*
+          Não transformar este wrapper em uma coluna flex limitada pela
+          viewport. No WebKit/iOS, os filhos grid com overflow podem encolher
+          abaixo do conteúdo e todas as linhas do catálogo acabam comprimidas
+          no espaço restante. O fluxo normal de blocos cresce verticalmente e
+          deixa o scroll exclusivamente no overlay acima.
+        */}
+        <div className="min-h-full w-full min-w-0 max-w-[480px] overflow-x-hidden px-5 pb-[calc(var(--gc-safe-bottom)+24px)] pt-[calc(var(--gc-safe-top)+12px)]">
         <header className="flex min-w-0 items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="text-[19px] font-black text-white">
