@@ -49,6 +49,42 @@ export type LiveStrengthSet = StrengthSet & {
   plannedReps?: number | null;
 };
 
+/**
+ * Cria a primeira série de um exercício incluído durante a sessão ativa.
+ * O catálogo fornece somente metas; RPE, carga e conclusão continuam sendo
+ * resultados reais preenchidos pela pessoa durante o treino.
+ */
+export function createAddedStrengthExerciseSet(input: {
+  clientId: string;
+  exerciseId: string;
+  exerciseName: string;
+  loadType: NonNullable<StrengthSet["loadType"]>;
+  targetKind: NonNullable<StrengthSet["targetKind"]>;
+  plannedReps?: number | null;
+  plannedDurationSeconds?: number | null;
+  targetRestS?: number | null;
+}): LiveStrengthSet {
+  return {
+    clientId: input.clientId,
+    setId: input.clientId,
+    setStatus: "added",
+    setOrigin: "added",
+    loadType: input.loadType,
+    reps: 0,
+    weightKg: null,
+    assistedWeightKg: null,
+    exercise: input.exerciseName,
+    exerciseId: input.exerciseId,
+    targetKind: input.targetKind,
+    durationSeconds: null,
+    plannedReps: input.plannedReps ?? null,
+    plannedRepsMin: input.plannedReps ?? null,
+    plannedRepsMax: input.plannedReps ?? null,
+    plannedDurationSeconds: input.plannedDurationSeconds ?? null,
+    targetRestS: input.targetRestS ?? null,
+  };
+}
+
 export type WorkoutSessionPlanContext = {
   id: string;
   name: string;

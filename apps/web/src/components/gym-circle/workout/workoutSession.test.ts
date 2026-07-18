@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendWorkoutRoutePoint,
   bestWorkoutRouteSummary,
+  createAddedStrengthExerciseSet,
   distanceBetweenRoutePoints,
   formatAveragePace,
   mergeWorkoutRouteSnapshot,
@@ -75,6 +76,33 @@ describe("workout session clock", () => {
 });
 
 describe("strength set completion", () => {
+  it("cria série adicionada durante o treino com os padrões do catálogo", () => {
+    expect(
+      createAddedStrengthExerciseSet({
+        clientId: "set-added-1",
+        exerciseId: "exercise-supino",
+        exerciseName: "Supino reto com barra",
+        loadType: "external",
+        targetKind: "reps",
+        plannedReps: 10,
+        targetRestS: 90,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        clientId: "set-added-1",
+        exerciseId: "exercise-supino",
+        exercise: "Supino reto com barra",
+        setStatus: "added",
+        setOrigin: "added",
+        loadType: "external",
+        reps: 0,
+        weightKg: null,
+        plannedReps: 10,
+        targetRestS: 90,
+      }),
+    );
+  });
+
   it("mantém série até a falha pendente até o check explícito", () => {
     expect(
       shouldAutoCompleteStrengthSet({

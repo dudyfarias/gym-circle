@@ -119,7 +119,7 @@
       "completed": "Done",
       "swipeHint": "Swipe to move",
       "emptyTitle": "Build your workout",
-      "emptyHint": "Start by adding a set or opening a saved workout.",
+      "emptyHint": "Choose an exercise from the catalog to get started.",
       "untitledExercise": "Exercise",
       "reps": "Reps",
       "weight": "Weight (kg)",
@@ -159,6 +159,7 @@
       "goToExercise": "Go to exercise {{current}}",
       "add": "Add set",
       "addToExercise": "Add set here",
+      "addExercise": "Add exercise",
       "remove": "Remove set"
     },
     "saved": {

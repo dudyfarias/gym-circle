@@ -119,7 +119,7 @@
       "completed": "Concluído",
       "swipeHint": "Arraste para passar",
       "emptyTitle": "Monte seu treino",
-      "emptyHint": "Comece adicionando uma série ou abrindo um treino.",
+      "emptyHint": "Escolha um exercício no catálogo para começar.",
       "untitledExercise": "Exercício",
       "reps": "Reps",
       "weight": "Carga (kg)",
@@ -159,6 +159,7 @@
       "goToExercise": "Ir para o exercício {{current}}",
       "add": "Adicionar série",
       "addToExercise": "Adicionar série aqui",
+      "addExercise": "Adicionar exercício",
       "remove": "Remover série"
     },
     "saved": {

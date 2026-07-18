@@ -41,6 +41,7 @@ import type {
   ComposerActivityContext,
   FinishedWebActivity,
   WebActivityInput,
+  WorkoutExerciseCatalogItem,
   WorkoutPlan,
 } from "../social/types";
 import {
@@ -63,6 +64,7 @@ import {
   exerciseCatalogInfo,
   techniqueCatalogInfo,
   WorkoutCatalogInfoSheet,
+  WorkoutExercisePicker,
   type WorkoutCatalogInfo,
 } from "../workout/WorkoutCatalogSheets";
 import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
@@ -79,6 +81,7 @@ import {
   appendWorkoutRoutePoint,
   bestWorkoutRouteSummary,
   clearStoredWorkoutSession,
+  createAddedStrengthExerciseSet,
   createWorkoutClientSessionId,
   formatAveragePace,
   formatAverageSpeed,
@@ -265,11 +268,18 @@ export function WebWorkoutScreen({
   const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(
     null,
   );
+  const [liveExercisePickerOpen, setLiveExercisePickerOpen] = useState(false);
   const workoutCatalog = useWorkoutCatalog();
   const {
     exercises: catalogExercises,
     techniques,
     muscleGroups,
+    loading: catalogLoading,
+    error: catalogError,
+    refresh: refreshCatalog,
+    favoriteExerciseIds,
+    recentExerciseIds,
+    toggleFavoriteExercise,
   } = workoutCatalog;
   const workoutPlansController = useWorkoutPlans(open);
   // Sprint 2 — histórico do próprio user pra "última vez"/usar cargas/comparação.
@@ -321,6 +331,7 @@ export function WebWorkoutScreen({
   const workoutDialogRef = useRef<HTMLDivElement>(null);
   const exerciseCardRefs = useRef<Array<HTMLElement | null>>([]);
   const autoAdvancedExerciseKeysRef = useRef<Set<string>>(new Set());
+  const pendingStrengthExerciseIndexRef = useRef<number | null>(null);
   const [activeStrengthExerciseIndex, setActiveStrengthExerciseIndex] =
     useState(0);
 
@@ -333,6 +344,8 @@ export function WebWorkoutScreen({
       setFinishConfirmOpen(false);
       setFinishPromptElapsedS(null);
       setDiscardConfirmOpen(false);
+      setLiveExercisePickerOpen(false);
+      pendingStrengthExerciseIndexRef.current = null;
       setNowMs(Date.now());
       if (stored) {
         autoAdvancedExerciseKeysRef.current.clear();
@@ -868,6 +881,8 @@ export function WebWorkoutScreen({
       setSession(null);
       setStage("pick");
       setStrengthSets([]);
+      setLiveExercisePickerOpen(false);
+      pendingStrengthExerciseIndexRef.current = null;
       setCompletedStrengthSetIds(new Set());
       dispatchRest({ type: "reset" });
       onSessionChange?.(false);
@@ -903,6 +918,8 @@ export function WebWorkoutScreen({
     dispatchRest({ type: "reset" });
     setSession(null);
     setStrengthSets([]);
+    setLiveExercisePickerOpen(false);
+    pendingStrengthExerciseIndexRef.current = null;
     setCompletedStrengthSetIds(new Set());
     setFinishedSummary(null);
     setDiscardConfirmOpen(false);
@@ -961,21 +978,6 @@ export function WebWorkoutScreen({
     finishTrackedRest(rest);
     dispatchRest({ type: "reset" });
   }, [finishTrackedRest, rest]);
-
-  const addStrengthSet = useCallback(() => {
-    setStrengthSets((prev) => [
-      ...prev,
-      newStrengthSetFromTemplate(prev[prev.length - 1]),
-    ]);
-    // O dock de pausar/encerrar é fixo. Leva a nova linha ao centro para que
-    // ela nunca nasça escondida atrás dos controles em telas estreitas.
-    window.requestAnimationFrame(() => {
-      setsSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    });
-  }, []);
 
   const addStrengthSetForGroup = useCallback((group: StrengthExerciseGroup) => {
       setStrengthSets((prev) => {
@@ -1083,19 +1085,6 @@ export function WebWorkoutScreen({
       );
     },
     [],
-  );
-
-  const updateExerciseNote = useCallback(
-    (exerciseKey: string, note: string) => {
-      persistSession((current) => {
-        const exerciseNotes = { ...current.exerciseNotes };
-        const nextNote = note.slice(0, 1_000);
-        if (nextNote) exerciseNotes[exerciseKey] = nextNote;
-        else delete exerciseNotes[exerciseKey];
-        return { ...current, exerciseNotes };
-      });
-    },
-    [persistSession],
   );
 
   const patchStrengthSet = useCallback(
@@ -1412,10 +1401,86 @@ export function WebWorkoutScreen({
           left: card.offsetLeft - (scroller.clientWidth - card.offsetWidth) / 2,
         });
       }
+      setsSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
       setActiveStrengthExerciseIndex(nextIndex);
     },
     [strengthExerciseGroups.length],
   );
+
+  const addCatalogExerciseToLiveWorkout = useCallback(
+    (exercise: WorkoutExerciseCatalogItem) => {
+      const exerciseName = i18n.language.toLowerCase().startsWith("en")
+        ? exercise.nameEn
+        : exercise.namePt;
+      const existingGroupIndex = strengthExerciseGroups.findIndex(
+        (group) => group.exerciseId === exercise.id,
+      );
+
+      if (existingGroupIndex >= 0) {
+        const existingGroup = strengthExerciseGroups[existingGroupIndex];
+        addStrengthSetForGroup(existingGroup);
+        setLiveExercisePickerOpen(false);
+        window.requestAnimationFrame(() =>
+          goToStrengthExercise(existingGroupIndex),
+        );
+        return;
+      }
+
+      const targetKind =
+        exercise.defaultTargetKind === "duration"
+          ? "duration"
+          : exercise.defaultTargetKind === "failure"
+            ? "failure"
+            : "reps";
+      const loadType =
+        exercise.defaultLoadType ??
+        inferExerciseLoadType({
+          equipment: exercise.equipment,
+          exerciseName,
+        });
+      const clientId = nextLiveStrengthSetId();
+      const nextSet = createAddedStrengthExerciseSet({
+        clientId,
+        exerciseId: exercise.id,
+        exerciseName,
+        loadType,
+        targetKind,
+        plannedReps:
+          targetKind === "duration" ? null : exercise.defaultReps,
+        plannedDurationSeconds:
+          targetKind === "duration" ? exercise.defaultDurationS : null,
+        targetRestS: exercise.defaultRestS,
+      });
+
+      pendingStrengthExerciseIndexRef.current = strengthExerciseGroups.length;
+      setStrengthSets((current) => [...current, nextSet]);
+      setLiveExercisePickerOpen(false);
+    },
+    [
+      addStrengthSetForGroup,
+      goToStrengthExercise,
+      i18n.language,
+      strengthExerciseGroups,
+    ],
+  );
+
+  useEffect(() => {
+    const pendingIndex = pendingStrengthExerciseIndexRef.current;
+    if (
+      pendingIndex === null ||
+      pendingIndex >= strengthExerciseGroups.length
+    ) {
+      return;
+    }
+    pendingStrengthExerciseIndexRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      goToStrengthExercise(pendingIndex);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [goToStrengthExercise, strengthExerciseGroups.length]);
 
   const completeStrengthExercise = useCallback(
     (group: StrengthExerciseGroup, groupIndex: number) => {
@@ -1548,6 +1613,24 @@ export function WebWorkoutScreen({
         <WorkoutCatalogInfoSheet
           info={catalogInfo}
           onClose={() => setCatalogInfo(null)}
+        />
+      ) : null}
+      {liveExercisePickerOpen &&
+      stage === "live" &&
+      session?.activityType === "strength" ? (
+        <WorkoutExercisePicker
+          error={catalogError}
+          exercises={catalogExercises}
+          favoriteExerciseIds={favoriteExerciseIds}
+          loading={catalogLoading}
+          muscleGroups={muscleGroups}
+          onClose={() => setLiveExercisePickerOpen(false)}
+          onRetry={() => void refreshCatalog()}
+          onSelect={addCatalogExerciseToLiveWorkout}
+          onToggleFavorite={(exerciseId) =>
+            void toggleFavoriteExercise(exerciseId)
+          }
+          recentExerciseIds={recentExerciseIds}
         />
       ) : null}
       {detailWorkoutPlan ? (
@@ -2130,11 +2213,12 @@ export function WebWorkoutScreen({
                         </div>
                         <button
                           className="gc-pressable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-white text-[13px] font-black text-black"
-                          onClick={addStrengthSet}
+                          aria-haspopup="dialog"
+                          onClick={() => setLiveExercisePickerOpen(true)}
                           type="button"
                         >
                           <Plus size={16} strokeWidth={2.8} />
-                          {t("workout.sets.add")}
+                          {t("workout.sets.addExercise")}
                         </button>
                       </article>
                     ) : (
@@ -2169,12 +2253,6 @@ export function WebWorkoutScreen({
                           group.exerciseId,
                           group.name,
                         );
-                        const noteKey =
-                          historyKey ?? `name:${group.name.toLocaleLowerCase()}`;
-                        const previousExerciseNote = historyKey
-                          ? (strengthHistory.latestNoteByKey.get(historyKey) ??
-                            null)
-                          : null;
                         const lastEntry = historyKey
                             ? (strengthHistory.historyByKey.get(
                                 historyKey,
@@ -2364,42 +2442,6 @@ export function WebWorkoutScreen({
                               ) : null}
                             </div>
                           ) : null}
-
-                          <label className="mt-3 block rounded-[16px] border border-white/[0.055] bg-white/[0.025] px-3 py-2.5">
-                            <span className="text-[9.5px] font-black uppercase tracking-[0.11em] text-white/38">
-                              {t("workout.exerciseNote.title")}
-                            </span>
-                            <textarea
-                              className="mt-1.5 min-h-[46px] w-full resize-none bg-transparent text-[12.5px] font-semibold leading-snug text-white outline-none placeholder:text-white/28"
-                              maxLength={1000}
-                              onBlur={() => setSetsInputFocused(false)}
-                              onChange={(event) =>
-                                updateExerciseNote(noteKey, event.target.value)
-                              }
-                              onFocus={() => setSetsInputFocused(true)}
-                              placeholder={
-                                previousExerciseNote ??
-                                t("workout.exerciseNote.placeholder")
-                              }
-                              rows={2}
-                              value={session.exerciseNotes[noteKey] ?? ""}
-                            />
-                            {previousExerciseNote &&
-                            !session.exerciseNotes[noteKey] ? (
-                              <button
-                                className="gc-pressable mt-1 text-[10.5px] font-black text-[var(--gc-brand)]"
-                                onClick={() =>
-                                  updateExerciseNote(
-                                    noteKey,
-                                    previousExerciseNote,
-                                  )
-                                }
-                                type="button"
-                              >
-                                {t("workout.exerciseNote.usePrevious")}
-                              </button>
-                            ) : null}
-                          </label>
 
                           {group.targetKind === "duration" ? (
                             <p className="mt-4 text-[10px] font-black uppercase tracking-[0.12em] text-white/35">
@@ -2872,6 +2914,19 @@ export function WebWorkoutScreen({
                           />
                         </button>
                       ))}
+                    </div>
+                  ) : null}
+                  {strengthExerciseGroups.length > 0 ? (
+                    <div className="px-5 pt-2">
+                      <button
+                        aria-haspopup="dialog"
+                        className="gc-pressable flex min-h-12 w-full items-center justify-center gap-2 rounded-full border border-[var(--gc-brand)]/22 bg-[var(--gc-brand)]/[0.08] px-4 text-[13px] font-black text-[var(--gc-brand)]"
+                        onClick={() => setLiveExercisePickerOpen(true)}
+                        type="button"
+                      >
+                        <Plus size={17} strokeWidth={2.8} />
+                        {t("workout.sets.addExercise")}
+                      </button>
                     </div>
                   ) : null}
                 </section>
