@@ -445,6 +445,7 @@
       "denied": "Access wasn't granted. You can change it later in the Health app.",
       "load": "We couldn't load your Apple Health workouts.",
       "details": "The detailed route isn't available, but you can still import the summary.",
+      "timeout": "Apple Health took too long to respond. The screen was released; try again.",
       "duplicate": "This workout has already been imported to Gym Circle.",
       "import": "We couldn't import this workout right now. Try again.",
       "integrate": "The workout was imported but wasn't linked to the post. Tap Done and select it from the list."

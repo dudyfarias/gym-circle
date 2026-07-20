@@ -1,4 +1,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { withRequestTimeout } from "../workout/workoutFinish";
+
+const HEALTHKIT_QUERY_TIMEOUT_MS = 20_000;
 
 export type HealthKitPermissionState =
   | "unsupported"
@@ -79,9 +82,19 @@ export const HealthKitBridge = {
   },
   async listWorkouts(input: { from: string; to: string; limit?: number }) {
     if (!(await this.isAvailable())) return [];
-    return (await NativeHealthKit.listWorkouts(input)).workouts;
+    return (
+      await withRequestTimeout(
+        NativeHealthKit.listWorkouts(input),
+        HEALTHKIT_QUERY_TIMEOUT_MS,
+        "healthkit_request_timeout",
+      )
+    ).workouts;
   },
   getWorkout(externalId: string) {
-    return NativeHealthKit.getWorkout({ externalId });
+    return withRequestTimeout(
+      NativeHealthKit.getWorkout({ externalId }),
+      HEALTHKIT_QUERY_TIMEOUT_MS,
+      "healthkit_request_timeout",
+    );
   },
 };

@@ -445,6 +445,7 @@
       "denied": "O acesso não foi liberado. Você pode alterá-lo depois no app Saúde.",
       "load": "Não foi possível carregar os treinos do Apple Saúde.",
       "details": "A rota detalhada não ficou disponível, mas você ainda pode importar o resumo.",
+      "timeout": "O Apple Saúde demorou para responder. A tela foi liberada; tente novamente.",
       "duplicate": "Esse treino já foi importado para o Gym Circle.",
       "import": "Não foi possível importar esse treino agora. Tente novamente.",
       "integrate": "O treino foi importado, mas não foi vinculado ao post. Toque em Concluir e selecione-o na lista."

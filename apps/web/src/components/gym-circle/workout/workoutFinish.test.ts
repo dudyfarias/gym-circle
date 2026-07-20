@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { finishWithTimeout } from "./workoutFinish";
+import { finishWithTimeout, withRequestTimeout } from "./workoutFinish";
 
 describe("finishWithTimeout", () => {
   it("retorna a atividade quando a finalização responde", async () => {
@@ -22,5 +22,23 @@ describe("finishWithTimeout", () => {
     await expect(
       finishWithTimeout(Promise.reject(new Error("activity_create_failed"))),
     ).rejects.toThrow("activity_create_failed");
+  });
+});
+
+describe("withRequestTimeout", () => {
+  it("usa o erro específico do fluxo que ficou sem resposta", async () => {
+    vi.useFakeTimers();
+    const request = withRequestTimeout(
+      new Promise<never>(() => undefined),
+      300,
+      "healthkit_request_timeout",
+    );
+    const rejection = expect(request).rejects.toThrow(
+      "healthkit_request_timeout",
+    );
+
+    await vi.advanceTimersByTimeAsync(300);
+    await rejection;
+    vi.useRealTimers();
   });
 });

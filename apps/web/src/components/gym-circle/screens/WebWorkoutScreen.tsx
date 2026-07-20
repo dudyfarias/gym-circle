@@ -107,7 +107,10 @@ import {
   normalizeStrengthSetsForSave,
   parseOptionalWeightKg,
 } from "../workout/workoutSummary";
-import { finishWithTimeout } from "../workout/workoutFinish";
+import {
+  finishWithTimeout,
+  withRequestTimeout,
+} from "../workout/workoutFinish";
 
 type WorkoutType = WebActivityInput["activityType"];
 type RouteWorkoutType = Extract<WorkoutType, "run" | "walk" | "ride">;
@@ -326,10 +329,12 @@ export function WebWorkoutScreen({
   const hasSession = session !== null;
   const sessionPausedAtMs = session?.pausedAtMs;
   const nativeSessionAttachedRef = useRef(false);
+  const finishingRef = useRef(false);
   const setsSectionRef = useRef<HTMLElement>(null);
   const exerciseCarouselRef = useRef<HTMLDivElement>(null);
   const workoutDialogRef = useRef<HTMLDivElement>(null);
   const exerciseCardRefs = useRef<Array<HTMLElement | null>>([]);
+  const exerciseScrollFrameRef = useRef<number | null>(null);
   const autoAdvancedExerciseKeysRef = useRef<Set<string>>(new Set());
   const pendingStrengthExerciseIndexRef = useRef<number | null>(null);
   const [activeStrengthExerciseIndex, setActiveStrengthExerciseIndex] =
@@ -340,6 +345,8 @@ export function WebWorkoutScreen({
     const id = window.setTimeout(() => {
       const stored = readStoredWorkoutSession(userId);
       setFinishedSummary(null);
+      finishingRef.current = false;
+      setFinishing(false);
       setFinishError(null);
       setFinishConfirmOpen(false);
       setFinishPromptElapsedS(null);
@@ -379,6 +386,15 @@ export function WebWorkoutScreen({
     });
     return () => window.cancelAnimationFrame(id);
   }, [finishedSummary]);
+
+  useEffect(
+    () => () => {
+      if (exerciseScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(exerciseScrollFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!open || stage !== "live" || !hasSession) return;
@@ -750,7 +766,8 @@ export function WebWorkoutScreen({
   }, [gpsEngine, persistSession, rest.status, session]);
 
   const handleFinish = useCallback(async () => {
-    if (!session || finishing) return;
+    if (!session || finishingRef.current) return;
+    finishingRef.current = true;
     setFinishing(true);
     setFinishError(null);
     setFinishConfirmOpen(false);
@@ -769,7 +786,17 @@ export function WebWorkoutScreen({
       if (isRouteWorkout(session.activityType) && gpsEngine === "native") {
         const { WorkoutLocationBridge } =
           await import("../native/WorkoutLocationBridge");
-        nativeSummary = await WorkoutLocationBridge.stop();
+        try {
+          nativeSummary = await withRequestTimeout(
+            WorkoutLocationBridge.stop(),
+            5_000,
+            "workout_location_stop_timeout",
+          );
+        } catch {
+          // O snapshot persistido da sessão continua sendo uma fonte válida.
+          // Uma ponte nativa lenta não pode impedir a gravação da atividade.
+          nativeSummary = undefined;
+        }
       }
       const routeSummary = isRouteWorkout(session.activityType)
         ? bestWorkoutRouteSummary(session, nativeSummary)
@@ -897,10 +924,10 @@ export function WebWorkoutScreen({
             : t("workout.errors.finish"),
       );
     } finally {
+      finishingRef.current = false;
       setFinishing(false);
     }
   }, [
-    finishing,
     gpsEngine,
     completedStrengthSetIds,
     onFinish,
@@ -1401,11 +1428,28 @@ export function WebWorkoutScreen({
           left: card.offsetLeft - (scroller.clientWidth - card.offsetWidth) / 2,
         });
       }
-      setsSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
       setActiveStrengthExerciseIndex(nextIndex);
+
+      if (exerciseScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(exerciseScrollFrameRef.current);
+      }
+      exerciseScrollFrameRef.current = window.requestAnimationFrame(() => {
+        exerciseScrollFrameRef.current = window.requestAnimationFrame(() => {
+          const dialog = workoutDialogRef.current;
+          const section = setsSectionRef.current;
+          exerciseScrollFrameRef.current = null;
+          if (!dialog || !section) return;
+          const targetTop =
+            dialog.scrollTop +
+            section.getBoundingClientRect().top -
+            dialog.getBoundingClientRect().top -
+            12;
+          dialog.scrollTo({
+            behavior: "smooth",
+            top: Math.max(0, targetTop),
+          });
+        });
+      });
     },
     [strengthExerciseGroups.length],
   );

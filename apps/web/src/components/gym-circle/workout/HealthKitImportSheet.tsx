@@ -26,6 +26,7 @@ import {
 } from "../native/HealthKitBridge";
 import { formatElapsed } from "./workoutElapsed";
 import { formatDistance } from "./workoutSession";
+import { withRequestTimeout } from "./workoutFinish";
 import {
   HealthKitPostIntegrationError,
   importHealthKitWorkout,
@@ -172,11 +173,15 @@ export function HealthKitImportSheet({
     setImporting(true);
     setError(null);
     try {
-      const result = await importHealthKitWorkout({
-        workout: selected,
-        importActivity: onImport,
-        afterImport: onImported,
-      });
+      const result = await withRequestTimeout(
+        importHealthKitWorkout({
+          workout: selected,
+          importActivity: onImport,
+          afterImport: onImported,
+        }),
+        25_000,
+        "healthkit_import_timeout",
+      );
       setImported(result);
     } catch (caught) {
       if (caught instanceof HealthKitPostIntegrationError) {
@@ -186,9 +191,13 @@ export function HealthKitImportSheet({
         return;
       }
       setError(
-        isDuplicateError(caught)
-          ? t("healthImport.errors.duplicate")
-          : t("healthImport.errors.import"),
+        caught instanceof Error &&
+          (caught.message === "healthkit_import_timeout" ||
+            caught.message === "healthkit_request_timeout")
+          ? t("healthImport.errors.timeout")
+          : isDuplicateError(caught)
+            ? t("healthImport.errors.duplicate")
+            : t("healthImport.errors.import"),
       );
       setImporting(false);
       return;

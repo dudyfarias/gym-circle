@@ -3,6 +3,19 @@ import Capacitor
 import HealthKit
 import CoreLocation
 
+private final class OnceGate {
+    private let lock = NSLock()
+    private var claimed = false
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !claimed else { return false }
+        claimed = true
+        return true
+    }
+}
+
 /// Ponte read-only entre o app Capacitor e o Apple Saúde.
 ///
 /// O usuário escolhe explicitamente o treino que deseja importar. O UUID do
@@ -387,6 +400,7 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
     ) {
         let group = DispatchGroup()
         let lock = NSLock()
+        let completionGate = OnceGate()
         var details = WorkoutDetails()
 
         group.enter()
@@ -415,7 +429,14 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
 
         group.notify(queue: .global(qos: .userInitiated)) {
             lock.lock(); let resolved = details; lock.unlock()
-            completion(resolved)
+            if completionGate.claim() { completion(resolved) }
+        }
+
+        // Uma rota do HealthKit pode deixar de sinalizar `done` em caso de
+        // erro. O resumo já disponível continua importável sem bloquear a UI.
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + 15) {
+            lock.lock(); let resolved = details; lock.unlock()
+            if completionGate.claim() { completion(resolved) }
         }
     }
 
@@ -533,13 +554,16 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
             var locations: [CLLocation] = []
             for route in routes {
                 group.enter()
-                let routeQuery = HKWorkoutRouteQuery(route: route) { _, batch, done, _ in
+                let routeCompletionGate = OnceGate()
+                let routeQuery = HKWorkoutRouteQuery(route: route) { _, batch, done, error in
                     if let batch {
                         lock.lock()
                         locations.append(contentsOf: batch)
                         lock.unlock()
                     }
-                    if done { group.leave() }
+                    if (done || error != nil) && routeCompletionGate.claim() {
+                        group.leave()
+                    }
                 }
                 self.healthStore.execute(routeQuery)
             }
