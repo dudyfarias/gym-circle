@@ -14,7 +14,7 @@ type PostMenuSheetProps = {
   onBlock?: () => void;
   /** Silencia posts desse autor sem deixar de seguir nem bloquear. */
   onMute?: () => void;
-  /** "Integrar treino": junta um treino do mesmo dia ao post (dono, sem treino ainda). */
+  /** "Integrar treino": adiciona mais um treino do mesmo dia ao post do dono. */
   onIntegrateWorkout?: () => void;
   editLabel?: string;
   deleteLabel?: string;

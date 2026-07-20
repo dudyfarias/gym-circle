@@ -33,8 +33,8 @@ const TYPE_LABEL_KEY: Record<string, string> = {
 
 /**
  * "Integrar treino" — lista os treinos do mesmo dia do post que ainda podem
- * ser juntados. Selecionar vincula o treino ao post (source_activity_id): o
- * post passa a mostrar as estatísticas e o treino some do feed.
+ * ser juntados. Selecionar adiciona um vínculo em post_activities; o primeiro
+ * também permanece em source_activity_id por compatibilidade com o feed.
  */
 export function IntegrateWorkoutSheet({
   open,

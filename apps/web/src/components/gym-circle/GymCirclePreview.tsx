@@ -2997,7 +2997,6 @@ export function GymCirclePreview({
             onIntegrateWorkout={
               canManageOwnPost &&
               postMenuTarget?.userId === social.currentUser.id &&
-              !postMenuTarget?.workout &&
               social.actions.integrateWorkoutIntoPost
                 ? openIntegrateWorkout
                 : undefined
