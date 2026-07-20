@@ -321,40 +321,45 @@ export function WorkoutDetailOverlay({
         />
 
         {workouts.length > 1 ? (
-          <nav
-            aria-label={t("workoutDetail.integratedWorkouts")}
-            className="-mx-1 mt-5 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {workouts.map((detail) => {
-              const detailMeta =
-                TYPE_META[detail.activityType] ?? TYPE_META.other;
-              const fallbackLabel = t(detailMeta.key);
-              const label = detail.healthMetadata?.workoutType
-                ? t(`healthImport.types.${detail.healthMetadata.workoutType}`, {
-                    defaultValue: fallbackLabel,
-                  })
-                : fallbackLabel;
-              const selected = detail.activityId === workout.activityId;
-              return (
-                <button
-                  aria-pressed={selected}
-                  className={`gc-pressable shrink-0 snap-start rounded-full border px-4 py-2 text-left transition ${
-                    selected
-                      ? "border-[var(--gc-blue)]/55 bg-[var(--gc-blue)]/16 text-white"
-                      : "border-white/[0.08] bg-white/[0.035] text-white/58"
-                  }`}
-                  key={detail.activityId ?? `${detail.startedAt}-${label}`}
-                  onClick={() => setActiveActivityId(detail.activityId ?? null)}
-                  type="button"
-                >
-                  <span className="block text-[12px] font-black">{label}</span>
-                  <span className="mt-0.5 block text-[10px] font-bold tabular-nums opacity-65">
-                    {formatElapsed(detail.elapsedS)}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
+          <section className="relative z-20 -mx-5 mt-4 isolate border-y border-white/[0.055] bg-black px-5 py-3">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-white/42">
+              {t("workoutDetail.integratedWorkouts")}
+            </p>
+            <nav
+              aria-label={t("workoutDetail.integratedWorkouts")}
+              className="flex min-h-[54px] snap-x items-stretch gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {workouts.map((detail) => {
+                const detailMeta =
+                  TYPE_META[detail.activityType] ?? TYPE_META.other;
+                const fallbackLabel = t(detailMeta.key);
+                const label = detail.healthMetadata?.workoutType
+                  ? t(`healthImport.types.${detail.healthMetadata.workoutType}`, {
+                      defaultValue: fallbackLabel,
+                    })
+                  : fallbackLabel;
+                const selected = detail.activityId === workout.activityId;
+                return (
+                  <button
+                    aria-pressed={selected}
+                    className={`min-h-[50px] shrink-0 snap-start rounded-[16px] border px-4 py-2 text-left transition-colors active:scale-[0.98] ${
+                      selected
+                        ? "border-[var(--gc-blue)]/55 bg-[var(--gc-blue)]/16 text-white"
+                        : "border-white/[0.08] bg-white/[0.035] text-white/58"
+                    }`}
+                    key={detail.activityId ?? `${detail.startedAt}-${label}`}
+                    onClick={() => setActiveActivityId(detail.activityId ?? null)}
+                    type="button"
+                  >
+                    <span className="block text-[12px] font-black">{label}</span>
+                    <span className="mt-0.5 block text-[10px] font-bold tabular-nums opacity-65">
+                      {formatElapsed(detail.elapsedS)}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </section>
         ) : null}
 
         <section className="mt-6">
