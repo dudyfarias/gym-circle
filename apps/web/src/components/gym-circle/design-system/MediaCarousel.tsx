@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 import type { PostMediaItem } from "../social/types";
+import { GCImage } from "./GCImage";
 import { PinchZoomImage } from "./PinchZoomImage";
 
 // Som GLOBAL do feed (estilo Instagram): uma única fonte da verdade do "mudo?"
@@ -192,7 +193,9 @@ function VideoSlide({
   const [inView, setInView] = useState(false);
   const [muted, setMuted] = useFeedMuted(); // som GLOBAL (sessão)
   const [paused, setPaused] = useState(false);
+  const [hasDecodedFrame, setHasDecodedFrame] = useState(false);
   const { t } = useTranslation();
+  const posterSrc = item.posterUrl ?? item.thumbnailUrl ?? item.blurDataUrl ?? null;
 
   function syncMuted(nextMuted: boolean) {
     const node = videoRef.current;
@@ -250,10 +253,13 @@ function VideoSlide({
   return (
     <div className="relative aspect-[4/5] bg-black" ref={containerRef}>
       <video
-        className="h-full w-full object-cover"
+        className="absolute inset-0 h-full w-full object-cover"
         loop
         muted={muted}
+        onCanPlay={() => setHasDecodedFrame(true)}
         onClick={handleVideoTap}
+        onLoadedData={() => setHasDecodedFrame(true)}
+        onPlaying={() => setHasDecodedFrame(true)}
         playsInline
         poster={item.posterUrl ?? item.thumbnailUrl ?? undefined}
         // Só o slide ativo busca metadata; inativos ficam em "none" (poster
@@ -263,6 +269,29 @@ function VideoSlide({
         ref={videoRef}
         src={item.imageUrl}
       />
+
+      {/*
+       * O WebKit remove o `poster` nativo assim que o vídeo ativo começa a
+       * carregar, antes de o primeiro frame estar decodificado. Em carrosséis
+       * isso causava um flash preto a cada troca de slide. Mantemos a capa
+       * como camada explícita até existir um frame renderizável e continuamos
+       * mostrando-a nos slides inativos.
+      */}
+      {posterSrc && (!isActive || !hasDecodedFrame) ? (
+        <GCImage
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          blurDataURL={item.blurDataUrl}
+          disableFade
+          fill
+          loading="eager"
+          sizes="(max-width: 480px) 100vw, 480px"
+          src={posterSrc}
+          style={{ objectFit: "cover" }}
+          unoptimized={posterSrc.startsWith("data:")}
+        />
+      ) : null}
 
       {paused ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
