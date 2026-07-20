@@ -302,6 +302,7 @@
   },
   "workoutDetail": {
     "title": "Workout details",
+    "integratedWorkouts": "Workouts added to the post",
     "detailsTitle": "Activity summary",
     "workoutTime": "Workout Time",
     "duration": "Duration",
@@ -420,6 +421,7 @@
     "reviewPrivacy": "Only this workout will be saved to your Gym Circle history. Nothing is imported automatically.",
     "import": "Import workout",
     "importAndIntegrate": "Import and add to post",
+    "importAnother": "Import another workout",
     "importing": "Importing…",
     "successTitle": "Workout imported",
     "successDetail": "Your {{source}} data is now in your history.",
@@ -430,6 +432,7 @@
       "running": "Run",
       "cycling": "Ride",
       "walking": "Walk",
+      "cardio": "Cardio",
       "hiit": "HIIT",
       "mobility": "Mobility",
       "other": "Other workout"
@@ -642,8 +645,13 @@
   },
   "integrateWorkout": {
     "title": "Add a workout",
-    "subtitle": "Pick a workout from this day to merge into the post. The stats show on the post and the workout leaves the feed.",
-    "empty": "No free Gym Circle workout on this day.",
+    "subtitle": "Add Cardio, Strength, Sauna, and other workouts from this day to the same post.",
+    "empty": "All available workouts from this day have already been added.",
+    "available": "Available to add",
+    "integratedCount_one": "1 workout in this post",
+    "integratedCount_other": "{{count}} workouts in this post",
+    "integratedDetail": "You can keep adding other workouts before closing.",
+    "error": "This workout could not be added. Please try again.",
     "importAppleHealth": "Import from Apple Health",
     "importAppleHealthDetail": "Authorize access and choose a workout from Apple Watch, Fitness, or another app."
   },

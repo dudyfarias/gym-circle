@@ -759,6 +759,9 @@ export function createSocialActions(
       async fetchMergeableActivities(workoutDate: string) {
         return services.activities.mergeableForDate(workoutDate);
       },
+      async fetchIntegratedActivities(postId: string) {
+        return services.activities.linkedToPost(postId);
+      },
       async fetchWorkoutDetail(input: {
         activityId?: string | null;
         postId?: string | null;
@@ -792,6 +795,35 @@ export function createSocialActions(
           recordHighlights: null,
         };
       },
+      async fetchPostWorkoutDetails(postId: string): Promise<WorkoutDetail[]> {
+        const activities = await services.activities.detailsForPost(postId);
+        return activities.map((activity) => ({
+          activityId: activity.id,
+          postId,
+          activityType: activity.activityType,
+          startedAt: activity.startedAt,
+          endedAt: activity.endedAt,
+          elapsedS: activity.elapsedS,
+          movingS: activity.movingS,
+          distanceM: activity.distanceM,
+          elevationGainM: activity.elevationGainM,
+          avgHr: activity.avgHr,
+          maxHr: activity.maxHr,
+          activeCalories: activity.activeCalories,
+          totalCalories: activity.totalCalories,
+          healthMetadata: activity.healthMetadata,
+          route: activity.route,
+          origin: activity.origin,
+          sourceApp: activity.sourceApp,
+          strengthSets: activity.strengthSets,
+          gymName: null,
+          locationName: null,
+          locationLatitude: null,
+          locationLongitude: null,
+          caption: null,
+          recordHighlights: null,
+        }));
+      },
       async integrateWorkoutIntoPost(postId: string, activityId: string) {
         const post = aggRef.current.feedPosts.find((row) => row.id === postId);
         await services.activities.mergeIntoPost(postId, activityId);
@@ -800,7 +832,7 @@ export function createSocialActions(
         showFeedback(
           "success",
           "Treino integrado",
-          "As estatísticas aparecem no post",
+          "Você pode adicionar outros treinos ao mesmo post",
         );
       },
       async publishWorkout(input: CreateWorkoutPostInput) {

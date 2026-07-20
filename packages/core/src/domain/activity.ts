@@ -411,6 +411,8 @@ export type ActivityHeartRateSample = {
 };
 
 export type ActivityHealthMetadata = {
+  /** Tipo normalizado recebido do Apple Saúde (ex.: strength, cardio). */
+  workoutType: string | null;
   heartRateSamples: ActivityHeartRateSample[];
   minHr: number | null;
   workoutEffort: number | null;
@@ -426,6 +428,7 @@ export type ActivityHealthMetadata = {
 
 export type ActivityHealthMetadataRow = {
   schema_version?: number;
+  workout_type?: unknown;
   heart_rate_samples?: Array<{ timestamp?: unknown; bpm?: unknown }>;
   min_hr?: unknown;
   workout_effort?: unknown;
@@ -440,6 +443,7 @@ export type ActivityHealthMetadataRow = {
 };
 
 const EMPTY_HEALTH_METADATA: ActivityHealthMetadata = {
+  workoutType: null,
   heartRateSamples: [],
   minHr: null,
   workoutEffort: null,
@@ -469,6 +473,10 @@ export function activityHealthMetadataFromRow(
       })
     : [];
   return {
+    workoutType:
+      typeof row.workout_type === "string" && row.workout_type.trim()
+        ? row.workout_type.trim().slice(0, 80)
+        : null,
     heartRateSamples: samples.slice(0, 300),
     minHr: roundedFiniteNumberOrNull(row.min_hr, 20, 260),
     workoutEffort: finiteNumberOrNull(row.workout_effort, 1, 10),
@@ -498,6 +506,7 @@ export function activityHealthMetadataToRow(
   const normalized = activityHealthMetadataFromRow(
     metadata
       ? {
+          workout_type: metadata.workoutType,
           heart_rate_samples: metadata.heartRateSamples,
           min_hr: metadata.minHr,
           workout_effort: metadata.workoutEffort,
@@ -514,6 +523,7 @@ export function activityHealthMetadataToRow(
   );
   return {
     schema_version: 1,
+    workout_type: normalized.workoutType,
     heart_rate_samples: normalized.heartRateSamples,
     min_hr: normalized.minHr,
     workout_effort: normalized.workoutEffort,

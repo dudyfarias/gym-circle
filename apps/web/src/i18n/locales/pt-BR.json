@@ -302,6 +302,7 @@
   },
   "workoutDetail": {
     "title": "Detalhes do treino",
+    "integratedWorkouts": "Treinos integrados ao post",
     "detailsTitle": "Resumo da atividade",
     "workoutTime": "Tempo de Exercício",
     "duration": "Duração",
@@ -420,6 +421,7 @@
     "reviewPrivacy": "Só este treino será salvo no seu histórico do Gym Circle. Nada é importado automaticamente.",
     "import": "Importar treino",
     "importAndIntegrate": "Importar e integrar ao post",
+    "importAnother": "Importar outro treino",
     "importing": "Importando…",
     "successTitle": "Treino importado",
     "successDetail": "Os dados de {{source}} já estão no seu histórico.",
@@ -430,6 +432,7 @@
       "running": "Corrida",
       "cycling": "Bike",
       "walking": "Caminhada",
+      "cardio": "Cardio",
       "hiit": "HIIT",
       "mobility": "Mobilidade",
       "other": "Outro treino"
@@ -642,8 +645,13 @@
   },
   "integrateWorkout": {
     "title": "Integrar treino",
-    "subtitle": "Escolha um treino deste dia para juntar ao post. As estatísticas aparecem no post e o treino sai do feed.",
-    "empty": "Nenhum treino do Gym Circle livre neste dia.",
+    "subtitle": "Adicione Cardio, Musculação, Sauna e outros treinos deste dia ao mesmo post.",
+    "empty": "Todos os treinos disponíveis deste dia já foram integrados.",
+    "available": "Disponíveis para adicionar",
+    "integratedCount_one": "1 treino neste post",
+    "integratedCount_other": "{{count}} treinos neste post",
+    "integratedDetail": "Você pode continuar adicionando outros treinos antes de fechar.",
+    "error": "Não foi possível integrar este treino. Tente novamente.",
     "importAppleHealth": "Importar do Apple Saúde",
     "importAppleHealthDetail": "Autorize o acesso e escolha um treino do Apple Watch, Fitness ou outro app."
   },

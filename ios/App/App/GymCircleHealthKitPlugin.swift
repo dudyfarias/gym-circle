@@ -319,6 +319,14 @@ public final class GymCircleHealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
             return "cycling"
         case .highIntensityIntervalTraining:
             return "hiit"
+        case .mixedCardio,
+             .mixedMetabolicCardioTraining,
+             .elliptical,
+             .stairClimbing,
+             .stairs,
+             .stepTraining,
+             .cardioDance:
+            return "cardio"
         case .flexibility, .mindAndBody, .yoga, .pilates:
             return "mobility"
         default:

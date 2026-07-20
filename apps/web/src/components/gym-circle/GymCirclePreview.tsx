@@ -256,8 +256,10 @@ export function GymCirclePreview({
   const [integrateWorkoutDate, setIntegrateWorkoutDate] = useState<string | null>(null);
   const [integrateHealthOpen, setIntegrateHealthOpen] = useState(false);
   const [mergeableActivities, setMergeableActivities] = useState<MergeableActivity[]>([]);
+  const [integratedActivities, setIntegratedActivities] = useState<MergeableActivity[]>([]);
   const [mergeableLoading, setMergeableLoading] = useState(false);
   const [integratingId, setIntegratingId] = useState<string | null>(null);
+  const [integrateError, setIntegrateError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
@@ -919,34 +921,57 @@ export function GymCirclePreview({
     setIntegrateWorkoutDate(target.workoutDate);
     setIntegrateHealthOpen(false);
     setMergeableActivities([]);
+    setIntegratedActivities([]);
+    setIntegrateError(null);
     setMergeableLoading(true);
     void (async () => {
       try {
-        const list =
-          (await social.actions.fetchMergeableActivities?.(target.workoutDate)) ?? [];
-        setMergeableActivities(list);
+        const [available, integrated] = await Promise.all([
+          social.actions.fetchMergeableActivities?.(target.workoutDate) ??
+            Promise.resolve([]),
+          social.actions.fetchIntegratedActivities?.(target.id) ??
+            Promise.resolve([]),
+        ]);
+        setMergeableActivities(available);
+        setIntegratedActivities(integrated);
+      } catch {
+        setIntegrateError(t("integrateWorkout.error"));
       } finally {
         setMergeableLoading(false);
       }
     })();
-  }, [postMenuTarget, social.actions]);
+  }, [postMenuTarget, social.actions, t]);
 
   const handleIntegrateSelect = useCallback(
     (activityId: string) => {
       const postId = integratePostId;
       if (!postId) return;
+      setIntegrateError(null);
       setIntegratingId(activityId);
       void (async () => {
         try {
           await social.actions.integrateWorkoutIntoPost?.(postId, activityId);
-          setIntegratePostId(null);
-          setIntegrateWorkoutDate(null);
+          const integrated = mergeableActivities.find(
+            (activity) => activity.id === activityId,
+          );
+          setMergeableActivities((current) =>
+            current.filter((activity) => activity.id !== activityId),
+          );
+          if (integrated) {
+            setIntegratedActivities((current) =>
+              current.some((activity) => activity.id === integrated.id)
+                ? current
+                : [...current, integrated],
+            );
+          }
+        } catch {
+          setIntegrateError(t("integrateWorkout.error"));
         } finally {
           setIntegratingId(null);
         }
       })();
     },
-    [integratePostId, social.actions],
+    [integratePostId, mergeableActivities, social.actions, t],
   );
 
   const handleImportedHealthWorkout = useCallback(
@@ -956,11 +981,25 @@ export function GymCirclePreview({
       if (!postId || !integrate) {
         throw new Error("Workout integration is unavailable");
       }
+      setIntegrateError(null);
       try {
         await integrate(postId, activity.id);
         setIntegrateHealthOpen(false);
-        setIntegratePostId(null);
-        setIntegrateWorkoutDate(null);
+        if (integrateWorkoutDate) {
+          try {
+            const [available, integrated] = await Promise.all([
+              social.actions.fetchMergeableActivities?.(
+                integrateWorkoutDate,
+              ) ?? Promise.resolve([]),
+              social.actions.fetchIntegratedActivities?.(postId) ??
+                Promise.resolve([]),
+            ]);
+            setMergeableActivities(available);
+            setIntegratedActivities(integrated);
+          } catch {
+            setIntegrateError(t("integrateWorkout.error"));
+          }
+        }
       } catch (error) {
         if (integrateWorkoutDate) {
           const list =
@@ -972,7 +1011,7 @@ export function GymCirclePreview({
         throw error;
       }
     },
-    [integratePostId, integrateWorkoutDate, social.actions],
+    [integratePostId, integrateWorkoutDate, social.actions, t],
   );
 
   const importHealthWorkout = useCallback(
@@ -2990,17 +3029,22 @@ export function GymCirclePreview({
                 `${detailWorkout.activityType}:${detailWorkout.startedAt ?? "unknown"}`
               }
               loadWorkoutDetail={social.actions.fetchWorkoutDetail}
+              loadPostWorkoutDetails={social.actions.fetchPostWorkoutDetails}
               workout={detailWorkout}
               onClose={() => setDetailWorkout(null)}
             />
           ) : null}
           <IntegrateWorkoutSheet
             activities={mergeableActivities}
+            error={integrateError}
+            integratedActivities={integratedActivities}
             integratingId={integratingId}
             loading={mergeableLoading}
             onClose={() => {
               setIntegratePostId(null);
               setIntegrateWorkoutDate(null);
+              setIntegratedActivities([]);
+              setIntegrateError(null);
             }}
             onImportFromAppleHealth={() => setIntegrateHealthOpen(true)}
             onSelect={handleIntegrateSelect}

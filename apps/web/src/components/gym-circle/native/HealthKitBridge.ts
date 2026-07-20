@@ -14,6 +14,7 @@ export type HealthKitWorkoutType =
   | "running"
   | "cycling"
   | "walking"
+  | "cardio"
   | "hiit"
   | "mobility"
   | "other";

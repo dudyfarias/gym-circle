@@ -57,6 +57,7 @@ describe("healthKitWorkoutToActivityInput", () => {
       activeCalories: 42.5,
       totalCalories: 60,
       healthMetadata: {
+        workoutType: "walking",
         heartRateSamples: [
           { timestamp: "2026-07-15T13:38:30.000Z", bpm: 92 },
           { timestamp: "2026-07-15T13:39:30.000Z", bpm: 109 },
@@ -89,6 +90,7 @@ describe("healthKitWorkoutToActivityInput", () => {
     expect(healthKitWorkoutActivityType("strength")).toBe("strength");
     expect(healthKitWorkoutActivityType("running")).toBe("run");
     expect(healthKitWorkoutActivityType("cycling")).toBe("ride");
+    expect(healthKitWorkoutActivityType("cardio")).toBe("other");
     expect(healthKitWorkoutActivityType("hiit")).toBe("other");
   });
 

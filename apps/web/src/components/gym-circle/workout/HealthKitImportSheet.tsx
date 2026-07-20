@@ -183,9 +183,20 @@ export function HealthKitImportSheet({
         "healthkit_import_timeout",
       );
       setImported(result);
+      setWorkouts((current) =>
+        current.filter(
+          (workout) => workout.externalId !== result.workout.externalId,
+        ),
+      );
     } catch (caught) {
       if (caught instanceof HealthKitPostIntegrationError) {
         setImported(caught.imported);
+        setWorkouts((current) =>
+          current.filter(
+            (workout) =>
+              workout.externalId !== caught.imported.workout.externalId,
+          ),
+        );
         setError(t("healthImport.errors.integrate"));
         setImporting(false);
         return;
@@ -307,8 +318,21 @@ export function HealthKitImportSheet({
                   {t("healthImport.share")}
                 </button>
               ) : null}
+              {completionMode === "integrate" ? (
+                <button
+                  className="gc-pressable mt-5 h-13 w-full rounded-full bg-[var(--gc-brand)] text-[14px] font-black text-[var(--gc-brand-ink)]"
+                  onClick={() => {
+                    setImported(null);
+                    setSelected(null);
+                    setError(null);
+                  }}
+                  type="button"
+                >
+                  {t("healthImport.importAnother")}
+                </button>
+              ) : null}
               <button
-                className="gc-pressable mt-5 h-12 w-full rounded-full border border-white/[0.09] text-[13px] font-black text-white/78"
+                className={`${completionMode === "integrate" ? "mt-2" : "mt-5"} gc-pressable h-12 w-full rounded-full border border-white/[0.09] text-[13px] font-black text-white/78`}
                 onClick={onClose}
                 type="button"
               >

@@ -29,6 +29,7 @@ type WorkoutDetailOverlayProps = {
     activityId?: string | null;
     postId?: string | null;
   }) => Promise<WorkoutDetail | null>;
+  loadPostWorkoutDetails?: (postId: string) => Promise<WorkoutDetail[]>;
 };
 
 const TYPE_META: Record<string, { key: string }> = {
@@ -77,8 +78,12 @@ export function WorkoutDetailOverlay({
   workout: initialWorkout,
   onClose,
   loadWorkoutDetail,
+  loadPostWorkoutDetails,
 }: WorkoutDetailOverlayProps) {
-  const [workout, setWorkout] = useState(initialWorkout);
+  const [workouts, setWorkouts] = useState<WorkoutDetail[]>([initialWorkout]);
+  const [activeActivityId, setActiveActivityId] = useState(
+    initialWorkout.activityId ?? null,
+  );
   const requestedDetailKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const key = initialWorkout.activityId
@@ -86,18 +91,33 @@ export function WorkoutDetailOverlay({
       : initialWorkout.postId
         ? `post:${initialWorkout.postId}`
         : null;
-    if (!key || !loadWorkoutDetail || requestedDetailKeyRef.current === key) {
+    if (
+      !key ||
+      requestedDetailKeyRef.current === key ||
+      (!loadWorkoutDetail && !loadPostWorkoutDetails)
+    ) {
       return;
     }
     requestedDetailKeyRef.current = key;
     let cancelled = false;
-    void loadWorkoutDetail({
-      activityId: initialWorkout.activityId,
-      postId: initialWorkout.postId,
-    })
-      .then((hydrated) => {
-        if (!hydrated || cancelled) return;
-        setWorkout((current) => mergeHydratedWorkoutDetail(current, hydrated));
+    const request = initialWorkout.postId && loadPostWorkoutDetails
+      ? loadPostWorkoutDetails(initialWorkout.postId)
+      : loadWorkoutDetail?.({
+          activityId: initialWorkout.activityId,
+          postId: initialWorkout.postId,
+        }).then((hydrated) => (hydrated ? [hydrated] : []));
+    void request
+      ?.then((hydrated) => {
+        if (!hydrated.length || cancelled) return;
+        const merged = hydrated.map((detail) =>
+          mergeHydratedWorkoutDetail(initialWorkout, detail),
+        );
+        setWorkouts(merged);
+        setActiveActivityId((current) =>
+          current && merged.some((detail) => detail.activityId === current)
+            ? current
+            : (merged[0]?.activityId ?? null),
+        );
       })
       .catch(() => {
         // O resumo já possui os campos leves do feed. Falha de hidratação não
@@ -106,14 +126,25 @@ export function WorkoutDetailOverlay({
     return () => {
       cancelled = true;
     };
-  }, [initialWorkout, loadWorkoutDetail]);
+  }, [initialWorkout, loadPostWorkoutDetails, loadWorkoutDetail]);
+
+  const workout =
+    workouts.find((detail) => detail.activityId === activeActivityId) ??
+    workouts[0] ??
+    initialWorkout;
 
   const { i18n, t } = useTranslation();
   const locale = i18n.language?.startsWith("en") ? "en-US" : "pt-BR";
   const timeZone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
   const meta = TYPE_META[workout.activityType] ?? TYPE_META.other;
-  const typeLabel = t(meta.key);
+  const fallbackTypeLabel = t(meta.key);
+  const healthWorkoutType = workout.healthMetadata?.workoutType;
+  const typeLabel = healthWorkoutType
+    ? t(`healthImport.types.${healthWorkoutType}`, {
+        defaultValue: fallbackTypeLabel,
+      })
+    : fallbackTypeLabel;
   const isOutdoor = OUTDOOR_TYPES.has(workout.activityType);
   const start = workout.startedAt ?? workout.endedAt;
   const locationLabel = workout.gymName ?? workout.locationName;
@@ -288,6 +319,43 @@ export function WorkoutDetailOverlay({
           timeLabel={timeLabel}
           title={typeLabel}
         />
+
+        {workouts.length > 1 ? (
+          <nav
+            aria-label={t("workoutDetail.integratedWorkouts")}
+            className="-mx-1 mt-5 flex snap-x gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {workouts.map((detail) => {
+              const detailMeta =
+                TYPE_META[detail.activityType] ?? TYPE_META.other;
+              const fallbackLabel = t(detailMeta.key);
+              const label = detail.healthMetadata?.workoutType
+                ? t(`healthImport.types.${detail.healthMetadata.workoutType}`, {
+                    defaultValue: fallbackLabel,
+                  })
+                : fallbackLabel;
+              const selected = detail.activityId === workout.activityId;
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={`gc-pressable shrink-0 snap-start rounded-full border px-4 py-2 text-left transition ${
+                    selected
+                      ? "border-[var(--gc-blue)]/55 bg-[var(--gc-blue)]/16 text-white"
+                      : "border-white/[0.08] bg-white/[0.035] text-white/58"
+                  }`}
+                  key={detail.activityId ?? `${detail.startedAt}-${label}`}
+                  onClick={() => setActiveActivityId(detail.activityId ?? null)}
+                  type="button"
+                >
+                  <span className="block text-[12px] font-black">{label}</span>
+                  <span className="mt-0.5 block text-[10px] font-bold tabular-nums opacity-65">
+                    {formatElapsed(detail.elapsedS)}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        ) : null}
 
         <section className="mt-6">
           <h3 className="mb-3 text-[18px] font-black text-white">

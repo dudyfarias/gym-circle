@@ -166,6 +166,19 @@ export function activityService(client: GymCircleClient) {
     },
 
     /**
+     * Hidrata todas as atividades integradas ao post, preservando a ordem do
+     * vínculo. A RPC continua sob RLS e só é chamada ao abrir o detalhe.
+     */
+    async detailsForPost(postId: string): Promise<Activity[]> {
+      const { data, error } = await (client as unknown as SupabaseClient).rpc(
+        "get_post_activity_details",
+        { p_post_id: postId },
+      );
+      if (error) throw error;
+      return ((data ?? []) as ActivityRow[]).map(activityRowToDomain);
+    },
+
+    /**
      * "Integrar treino": treinos do próprio user num dia (mesma data do post),
      * ainda não vinculados a nenhum post. Alimenta o picker de integração.
      */
@@ -174,24 +187,27 @@ export function activityService(client: GymCircleClient) {
         p_workout_date: workoutDate,
       });
       if (error) throw error;
-      return ((data ?? []) as MergeableActivityRow[]).map((row) => ({
-        id: row.id,
-        activityType: row.activity_type,
-        elapsedS: row.elapsed_s ?? 0,
-        movingS: row.moving_s ?? null,
-        distanceM: row.distance_m ?? null,
-        elevationGainM: row.elevation_gain_m ?? null,
-        avgHr: row.avg_hr ?? null,
-        totalCalories: row.total_calories ?? null,
-        startedAt: row.started_at ?? null,
-        endedAt: row.ended_at ?? null,
-      }));
+      return ((data ?? []) as MergeableActivityRow[]).map(
+        mergeableActivityFromRow,
+      );
+    },
+
+    /** Atividades que já pertencem ao post, na ordem em que foram ligadas. */
+    async linkedToPost(postId: string): Promise<MergeableActivity[]> {
+      const { data, error } = await (client as unknown as SupabaseClient).rpc(
+        "get_post_activities",
+        { p_post_id: postId },
+      );
+      if (error) throw error;
+      return ((data ?? []) as MergeableActivityRow[]).map(
+        mergeableActivityFromRow,
+      );
     },
 
     /**
-     * Integra o treino no post (post recebe source_activity_id): o post passa
-     * a mostrar as estatísticas e o treino some do feed (sem duplicar). O RPC
-     * valida dono + mesma data.
+     * Integra o treino no post sem substituir os já ligados. O primeiro segue
+     * em source_activity_id para compatibilidade; os demais ficam na relação
+     * post_activities. O RPC valida dono + mesma data e limita a dez itens.
      */
     async mergeIntoPost(postId: string, activityId: string): Promise<void> {
       const { error } = await (client as unknown as SupabaseClient).rpc("merge_activity_into_post", {
@@ -263,3 +279,20 @@ export type MergeableActivity = {
   startedAt: string | null;
   endedAt: string | null;
 };
+
+function mergeableActivityFromRow(
+  row: MergeableActivityRow,
+): MergeableActivity {
+  return {
+    id: row.id,
+    activityType: row.activity_type,
+    elapsedS: row.elapsed_s ?? 0,
+    movingS: row.moving_s ?? null,
+    distanceM: row.distance_m ?? null,
+    elevationGainM: row.elevation_gain_m ?? null,
+    avgHr: row.avg_hr ?? null,
+    totalCalories: row.total_calories ?? null,
+    startedAt: row.started_at ?? null,
+    endedAt: row.ended_at ?? null,
+  };
+}

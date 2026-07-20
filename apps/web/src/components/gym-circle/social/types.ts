@@ -779,11 +779,17 @@ export type SocialActions = {
   fetchMergeableActivities?: (
     workoutDate: string,
   ) => Promise<MergeableActivity[]>;
+  /** Treinos que já foram integrados neste post. */
+  fetchIntegratedActivities?: (
+    postId: string,
+  ) => Promise<MergeableActivity[]>;
   fetchWorkoutDetail?: (input: {
     activityId?: string | null;
     postId?: string | null;
   }) => Promise<WorkoutDetail | null>;
-  /** Vincula o treino ao post (source_activity_id); some do feed. */
+  /** Hidrata as estatísticas individuais de todos os treinos do post. */
+  fetchPostWorkoutDetails?: (postId: string) => Promise<WorkoutDetail[]>;
+  /** Vincula mais um treino ao post sem substituir os anteriores. */
   integrateWorkoutIntoPost?: (
     postId: string,
     activityId: string,

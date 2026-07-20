@@ -60,6 +60,7 @@ export function healthKitWorkoutToActivityInput(
     activeCalories: finitePositiveNumber(workout.activeCalories),
     totalCalories: finitePositiveNumber(workout.totalCalories),
     healthMetadata: {
+      workoutType: workout.workoutType,
       heartRateSamples: sanitizeHeartRateSamples(workout.heartRateSamples),
       minHr: finitePositiveIntegerOrNull(workout.minHr),
       workoutEffort: finiteBoundedNumberOrNull(workout.workoutEffort, 1, 10),

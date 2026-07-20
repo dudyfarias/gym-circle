@@ -153,6 +153,7 @@ describe("activityRowToDomain", () => {
       activeCalories: 480,
       totalCalories: 512,
       healthMetadata: {
+        workoutType: null,
         heartRateSamples: [],
         minHr: null,
         workoutEffort: null,

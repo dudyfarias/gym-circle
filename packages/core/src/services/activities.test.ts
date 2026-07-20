@@ -339,6 +339,7 @@ describe("activityService.detail", () => {
       origin: "imported",
       sourceApp: "Apple Watch",
       healthMetadata: {
+        workoutType: null,
         workoutEffort: 3,
         heartRateSamples: [
           { timestamp: "2026-07-16T19:47:00.000Z", bpm: 117 },
@@ -352,6 +353,82 @@ describe("activityService.detail", () => {
     const client = { rpc } as unknown as GymCircleClient;
     await expect(activityService(client).detail({})).resolves.toBeNull();
     expect(rpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("activityService post integration", () => {
+  const activityRow = {
+    id: "activity-2",
+    activity_type: "other",
+    elapsed_s: 900,
+    moving_s: null,
+    distance_m: null,
+    elevation_gain_m: null,
+    avg_hr: 92,
+    total_calories: 80,
+    started_at: "2026-07-20T18:00:00Z",
+    ended_at: "2026-07-20T18:15:00Z",
+  };
+
+  it("hidrata separadamente todos os treinos integrados ao post", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        { ...baseRow, id: "activity-1", activity_type: "strength" },
+        {
+          ...baseRow,
+          id: "activity-2",
+          activity_type: "other",
+          health_metadata: { workout_type: "cardio" },
+        },
+      ],
+      error: null,
+    });
+    const client = { rpc } as unknown as GymCircleClient;
+
+    const details = await activityService(client).detailsForPost("post-1");
+
+    expect(rpc).toHaveBeenCalledWith("get_post_activity_details", {
+      p_post_id: "post-1",
+    });
+    expect(details).toHaveLength(2);
+    expect(details[1]).toMatchObject({
+      id: "activity-2",
+      healthMetadata: { workoutType: "cardio" },
+    });
+  });
+
+  it("lista atividades já integradas no post", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [activityRow],
+      error: null,
+    });
+    const client = { rpc } as unknown as GymCircleClient;
+
+    const linked = await activityService(client).linkedToPost("post-1");
+
+    expect(rpc).toHaveBeenCalledWith("get_post_activities", {
+      p_post_id: "post-1",
+    });
+    expect(linked).toEqual([
+      expect.objectContaining({
+        id: "activity-2",
+        activityType: "other",
+        elapsedS: 900,
+        avgHr: 92,
+      }),
+    ]);
+  });
+
+  it("integra sem enviar dados de usuário pelo client", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const client = { rpc } as unknown as GymCircleClient;
+
+    await activityService(client).mergeIntoPost("post-1", "activity-2");
+
+    expect(rpc).toHaveBeenCalledWith("merge_activity_into_post", {
+      p_post_id: "post-1",
+      p_activity_id: "activity-2",
+    });
   });
 });
 

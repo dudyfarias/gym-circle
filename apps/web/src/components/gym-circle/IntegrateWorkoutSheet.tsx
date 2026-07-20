@@ -14,6 +14,8 @@ type IntegrateWorkoutSheetProps = {
   open: boolean;
   loading: boolean;
   activities: MergeableActivity[];
+  integratedActivities: MergeableActivity[];
+  error: string | null;
   /** id da atividade sendo integrada (spinner na linha). */
   integratingId: string | null;
   onSelect: (activityId: string) => void;
@@ -38,6 +40,8 @@ export function IntegrateWorkoutSheet({
   open,
   loading,
   activities,
+  integratedActivities,
+  error,
   integratingId,
   onSelect,
   onImportFromAppleHealth,
@@ -80,6 +84,28 @@ export function IntegrateWorkoutSheet({
           </button>
         </header>
 
+        {integratedActivities.length > 0 ? (
+          <div className="mb-4 rounded-[18px] border border-[var(--gc-blue)]/22 bg-[var(--gc-blue)]/[0.08] px-4 py-3">
+            <p className="text-[13px] font-black text-[var(--gc-blue)]">
+              {t("integrateWorkout.integratedCount", {
+                count: integratedActivities.length,
+              })}
+            </p>
+            <p className="mt-0.5 text-[11.5px] font-semibold leading-snug text-white/48">
+              {t("integrateWorkout.integratedDetail")}
+            </p>
+          </div>
+        ) : null}
+
+        {error ? (
+          <p
+            className="mb-4 rounded-[18px] border border-[#ff375f]/22 bg-[#ff375f]/[0.08] px-4 py-3 text-[12px] font-bold leading-snug text-[#ff6b84]"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="animate-spin text-[var(--gc-blue)]" size={26} />
@@ -92,7 +118,10 @@ export function IntegrateWorkoutSheet({
             </p>
           </div>
         ) : (
-          <div className="max-h-[52vh] space-y-2.5 overflow-y-auto pb-1">
+          <div className="max-h-[45vh] space-y-2.5 overflow-y-auto pb-1">
+            <p className="pb-0.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/36">
+              {t("integrateWorkout.available")}
+            </p>
             {activities.map((activity) => {
               const hasRoute = (activity.distanceM ?? 0) > 0;
               const pace = hasRoute
