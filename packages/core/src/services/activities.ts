@@ -42,11 +42,24 @@ export function activityService(client: GymCircleClient) {
 
       // As colunas de contexto do plano são aditivas e chegam antes da
       // próxima regeneração dos tipos do Supabase no rollout desta sprint.
-      const { data, error } = await (client as unknown as SupabaseClient)
-        .from("activities")
+      const activities = (client as unknown as SupabaseClient).from(
+        "activities",
+      );
+      let { data, error } = await activities
         .insert(row)
         .select("*")
         .single();
+      if (error && isMissingHealthMetadataColumn(error)) {
+        // Compatibilidade de rollout: o importador HealthKit pode chegar ao
+        // web antes da migration de health_metadata. Repetimos uma única vez
+        // sem o campo aditivo; métricas principais continuam preservadas.
+        const legacyRow: Partial<typeof row> = { ...row };
+        delete legacyRow.health_metadata;
+        ({ data, error } = await activities
+          .insert(legacyRow)
+          .select("*")
+          .single());
+      }
       if (error) throw error;
       return activityRowToDomain(data as ActivityRow);
     },
@@ -209,6 +222,18 @@ function isMissingFinalizeWorkoutRpc(error: unknown) {
     typeof candidate.message === "string" &&
     candidate.message.includes("finalize_workout_activity") &&
     /not find|does not exist/i.test(candidate.message)
+  );
+}
+
+function isMissingHealthMetadataColumn(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; message?: unknown };
+  const message =
+    typeof candidate.message === "string" ? candidate.message : "";
+  return (
+    candidate.code === "PGRST204" &&
+    message.includes("health_metadata") &&
+    /column|schema cache/i.test(message)
   );
 }
 

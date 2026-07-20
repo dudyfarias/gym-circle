@@ -202,6 +202,88 @@ describe("activityService.create", () => {
     expect(activity.elapsedS).toBe(3480);
   });
 
+  it("repete uma vez sem health_metadata quando a migration ainda não chegou", async () => {
+    const firstSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: "PGRST204",
+        message:
+          "Could not find the 'health_metadata' column of 'activities' in the schema cache",
+      },
+    });
+    const secondSingle = vi.fn().mockResolvedValue({
+      data: { ...baseRow, origin: "imported", source_app: "Apple Watch" },
+      error: null,
+    });
+    const firstInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({ single: firstSingle }),
+    });
+    const secondInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({ single: secondSingle }),
+    });
+    const insert = vi
+      .fn()
+      .mockImplementationOnce(firstInsert)
+      .mockImplementationOnce(secondInsert);
+    const client = {
+      from: vi.fn().mockReturnValue({ insert }),
+    } as unknown as GymCircleClient;
+
+    const activity = await activityService(client).create("u1", {
+      activityType: "strength",
+      mode: "session",
+      origin: "imported",
+      externalId: "health-workout-1",
+      sourceApp: "Apple Watch",
+      startedAt: "2026-07-20T16:59:00Z",
+      endedAt: "2026-07-20T17:45:03Z",
+      elapsedS: 2763,
+      avgHr: 91,
+      activeCalories: 222,
+      healthMetadata: {
+        heartRateSamples: [
+          { timestamp: "2026-07-20T17:00:00Z", bpm: 91 },
+        ],
+      },
+    });
+
+    expect(insert).toHaveBeenCalledTimes(2);
+    expect(insert.mock.calls[0]?.[0]).toHaveProperty("health_metadata");
+    expect(insert.mock.calls[1]?.[0]).not.toHaveProperty("health_metadata");
+    expect(insert.mock.calls[1]?.[0]).toMatchObject({
+      external_id: "health-workout-1",
+      avg_hr: 91,
+      active_calories: 222,
+    });
+    expect(activity.origin).toBe("imported");
+  });
+
+  it("não repete inserts por outros erros 400", async () => {
+    const insert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: "23514", message: "invalid activity" },
+        }),
+      }),
+    });
+    const client = {
+      from: vi.fn().mockReturnValue({ insert }),
+    } as unknown as GymCircleClient;
+
+    await expect(
+      activityService(client).create("u1", {
+        activityType: "strength",
+        mode: "session",
+        origin: "imported",
+        startedAt: "2026-07-20T16:59:00Z",
+        endedAt: "2026-07-20T17:45:03Z",
+        elapsedS: 2763,
+      }),
+    ).rejects.toMatchObject({ code: "23514" });
+    expect(insert).toHaveBeenCalledOnce();
+  });
+
   it("propaga erro do banco", async () => {
     const client = {
       from: vi.fn().mockReturnValue({
