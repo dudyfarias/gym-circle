@@ -244,6 +244,21 @@ function StoryViewerContent({
     [goNext, goPrevious],
   );
 
+  const handleEdgeClick = useCallback(
+    (direction: "previous" | "next", event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      // O iOS pode emitir click depois de um swipe. Nesse caso o touchend já
+      // navegou e a zona lateral não pode avançar uma segunda vez.
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
+      if (direction === "previous") goPrevious();
+      else goNext();
+    },
+    [goNext, goPrevious],
+  );
+
   const handleReply = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -400,6 +415,23 @@ function StoryViewerContent({
           />
         )}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/72 via-transparent to-black/86" />
+
+        {/* Zonas de tap no estilo Stories: ficam acima da foto/vídeo, mas
+            abaixo do header e das ações. Antes o <video> era excluído do
+            handler genérico e tocar nas bordas não navegava. */}
+        <button
+          aria-label={t("common.back")}
+          className="absolute inset-y-0 left-0 z-[5] w-[30%] bg-transparent"
+          disabled={!hasPrevious}
+          onClick={(event) => handleEdgeClick("previous", event)}
+          type="button"
+        />
+        <button
+          aria-label={t("common.next")}
+          className="absolute inset-y-0 right-0 z-[5] w-[30%] bg-transparent"
+          onClick={(event) => handleEdgeClick("next", event)}
+          type="button"
+        />
 
         {heartBurst ? (
           <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center">
