@@ -199,10 +199,13 @@ const AccountSettingsSheet = dynamic(
 
 const NO_SCREEN_SWIPE_SELECTOR =
   "button,a,input,textarea,select,video,[contenteditable='true'],[data-gc-no-screen-swipe]";
+const NO_PULL_REFRESH_SELECTOR =
+  "input,textarea,select,video,[contenteditable='true'],[data-gc-no-pull-refresh]";
 const NO_TAB_SWIPE_SELECTOR = "[data-gc-no-tab-swipe]";
 const SCREEN_SWIPE_THRESHOLD = 132;
 const SCREEN_SWIPE_MAX_VERTICAL = 34;
 const SCREEN_SWIPE_DOMINANCE = 2.15;
+const PULL_REFRESH_THRESHOLD = 72;
 
 type GymCirclePreviewProps = {
   social: SocialBundle;
@@ -400,6 +403,7 @@ export function GymCirclePreview({
   const touchIgnoreScreenSwipeRef = useRef(false);
   const touchIgnorePullRefreshRef = useRef(false);
   const touchPullingToRefreshRef = useRef(false);
+  const touchPullDistanceRef = useRef(0);
   const screenOrder: ScreenKey[] = useMemo(
     () => ["feed", "chat", "post", "checkin", "profile"],
     [],
@@ -1376,7 +1380,19 @@ export function GymCirclePreview({
         ignoresAllGestures ||
         activeScreen === "profile" ||
         (target instanceof Element && Boolean(target.closest(NO_TAB_SWIPE_SELECTOR)));
-      touchIgnorePullRefreshRef.current = ignoresAllGestures;
+      // Troca horizontal de aba e pull-to-refresh têm zonas de exclusão
+      // diferentes. Um botão/story bloqueia a troca de aba, mas no feed ainda
+      // pode iniciar um arraste vertical. No Perfil mantemos botões excluídos
+      // para não reintroduzir o cancelamento de taps corrigido anteriormente.
+      touchIgnorePullRefreshRef.current =
+        target instanceof Element &&
+        Boolean(
+          target.closest(
+            activeScreen === "profile"
+              ? NO_SCREEN_SWIPE_SELECTOR
+              : NO_PULL_REFRESH_SELECTOR,
+          ),
+        );
       const touch = event.touches[0];
       touchStartXRef.current = touch?.clientX ?? null;
       touchLastXRef.current = touch?.clientX ?? null;
@@ -1384,6 +1400,7 @@ export function GymCirclePreview({
       touchStartScreenRef.current = activeScreen;
       touchStartYRef.current = touch?.clientY ?? null;
       touchPullingToRefreshRef.current = false;
+      touchPullDistanceRef.current = 0;
     },
     [activeScreen],
   );
@@ -1401,18 +1418,24 @@ export function GymCirclePreview({
     const delta = currentY - startY;
     const deltaX = startX === null ? 0 : currentX - startX;
     if (delta <= 0) {
+      touchPullDistanceRef.current = 0;
       setPullDistance(0);
       return;
     }
     if (delta < 10 || delta < Math.abs(deltaX) * 1.25) return;
     touchPullingToRefreshRef.current = true;
     event.preventDefault();
+    touchPullDistanceRef.current = delta;
     setPullDistance(Math.min(94, delta * 0.48));
   }, [refreshing]);
 
   const handleTouchEnd = useCallback(() => {
-    const shouldRefresh = pullDistance > 62;
     const wasPullingToRefresh = touchPullingToRefreshRef.current;
+    const ignorePullRefresh = touchIgnorePullRefreshRef.current;
+    const shouldRefresh =
+      !ignorePullRefresh &&
+      wasPullingToRefresh &&
+      touchPullDistanceRef.current >= PULL_REFRESH_THRESHOLD;
     const startX = touchStartXRef.current;
     const startY = touchStartYRef.current;
     const endX = touchLastXRef.current;
@@ -1425,9 +1448,12 @@ export function GymCirclePreview({
     touchIgnoreScreenSwipeRef.current = false;
     touchIgnorePullRefreshRef.current = false;
     touchPullingToRefreshRef.current = false;
+    touchPullDistanceRef.current = 0;
     setPullDistance(0);
-    if (ignoreScreenSwipe) return;
     if (shouldRefresh) void triggerRefresh();
+    // Um alvo interativo bloqueia somente a navegação horizontal. O refresh
+    // vertical já foi tratado acima e não pode ser descartado por essa regra.
+    if (ignoreScreenSwipe) return;
     if (
       wasPullingToRefresh ||
       shouldRefresh ||
@@ -1454,7 +1480,7 @@ export function GymCirclePreview({
       if (next === "feed") setScrollState("top");
       setActiveScreen(next);
     }
-  }, [pullDistance, screenOrder, triggerRefresh]);
+  }, [screenOrder, triggerRefresh]);
 
   // Sprint 3.5.3: derivados do MyCircleSheet (próprio user OU outro).
   const myCircleUser = useMemo<EnrichedUser | null>(() => {
@@ -2387,13 +2413,9 @@ export function GymCirclePreview({
                 do tab bar com backdrop-blur sobrepõe o conteúdo (iOS-style). */}
             <div
               className="gc-scrollbar h-full overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+96px)]"
-              // Perfil já desabilita swipe entre abas. Também removemos aqui
-              // o recognizer global de pull-to-refresh: no WKWebView, um leve
-              // deslocamento do dedo podia chamar preventDefault() no
-              // touchmove e cancelar o click que abriria My Circle/sheets.
-              onTouchEnd={activeScreen === "profile" ? undefined : handleTouchEnd}
-              onTouchMove={activeScreen === "profile" ? undefined : handleTouchMove}
-              onTouchStart={activeScreen === "profile" ? undefined : handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              onTouchMove={handleTouchMove}
+              onTouchStart={handleTouchStart}
               onScroll={handleAppScroll}
               ref={scrollRef}
             >
