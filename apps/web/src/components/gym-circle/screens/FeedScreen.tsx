@@ -245,64 +245,67 @@ export function FeedScreen({
       ) : feedItems.length > 0 ? (
         <div className="space-y-5">
           {feedItems.map((item) => (
-            // gc-feed-cell (Sprint 21.3): content-visibility pula
-            // render/paint dos posts fora da viewport — a WebView não
-            // paga pelos cards já scrollados.
-            <div className="gc-feed-cell" key={`${item.kind}:${item.id}`}>
-              {item.kind === "post" ? (
-                <SocialPostCard
-                  currentUserId={currentUser.id}
-                  formatTime={formatTime}
-                  onLike={onLikePost}
-                  onOpenLikes={onOpenLikes}
-                  onOpenComments={onOpenPostDetails}
-                  onEditPost={onEditPost}
-                  onOpenPostMenu={onOpenPostMenu}
-                  onOpenWorkoutDetail={onOpenPostWorkoutDetail}
-                  onSelectGym={onSelectGym}
-                  onSelectUser={onSelectUser}
-                  onShareToChat={onSharePostToChat}
-                  onToggleFollow={onToggleFollow}
-                  post={item.post}
-                  resolveUser={resolveUser}
-                  shareTargets={postShareTargets}
-                />
-              ) : item.kind === "checkin" ? (
-                <FeedCheckinCard
-                  checkin={item.checkin}
-                  formatTime={formatTime}
-                  onEdit={
-                    item.checkin.userId === currentUser.id
-                      ? onEditCheckin
-                      : undefined
-                  }
-                  onOpenMenu={
-                    item.checkin.userId === currentUser.id
-                      ? onOpenCheckinMenu
-                      : undefined
-                  }
-                  onSelectGym={onSelectGym}
-                  onSelectUser={onSelectUser}
-                />
-              ) : (
-                <FeedActivityCard
-                  activity={item.activity}
-                  formatTime={formatTime}
-                  onAddPhoto={
-                    item.activity.userId === currentUser.id
-                      ? onAddActivityPhoto
-                      : undefined
-                  }
-                  onOpenMenu={
-                    item.activity.userId === currentUser.id
-                      ? onOpenActivityMenu
-                      : undefined
-                  }
-                  onOpenDetails={onOpenActivityDetails}
-                  onSelectGym={onSelectGym}
-                  onSelectUser={onSelectUser}
-                />
-              )}
+            <div key={`${item.kind}:${item.id}`}>
+              {/* gc-feed-cell (Sprint 21.3): content-visibility pula
+                  render/paint dos posts fora da viewport — a WebView não
+                  paga pelos cards já scrollados. Carrosséis full-bleed ficam
+                  fora desta contenção para não serem recortados nas bordas. */}
+              <div className="gc-feed-cell">
+                {item.kind === "post" ? (
+                  <SocialPostCard
+                    currentUserId={currentUser.id}
+                    formatTime={formatTime}
+                    onLike={onLikePost}
+                    onOpenLikes={onOpenLikes}
+                    onOpenComments={onOpenPostDetails}
+                    onEditPost={onEditPost}
+                    onOpenPostMenu={onOpenPostMenu}
+                    onOpenWorkoutDetail={onOpenPostWorkoutDetail}
+                    onSelectGym={onSelectGym}
+                    onSelectUser={onSelectUser}
+                    onShareToChat={onSharePostToChat}
+                    onToggleFollow={onToggleFollow}
+                    post={item.post}
+                    resolveUser={resolveUser}
+                    shareTargets={postShareTargets}
+                  />
+                ) : item.kind === "checkin" ? (
+                  <FeedCheckinCard
+                    checkin={item.checkin}
+                    formatTime={formatTime}
+                    onEdit={
+                      item.checkin.userId === currentUser.id
+                        ? onEditCheckin
+                        : undefined
+                    }
+                    onOpenMenu={
+                      item.checkin.userId === currentUser.id
+                        ? onOpenCheckinMenu
+                        : undefined
+                    }
+                    onSelectGym={onSelectGym}
+                    onSelectUser={onSelectUser}
+                  />
+                ) : (
+                  <FeedActivityCard
+                    activity={item.activity}
+                    formatTime={formatTime}
+                    onAddPhoto={
+                      item.activity.userId === currentUser.id
+                        ? onAddActivityPhoto
+                        : undefined
+                    }
+                    onOpenMenu={
+                      item.activity.userId === currentUser.id
+                        ? onOpenActivityMenu
+                        : undefined
+                    }
+                    onOpenDetails={onOpenActivityDetails}
+                    onSelectGym={onSelectGym}
+                    onSelectUser={onSelectUser}
+                  />
+                )}
+              </div>
               {item.kind === "post" &&
               item.post === feedPosts[1] &&
               suggestedUsers.length > 0 ? (
