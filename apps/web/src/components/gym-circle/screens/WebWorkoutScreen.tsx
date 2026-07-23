@@ -70,6 +70,7 @@ import { useWorkoutPlanExecutions } from "../workout/useWorkoutPlanExecutions";
 import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import { WorkoutSetAdvancedFields } from "../workout/WorkoutSetAdvancedFields";
 import { SportCatalogSection } from "../workout/SportCatalogSection";
+import { RunningPlansSheet } from "../workout/RunningPlansSheet";
 import {
   applyExerciseLoadType,
   inferExerciseLoadType,
@@ -229,6 +230,7 @@ export function WebWorkoutScreen({
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [healthImportOpen, setHealthImportOpen] = useState(false);
+  const [runningPlansOpen, setRunningPlansOpen] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [finishPromptElapsedS, setFinishPromptElapsedS] = useState<
     number | null
@@ -1879,9 +1881,13 @@ export function WebWorkoutScreen({
               <SportCatalogSection
                 activeSportId={session?.activityType}
                 enabled={open && stage === "pick"}
-                onStart={(sport) =>
-                  startWorkout(sport.activityType as WorkoutType)
-                }
+                onStart={(sport) => {
+                  if (sport.id === "run") {
+                    setRunningPlansOpen(true);
+                    return;
+                  }
+                  startWorkout(sport.activityType as WorkoutType);
+                }}
                 userId={userId}
               >
               <section className="mt-7 h-[198px]">
@@ -3089,6 +3095,14 @@ export function WebWorkoutScreen({
           onCompose(activity);
         }}
         open={healthImportOpen}
+      />
+      <RunningPlansSheet
+        onClose={() => setRunningPlansOpen(false)}
+        onStartFree={() => {
+          setRunningPlansOpen(false);
+          startWorkout("run");
+        }}
+        open={runningPlansOpen}
       />
     </>
   );
