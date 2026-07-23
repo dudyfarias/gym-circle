@@ -1,5 +1,6 @@
 import type {
   ActivityHealthMetadata,
+  ActivityType,
   MergeableActivity,
 } from "@gym-circle/core";
 import type {
@@ -633,7 +634,7 @@ export type CreateWorkoutPostInput = {
 export type WebActivityInput = {
   /** ID estável criado no começo da sessão para finalização idempotente. */
   clientSessionId?: string;
-  activityType: "strength" | "run" | "walk" | "ride" | "other";
+  activityType: ActivityType;
   /** Importações do Apple Saúde usam a mesma persistência, mas outra origem. */
   origin?: "web_timer" | "imported";
   externalId?: string | null;

@@ -17,6 +17,7 @@ import { pushService } from "./push";
 import { safetyService } from "./safety";
 import { statsService } from "./stats";
 import { storyService } from "./stories";
+import { sportService } from "./sports";
 
 export * from "./supabase";
 export * from "./activities";
@@ -37,6 +38,7 @@ export * from "./push";
 export * from "./safety";
 export * from "./stats";
 export * from "./stories";
+export * from "./sports";
 
 export function createGymCircleServices(client: GymCircleClient) {
   return {
@@ -59,6 +61,7 @@ export function createGymCircleServices(client: GymCircleClient) {
     checkins: checkinService(client),
     stats: statsService(client),
     notifications: notificationService(client),
+    sports: sportService(client),
   };
 }
 

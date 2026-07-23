@@ -3,6 +3,7 @@
 import { memo, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { sanitizeLocationLabel } from "@gym-circle/core";
+import { getSportLocalizedName } from "@gym-circle/core/domain";
 import {
   ChevronRight,
   Heart,
@@ -75,14 +76,6 @@ type SocialPostCardProps = {
   inCommentsSheet?: boolean;
 };
 
-const WORKOUT_TYPE_LABEL_KEY: Record<string, string> = {
-  strength: "workout.types.strength",
-  run: "workout.types.run",
-  walk: "workout.types.walk",
-  ride: "workout.types.ride",
-  other: "workout.types.other",
-};
-
 function isAutomaticWorkoutCover(
   post: EnrichedPost,
   mediaItems: Array<{
@@ -118,7 +111,7 @@ function SocialPostCardComponent({
   onOpenWorkoutDetail,
   inCommentsSheet = false,
 }: SocialPostCardProps) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   // Sprint 3 — Fase 3.4: cleanup final do contrato. As props de comentário
   // (onComment, onDeleteComment, onLikeComment, mentionUsers) foram removidas
   // do type; o sheet em CommentsBottomSheet recebe essas callbacks diretamente
@@ -217,9 +210,9 @@ function SocialPostCardComponent({
         ].filter((value): value is string => Boolean(value));
         return {
           isRouteWorkout,
-          label: t(
-            WORKOUT_TYPE_LABEL_KEY[post.workout.activityType] ??
-              "workout.types.other",
+          label: getSportLocalizedName(
+            post.workout.activityType,
+            i18n.language,
           ),
           primary: isRouteWorkout
             ? formatKm(post.workout.distanceM ?? 0)

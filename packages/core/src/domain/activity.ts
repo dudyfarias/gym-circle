@@ -1,4 +1,5 @@
 import { getGymCircleDateKey } from "./time";
+import type { SportId } from "./sports";
 
 /**
  * Atividade rastreada (rastreio de treino, spec 2026-07-02).
@@ -7,7 +8,7 @@ import { getGymCircleDateKey } from "./time";
  * cronômetro do web (`web_timer`) ou importada do Apple Saúde (`imported`).
  * Ela marca o dia/streak via trigger e pode virar post (source_activity_id).
  */
-export type ActivityType = "strength" | "run" | "walk" | "ride" | "other";
+export type ActivityType = SportId;
 export type ActivityMode = "session" | "route";
 export type ActivityOrigin = "live" | "web_timer" | "imported";
 export type WorkoutPlanStartSource =

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  type ComponentType,
   useCallback,
   useEffect,
   useMemo,
@@ -10,7 +9,6 @@ import {
   useState,
 } from "react";
 import {
-  Bike,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -22,7 +20,6 @@ import {
   Info,
   MapPinned,
   Minus,
-  MoveRight,
   Pause,
   Pencil,
   Play,
@@ -35,6 +32,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
+import { getSportLocalizedName } from "@gym-circle/core/domain";
 import { useTranslation } from "react-i18next";
 import { ConfirmSheet } from "../ConfirmSheet";
 import type {
@@ -71,6 +69,7 @@ import { useWorkoutCatalog } from "../workout/useWorkoutCatalog";
 import { useWorkoutPlanExecutions } from "../workout/useWorkoutPlanExecutions";
 import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import { WorkoutSetAdvancedFields } from "../workout/WorkoutSetAdvancedFields";
+import { SportCatalogSection } from "../workout/SportCatalogSection";
 import {
   applyExerciseLoadType,
   inferExerciseLoadType,
@@ -179,21 +178,6 @@ function newStrengthSetFromTemplate(
     techniqueNotes: template?.techniqueNotes ?? null,
   };
 }
-
-const TYPE_CARDS: Array<{
-  type: WorkoutType;
-  icon: ComponentType<{
-    size?: number;
-    strokeWidth?: number;
-    className?: string;
-  }>;
-}> = [
-  { type: "strength", icon: Dumbbell },
-  { type: "run", icon: MoveRight },
-  { type: "walk", icon: Footprints },
-  { type: "ride", icon: Bike },
-  { type: "other", icon: Play },
-];
 
 function isRouteWorkout(type: WorkoutType): type is RouteWorkoutType {
   return type === "run" || type === "walk" || type === "ride";
@@ -1892,7 +1876,15 @@ export function WebWorkoutScreen({
               </button>
             </header>
             <div className="mt-7 pb-24">
-              <section className="h-[198px]">
+              <SportCatalogSection
+                activeSportId={session?.activityType}
+                enabled={open && stage === "pick"}
+                onStart={(sport) =>
+                  startWorkout(sport.activityType as WorkoutType)
+                }
+                userId={userId}
+              >
+              <section className="mt-7 h-[198px]">
                 <div className="flex items-end justify-between gap-3 px-1">
                   <div>
                     <h3 className="text-[16px] font-black text-white">
@@ -2085,43 +2077,7 @@ export function WebWorkoutScreen({
                 )}
               </section>
 
-              <section className="mt-8 space-y-2.5">
-                <div className="mb-3 px-1">
-                  <h3 className="text-[16px] font-black text-white">
-                    {t("workout.modalities.title")}
-                  </h3>
-                  <p className="mt-0.5 text-[11.5px] font-bold text-white/42">
-                    {t("workout.modalities.subtitle")}
-                  </p>
-                </div>
-              {TYPE_CARDS.map(({ type, icon: Icon }) => (
-                <button
-                  className="gc-pressable flex w-full items-center gap-3.5 rounded-[22px] border border-white/[0.07] bg-[#0b1012] p-3.5 text-left"
-                  key={type}
-                  onClick={() => startWorkout(type)}
-                  type="button"
-                >
-                  <span className="grid size-12 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
-                    <Icon size={22} strokeWidth={2.4} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[16px] font-black text-white">
-                      {t(`workout.types.${type}`)}
-                    </span>
-                    <span className="mt-0.5 block text-[12px] font-bold leading-snug text-white/42">
-                      {t(`workout.typeHints.${type}`)}
-                    </span>
-                  </span>
-                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
-                        <Play
-                          className="ml-0.5"
-                          fill="currentColor"
-                          size={16}
-                        />
-                  </span>
-                </button>
-              ))}
-              </section>
+              </SportCatalogSection>
             </div>
             <WorkoutPlansFabControlled
               catalog={workoutCatalog}
@@ -2142,7 +2098,10 @@ export function WebWorkoutScreen({
                   <Footprints className="text-[var(--gc-brand)]" size={15} />
                 )}
                 <span className="truncate">
-                  {t(`workout.types.${session.activityType}`)}
+                  {getSportLocalizedName(
+                    session.activityType,
+                    i18n.language,
+                  )}
                 </span>
               </span>
               <div className="ml-auto flex min-w-0 flex-col items-end gap-1">

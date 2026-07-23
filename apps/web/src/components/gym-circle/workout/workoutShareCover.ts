@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  getSportDefinition,
+  type ActivityType,
+} from "@gym-circle/core/domain";
+import {
   formatElapsed,
   formatKm,
   formatPace,
@@ -8,7 +12,7 @@ import {
 } from "./workoutElapsed";
 
 export type WorkoutShareCoverInput = {
-  activityType: "strength" | "run" | "walk" | "ride" | "other";
+  activityType: ActivityType;
   elapsedS: number;
   movingS?: number | null;
   distanceM?: number | null;
@@ -25,7 +29,6 @@ export type WorkoutShareCoverSummary = {
   secondary: string[];
 };
 
-const ROUTE_ACTIVITY_TYPES = new Set(["run", "walk", "ride"]);
 const COVER_WIDTH = 1200;
 const COVER_HEIGHT = 1500;
 
@@ -68,7 +71,8 @@ function dateLabel(workoutDate?: string | null) {
 export function buildWorkoutShareCoverSummary(
   input: WorkoutShareCoverInput,
 ): WorkoutShareCoverSummary {
-  const isRouteActivity = ROUTE_ACTIVITY_TYPES.has(input.activityType);
+  const isRouteActivity =
+    getSportDefinition(input.activityType).trackingCapabilities.supportsRoute;
   const distanceM = input.distanceM ?? 0;
   const movingS = input.movingS ?? input.elapsedS;
   const pace =

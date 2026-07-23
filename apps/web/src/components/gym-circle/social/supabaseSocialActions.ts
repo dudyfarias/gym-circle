@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import {
   buildGoogleMapsSearchUrl,
   buildGoogleMapsUrlFromCoordinates,
+  getSportDefinition,
 } from "@gym-circle/core";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import type {
@@ -683,12 +684,10 @@ export function createSocialActions(
         const activity = await services.activities.create(currentUserId, {
           clientSessionId: input.clientSessionId,
           activityType: input.activityType,
-          mode:
-            input.activityType === "run" ||
-            input.activityType === "walk" ||
-            input.activityType === "ride"
-              ? "route"
-              : "session",
+          mode: getSportDefinition(input.activityType).trackingCapabilities
+            .supportsRoute
+            ? "route"
+            : "session",
           origin: input.origin ?? "web_timer",
           externalId: input.externalId ?? null,
           sourceApp: input.sourceApp ?? null,

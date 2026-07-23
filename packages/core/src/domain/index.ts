@@ -5,3 +5,4 @@ export * from "./location";
 export * from "./health";
 export * from "./time";
 export * from "./activity";
+export * from "./sports";

@@ -3,6 +3,10 @@
 import { CloudSun, Gauge, Trophy, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  getSportDefinition,
+  getSportLocalizedName,
+} from "@gym-circle/core/domain";
 import type { WorkoutDetail } from "../social/types";
 import {
   normalizeActivitySource,
@@ -31,16 +35,6 @@ type WorkoutDetailOverlayProps = {
   }) => Promise<WorkoutDetail | null>;
   loadPostWorkoutDetails?: (postId: string) => Promise<WorkoutDetail[]>;
 };
-
-const TYPE_META: Record<string, { key: string }> = {
-  strength: { key: "workout.types.strength" },
-  run: { key: "workout.types.run" },
-  walk: { key: "workout.types.walk" },
-  ride: { key: "workout.types.ride" },
-  other: { key: "workout.types.other" },
-};
-
-const OUTDOOR_TYPES = new Set(["run", "walk", "ride"]);
 
 const TONE = {
   time: "#FFD60A",
@@ -137,15 +131,18 @@ export function WorkoutDetailOverlay({
   const locale = i18n.language?.startsWith("en") ? "en-US" : "pt-BR";
   const timeZone =
     Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo";
-  const meta = TYPE_META[workout.activityType] ?? TYPE_META.other;
-  const fallbackTypeLabel = t(meta.key);
+  const fallbackTypeLabel = getSportLocalizedName(
+    workout.activityType,
+    i18n.language,
+  );
   const healthWorkoutType = workout.healthMetadata?.workoutType;
   const typeLabel = healthWorkoutType
     ? t(`healthImport.types.${healthWorkoutType}`, {
         defaultValue: fallbackTypeLabel,
       })
     : fallbackTypeLabel;
-  const isOutdoor = OUTDOOR_TYPES.has(workout.activityType);
+  const isOutdoor =
+    getSportDefinition(workout.activityType).trackingCapabilities.supportsRoute;
   const start = workout.startedAt ?? workout.endedAt;
   const locationLabel = workout.gymName ?? workout.locationName;
   const locationCoordinate =
@@ -330,9 +327,10 @@ export function WorkoutDetailOverlay({
               className="flex min-h-[54px] snap-x items-stretch gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {workouts.map((detail) => {
-                const detailMeta =
-                  TYPE_META[detail.activityType] ?? TYPE_META.other;
-                const fallbackLabel = t(detailMeta.key);
+                const fallbackLabel = getSportLocalizedName(
+                  detail.activityType,
+                  i18n.language,
+                );
                 const label = detail.healthMetadata?.workoutType
                   ? t(`healthImport.types.${detail.healthMetadata.workoutType}`, {
                       defaultValue: fallbackLabel,

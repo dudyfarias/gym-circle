@@ -7,6 +7,7 @@ import {
   buildGoogleMapsUrlFromCoordinates,
   type Coordinates,
 } from "@gym-circle/core";
+import { getSportLocalizedName } from "@gym-circle/core/domain";
 import {
   ArrowLeft,
   Calendar,
@@ -78,14 +79,6 @@ type PostScreenProps = {
    * OPCIONAL — sem mídia, geramos a capa de stats em canvas na hora do publish.
    */
   activityContext?: ComposerActivityContext | null;
-};
-
-// Rastreio de treino → tag preset do composer (values PT-BR do banco).
-const ACTIVITY_TYPE_TO_WORKOUT_VALUE: Record<string, string> = {
-  strength: "Musculação",
-  run: "Corrida",
-  ride: "Bike",
-  walk: "Cardio",
 };
 
 type WorkoutMediaUploadResult = {
@@ -178,7 +171,7 @@ export function PostScreen({
   workoutDate,
   activityContext = null,
 }: PostScreenProps) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   // "Registrar treino": modo retroativo (dia treinado sem mídia).
   const isBackdated = Boolean(workoutDate && !activityContext);
   // Posts promovidos de uma atividade precisam herdar o mesmo workout_date
@@ -190,8 +183,7 @@ export function PostScreen({
   const getErrorMessage = (err: unknown) =>
     errorMessage(err, t("postScreen.publish.errors.generic"));
   const activityTypeLabel = activityContext
-    ? (ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType] ??
-      t("workout.types.other"))
+    ? getSportLocalizedName(activityContext.activityType, i18n.language)
     : "";
   const [caption, setCaption] = useState(activityContext?.caption ?? "");
   const [composerStep, setComposerStep] = useState<ComposerStep>(
@@ -210,7 +202,7 @@ export function PostScreen({
       return activityContext.workoutTypes.slice(0, 5);
     }
     const preset = activityContext
-      ? ACTIVITY_TYPE_TO_WORKOUT_VALUE[activityContext.activityType]
+      ? getSportLocalizedName(activityContext.activityType, i18n.language)
       : undefined;
     return preset ? [preset] : [];
   });

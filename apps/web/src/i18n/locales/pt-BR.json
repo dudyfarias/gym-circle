@@ -87,6 +87,35 @@
       "ride": "No app: GPS, velocidade e rota",
       "other": "Qualquer treino, só o tempo"
     },
+    "sports": {
+      "searchPlaceholder": "Buscar modalidade",
+      "mostUsed": "Modalidades mais usadas",
+      "personalizedHint": "Ordenadas pelo seu histórico e favoritos",
+      "all": "Todas as modalidades",
+      "searchResults": "Resultados",
+      "resultCount_one": "{{count}} modalidade",
+      "resultCount_other": "{{count}} modalidades",
+      "showAll": "Ver todas",
+      "showLess": "Ver menos",
+      "addFavorite": "Adicionar modalidade aos favoritos",
+      "removeFavorite": "Remover modalidade dos favoritos",
+      "empty": "Nenhuma modalidade encontrada",
+      "emptyHint": "Tente buscar por outro nome ou alias.",
+      "categories": {
+        "all": "Todas",
+        "strength": "Força",
+        "cardio": "Cardio",
+        "sports": "Esportes",
+        "racket": "Raquete",
+        "water": "Água",
+        "wellness": "Bem-estar",
+        "functional": "Funcional",
+        "combat": "Lutas",
+        "outdoor": "Outdoor",
+        "machines": "Máquinas",
+        "other": "Outros"
+      }
+    },
     "rest": {
       "title": "Descanso",
       "subtitle": "Timer entre séries",

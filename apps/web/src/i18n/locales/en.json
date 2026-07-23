@@ -87,6 +87,35 @@
       "ride": "In the app: GPS, speed and route",
       "other": "Any workout, time only"
     },
+    "sports": {
+      "searchPlaceholder": "Search sports",
+      "mostUsed": "Most used sports",
+      "personalizedHint": "Ordered by your history and favorites",
+      "all": "All sports",
+      "searchResults": "Results",
+      "resultCount_one": "{{count}} sport",
+      "resultCount_other": "{{count}} sports",
+      "showAll": "See all",
+      "showLess": "See less",
+      "addFavorite": "Add sport to favorites",
+      "removeFavorite": "Remove sport from favorites",
+      "empty": "No sports found",
+      "emptyHint": "Try another name or alias.",
+      "categories": {
+        "all": "All",
+        "strength": "Strength",
+        "cardio": "Cardio",
+        "sports": "Sports",
+        "racket": "Racket",
+        "water": "Water",
+        "wellness": "Wellness",
+        "functional": "Functional",
+        "combat": "Combat",
+        "outdoor": "Outdoor",
+        "machines": "Machines",
+        "other": "Other"
+      }
+    },
     "rest": {
       "title": "Rest",
       "subtitle": "Timer between sets",

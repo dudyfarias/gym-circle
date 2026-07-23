@@ -7,6 +7,7 @@ import {
   REST_TIMER_INITIAL,
   type RestTimerState,
 } from "./restTimer";
+import { isSportId } from "@gym-circle/core/domain";
 
 /** Chave global v4, removida por segurança na primeira leitura autenticada. */
 export const WORKOUT_STORAGE_KEY = "gc-web-workout";
@@ -288,7 +289,9 @@ export function readStoredWorkoutSession(userId: string): StoredWorkoutSession |
       ownerUserId: userId,
       clientSessionId: parsed.clientSessionId,
       startedAtMs: parsed.startedAtMs,
-      activityType: parsed.activityType,
+      activityType: isSportId(parsed.activityType)
+        ? parsed.activityType
+        : "other",
       workoutPlan: readWorkoutPlanContext(parsed.workoutPlan),
       pausedAtMs:
         typeof parsed.pausedAtMs === "number" ? parsed.pausedAtMs : null,

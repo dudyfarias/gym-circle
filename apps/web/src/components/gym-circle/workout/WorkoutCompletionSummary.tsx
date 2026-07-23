@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { Camera, Check, Share2, Trophy, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import {
+  getSportDefinition,
+  getSportLocalizedName,
+} from "@gym-circle/core/domain";
 import { WorkoutRouteMap } from "../design-system/WorkoutRouteMap";
 import type { ComposerActivityContext } from "../social/types";
 import type { WorkoutComparison } from "./exerciseHistory";
@@ -60,6 +64,8 @@ export function WorkoutCompletionSummary({
 }: WorkoutCompletionSummaryProps) {
   const { i18n, t } = useTranslation();
   const { context, metrics, comparison } = data;
+  const sportCapabilities =
+    getSportDefinition(context.activityType).trackingCapabilities;
   const [workoutNote, setWorkoutNote] = useState(data.workoutNote ?? "");
   const [savedWorkoutNote, setSavedWorkoutNote] = useState(
     data.workoutNote ?? "",
@@ -126,7 +132,7 @@ export function WorkoutCompletionSummary({
           <Check size={30} strokeWidth={3} />
         </span>
         <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--gc-brand)]">
-          {t(`workout.types.${context.activityType}`)}
+          {getSportLocalizedName(context.activityType, i18n.language)}
         </p>
         <h2 className="mt-1 text-[30px] font-black tracking-[-0.035em] text-white">
           {t("workout.summary.title")}
@@ -146,7 +152,7 @@ export function WorkoutCompletionSummary({
             label={t("workout.summary.exercises")}
             value={String(metrics.exerciseCount)}
           />
-        ) : (
+        ) : sportCapabilities.supportsDistance ? (
           <SummaryMetric
             label={t("workout.metrics.distance")}
             value={
@@ -155,7 +161,7 @@ export function WorkoutCompletionSummary({
                 : "—"
             }
           />
-        )}
+        ) : null}
         {context.activityType === "strength" ? (
           <>
             <SummaryMetric

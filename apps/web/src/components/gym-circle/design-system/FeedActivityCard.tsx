@@ -2,6 +2,7 @@
 
 import { ImagePlus, MapPin, MoreHorizontal, Route, Timer } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { getSportLocalizedName } from "@gym-circle/core/domain";
 import { Avatar } from "@/components/ui/Avatar";
 import { IconButton } from "@/components/ui/IconButton";
 import type { EnrichedActivity } from "../social/types";
@@ -25,14 +26,6 @@ type FeedActivityCardProps = {
   onSelectUser?: (userId: string) => void;
 };
 
-const TYPE_LABEL_KEY: Record<string, string> = {
-  strength: "workout.types.strength",
-  run: "workout.types.run",
-  walk: "workout.types.walk",
-  ride: "workout.types.ride",
-  other: "workout.types.other",
-};
-
 /**
  * Rastreio de treino — ENTRADA de atividade no feed (espelho do
  * FeedCheckinCard): treino sem foto, com as mesmas infos de post (legenda,
@@ -47,8 +40,11 @@ export function FeedActivityCard({
   onSelectGym,
   onSelectUser,
 }: FeedActivityCardProps) {
-  const { t } = useTranslation();
-  const typeLabel = t(TYPE_LABEL_KEY[activity.activityType] ?? "workout.types.other");
+  const { i18n, t } = useTranslation();
+  const typeLabel = getSportLocalizedName(
+    activity.activityType,
+    i18n.language,
+  );
   const locationLabel = activity.gymName ?? activity.locationName;
 
   // Fase 2 (GPS outdoor): rota gravada → destaque vira distância; tempo,

@@ -21,7 +21,12 @@ export type AnalyticsEventName =
   | "streak_restore_earned"
   | "streak_restore_expired"
   | "streak_lost"
-  | "streak_saved";
+  | "streak_saved"
+  | "sport_catalog_opened"
+  | "sport_searched"
+  | "sport_started"
+  | "sport_favorite_changed"
+  | "sport_start_cancelled";
 
 export function analyticsService(client: GymCircleClient) {
   return {

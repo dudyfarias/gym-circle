@@ -3,6 +3,7 @@
 import { ChevronRight, HeartPulse, Loader2, Route, Timer, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MergeableActivity } from "@gym-circle/core";
+import { getSportLocalizedName } from "@gym-circle/core/domain";
 import {
   formatElapsed,
   formatKm,
@@ -23,14 +24,6 @@ type IntegrateWorkoutSheetProps = {
   onClose: () => void;
 };
 
-const TYPE_LABEL_KEY: Record<string, string> = {
-  strength: "workout.types.strength",
-  run: "workout.types.run",
-  walk: "workout.types.walk",
-  ride: "workout.types.ride",
-  other: "workout.types.other",
-};
-
 /**
  * "Integrar treino" — lista os treinos do mesmo dia do post que ainda podem
  * ser juntados. Selecionar adiciona um vínculo em post_activities; o primeiro
@@ -47,7 +40,7 @@ export function IntegrateWorkoutSheet({
   onImportFromAppleHealth,
   onClose,
 }: IntegrateWorkoutSheetProps) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   if (!open) return null;
 
   return (
@@ -156,9 +149,9 @@ export function IntegrateWorkoutSheet({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-[15px] font-black text-white">
-                      {t(
-                        TYPE_LABEL_KEY[activity.activityType] ??
-                          "workout.types.other",
+                      {getSportLocalizedName(
+                        activity.activityType,
+                        i18n.language,
                       )}
                     </span>
                     <span className="block text-[12.5px] font-bold text-white/48">
