@@ -14,6 +14,11 @@ export type WorkoutPlanImportProgress = {
   progress: number;
 };
 
+export type WorkoutPlanExtractedText = {
+  sourceType: "image" | "pdf";
+  text: string;
+};
+
 export class WorkoutPlanImportError extends Error {
   constructor(
     public readonly code:
@@ -309,10 +314,10 @@ async function extractPdf(
   return textPages.join("\n");
 }
 
-export async function importWorkoutPlanFile(
+export async function extractWorkoutPlanFileText(
   file: File,
   callback?: (progress: WorkoutPlanImportProgress) => void,
-): Promise<ParsedWorkoutPlan> {
+): Promise<WorkoutPlanExtractedText> {
   if (file.size > MAX_IMPORT_BYTES) {
     throw new WorkoutPlanImportError("too_large");
   }
@@ -341,8 +346,16 @@ export async function importWorkoutPlanFile(
   }
 
   if (!text.trim()) throw new WorkoutPlanImportError("empty");
+  return { sourceType: isPdf ? "pdf" : "image", text };
+}
+
+export async function importWorkoutPlanFile(
+  file: File,
+  callback?: (progress: WorkoutPlanImportProgress) => void,
+): Promise<ParsedWorkoutPlan> {
+  const extracted = await extractWorkoutPlanFileText(file, callback);
   emit(callback, "parsing", 0.95);
-  const parsed = parseWorkoutPlanText(text, file.name);
+  const parsed = parseWorkoutPlanText(extracted.text, file.name);
   emit(callback, "parsing", 1);
   if (parsed.exercises.length === 0) {
     throw new WorkoutPlanImportError("unreadable");

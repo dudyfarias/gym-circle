@@ -9,6 +9,7 @@ import {
   RUNNING_TARGET_BASES,
   estimateRunningPlanTotals,
   validateRunningPlan,
+  type RunningPlanImportDraft,
   type RunningWorkoutPlan,
   type RunningWorkoutPlanDraft,
   type RunningWorkoutPlanStepDraft,
@@ -19,14 +20,16 @@ import {
   ArrowUp,
   Copy,
   Edit3,
+  FileText,
   Footprints,
+  ImageUp,
   Play,
   Plus,
   Save,
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   RunningPlanPreview,
@@ -35,11 +38,21 @@ import {
   formatRunningRange,
 } from "./RunningPlanPreview";
 import { useRunningPlans } from "./useRunningPlans";
+import {
+  importRunningPlanFile,
+  importRunningPlanText,
+} from "./runningPlanImport";
+import {
+  WorkoutPlanImportError,
+  type WorkoutPlanImportProgress,
+} from "./workoutPlanImport";
 
 type View =
   | { type: "list" }
   | { type: "preview"; plan: RunningWorkoutPlan }
-  | { type: "edit"; plan: RunningWorkoutPlan | null };
+  | { type: "edit"; plan: RunningWorkoutPlan | null }
+  | { type: "text-import" }
+  | { type: "review"; imported: RunningPlanImportDraft };
 
 const emptyDraft = (): RunningWorkoutPlanDraft => ({
   name: "",
@@ -71,12 +84,14 @@ function Editor({
   initial,
   onBack,
   onSave,
+  review,
   saveError,
   saving,
 }: {
   initial: RunningWorkoutPlanDraft;
   onBack: () => void;
   onSave: (draft: RunningWorkoutPlanDraft) => Promise<void>;
+  review?: RunningPlanImportDraft;
   saveError: boolean;
   saving: boolean;
 }) {
@@ -117,6 +132,13 @@ function Editor({
       steps: steps.map((step, index) => ({ ...step, position: index })),
     }));
   };
+  const lowConfidence = (index: number) =>
+    Object.entries(review?.fieldConfidences ?? {}).some(
+      ([field, confidence]) =>
+        field.startsWith(`steps.${index}.`) && confidence < 0.75,
+    );
+  const fieldLowConfidence = (field: string) =>
+    (review?.fieldConfidences[field] ?? 1) < 0.75;
 
   return (
     <div>
@@ -129,7 +151,9 @@ function Editor({
           <ArrowLeft size={18} />
         </button>
         <h3 className="text-[18px] font-black text-white">
-          {t("workout.running.editorTitle")}
+          {review
+            ? t("workout.running.importReviewTitle")
+            : t("workout.running.editorTitle")}
         </h3>
         <button
           className="gc-pressable grid size-10 place-items-center rounded-full bg-[var(--gc-brand)] text-[var(--gc-brand-ink)] disabled:opacity-35"
@@ -140,6 +164,44 @@ function Editor({
           <Save size={17} />
         </button>
       </div>
+
+      {review ? (
+        <section className="mt-5 grid gap-3 md:grid-cols-2">
+          <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.045] p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-white/45">
+              {t("workout.running.originalText")}
+            </p>
+            <pre className="gc-scrollbar mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words font-sans text-[11px] font-semibold leading-5 text-white/68">
+              {review.rawText}
+            </pre>
+          </div>
+          <div className="rounded-[18px] border border-[var(--gc-brand)]/18 bg-[var(--gc-brand)]/[0.06] p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--gc-brand)]">
+              {t("workout.running.interpretedPlan")}
+            </p>
+            <p className="mt-2 text-[12px] font-bold text-white/72">
+              {t("workout.running.importConfidence", {
+                value: Math.round(review.confidence * 100),
+              })}
+            </p>
+            <p className="mt-2 text-[11px] font-semibold leading-5 text-white/46">
+              {t("workout.running.reviewBeforeSave")}
+            </p>
+            {review.unparsedLines.length > 0 ? (
+              <div className="mt-3 rounded-[14px] bg-[#ffb020]/10 p-3">
+                <p className="text-[10px] font-black text-[#ffc45e]">
+                  {t("workout.running.unrecognizedLines")}
+                </p>
+                <ul className="mt-2 space-y-1 text-[10.5px] font-semibold text-white/65">
+                  {review.unparsedLines.map((line, index) => (
+                    <li key={`${index}-${line}`}>• {line}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <div className="mt-5 space-y-3">
         <input
@@ -165,7 +227,11 @@ function Editor({
         />
         <div className="grid grid-cols-2 gap-2">
           <select
-            className="h-11 rounded-[14px] border border-white/[0.08] bg-[#171a1c] px-3 text-[12px] font-bold text-white"
+            className={`h-11 rounded-[14px] border bg-[#171a1c] px-3 text-[12px] font-bold text-white ${
+              fieldLowConfidence("level")
+                ? "border-[#ffb020]/55"
+                : "border-white/[0.08]"
+            }`}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
@@ -181,7 +247,11 @@ function Editor({
             ))}
           </select>
           <select
-            className="h-11 rounded-[14px] border border-white/[0.08] bg-[#171a1c] px-3 text-[12px] font-bold text-white"
+            className={`h-11 rounded-[14px] border bg-[#171a1c] px-3 text-[12px] font-bold text-white ${
+              fieldLowConfidence("goal")
+                ? "border-[#ffb020]/55"
+                : "border-white/[0.08]"
+            }`}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
@@ -197,6 +267,12 @@ function Editor({
             ))}
           </select>
         </div>
+        {review &&
+        (fieldLowConfidence("level") || fieldLowConfidence("goal")) ? (
+          <p className="text-[10px] font-bold text-[#ffc45e]">
+            {t("workout.running.levelGoalReview")}
+          </p>
+        ) : null}
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-2">
@@ -246,9 +322,18 @@ function Editor({
       <div className="mt-4 space-y-3">
         {draft.steps.map((step, index) => (
           <article
-            className="rounded-[20px] border border-white/[0.075] bg-[#0d1012] p-4"
+            className={`rounded-[20px] border bg-[#0d1012] p-4 ${
+              lowConfidence(index)
+                ? "border-[#ffb020]/45"
+                : "border-white/[0.075]"
+            }`}
             key={step.id ?? `${index}-${step.stepType}`}
           >
+            {lowConfidence(index) ? (
+              <p className="mb-2 text-[9px] font-black uppercase tracking-[0.1em] text-[#ffc45e]">
+                {t("workout.running.lowConfidence")}
+              </p>
+            ) : null}
             <div className="flex items-center gap-2">
               <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[10px] font-black text-[var(--gc-brand)]">
                 {index + 1}
@@ -623,6 +708,61 @@ function Editor({
   );
 }
 
+function TextImport({
+  onBack,
+  onReview,
+}: {
+  onBack: () => void;
+  onReview: (draft: RunningPlanImportDraft) => void;
+}) {
+  const { t } = useTranslation();
+  const [text, setText] = useState("");
+  const [parsing, setParsing] = useState(false);
+  return (
+    <div>
+      <div className="flex items-center gap-3">
+        <button
+          className="gc-pressable grid size-10 place-items-center rounded-full bg-white/[0.06] text-white"
+          onClick={onBack}
+          type="button"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div>
+          <h3 className="text-[18px] font-black text-white">
+            {t("workout.running.pasteTitle")}
+          </h3>
+          <p className="text-[11px] font-semibold text-white/42">
+            {t("workout.running.pasteHint")}
+          </p>
+        </div>
+      </div>
+      <textarea
+        autoFocus
+        className="mt-5 min-h-[300px] w-full resize-y rounded-[20px] border border-white/[0.08] bg-white/[0.045] p-4 text-[13px] font-semibold leading-6 text-white outline-none"
+        onChange={(event) => setText(event.target.value)}
+        placeholder={t("workout.running.pastePlaceholder")}
+        value={text}
+      />
+      <button
+        className="gc-pressable mt-4 h-12 w-full rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] disabled:opacity-35"
+        disabled={!text.trim() || parsing}
+        onClick={() => {
+          setParsing(true);
+          void importRunningPlanText(text)
+            .then(onReview)
+            .finally(() => setParsing(false));
+        }}
+        type="button"
+      >
+        {parsing
+          ? t("workout.running.interpretingWorkout")
+          : t("workout.running.interpretWorkout")}
+      </button>
+    </div>
+  );
+}
+
 export function RunningPlansSheet({
   onClose,
   onStartFree,
@@ -637,18 +777,39 @@ export function RunningPlansSheet({
   const [view, setView] = useState<View>({ type: "list" });
   const [saving, setSaving] = useState(false);
   const [mutationError, setMutationError] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importProgress, setImportProgress] =
+    useState<WorkoutPlanImportProgress | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) return;
     const timer = window.setTimeout(() => {
       setView({ type: "list" });
       setMutationError(false);
+      setImportError(null);
+      setImportProgress(null);
     }, 0);
     return () => window.clearTimeout(timer);
   }, [open]);
 
   if (!open) return null;
   const backToList = () => setView({ type: "list" });
+  const handleFile = async (file: File) => {
+    setImportError(null);
+    setImportProgress({ phase: "reading", progress: 0 });
+    try {
+      const imported = await importRunningPlanFile(file, setImportProgress);
+      setView({ type: "review", imported });
+    } catch (error) {
+      const code =
+        error instanceof WorkoutPlanImportError ? error.code : "unreadable";
+      setImportError(code);
+    } finally {
+      setImportProgress(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <div
@@ -656,9 +817,38 @@ export function RunningPlansSheet({
       className="fixed inset-0 z-[115] overflow-y-auto bg-black"
       role="dialog"
     >
-      <div className="mx-auto min-h-full w-full max-w-[480px] px-5 pb-[calc(var(--gc-safe-bottom)+28px)] pt-[calc(var(--gc-safe-top)+16px)]">
+      <div
+        className={`mx-auto min-h-full w-full px-5 pb-[calc(var(--gc-safe-bottom)+28px)] pt-[calc(var(--gc-safe-top)+16px)] ${
+          view.type === "review" ? "max-w-[760px]" : "max-w-[480px]"
+        }`}
+      >
         {view.type === "preview" ? (
           <RunningPlanPreview onBack={backToList} plan={view.plan} />
+        ) : view.type === "text-import" ? (
+          <TextImport
+            onBack={backToList}
+            onReview={(imported) => setView({ type: "review", imported })}
+          />
+        ) : view.type === "review" ? (
+          <Editor
+            initial={view.imported.parsedPlan}
+            onBack={backToList}
+            onSave={async (draft) => {
+              setSaving(true);
+              setMutationError(false);
+              try {
+                await controller.createPlan(draft);
+                backToList();
+              } catch {
+                setMutationError(true);
+              } finally {
+                setSaving(false);
+              }
+            }}
+            review={view.imported}
+            saveError={mutationError}
+            saving={saving}
+          />
         ) : view.type === "edit" ? (
           <Editor
             initial={view.plan ? planDraft(view.plan) : emptyDraft()}
@@ -726,6 +916,45 @@ export function RunningPlansSheet({
                 </span>
               </span>
             </button>
+
+            <input
+              accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleFile(file);
+              }}
+              ref={fileInputRef}
+              type="file"
+            />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                className="gc-pressable flex h-11 items-center justify-center gap-2 rounded-[16px] bg-white/[0.055] text-[11px] font-black text-white/72 disabled:opacity-40"
+                disabled={importProgress != null}
+                onClick={() => fileInputRef.current?.click()}
+                type="button"
+              >
+                <ImageUp size={15} />
+                {importProgress
+                  ? t("workout.running.readingImport", {
+                      value: Math.round(importProgress.progress * 100),
+                    })
+                  : t("workout.running.importFile")}
+              </button>
+              <button
+                className="gc-pressable flex h-11 items-center justify-center gap-2 rounded-[16px] bg-white/[0.055] text-[11px] font-black text-white/72"
+                onClick={() => setView({ type: "text-import" })}
+                type="button"
+              >
+                <FileText size={15} />
+                {t("workout.running.pasteWorkout")}
+              </button>
+            </div>
+            {importError ? (
+              <p className="mt-3 rounded-[14px] bg-[#ff375f]/10 p-3 text-[11px] font-bold text-[#ff718b]">
+                {t(`workout.running.importErrors.${importError}`)}
+              </p>
+            ) : null}
 
             <div className="mt-7 flex items-center justify-between">
               <h3 className="text-[16px] font-black text-white">

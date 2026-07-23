@@ -9,6 +9,7 @@ const validDraft = (): RunningWorkoutPlanDraft => ({
   level: "intermediate",
   goal: "improve_5k",
   source: "manual",
+  sourceMetadata: {},
   steps: [
     {
       position: 0,
@@ -113,6 +114,8 @@ describe("runningPlanService", () => {
         p_plan_id: null,
         p_plan: expect.objectContaining({
           estimated_distance_m: 2400,
+          source: "manual",
+          source_metadata: {},
           steps: [
             expect.objectContaining({
               distance_m: 400,
@@ -133,6 +136,41 @@ describe("runningPlanService", () => {
       repetitions: 6,
       distanceM: 400,
     });
+  });
+
+  it("preserves reviewed import provenance in the save payload", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "stop_after_payload" },
+    });
+    const service = runningPlanService({
+      rpc,
+    } as unknown as GymCircleClient);
+    const imported = {
+      ...validDraft(),
+      source: "image" as const,
+      sourceMetadata: {
+        parserVersion: 2,
+        sourceImageSha256: "abc123",
+        importWarnings: ["review_required"],
+      },
+    };
+
+    await expect(service.createRunningPlan(imported)).rejects.toEqual({
+      message: "stop_after_payload",
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "save_running_workout_plan",
+      expect.objectContaining({
+        p_plan: expect.objectContaining({
+          source: "image",
+          source_metadata: expect.objectContaining({
+            parserVersion: 2,
+            sourceImageSha256: "abc123",
+          }),
+        }),
+      }),
+    );
   });
 
   it("lists plans without an N+1 steps query", async () => {

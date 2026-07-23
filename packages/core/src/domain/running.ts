@@ -159,6 +159,9 @@ export type RunningPlanImportDraft = {
   parsedPlan: RunningWorkoutPlanDraft;
   warnings: string[];
   confidence: number;
+  fieldConfidences: Record<string, number>;
+  reviewRequired: true;
+  unparsedLines: string[];
 };
 
 export type RunningSessionStepStatus =

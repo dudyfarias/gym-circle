@@ -173,6 +173,8 @@ function serializePlan(input: RunningWorkoutPlanDraft) {
     goal: plan.goal,
     estimated_duration_s: estimates.durationS,
     estimated_distance_m: estimates.distanceM,
+    source: plan.source,
+    source_metadata: plan.sourceMetadata ?? {},
     steps: plan.steps.map((step) => ({
       step_type: step.stepType,
       title: step.title,

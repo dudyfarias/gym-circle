@@ -7,3 +7,4 @@ export * from "./time";
 export * from "./activity";
 export * from "./sports";
 export * from "./running";
+export * from "./running-import";
