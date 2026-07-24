@@ -300,3 +300,113 @@ export function runningProgramSessionCompletionFromRow(
     completedAt: row.completed_at,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Lógica pura (Sprint D1) — sem I/O, sem React, sem efeitos colaterais.
+// ---------------------------------------------------------------------------
+
+/**
+ * Próxima sessão a fazer num programa: a de menor (weekIndex, orderInWeek)
+ * ainda NÃO concluída, ou null quando todas já foram feitas. Busca o mínimo
+ * real, então independe da ordem do array de entrada.
+ */
+export function resolveNextProgramSession(
+  sessions: RunningProgramSession[],
+  completedSessionIds: Set<string>,
+): RunningProgramSession | null {
+  let next: RunningProgramSession | null = null;
+  for (const session of sessions) {
+    if (completedSessionIds.has(session.id)) continue;
+    if (
+      next === null ||
+      session.weekIndex < next.weekIndex ||
+      (session.weekIndex === next.weekIndex &&
+        session.orderInWeek < next.orderInWeek)
+    ) {
+      next = session;
+    }
+  }
+  return next;
+}
+
+export type RunningProgramProgress = {
+  done: number;
+  total: number;
+  pct: number;
+};
+
+/**
+ * Progresso de um programa: sessões feitas / total, com porcentagem
+ * arredondada. Protege total=0 → pct 0 (evita divisão por zero).
+ */
+export function computeProgramProgress(
+  total: number,
+  done: number,
+): RunningProgramProgress {
+  const pct = total <= 0 ? 0 : Math.round((done / total) * 100);
+  return { done, total, pct };
+}
+
+/**
+ * Projeta os steps de um template no array de blocos que o engine guiado já
+ * consome. Como RunningSessionTemplateStep É RunningWorkoutPlanStepDraft, isto
+ * é uma projeção 1:1 — o mesmo shape que expandRunningPlanSegments /
+ * createRunningSessionState leem (o engine já trata valores crus de forma
+ * defensiva, então nenhuma normalização é necessária). Empacotar esses blocos
+ * num RunningWorkoutPlan sintético + chamar createRunningSessionState é a
+ * Task 2.3, não aqui — esta função só produz os blocos.
+ */
+export function sessionTemplateToEngineBlocks(
+  template: Pick<RunningSessionTemplate, "steps">,
+): RunningSessionTemplateStep[] {
+  return [...template.steps];
+}
+
+export type RunningTimelineColorToken =
+  | "start"
+  | "work"
+  | "recovery"
+  | "end"
+  | "neutral";
+
+export type RunningTimelineNode = {
+  stepType: RunningStepType;
+  label: string;
+  repetitions: number;
+  effort: number | null;
+  zone: number | null;
+  colorToken: RunningTimelineColorToken;
+};
+
+const TIMELINE_COLOR_TOKENS: Partial<
+  Record<RunningStepType, RunningTimelineColorToken>
+> = {
+  warmup: "start",
+  interval: "work",
+  recovery: "recovery",
+  cooldown: "end",
+};
+
+function timelineColorToken(
+  stepType: RunningStepType,
+): RunningTimelineColorToken {
+  return TIMELINE_COLOR_TOKENS[stepType] ?? "neutral";
+}
+
+/**
+ * Nós de timeline para renderização (UI-agnóstico). Um step repetido
+ * (repetitions > 1) vira UM nó carregando suas repetições — não expande em N.
+ * O colorToken é um token semântico (não hex); a UI mapeia token → CSS var.
+ */
+export function buildRunningTimeline(
+  steps: RunningSessionTemplateStep[],
+): RunningTimelineNode[] {
+  return steps.map((step) => ({
+    stepType: step.stepType,
+    label: step.title,
+    repetitions: step.repetitions,
+    effort: step.targetEffort ?? null,
+    zone: step.heartRateZone ?? null,
+    colorToken: timelineColorToken(step.stepType),
+  }));
+}

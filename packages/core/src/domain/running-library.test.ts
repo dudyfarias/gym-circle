@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { RunningWorkoutPlanStepDraft } from "./running";
+import { createRunningSessionState } from "./running-session";
 import {
+  buildRunningTimeline,
+  computeProgramProgress,
+  resolveNextProgramSession,
   runningProgramEnrollmentFromRow,
   runningProgramFromRow,
   runningProgramSessionCompletionFromRow,
   runningProgramSessionFromRow,
   runningSessionTemplateFromRow,
   runningSessionTemplateStepFromRow,
+  sessionTemplateToEngineBlocks,
   type RunningProgramEnrollmentRow,
   type RunningProgramRow,
+  type RunningProgramSession,
   type RunningProgramSessionCompletionRow,
   type RunningProgramSessionRow,
   type RunningSessionTemplateRow,
@@ -303,6 +309,250 @@ describe("runningProgramSessionCompletionFromRow", () => {
       programSessionId: "slot-1",
       activityId: "activity-1",
       completedAt: "2026-07-24T13:00:00Z",
+    });
+  });
+});
+
+describe("resolveNextProgramSession", () => {
+  const sessions = [
+    { id: "a", weekIndex: 1, orderInWeek: 1 } as RunningProgramSession,
+    { id: "b", weekIndex: 1, orderInWeek: 2 } as RunningProgramSession,
+    { id: "c", weekIndex: 2, orderInWeek: 1 } as RunningProgramSession,
+  ];
+
+  it("próxima sessão = menor semana/ordem não concluída", () => {
+    expect(resolveNextProgramSession(sessions, new Set(["a"]))?.id).toBe("b");
+    expect(
+      resolveNextProgramSession(sessions, new Set(["a", "b", "c"])),
+    ).toBeNull();
+  });
+
+  it("acha o mínimo real independente da ordem do array", () => {
+    const outOfOrder = [
+      { id: "c", weekIndex: 2, orderInWeek: 1 } as RunningProgramSession,
+      { id: "b", weekIndex: 1, orderInWeek: 2 } as RunningProgramSession,
+      { id: "a", weekIndex: 1, orderInWeek: 1 } as RunningProgramSession,
+    ];
+    expect(resolveNextProgramSession(outOfOrder, new Set())?.id).toBe("a");
+    expect(resolveNextProgramSession(outOfOrder, new Set(["a"]))?.id).toBe("b");
+    expect(resolveNextProgramSession(outOfOrder, new Set(["a", "b"]))?.id).toBe(
+      "c",
+    );
+  });
+
+  it("retorna null quando a lista está vazia", () => {
+    expect(resolveNextProgramSession([], new Set())).toBeNull();
+  });
+});
+
+describe("computeProgramProgress", () => {
+  it("progresso", () => {
+    expect(computeProgramProgress(3, 1)).toEqual({
+      done: 1,
+      total: 3,
+      pct: 33,
+    });
+    expect(computeProgramProgress(0, 0)).toEqual({
+      done: 0,
+      total: 0,
+      pct: 0,
+    });
+  });
+
+  it("arredonda e cobre 0% e 100%", () => {
+    expect(computeProgramProgress(4, 1)).toEqual({
+      done: 1,
+      total: 4,
+      pct: 25,
+    });
+    expect(computeProgramProgress(8, 0)).toEqual({
+      done: 0,
+      total: 8,
+      pct: 0,
+    });
+    expect(computeProgramProgress(8, 8)).toEqual({
+      done: 8,
+      total: 8,
+      pct: 100,
+    });
+  });
+});
+
+describe("sessionTemplateToEngineBlocks", () => {
+  const steps: RunningWorkoutPlanStepDraft[] = [
+    {
+      position: 0,
+      stepType: "warmup",
+      title: "Aquecimento",
+      repetitions: 1,
+      targetBasis: "duration",
+      durationS: 600,
+      recoveryType: "none",
+    },
+    {
+      position: 1,
+      stepType: "interval",
+      title: "6 × 400 m",
+      repetitions: 6,
+      targetBasis: "distance",
+      distanceM: 400,
+      recoveryType: "duration",
+      recoveryDurationS: 60,
+    },
+  ];
+
+  it("adaptador projeta steps no shape da engine", () => {
+    const blocks = sessionTemplateToEngineBlocks({ steps });
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].targetBasis).toBe("duration");
+    expect(blocks[1].targetBasis).toBe("distance");
+    expect(blocks[1].repetitions).toBe(6);
+  });
+
+  it("os blocos alimentam o engine guiado sem transformação extra", () => {
+    const blocks = sessionTemplateToEngineBlocks({ steps });
+    const state = createRunningSessionState({
+      id: "plan-1",
+      userId: "user-1",
+      sportType: "run",
+      name: "Sessão avulsa",
+      description: null,
+      level: "beginner",
+      goal: "improve_5k",
+      source: "professional",
+      sourceMetadata: {},
+      planVersion: 1,
+      isFavorite: false,
+      estimatedDurationS: null,
+      estimatedDistanceM: null,
+      createdAt: "2026-07-24T12:00:00Z",
+      updatedAt: "2026-07-24T12:00:00Z",
+      steps: blocks,
+    });
+    // 1 warmup + 6 intervalos + 5 recuperações = 12 segmentos.
+    expect(state.segments).toHaveLength(12);
+    expect(state.status).toBe("idle");
+  });
+});
+
+describe("buildRunningTimeline", () => {
+  it("timeline colapsa 6× num nó só", () => {
+    const steps: RunningWorkoutPlanStepDraft[] = [
+      {
+        position: 0,
+        stepType: "warmup",
+        title: "Aquecimento",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 600,
+        recoveryType: "none",
+      },
+      {
+        position: 1,
+        stepType: "interval",
+        title: "6 × 400 m",
+        repetitions: 6,
+        targetBasis: "distance",
+        distanceM: 400,
+        recoveryType: "duration",
+        recoveryDurationS: 60,
+        heartRateZone: 4,
+        targetEffort: 8,
+      },
+      {
+        position: 2,
+        stepType: "cooldown",
+        title: "Desaquecimento",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 300,
+        recoveryType: "none",
+      },
+    ];
+    const rawStepCount = steps.reduce(
+      (sum, step) => sum + step.repetitions,
+      0,
+    ); // 8 se fosse expandido
+
+    const nodes = buildRunningTimeline(steps);
+
+    expect(nodes).toHaveLength(3);
+    expect(nodes.length).toBeLessThan(rawStepCount);
+    const interval = nodes[1];
+    expect(interval.repetitions).toBe(6);
+    expect(interval.effort).toBe(8);
+    expect(interval.zone).toBe(4);
+    expect(interval.label).toBe("6 × 400 m");
+    expect(interval.colorToken).toBe("work");
+  });
+
+  it("atribui tokens de cor por step_type", () => {
+    const nodes = buildRunningTimeline([
+      {
+        position: 0,
+        stepType: "warmup",
+        title: "W",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 600,
+        recoveryType: "none",
+      },
+      {
+        position: 1,
+        stepType: "recovery",
+        title: "R",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 120,
+        recoveryType: "none",
+      },
+      {
+        position: 2,
+        stepType: "cooldown",
+        title: "C",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 300,
+        recoveryType: "none",
+      },
+      {
+        position: 3,
+        stepType: "easy",
+        title: "E",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 900,
+        recoveryType: "none",
+      },
+    ]);
+    expect(nodes.map((node) => node.colorToken)).toEqual([
+      "start",
+      "recovery",
+      "end",
+      "neutral",
+    ]);
+  });
+
+  it("passa effort/zone como null quando ausentes e mantém repetitions:1 num nó", () => {
+    const nodes = buildRunningTimeline([
+      {
+        position: 0,
+        stepType: "easy",
+        title: "Leve",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 1200,
+        recoveryType: "none",
+      },
+    ]);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0]).toEqual({
+      stepType: "easy",
+      label: "Leve",
+      repetitions: 1,
+      effort: null,
+      zone: null,
+      colorToken: "neutral",
     });
   });
 });
