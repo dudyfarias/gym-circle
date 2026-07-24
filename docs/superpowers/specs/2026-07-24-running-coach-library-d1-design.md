@@ -180,6 +180,10 @@ activity; programa: enrollment → próxima sessão → engine → activity → 
 
 ## 6. Biblioteca (UI) + timeline
 
+**Dois modos na seção Corrida:** **Corrida livre** (começa agora, sem estrutura)
+e **Corrida guiada** (segue um plano da biblioteca, passo a passo pela engine). A
+biblioteca abaixo é a porta da Corrida guiada.
+
 **Browse:** entra pela seção Corrida do catálogo. Reusa padrões de sheet/lista
 (`RunningPlansSheet`). Cards por programa (título, badge de nível, objetivo,
 `semanas × sessões/semana`, tempo, 1 linha de descrição). Barra de filtros por
