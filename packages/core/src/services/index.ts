@@ -14,6 +14,7 @@ import { participantService } from "./participants";
 import { postService } from "./posts";
 import { profileService } from "./profiles";
 import { pushService } from "./push";
+import { runningLibraryService } from "./runningLibrary";
 import { runningPlanService } from "./runningPlans";
 import { safetyService } from "./safety";
 import { statsService } from "./stats";
@@ -36,6 +37,7 @@ export * from "./participants";
 export * from "./posts";
 export * from "./profiles";
 export * from "./push";
+export * from "./runningLibrary";
 export * from "./runningPlans";
 export * from "./safety";
 export * from "./stats";
@@ -65,6 +67,7 @@ export function createGymCircleServices(client: GymCircleClient) {
     notifications: notificationService(client),
     sports: sportService(client),
     runningPlans: runningPlanService(client),
+    runningLibrary: runningLibraryService(client),
   };
 }
 
