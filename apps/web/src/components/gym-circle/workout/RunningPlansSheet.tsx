@@ -8,6 +8,7 @@ import {
   RUNNING_STEP_TYPES,
   RUNNING_TARGET_BASES,
   estimateRunningPlanTotals,
+  sessionTemplateToRunningPlan,
   validateRunningPlan,
   type RunningPlanImportDraft,
   type RunningWorkoutPlan,
@@ -18,6 +19,7 @@ import {
   ArrowDown,
   ArrowLeft,
   ArrowUp,
+  ChevronRight,
   Copy,
   Edit3,
   FileText,
@@ -26,6 +28,7 @@ import {
   Play,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -37,6 +40,7 @@ import {
   formatRunningDuration,
   formatRunningRange,
 } from "./RunningPlanPreview";
+import { useRunningLibrary } from "./useRunningLibrary";
 import { useRunningPlans } from "./useRunningPlans";
 import {
   importRunningPlanFile,
@@ -49,7 +53,8 @@ import {
 
 type View =
   | { type: "list" }
-  | { type: "preview"; plan: RunningWorkoutPlan }
+  | { type: "library" }
+  | { type: "preview"; plan: RunningWorkoutPlan; from: "list" | "library" }
   | { type: "edit"; plan: RunningWorkoutPlan | null }
   | { type: "text-import" }
   | { type: "review"; imported: RunningPlanImportDraft };
@@ -766,15 +771,21 @@ function TextImport({
 export function RunningPlansSheet({
   onClose,
   onStartFree,
+  onStartPlan,
   open,
 }: {
   onClose: () => void;
   onStartFree: () => void;
+  onStartPlan: (plan: RunningWorkoutPlan) => void;
   open: boolean;
 }) {
   const { t } = useTranslation();
   const controller = useRunningPlans(open);
   const [view, setView] = useState<View>({ type: "list" });
+  // Só busca a biblioteca guiada depois que a pessoa toca em "Corrida guiada"
+  // (defer): quem só quer corrida livre ou os próprios planos não paga a query.
+  const [libraryRequested, setLibraryRequested] = useState(false);
+  const library = useRunningLibrary(open && libraryRequested);
   const [saving, setSaving] = useState(false);
   const [mutationError, setMutationError] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -786,6 +797,7 @@ export function RunningPlansSheet({
     if (open) return;
     const timer = window.setTimeout(() => {
       setView({ type: "list" });
+      setLibraryRequested(false);
       setMutationError(false);
       setImportError(null);
       setImportProgress(null);
@@ -823,7 +835,96 @@ export function RunningPlansSheet({
         }`}
       >
         {view.type === "preview" ? (
-          <RunningPlanPreview onBack={backToList} plan={view.plan} />
+          <RunningPlanPreview
+            onBack={
+              view.from === "library"
+                ? () => setView({ type: "library" })
+                : backToList
+            }
+            onStart={() => onStartPlan(view.plan)}
+            plan={view.plan}
+          />
+        ) : view.type === "library" ? (
+          <div>
+            <div className="flex items-center gap-3">
+              <button
+                className="gc-pressable grid size-10 place-items-center rounded-full bg-white/[0.06] text-white"
+                onClick={backToList}
+                type="button"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <div>
+                <h3 className="text-[18px] font-black text-white">
+                  {t("workout.running.guidedLibraryTitle")}
+                </h3>
+                <p className="text-[11px] font-semibold text-white/42">
+                  {t("workout.running.guidedLibraryHint")}
+                </p>
+              </div>
+            </div>
+
+            {library.loading ? (
+              <div className="mt-5 space-y-3">
+                <div className="h-24 animate-pulse rounded-[22px] bg-white/[0.045]" />
+                <div className="h-24 animate-pulse rounded-[22px] bg-white/[0.045]" />
+              </div>
+            ) : library.error ? (
+              <div className="mt-5 rounded-[22px] border border-[#ff375f]/20 bg-[#ff375f]/[0.06] p-5 text-center">
+                <p className="text-[12px] font-bold text-[#ff718b]">
+                  {t("workout.running.loadError")}
+                </p>
+                <button
+                  className="mt-3 text-[11px] font-black text-white"
+                  onClick={() => void library.refresh()}
+                  type="button"
+                >
+                  {t("common.retry")}
+                </button>
+              </div>
+            ) : library.sessions.length === 0 ? (
+              <div className="mt-5 rounded-[22px] border border-dashed border-white/[0.1] p-7 text-center">
+                <Sparkles className="mx-auto text-white/25" size={28} />
+                <p className="mt-3 text-[13px] font-black text-white/64">
+                  {t("workout.running.guidedLibraryEmpty")}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 space-y-3">
+                {library.sessions.map((session) => (
+                  <button
+                    className="gc-pressable flex w-full items-center gap-3 rounded-[22px] border border-white/[0.075] bg-[#0d1012] p-4 text-left"
+                    key={session.id}
+                    onClick={() =>
+                      setView({
+                        type: "preview",
+                        plan: sessionTemplateToRunningPlan(session),
+                        from: "library",
+                      })
+                    }
+                    type="button"
+                  >
+                    <span className="grid size-11 shrink-0 place-items-center rounded-[15px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
+                      <Footprints size={20} strokeWidth={2.5} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-black text-white">
+                        {session.title}
+                      </span>
+                      <span className="mt-1 block text-[10.5px] font-bold text-white/40">
+                        {formatRunningDistance(session.estimatedDistanceM)} ·{" "}
+                        {formatRunningDuration(session.estimatedDurationS)} ·{" "}
+                        {t("workout.running.blocks", {
+                          count: session.steps.length,
+                        })}
+                      </span>
+                    </span>
+                    <ChevronRight className="shrink-0 text-white/30" size={18} />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         ) : view.type === "text-import" ? (
           <TextImport
             onBack={backToList}
@@ -899,23 +1000,47 @@ export function RunningPlansSheet({
               </button>
             </header>
 
-            <button
-              className="gc-pressable mt-6 flex w-full items-center gap-3 rounded-[22px] border border-[var(--gc-brand)]/18 bg-[var(--gc-brand)]/[0.08] p-4 text-left"
-              onClick={onStartFree}
-              type="button"
-            >
-              <span className="grid size-12 place-items-center rounded-[16px] bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
-                <Play fill="currentColor" size={18} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-black text-white">
-                  {t("workout.running.freeRun")}
+            <div className="mt-6 grid gap-3">
+              <button
+                className="gc-pressable flex w-full items-center gap-3 rounded-[22px] border border-[var(--gc-brand)]/18 bg-[var(--gc-brand)]/[0.08] p-4 text-left"
+                onClick={onStartFree}
+                type="button"
+              >
+                <span className="grid size-12 place-items-center rounded-[16px] bg-[var(--gc-brand)] text-[var(--gc-brand-ink)]">
+                  <Play fill="currentColor" size={18} />
                 </span>
-                <span className="mt-1 block text-[11px] font-bold text-white/42">
-                  {t("workout.running.freeRunHint")}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-black text-white">
+                    {t("workout.running.freeRun")}
+                  </span>
+                  <span className="mt-1 block text-[11px] font-bold text-white/42">
+                    {t("workout.running.freeRunHint")}
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+
+              <button
+                className="gc-pressable flex w-full items-center gap-3 rounded-[22px] border border-white/[0.08] bg-white/[0.04] p-4 text-left"
+                onClick={() => {
+                  setLibraryRequested(true);
+                  setView({ type: "library" });
+                }}
+                type="button"
+              >
+                <span className="grid size-12 place-items-center rounded-[16px] bg-[#f59e0b]/16 text-[#f59e0b]">
+                  <Sparkles size={20} strokeWidth={2.5} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-black text-white">
+                    {t("workout.running.guidedRun")}
+                  </span>
+                  <span className="mt-1 block text-[11px] font-bold text-white/42">
+                    {t("workout.running.guidedRunHint")}
+                  </span>
+                </span>
+                <ChevronRight className="shrink-0 text-white/30" size={18} />
+              </button>
+            </div>
 
             <input
               accept=".jpg,.jpeg,.png,.webp,.heic,.heif,.pdf,image/*,application/pdf"
@@ -1001,7 +1126,9 @@ export function RunningPlansSheet({
                   >
                     <button
                       className="w-full text-left"
-                      onClick={() => setView({ type: "preview", plan })}
+                      onClick={() =>
+                        setView({ type: "preview", plan, from: "list" })
+                      }
                       type="button"
                     >
                       <p className="text-[15px] font-black text-white">

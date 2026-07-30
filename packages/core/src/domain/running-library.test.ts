@@ -12,11 +12,13 @@ import {
   runningSessionTemplateFromRow,
   runningSessionTemplateStepFromRow,
   sessionTemplateToEngineBlocks,
+  sessionTemplateToRunningPlan,
   type RunningProgramEnrollmentRow,
   type RunningProgramRow,
   type RunningProgramSession,
   type RunningProgramSessionCompletionRow,
   type RunningProgramSessionRow,
+  type RunningSessionTemplate,
   type RunningSessionTemplateRow,
   type RunningSessionTemplateStepRow,
 } from "./running-library";
@@ -430,6 +432,82 @@ describe("sessionTemplateToEngineBlocks", () => {
       steps: blocks,
     });
     // 1 warmup + 6 intervalos + 5 recuperações = 12 segmentos.
+    expect(state.segments).toHaveLength(12);
+    expect(state.status).toBe("idle");
+  });
+});
+
+describe("sessionTemplateToRunningPlan", () => {
+  const template: RunningSessionTemplate = {
+    id: "template-1",
+    slug: "intervalado-leve",
+    ownerUserId: null,
+    origin: "official",
+    visibility: "public",
+    title: "Intervalado leve",
+    description: "Sessão-farol",
+    estimatedDurationS: null,
+    estimatedDistanceM: null,
+    primaryStepType: "interval",
+    isPublished: true,
+    createdAt: "2026-07-24T12:00:00Z",
+    updatedAt: "2026-07-24T12:00:00Z",
+    steps: [
+      {
+        position: 0,
+        stepType: "warmup",
+        title: "Aquecimento",
+        repetitions: 1,
+        targetBasis: "duration",
+        durationS: 600,
+        recoveryType: "none",
+      },
+      {
+        position: 1,
+        stepType: "interval",
+        title: "6 × 400 m",
+        repetitions: 6,
+        targetBasis: "distance",
+        distanceM: 400,
+        recoveryType: "duration",
+        recoveryDurationS: 60,
+      },
+    ],
+  };
+
+  it("empacota o template no shape RunningWorkoutPlan da engine", () => {
+    const plan = sessionTemplateToRunningPlan(template);
+    expect(plan.id).toBe("template-1");
+    expect(plan.name).toBe("Intervalado leve");
+    expect(plan.sportType).toBe("run");
+    expect(plan.steps).toHaveLength(2);
+    // origem oficial → source "manual"; metadado preserva o vínculo à sessão.
+    expect(plan.source).toBe("manual");
+    expect(plan.sourceMetadata).toMatchObject({
+      sessionTemplateId: "template-1",
+      origin: "official",
+    });
+  });
+
+  it("estima duração/distância pelos steps quando a coluna vem nula", () => {
+    const plan = sessionTemplateToRunningPlan(template);
+    // 600s warmup + 6×recuperações não implicam duração de trabalho conhecida,
+    // mas o warmup por duração garante um total > 0.
+    expect(plan.estimatedDurationS).not.toBeNull();
+    expect(plan.estimatedDistanceM).not.toBeNull();
+  });
+
+  it("origem professional → source professional", () => {
+    const plan = sessionTemplateToRunningPlan({
+      ...template,
+      origin: "professional",
+    });
+    expect(plan.source).toBe("professional");
+  });
+
+  it("o plano sintético alimenta o engine guiado (12 segmentos)", () => {
+    const plan = sessionTemplateToRunningPlan(template);
+    const state = createRunningSessionState(plan);
     expect(state.segments).toHaveLength(12);
     expect(state.status).toBe("idle");
   });

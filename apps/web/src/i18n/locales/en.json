@@ -150,6 +150,11 @@
       "libraryHint": "Start a free run or create blocks for future guided execution.",
       "freeRun": "Start a free run",
       "freeRunHint": "GPS, distance, pace, and route work as they do today.",
+      "guidedRun": "Guided run",
+      "guidedRunHint": "Flagship sessions with blocks and pace — the app coaches you.",
+      "guidedLibraryTitle": "Guided run",
+      "guidedLibraryHint": "Pick a session and the app coaches you block by block.",
+      "guidedLibraryEmpty": "No guided sessions available yet.",
       "myPlans": "My workouts",
       "create": "Create workout",
       "loadError": "We couldn't load your running workouts.",
@@ -179,6 +184,39 @@
         "too_large": "This file is too large to import.",
         "empty": "We couldn't find any text in this file.",
         "unreadable": "We couldn't read this workout. Try another image or paste the text."
+      },
+      "guided": {
+        "start": "Start guided workout",
+        "active": "In progress",
+        "paused": "Paused",
+        "transition": "Next step",
+        "recovery": "Recovery",
+        "stepProgress": "Step {{current}} of {{total}}",
+        "repetition": "Repetition {{current}} of {{total}}",
+        "remaining": "Remaining in this step",
+        "elapsedInStep": "Time in this step",
+        "currentPace": "Current pace",
+        "targetPace": "Target pace",
+        "next": "Next",
+        "previous": "Previous step",
+        "nextStep": "Next step",
+        "skipStep": "Skip step",
+        "estimatedRemaining": "Time remaining",
+        "estimatedDistanceRemaining": "Distance remaining",
+        "paceFeedback": {
+          "unknown": "Find your rhythm",
+          "on_target": "You are on target",
+          "too_fast": "A little too fast",
+          "too_slow": "Build your pace gradually"
+        },
+        "motivation": {
+          "started": "Workout started. Find a comfortable rhythm.",
+          "warmup_completed": "Warm-up complete. The main set starts now.",
+          "on_target": "Excellent pace, keep it up!",
+          "last_interval": "Only one interval left!",
+          "last_500m": "Final 500 meters. Finish strong!",
+          "finished": "Workout complete. Excellent work!"
+        }
       },
       "levels": {
         "starting": "Starting",
@@ -332,7 +370,8 @@
       "executionCompletion": "{{percent}}% completed",
       "completionUnavailable": "Completion unavailable",
       "empty": "Complete this workout to start tracking your progress.",
-      "repeat": "Repeat workout"
+      "repeat": "Repeat workout",
+      "deleteDescription": "The saved workout will be deleted, but completed activities and their recorded statistics will remain in your history."
     },
     "exerciseNote": {
       "title": "Exercise note",
@@ -405,6 +444,13 @@
       "sets": "Sets",
       "reps": "Reps",
       "volume": "Estimated volume",
+      "guidedWorkout": "Guided workout",
+      "stepsCompleted": "{{completed}} of {{total}} steps",
+      "averagePace": "Average pace",
+      "bestPace": "Best pace",
+      "runningTime": "Running time",
+      "recoveryTime": "Recovery",
+      "paceConsistency": "{{percent}}% of samples within the target pace",
       "route": "Workout route map",
       "share": "Share with your Circle",
       "addPhoto": "Add photo",

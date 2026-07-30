@@ -1,10 +1,14 @@
-import type {
-  RunningPlanGoal,
-  RunningPlanLevel,
-  RunningRecoveryType,
-  RunningStepType,
-  RunningTargetBasis,
-  RunningWorkoutPlanStepDraft,
+import {
+  estimateRunningPlanTotals,
+  type RunningPlanGoal,
+  type RunningPlanLevel,
+  type RunningPlanSource,
+  type RunningRecoveryType,
+  type RunningStepType,
+  type RunningTargetBasis,
+  type RunningWorkoutPlan,
+  type RunningWorkoutPlanDraft,
+  type RunningWorkoutPlanStepDraft,
 } from "./running";
 
 /**
@@ -360,6 +364,57 @@ export function sessionTemplateToEngineBlocks(
   template: Pick<RunningSessionTemplate, "steps">,
 ): RunningSessionTemplateStep[] {
   return [...template.steps];
+}
+
+/**
+ * Origem da biblioteca → `source` do RunningWorkoutPlan. `source` é só
+ * metadado de proveniência (não afeta o engine); mapeamos para o valor mais
+ * próximo do enum existente para não precisar estender `RUNNING_PLAN_SOURCES`.
+ */
+const ORIGIN_TO_PLAN_SOURCE: Record<RunningLibraryOrigin, RunningPlanSource> = {
+  official: "manual",
+  professional: "professional",
+  imported: "text",
+  ai: "ai",
+};
+
+/**
+ * Empacota um template da biblioteca num RunningWorkoutPlan sintético — o shape
+ * que `createRunningSessionState` / `RunningPlanPreview` consomem. É efêmero
+ * (não é uma linha de running_workout_plans): o `id` é o do template para que
+ * planId/planName nos resultados apontem à sessão-farol de origem. Nível/meta
+ * default (template é por-sessão, não tem faceta); estimativas caem para o
+ * cálculo por steps quando a coluna vem nula.
+ */
+export function sessionTemplateToRunningPlan(
+  template: RunningSessionTemplate,
+): RunningWorkoutPlan {
+  const draft: RunningWorkoutPlanDraft = {
+    name: template.title,
+    description: template.description,
+    level: "beginner",
+    goal: "general",
+    source: ORIGIN_TO_PLAN_SOURCE[template.origin] ?? "manual",
+    sourceMetadata: {
+      sessionTemplateId: template.id,
+      slug: template.slug,
+      origin: template.origin,
+    },
+    steps: [...template.steps],
+  };
+  const estimate = estimateRunningPlanTotals(draft);
+  return {
+    ...draft,
+    id: template.id,
+    userId: template.ownerUserId ?? "",
+    sportType: "run",
+    planVersion: 1,
+    isFavorite: false,
+    estimatedDurationS: template.estimatedDurationS ?? estimate.durationS,
+    estimatedDistanceM: template.estimatedDistanceM ?? estimate.distanceM,
+    createdAt: template.createdAt,
+    updatedAt: template.updatedAt,
+  };
 }
 
 export type RunningTimelineColorToken =

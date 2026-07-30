@@ -150,6 +150,11 @@
       "libraryHint": "Corra livre ou monte blocos para usar na execução guiada futura.",
       "freeRun": "Iniciar corrida livre",
       "freeRunHint": "GPS, distância, ritmo e rota como já funciona hoje.",
+      "guidedRun": "Corrida guiada",
+      "guidedRunHint": "Sessões-farol com blocos e ritmo — o app conduz você.",
+      "guidedLibraryTitle": "Corrida guiada",
+      "guidedLibraryHint": "Escolha uma sessão para o app conduzir bloco a bloco.",
+      "guidedLibraryEmpty": "Nenhuma sessão guiada disponível ainda.",
       "myPlans": "Meus treinos",
       "create": "Criar treino",
       "loadError": "Não foi possível carregar seus treinos de corrida.",
@@ -179,6 +184,39 @@
         "too_large": "O arquivo é grande demais para importar.",
         "empty": "Não encontramos texto neste arquivo.",
         "unreadable": "Não foi possível ler este treino. Tente outra imagem ou cole o texto."
+      },
+      "guided": {
+        "start": "Começar treino guiado",
+        "active": "Em execução",
+        "paused": "Pausado",
+        "transition": "Próxima etapa",
+        "recovery": "Recuperação",
+        "stepProgress": "Etapa {{current}} de {{total}}",
+        "repetition": "Repetição {{current}} de {{total}}",
+        "remaining": "Restante nesta etapa",
+        "elapsedInStep": "Tempo nesta etapa",
+        "currentPace": "Pace atual",
+        "targetPace": "Pace alvo",
+        "next": "Próxima",
+        "previous": "Voltar etapa",
+        "nextStep": "Próxima etapa",
+        "skipStep": "Pular etapa",
+        "estimatedRemaining": "Tempo restante",
+        "estimatedDistanceRemaining": "Distância restante",
+        "paceFeedback": {
+          "unknown": "Encontre seu ritmo",
+          "on_target": "Você está dentro do ritmo",
+          "too_fast": "Um pouco rápido",
+          "too_slow": "Aumente o ritmo aos poucos"
+        },
+        "motivation": {
+          "started": "Treino iniciado. Encontre um ritmo confortável.",
+          "warmup_completed": "Aquecimento concluído. Agora começa a parte principal.",
+          "on_target": "Excelente ritmo, continue assim!",
+          "last_interval": "Falta apenas mais um intervalo!",
+          "last_500m": "Últimos 500 metros. Vamos terminar forte!",
+          "finished": "Treino concluído. Excelente trabalho!"
+        }
       },
       "levels": {
         "starting": "Começando",
@@ -332,7 +370,8 @@
       "executionCompletion": "{{percent}}% concluído",
       "completionUnavailable": "Conclusão não disponível",
       "empty": "Faça este treino para começar a acompanhar sua evolução.",
-      "repeat": "Repetir treino"
+      "repeat": "Repetir treino",
+      "deleteDescription": "O treino salvo será apagado, mas as atividades e estatísticas já registradas continuarão no seu histórico."
     },
     "exerciseNote": {
       "title": "Nota do exercício",
@@ -405,6 +444,13 @@
       "sets": "Séries",
       "reps": "Repetições",
       "volume": "Volume estimado",
+      "guidedWorkout": "Treino guiado",
+      "stepsCompleted": "{{completed}} de {{total}} etapas",
+      "averagePace": "Pace médio",
+      "bestPace": "Melhor pace",
+      "runningTime": "Tempo correndo",
+      "recoveryTime": "Recuperação",
+      "paceConsistency": "{{percent}}% das leituras dentro do pace alvo",
       "route": "Mapa da rota do treino",
       "share": "Compartilhar no Circle",
       "addPhoto": "Adicionar foto",
