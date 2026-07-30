@@ -1,13 +1,29 @@
 "use client";
 
 import {
+  buildRunningTimeline,
   estimateRunningPlanTotals,
+  type RunningTimelineColorToken,
   type RunningWorkoutPlan,
   type RunningWorkoutPlanDraft,
   type RunningWorkoutPlanStepDraft,
 } from "@gym-circle/core/domain";
-import { ArrowLeft, Clock3, Footprints, Route } from "lucide-react";
+import { ArrowLeft, Clock3, Footprints, Play, Route } from "lucide-react";
 import { useTranslation } from "react-i18next";
+
+/**
+ * Timeline endurecida (Sprint D1): cor por fase da corrida. Aquecimento verde,
+ * intervalado laranja, recovery azul (brand), desaquecimento rosa, resto neutro.
+ * O token vem de buildRunningTimeline (lógica pura testada); aqui só mapeamos
+ * token → cor CSS.
+ */
+const TIMELINE_TOKEN_COLOR: Record<RunningTimelineColorToken, string> = {
+  start: "#34d399",
+  work: "#f59e0b",
+  recovery: "var(--gc-brand)",
+  end: "var(--gc-pink)",
+  neutral: "rgba(255,255,255,0.42)",
+};
 
 export function formatRunningDuration(seconds: number | null) {
   if (seconds == null) return "—";
@@ -89,9 +105,11 @@ export function describeRunningStep(step: RunningWorkoutPlanStepDraft) {
 
 export function RunningPlanPreview({
   onBack,
+  onStart,
   plan,
 }: {
   onBack: () => void;
+  onStart?: () => void;
   plan: RunningWorkoutPlan | RunningWorkoutPlanDraft;
 }) {
   const { t } = useTranslation();
@@ -108,6 +126,7 @@ export function RunningPlanPreview({
       estimate.distanceMaxM,
       formatRunningDistance,
     ) ?? formatRunningDistance(estimate.distanceM);
+  const timeline = buildRunningTimeline(plan.steps);
   return (
     <div>
       <button
@@ -161,18 +180,44 @@ export function RunningPlanPreview({
         </div>
       </div>
 
-      <ol className="mt-5 space-y-2">
-        {plan.steps.map((step, index) => (
-          <li
-            className="rounded-[20px] border border-white/[0.07] bg-[#0c0f11] p-4"
-            key={step.id ?? `${step.position}-${index}`}
-          >
-            <div className="flex gap-3">
-              <span className="grid size-7 shrink-0 place-items-center rounded-full bg-[var(--gc-brand)]/12 text-[11px] font-black text-[var(--gc-brand)]">
-                {index + 1}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[14px] font-black text-white">{step.title}</p>
+      <ol className="mt-5">
+        {plan.steps.map((step, index) => {
+          const node = timeline[index];
+          if (!node) return null;
+          const color = TIMELINE_TOKEN_COLOR[node.colorToken];
+          const isLast = index === plan.steps.length - 1;
+          return (
+            <li
+              className="flex gap-3"
+              key={step.id ?? `${step.position}-${index}`}
+            >
+              <div className="flex w-4 shrink-0 flex-col items-center pt-4">
+                <span
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 rounded-full ring-4 ring-black"
+                  style={{ backgroundColor: color }}
+                />
+                {!isLast ? (
+                  <span aria-hidden="true" className="mt-1 w-px flex-1 bg-white/10" />
+                ) : null}
+              </div>
+              <div
+                className="mb-2 min-w-0 flex-1 rounded-[20px] border border-white/[0.07] bg-[#0c0f11] p-4"
+                style={{ borderLeftColor: color, borderLeftWidth: "2px" }}
+              >
+                <div className="flex items-center gap-2">
+                  <p className="min-w-0 truncate text-[14px] font-black text-white">
+                    {step.title}
+                  </p>
+                  {node.repetitions > 1 ? (
+                    <span
+                      className="shrink-0 rounded-full bg-white/[0.08] px-2 py-0.5 text-[10px] font-black tabular-nums"
+                      style={{ color }}
+                    >
+                      {node.repetitions}×
+                    </span>
+                  ) : null}
+                </div>
                 <p className="mt-1 text-[11.5px] font-bold text-white/48">
                   {describeRunningStep(step)}
                 </p>
@@ -190,15 +235,20 @@ export function RunningPlanPreview({
                   </p>
                 ) : null}
               </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ol>
-      <div className="mt-5 rounded-[18px] border border-dashed border-white/[0.1] p-4 text-center">
-        <p className="text-[11px] font-bold text-white/42">
-          {t("workout.running.guidedComingSoon")}
-        </p>
-      </div>
+      {onStart ? (
+        <button
+          className="gc-pressable mt-5 flex h-14 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)] shadow-[0_0_28px_rgba(92,232,255,0.15)]"
+          onClick={onStart}
+          type="button"
+        >
+          <Play fill="currentColor" size={18} />
+          {t("workout.running.guided.start")}
+        </button>
+      ) : null}
     </div>
   );
 }
