@@ -109,7 +109,7 @@ describe("filterWorkoutCatalogExercises", () => {
       filterWorkoutCatalogExercises(exercises, {
         group: ALL_WORKOUT_GROUPS,
         query: "",
-        equipment: "barbell",
+        equipment: ["barbell"],
       }).map((item) => item.id),
     ).toEqual(["supino", "agachamento"]);
     expect(
@@ -157,7 +157,7 @@ describe("rankWorkoutCatalogExercises", () => {
     const result = rankWorkoutCatalogExercises(exercises, {
       group: "back",
       query: "remada",
-      filters: { equipment: "cable" },
+      filters: { equipment: ["cable"] },
       favoriteExerciseIds: ["remada"],
       recentExerciseIds: ["remada"],
     });
@@ -202,6 +202,46 @@ describe("rankWorkoutCatalogExercises", () => {
         favoriteExerciseIds: ["supino"],
       }).primary.map((item) => item.exercise.id),
     ).toEqual(["supino"]);
+  });
+
+  it("combina vários músculos sem deixar secundários à frente dos principais", () => {
+    const result = rankWorkoutCatalogExercises(exercises, {
+      groups: ["chest", "biceps"],
+      query: "",
+    });
+
+    expect(result.primary.map((item) => item.exercise.id)).toEqual(["supino"]);
+    expect(result.secondary.map((item) => item.exercise.id)).toEqual([
+      "remada",
+    ]);
+  });
+
+  it("aceita várias opções por categoria e combina categorias diferentes", () => {
+    const intermediate = exercise(
+      "supino-halter",
+      "Supino com halteres",
+      "chest",
+      ["dumbbell", "bench"],
+    );
+    intermediate.difficulty = "intermediate";
+
+    const result = rankWorkoutCatalogExercises(
+      [...exercises, intermediate],
+      {
+        groups: ["chest", "quadriceps"],
+        query: "",
+        filters: {
+          equipment: ["dumbbell", "barbell"],
+          difficulty: ["beginner", "intermediate"],
+          loadType: ["external"],
+        },
+      },
+    );
+
+    expect(new Set(result.primary.map((item) => item.exercise.id))).toEqual(
+      new Set(["supino", "agachamento", "supino-halter"]),
+    );
+    expect(result.secondary).toEqual([]);
   });
 
   it("preserva a ordem de recência como desempate relevante", () => {

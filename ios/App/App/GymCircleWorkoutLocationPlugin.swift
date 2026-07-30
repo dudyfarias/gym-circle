@@ -59,6 +59,8 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
 
     private let manager = CLLocationManager()
     private let maximumHorizontalAccuracyM = 100.0
+    private let maximumSegmentIntervalS = 10 * 60.0
+    private let maximumRestorableSessionAgeS = 12 * 60 * 60.0
     private let storageKey = "gc.capacitor.workoutLocation.v1"
     private var state = StoredState(
         activityType: "walk",
@@ -80,8 +82,7 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
         if let data = UserDefaults.standard.data(forKey: storageKey),
            let restored = try? JSONDecoder().decode(StoredState.self, from: data) {
             state = restored
-            // O processo pode ter sido recriado; o JS decide se deve retomar.
-            state.isRecording = false
+            restoreRecentRecordingIfNeeded()
         }
     }
 
@@ -208,7 +209,7 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
         didUpdateLocations locations: [CLLocation]
     ) {
         guard state.isRecording else { return }
-        for location in locations {
+        for location in locations.sorted(by: { $0.timestamp < $1.timestamp }) {
             accept(location)
         }
     }
@@ -223,7 +224,6 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
     private func accept(_ location: CLLocation) {
         guard location.horizontalAccuracy > 0,
               location.horizontalAccuracy <= maximumHorizontalAccuracyM else { return }
-        guard abs(location.timestamp.timeIntervalSinceNow) < 30 else { return }
 
         guard let previous = state.lastAccepted?.location else {
             state.lastAccepted = StoredLocation(location)
@@ -234,7 +234,7 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
 
         let dt = location.timestamp.timeIntervalSince(previous.timestamp)
         guard dt > 0 else { return }
-        if dt >= 45 {
+        if dt > maximumSegmentIntervalS {
             state.lastAccepted = StoredLocation(location)
             keepPointIfNeeded(location)
             persistAndNotify()
@@ -272,6 +272,24 @@ public final class GymCircleWorkoutLocationPlugin: CAPPlugin, CAPBridgedPlugin, 
         state.lastAccepted = StoredLocation(location)
         keepPointIfNeeded(location)
         persistAndNotify()
+    }
+
+    private func restoreRecentRecordingIfNeeded() {
+        guard state.hasSession, state.isRecording else { return }
+        let referenceDate = state.lastAccepted?.timestamp ?? state.lastKept?.timestamp
+        guard let referenceDate,
+              Date().timeIntervalSince(referenceDate) <= maximumRestorableSessionAgeS else {
+            state.isRecording = false
+            persist()
+            return
+        }
+        guard manager.authorizationStatus == .authorizedAlways ||
+                manager.authorizationStatus == .authorizedWhenInUse else {
+            state.isRecording = false
+            persist()
+            return
+        }
+        startManager()
     }
 
     private var maximumSpeed: Double {

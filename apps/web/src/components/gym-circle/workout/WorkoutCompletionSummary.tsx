@@ -6,11 +6,12 @@ import { useTranslation } from "react-i18next";
 import {
   getSportDefinition,
   getSportLocalizedName,
+  type RunningSessionSummary,
 } from "@gym-circle/core/domain";
 import { WorkoutRouteMap } from "../design-system/WorkoutRouteMap";
 import type { ComposerActivityContext } from "../social/types";
 import type { WorkoutComparison } from "./exerciseHistory";
-import { formatElapsed } from "./workoutElapsed";
+import { formatElapsed, formatPace } from "./workoutElapsed";
 import { formatDistance } from "./workoutSession";
 import type { WorkoutSummaryMetrics } from "./workoutSummary";
 import { useActivityRecordHighlights } from "./useActivityRecordHighlights";
@@ -19,6 +20,7 @@ export type FinishedWorkoutSummary = {
   context: ComposerActivityContext;
   metrics: WorkoutSummaryMetrics;
   workoutNote?: string;
+  running?: RunningSessionSummary | null;
   /** Sprint 2 — comparação com a última sessão de força (null sem histórico). */
   comparison?: WorkoutComparison | null;
 };
@@ -63,7 +65,7 @@ export function WorkoutCompletionSummary({
   onShare,
 }: WorkoutCompletionSummaryProps) {
   const { i18n, t } = useTranslation();
-  const { context, metrics, comparison } = data;
+  const { context, metrics, comparison, running } = data;
   const sportCapabilities =
     getSportDefinition(context.activityType).trackingCapabilities;
   const [workoutNote, setWorkoutNote] = useState(data.workoutNote ?? "");
@@ -141,6 +143,60 @@ export function WorkoutCompletionSummary({
           {t("workout.summary.reviewHint")}
         </p>
       </section>
+
+      {running ? (
+        <section className="mt-3 rounded-[22px] border border-[var(--gc-brand)]/16 bg-[var(--gc-brand)]/[0.045] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[var(--gc-brand)]">
+                {t("workout.summary.guidedWorkout")}
+              </p>
+              <p className="mt-1 truncate text-[16px] font-black text-white">
+                {running.planName}
+              </p>
+            </div>
+            <span className="rounded-full bg-[var(--gc-brand)]/12 px-3 py-1.5 text-[10px] font-black text-[var(--gc-brand)]">
+              {t("workout.summary.stepsCompleted", {
+                completed: running.completedSegments,
+                total: running.totalSegments,
+              })}
+            </span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <SummaryMetric
+              label={t("workout.summary.averagePace")}
+              value={
+                running.averagePaceSPerKm
+                  ? formatPace(running.averagePaceSPerKm)
+                  : "—"
+              }
+            />
+            <SummaryMetric
+              label={t("workout.summary.bestPace")}
+              value={
+                running.bestPaceSPerKm
+                  ? formatPace(running.bestPaceSPerKm)
+                  : "—"
+              }
+            />
+            <SummaryMetric
+              label={t("workout.summary.runningTime")}
+              value={formatElapsed(running.runningTimeS)}
+            />
+            <SummaryMetric
+              label={t("workout.summary.recoveryTime")}
+              value={formatElapsed(running.recoveryTimeS)}
+            />
+          </div>
+          {running.paceConsistencyPercent != null ? (
+            <p className="mt-3 text-[11px] font-bold text-white/48">
+              {t("workout.summary.paceConsistency", {
+                percent: running.paceConsistencyPercent,
+              })}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mt-7 grid grid-cols-2 gap-2.5">
         <SummaryMetric

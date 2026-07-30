@@ -6,11 +6,11 @@ export const ALL_WORKOUT_GROUPS = "__all__";
 export type WorkoutCatalogQuickFilter = "all" | "recent" | "favorites";
 
 export type WorkoutCatalogAdvancedFilters = {
-  equipment?: string | null;
-  loadType?: WorkoutExerciseCatalogItem["defaultLoadType"] | null;
-  difficulty?: WorkoutExerciseCatalogItem["difficulty"] | null;
-  movementPattern?: string | null;
-  exerciseType?: WorkoutExerciseCatalogItem["exerciseType"] | null;
+  equipment?: string[];
+  loadType?: NonNullable<WorkoutExerciseCatalogItem["defaultLoadType"]>[];
+  difficulty?: NonNullable<WorkoutExerciseCatalogItem["difficulty"]>[];
+  movementPattern?: string[];
+  exerciseType?: NonNullable<WorkoutExerciseCatalogItem["exerciseType"]>[];
 };
 
 export type RankedWorkoutCatalogExercise = {
@@ -104,11 +104,23 @@ function queryMatchScore(
   return values.some((value) => value.includes(normalizedQuery)) ? 40 : 0;
 }
 
-function matchesGroup(exercise: WorkoutExerciseCatalogItem, group: string) {
+function selectedGroups(options: { group?: string; groups?: string[] }) {
+  if (options.groups) {
+    return options.groups.filter((group) => group !== ALL_WORKOUT_GROUPS);
+  }
+  return options.group && options.group !== ALL_WORKOUT_GROUPS
+    ? [options.group]
+    : [];
+}
+
+function matchesGroups(
+  exercise: WorkoutExerciseCatalogItem,
+  groups: string[],
+) {
   return (
-    group === ALL_WORKOUT_GROUPS ||
-    exercise.primaryMuscleGroupSlug === group ||
-    exercise.secondaryMuscleGroupSlugs.includes(group)
+    groups.length === 0 ||
+    groups.includes(exercise.primaryMuscleGroupSlug) ||
+    exercise.secondaryMuscleGroupSlugs.some((group) => groups.includes(group))
   );
 }
 
@@ -118,30 +130,47 @@ function matchesGroup(exercise: WorkoutExerciseCatalogItem, group: string) {
  */
 export function filterWorkoutCatalogExercises(
   exercises: WorkoutExerciseCatalogItem[],
-  options: { group: string; query: string; equipment?: string | null },
+  options: {
+    group?: string;
+    groups?: string[];
+    query: string;
+    equipment?: string[];
+  },
 ) {
   const normalizedQuery = normalizeWorkoutCatalogText(options.query);
+  const groups = selectedGroups(options);
   return exercises.filter((exercise) => {
     if (normalizedQuery) {
       if (queryMatchScore(exercise, normalizedQuery) === 0) return false;
-    } else if (!matchesGroup(exercise, options.group)) {
+    } else if (!matchesGroups(exercise, groups)) {
       return false;
     }
-    return options.equipment
-      ? exercise.compatibleEquipments.includes(options.equipment) ||
-          exercise.equipment.includes(options.equipment)
+    return options.equipment?.length
+      ? options.equipment.some(
+          (equipment) =>
+            exercise.compatibleEquipments.includes(equipment) ||
+            exercise.equipment.includes(equipment),
+        )
       : true;
   });
 }
 
 function muscleMatch(
   exercise: WorkoutExerciseCatalogItem,
-  group: string,
+  groups: string[],
 ): RankedWorkoutCatalogExercise["muscleMatch"] {
-  if (group === ALL_WORKOUT_GROUPS) return "none";
-  if (exercise.primaryMuscleGroupSlug === group) return "primary";
-  if (exercise.secondaryMuscleGroupSlugs.includes(group)) return "secondary";
+  if (groups.length === 0) return "none";
+  if (groups.includes(exercise.primaryMuscleGroupSlug)) return "primary";
+  if (
+    exercise.secondaryMuscleGroupSlugs.some((group) => groups.includes(group))
+  ) {
+    return "secondary";
+  }
   return "none";
+}
+
+function includesAny<T>(selected: T[] | undefined, actual: T | null) {
+  return !selected?.length || (actual != null && selected.includes(actual));
 }
 
 /**
@@ -152,7 +181,8 @@ function muscleMatch(
 export function rankWorkoutCatalogExercises(
   exercises: WorkoutExerciseCatalogItem[],
   options: {
-    group: string;
+    group?: string;
+    groups?: string[];
     query: string;
     quickFilter?: WorkoutCatalogQuickFilter;
     filters?: WorkoutCatalogAdvancedFilters;
@@ -170,45 +200,48 @@ export function rankWorkoutCatalogExercises(
   const quickFilter = options.quickFilter ?? "all";
   const filters = options.filters ?? {};
   const locale = options.locale ?? "pt-BR";
+  const groups = selectedGroups(options);
   const ranked: RankedWorkoutCatalogExercise[] = [];
 
   for (const exercise of exercises) {
     if (exercise.reviewStatus === "deprecated") continue;
-    const match = muscleMatch(exercise, options.group);
+    const match = muscleMatch(exercise, groups);
     const searchScore = queryMatchScore(exercise, normalizedQuery);
     if (normalizedQuery && searchScore === 0) continue;
-    if (!normalizedQuery && options.group !== ALL_WORKOUT_GROUPS && match === "none") {
+    if (!normalizedQuery && groups.length > 0 && match === "none") {
       continue;
     }
     if (quickFilter === "recent" && !recentIds.has(exercise.id)) continue;
     if (quickFilter === "favorites" && !favoriteIds.has(exercise.id)) continue;
     if (
-      filters.equipment &&
-      !exercise.compatibleEquipments.includes(filters.equipment) &&
-      !exercise.equipment.includes(filters.equipment)
+      filters.equipment?.length &&
+      !filters.equipment.some(
+        (equipment) =>
+          exercise.compatibleEquipments.includes(equipment) ||
+          exercise.equipment.includes(equipment),
+      )
     ) {
       continue;
     }
-    if (filters.loadType && exercise.defaultLoadType !== filters.loadType) {
+    if (!includesAny(filters.loadType, exercise.defaultLoadType)) {
       continue;
     }
-    if (filters.difficulty && exercise.difficulty !== filters.difficulty) {
+    if (!includesAny(filters.difficulty, exercise.difficulty)) {
       continue;
     }
     if (
-      filters.movementPattern &&
-      exercise.movementPattern !== filters.movementPattern
+      !includesAny(filters.movementPattern, exercise.movementPattern)
     ) {
       continue;
     }
-    if (filters.exerciseType && exercise.exerciseType !== filters.exerciseType) {
+    if (!includesAny(filters.exerciseType, exercise.exerciseType)) {
       continue;
     }
 
     let score = searchScore;
     if (match === "primary") score += 100;
     if (match === "secondary") score += 10;
-    if (filters.equipment) score += 30;
+    if (filters.equipment?.length) score += 30;
     if (favoriteIds.has(exercise.id)) score += 20;
     if (recentIds.has(exercise.id)) {
       score += Math.max(1, 15 - (recentRank.get(exercise.id) ?? 14));
@@ -237,7 +270,7 @@ export function rankWorkoutCatalogExercises(
 /** Equipamentos disponíveis no resultado atual antes do refinamento. */
 export function workoutCatalogEquipmentOptions(
   exercises: WorkoutExerciseCatalogItem[],
-  options: { group: string; query: string },
+  options: { group?: string; groups?: string[]; query: string },
 ) {
   const base = filterWorkoutCatalogExercises(exercises, options);
   return Array.from(

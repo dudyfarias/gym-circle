@@ -4,10 +4,10 @@ export const googleProvider = {
   id: "google",
   minimumDelayMs: 100,
   requiredEnvironment: ["GOOGLE_PLACES_API_KEY"],
-  async searchByName(testCase, { signal } = {}) {
+  async searchByName(testCase, { request = fetch, signal } = {}) {
     const key = process.env.GOOGLE_PLACES_API_KEY;
     if (!key) throw new Error("GOOGLE_PLACES_API_KEY is not configured");
-    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    const response = await request("https://places.googleapis.com/v1/places:searchText", {
       method: "POST",
       signal,
       headers: {
@@ -20,9 +20,6 @@ export const googleProvider = {
           "places.location",
           "places.primaryType",
           "places.businessStatus",
-          "places.nationalPhoneNumber",
-          "places.websiteUri",
-          "places.regularOpeningHours",
         ].join(","),
       },
       body: JSON.stringify({

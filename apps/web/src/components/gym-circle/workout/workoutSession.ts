@@ -7,7 +7,11 @@ import {
   REST_TIMER_INITIAL,
   type RestTimerState,
 } from "./restTimer";
-import { isSportId } from "@gym-circle/core/domain";
+import {
+  isSportId,
+  restoreRunningSessionState,
+  type RunningSessionState,
+} from "@gym-circle/core/domain";
 
 /** Chave global v4, removida por segurança na primeira leitura autenticada. */
 export const WORKOUT_STORAGE_KEY = "gc-web-workout";
@@ -116,6 +120,8 @@ export type StoredWorkoutSession = {
   startedAtMs: number;
   activityType: WebActivityInput["activityType"];
   workoutPlan: WorkoutSessionPlanContext | null;
+  /** Sessão estruturada opcional. Corridas livres permanecem com null. */
+  guidedRunning?: RunningSessionState | null;
   pausedAtMs: number | null;
   pausedTotalMs: number;
   distanceM: number;
@@ -293,6 +299,7 @@ export function readStoredWorkoutSession(userId: string): StoredWorkoutSession |
         ? parsed.activityType
         : "other",
       workoutPlan: readWorkoutPlanContext(parsed.workoutPlan),
+      guidedRunning: restoreRunningSessionState(parsed.guidedRunning),
       pausedAtMs:
         typeof parsed.pausedAtMs === "number" ? parsed.pausedAtMs : null,
       pausedTotalMs: numberOr(parsed.pausedTotalMs, 0),
@@ -543,6 +550,11 @@ function maximumSpeedMps(type: StoredWorkoutSession["activityType"]) {
   return 8;
 }
 
+// O Core Location pode agrupar leituras por mais de 45 s com a tela bloqueada.
+// Um intervalo plausível continua válido; gaps muito longos apenas criam uma
+// nova âncora para não ligar dois deslocamentos desconexos.
+const MAX_ROUTE_SEGMENT_INTERVAL_S = 10 * 60;
+
 /**
  * Adiciona uma leitura GPS à sessão.
  *
@@ -571,7 +583,7 @@ export function appendWorkoutRoutePoint(
 
   const secondsBetween = (point.timestampMs - previous.timestampMs) / 1_000;
   if (secondsBetween <= 0) return session;
-  if (secondsBetween >= 45) {
+  if (secondsBetween > MAX_ROUTE_SEGMENT_INTERVAL_S) {
     return {
       ...session,
       routePoints: withKeptRoutePoint(session.routePoints, point),

@@ -32,7 +32,23 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import { getSportLocalizedName } from "@gym-circle/core/domain";
+import {
+  cancelRunningSession,
+  completeRunningSessionSegment,
+  createRunningSessionState,
+  finishRunningSession,
+  getSportLocalizedName,
+  pauseRunningSession,
+  previousRunningSessionSegment,
+  resumeRunningSession,
+  settleRunningSessionTransition,
+  skipRunningSessionSegment,
+  startRunningSession,
+  summarizeRunningSession,
+  updateRunningSession,
+  type RunningSessionState,
+  type RunningWorkoutPlan,
+} from "@gym-circle/core/domain";
 import { useTranslation } from "react-i18next";
 import { ConfirmSheet } from "../ConfirmSheet";
 import type {
@@ -50,7 +66,10 @@ import {
 } from "../workout/exerciseHistory";
 import { REST_TIMER_INITIAL, restTimerReducer } from "../workout/restTimer";
 import { useExerciseHistory } from "../workout/useExerciseHistory";
-import { formatElapsed } from "../workout/workoutElapsed";
+import {
+  formatElapsed,
+  paceFromDistance,
+} from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
 import { HealthKitImportSheet } from "../workout/HealthKitImportSheet";
 import { WorkoutPlanDetailSheet } from "../workout/WorkoutPlanDetailSheet";
@@ -71,6 +90,8 @@ import { useWorkoutPlans } from "../workout/useWorkoutPlans";
 import { WorkoutSetAdvancedFields } from "../workout/WorkoutSetAdvancedFields";
 import { SportCatalogSection } from "../workout/SportCatalogSection";
 import { RunningPlansSheet } from "../workout/RunningPlansSheet";
+import { GuidedRunningSession } from "../workout/GuidedRunningSession";
+import { emitRunningSessionEvents } from "../workout/runningSessionEvents";
 import {
   applyExerciseLoadType,
   inferExerciseLoadType,
@@ -254,6 +275,10 @@ export function WebWorkoutScreen({
   const [renameSaving, setRenameSaving] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
   const [createPlanRequestKey, setCreatePlanRequestKey] = useState(0);
+  const [editPlanRequest, setEditPlanRequest] = useState<{
+    key: number;
+    planId: string;
+  } | null>(null);
   const [catalogInfo, setCatalogInfo] = useState<WorkoutCatalogInfo | null>(
     null,
   );
@@ -281,6 +306,7 @@ export function WebWorkoutScreen({
     error: workoutPlansError,
     refresh: refreshWorkoutPlans,
     savePlan,
+    deletePlan,
     toggleFavorite,
     recommendation: workoutRecommendation,
   } = workoutPlansController;
@@ -323,6 +349,7 @@ export function WebWorkoutScreen({
   const exerciseScrollFrameRef = useRef<number | null>(null);
   const autoAdvancedExerciseKeysRef = useRef<Set<string>>(new Set());
   const pendingStrengthExerciseIndexRef = useRef<number | null>(null);
+  const emittedRunningEventIdsRef = useRef<Set<string>>(new Set());
   const [activeStrengthExerciseIndex, setActiveStrengthExerciseIndex] =
     useState(0);
 
@@ -581,6 +608,7 @@ export function WebWorkoutScreen({
       activityType: WorkoutType,
       initialStrengthSets: LiveStrengthSet[] = [],
       workoutPlan: StoredWorkoutSession["workoutPlan"] = null,
+      guidedRunning: RunningSessionState | null = null,
     ) => {
       const next: StoredWorkoutSession = {
         version: 5,
@@ -589,6 +617,7 @@ export function WebWorkoutScreen({
         startedAtMs: Date.now(),
         activityType,
         workoutPlan,
+        guidedRunning,
         pausedAtMs: null,
         pausedTotalMs: 0,
         distanceM: 0,
@@ -633,6 +662,25 @@ export function WebWorkoutScreen({
       }
     },
     [applyNativeSnapshot, gpsEngine, onSessionChange, userId],
+  );
+
+  const startGuidedRunningPlan = useCallback(
+    (plan: RunningWorkoutPlan) => {
+      const startedAtMs = Date.now();
+      const engine = startRunningSession(createRunningSessionState(plan), {
+        atMs: startedAtMs,
+        elapsedS: 0,
+        distanceM: 0,
+        currentPaceSPerKm: null,
+      });
+      emitRunningSessionEvents(engine.events);
+      engine.events.forEach((item) =>
+        emittedRunningEventIdsRef.current.add(item.id),
+      );
+      setRunningPlansOpen(false);
+      startWorkout("run", [], null, engine.state);
+    },
+    [startWorkout],
   );
 
   const startWorkoutPlan = useCallback(
@@ -726,7 +774,15 @@ export function WebWorkoutScreen({
       : null;
     const actionNow = Date.now();
     if (session.pausedAtMs === null) {
-      persistSession((current) => pauseWorkoutSession(current, actionNow));
+      persistSession((current) => {
+        const paused = pauseWorkoutSession(current, actionNow);
+        return {
+          ...paused,
+          guidedRunning: current.guidedRunning
+            ? pauseRunningSession(current.guidedRunning, actionNow).state
+            : null,
+        };
+      });
       if (routeActivityType && gpsEngine === "native") {
         void import("../native/WorkoutLocationBridge").then(
           ({ WorkoutLocationBridge }) => WorkoutLocationBridge.pause(),
@@ -736,7 +792,24 @@ export function WebWorkoutScreen({
         dispatchRest({ type: "pause", nowMs: actionNow });
       }
     } else {
-      persistSession((current) => resumeWorkoutSession(current, actionNow));
+      persistSession((current) => {
+        const resumed = resumeWorkoutSession(current, actionNow);
+        return {
+          ...resumed,
+          guidedRunning: current.guidedRunning
+            ? resumeRunningSession(current.guidedRunning, {
+                atMs: actionNow,
+                elapsedS: workoutElapsedSeconds(resumed, actionNow),
+                distanceM: resumed.distanceM,
+                currentPaceSPerKm: paceFromDistance(
+                  resumed.distanceM,
+                  resumed.movingS ||
+                    workoutElapsedSeconds(resumed, actionNow),
+                ),
+              }).state
+            : null,
+        };
+      });
       if (routeActivityType && gpsEngine === "native") {
         void import("../native/WorkoutLocationBridge").then(
           ({ WorkoutLocationBridge }) =>
@@ -761,6 +834,17 @@ export function WebWorkoutScreen({
     try {
       const endedMs = Date.now();
       const elapsedS = workoutElapsedSeconds(session, endedMs);
+      const guidedRunning = session.guidedRunning
+        ? finishRunningSession(session.guidedRunning, {
+            atMs: endedMs,
+            elapsedS,
+            distanceM: session.distanceM,
+            currentPaceSPerKm: paceFromDistance(
+              session.distanceM,
+              session.movingS || elapsedS,
+            ),
+          }).state
+        : null;
       let nativeSummary:
         | {
             distanceM: number;
@@ -849,12 +933,19 @@ export function WebWorkoutScreen({
             finalizedStrengthSets.length > 0
               ? finalizedStrengthSets
               : null,
-          workoutPlanId: session.workoutPlan?.id ?? null,
-          workoutPlanNameSnapshot: session.workoutPlan?.name ?? null,
+          workoutPlanId:
+            guidedRunning?.plan.id ?? session.workoutPlan?.id ?? null,
+          workoutPlanNameSnapshot:
+            guidedRunning?.plan.name ?? session.workoutPlan?.name ?? null,
           workoutPlanExercisesSnapshot:
             session.workoutPlan?.exercisesSnapshot ?? null,
-          workoutPlanVersionSnapshot: session.workoutPlan?.version ?? null,
-          workoutPlanStartedFrom: session.workoutPlan?.startedFrom ?? "free",
+          workoutPlanVersionSnapshot:
+            guidedRunning?.plan.planVersion ??
+            session.workoutPlan?.version ??
+            null,
+          workoutPlanStartedFrom: guidedRunning
+            ? "saved_plan"
+            : (session.workoutPlan?.startedFrom ?? "free"),
           workoutNote: session.workoutNote.trim() || null,
           workoutExerciseContext,
         }),
@@ -889,6 +980,18 @@ export function WebWorkoutScreen({
                 strengthHistory.latestActivity,
               )
             : null,
+        running:
+          guidedRunning == null
+            ? null
+            : summarizeRunningSession(guidedRunning, {
+                atMs: endedMs,
+                elapsedS,
+                distanceM: routeSummary?.distanceM ?? session.distanceM,
+                currentPaceSPerKm: paceFromDistance(
+                  routeSummary?.distanceM ?? session.distanceM,
+                  (routeSummary?.movingS ?? session.movingS) || elapsedS,
+                ),
+              }),
       });
       clearStoredWorkoutSession(userId);
       setSession(null);
@@ -927,6 +1030,11 @@ export function WebWorkoutScreen({
   ]);
 
   const handleDiscard = useCallback(() => {
+    if (session?.guidedRunning) {
+      emitRunningSessionEvents(
+        cancelRunningSession(session.guidedRunning, Date.now()).events,
+      );
+    }
     clearStoredWorkoutSession(userId);
     dispatchRest({ type: "reset" });
     setSession(null);
@@ -1287,6 +1395,145 @@ export function WebWorkoutScreen({
   );
   const pausedS = session ? workoutPausedSeconds(session, nowMs) : 0;
   const isPaused = Boolean(session && session.pausedAtMs !== null);
+  const guidedRunning = session?.guidedRunning ?? null;
+  const currentRoutePaceSPerKm =
+    session && isRouteWorkout(session.activityType)
+      ? paceFromDistance(
+          session.distanceM,
+          session.movingS > 0 ? session.movingS : elapsedS,
+        )
+      : null;
+
+  useEffect(() => {
+    if (
+      guidedRunning?.status !== "running" ||
+      isPaused
+    ) {
+      return;
+    }
+    persistSession((current) => {
+      if (!current.guidedRunning) return current;
+      const liveElapsedS = workoutElapsedSeconds(current, nowMs);
+      const transition = updateRunningSession(current.guidedRunning, {
+        atMs: nowMs,
+        elapsedS: liveElapsedS,
+        distanceM: current.distanceM,
+        currentPaceSPerKm: paceFromDistance(
+          current.distanceM,
+          current.movingS > 0 ? current.movingS : liveElapsedS,
+        ),
+      });
+      return transition.state === current.guidedRunning
+        ? current
+        : { ...current, guidedRunning: transition.state };
+    });
+  }, [
+    guidedRunning?.status,
+    isPaused,
+    nowMs,
+    persistSession,
+  ]);
+
+  useEffect(() => {
+    if (session?.guidedRunning?.status !== "transition") return;
+    const timer = window.setTimeout(() => {
+      const transitionAtMs = Date.now();
+      persistSession((current) => {
+        if (current.guidedRunning?.status !== "transition") return current;
+        const transitionElapsedS = workoutElapsedSeconds(
+          current,
+          transitionAtMs,
+        );
+        const transition = settleRunningSessionTransition(
+          current.guidedRunning,
+          {
+            atMs: transitionAtMs,
+            elapsedS: transitionElapsedS,
+            distanceM: current.distanceM,
+            currentPaceSPerKm: paceFromDistance(
+              current.distanceM,
+              current.movingS > 0
+                ? current.movingS
+                : transitionElapsedS,
+            ),
+          },
+        );
+        return { ...current, guidedRunning: transition.state };
+      });
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [
+    persistSession,
+    session?.guidedRunning?.activeSegmentIndex,
+    session?.guidedRunning?.status,
+  ]);
+
+  useEffect(() => {
+    const events = session?.guidedRunning?.lastEvents ?? [];
+    const pending = events.filter(
+      (event) => !emittedRunningEventIdsRef.current.has(event.id),
+    );
+    if (pending.length === 0) return;
+    pending.forEach((event) =>
+      emittedRunningEventIdsRef.current.add(event.id),
+    );
+    emitRunningSessionEvents(pending);
+  }, [session?.guidedRunning?.lastEvents]);
+
+  const applyGuidedRunningAction = useCallback(
+    (
+      action: (
+        state: RunningSessionState,
+        observation: {
+          atMs: number;
+          elapsedS: number;
+          distanceM: number;
+          currentPaceSPerKm: number | null;
+        },
+      ) => { state: RunningSessionState },
+    ) => {
+      const actionAtMs = Date.now();
+      persistSession((current) => {
+        if (!current.guidedRunning) return current;
+        const actionElapsedS = workoutElapsedSeconds(current, actionAtMs);
+        const result = action(current.guidedRunning, {
+          atMs: actionAtMs,
+          elapsedS: actionElapsedS,
+          distanceM: current.distanceM,
+          currentPaceSPerKm: paceFromDistance(
+            current.distanceM,
+            current.movingS > 0 ? current.movingS : actionElapsedS,
+          ),
+        });
+        return { ...current, guidedRunning: result.state };
+      });
+      navigator.vibrate?.(45);
+    },
+    [persistSession],
+  );
+
+  const completeGuidedStep = useCallback(() => {
+    applyGuidedRunningAction(completeRunningSessionSegment);
+  }, [applyGuidedRunningAction]);
+
+  const skipGuidedStep = useCallback(() => {
+    applyGuidedRunningAction(skipRunningSessionSegment);
+  }, [applyGuidedRunningAction]);
+
+  const previousGuidedStep = useCallback(() => {
+    applyGuidedRunningAction(previousRunningSessionSegment);
+  }, [applyGuidedRunningAction]);
+
+  useEffect(() => {
+    if (
+      session?.guidedRunning?.status !== "finished" ||
+      finishingRef.current
+    ) {
+      return;
+    }
+    void handleFinish();
+  }, [handleFinish, session?.guidedRunning?.status]);
+
   const startedTime = useMemo(() => {
     if (!session) return "--";
     return new Intl.DateTimeFormat(i18n.language, {
@@ -1668,6 +1915,17 @@ export function WebWorkoutScreen({
           executions={workoutPlanExecutions.executions}
           loading={workoutPlanExecutions.loading}
           onClose={() => setDetailPlanId(null)}
+          onDelete={async () => {
+            await deletePlan(detailWorkoutPlan.id);
+            setDetailPlanId(null);
+          }}
+          onEdit={() => {
+            setDetailPlanId(null);
+            setEditPlanRequest((current) => ({
+              key: (current?.key ?? 0) + 1,
+              planId: detailWorkoutPlan.id,
+            }));
+          }}
           onRepeat={() => {
             setDetailPlanId(null);
             startWorkoutPlan(detailWorkoutPlan, "saved_plan");
@@ -2088,6 +2346,7 @@ export function WebWorkoutScreen({
             <WorkoutPlansFabControlled
               catalog={workoutCatalog}
               createRequestKey={createPlanRequestKey}
+              editRequest={editPlanRequest}
               onImport={() => setHealthImportOpen(true)}
               onStartPlan={startWorkoutPlan}
               plansController={workoutPlansController}
@@ -2136,46 +2395,62 @@ export function WebWorkoutScreen({
             </header>
 
             <main className="flex flex-1 flex-col pb-[118px]">
-              <section
-                className={[
-                  "text-center",
-                  session.activityType === "strength" ? "pt-6" : "pt-10",
-                ].join(" ")}
-              >
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/42">
-                  {t("workout.elapsed")}
-                </p>
-                <p
-                  aria-label={`${t("workout.elapsed")}: ${formatElapsed(elapsedS)}`}
-                  className={[
-                    "mt-1 font-black leading-none tracking-[-0.065em] tabular-nums",
-                    session.activityType === "strength"
-                      ? "text-[58px]"
-                      : "text-[78px]",
-                    isPaused ? "text-[#ffd60a]" : "text-[var(--gc-brand)]",
-                  ].join(" ")}
-                >
-                  {formatElapsed(elapsedS)}
-                </p>
-              </section>
+              {guidedRunning ? (
+                <GuidedRunningSession
+                  currentPaceSPerKm={currentRoutePaceSPerKm}
+                  distanceM={session.distanceM}
+                  elapsedS={elapsedS}
+                  onCompleteStep={completeGuidedStep}
+                  onPreviousStep={previousGuidedStep}
+                  onSkipStep={skipGuidedStep}
+                  state={guidedRunning}
+                />
+              ) : (
+                <>
+                  <section
+                    className={[
+                      "text-center",
+                      session.activityType === "strength" ? "pt-6" : "pt-10",
+                    ].join(" ")}
+                  >
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/42">
+                      {t("workout.elapsed")}
+                    </p>
+                    <p
+                      aria-label={`${t("workout.elapsed")}: ${formatElapsed(elapsedS)}`}
+                      className={[
+                        "mt-1 font-black leading-none tracking-[-0.065em] tabular-nums",
+                        session.activityType === "strength"
+                          ? "text-[58px]"
+                          : "text-[78px]",
+                        isPaused
+                          ? "text-[#ffd60a]"
+                          : "text-[var(--gc-brand)]",
+                      ].join(" ")}
+                    >
+                      {formatElapsed(elapsedS)}
+                    </p>
+                  </section>
 
-              <section
-                className={[
-                  "grid grid-cols-3 gap-x-5 border-y border-white/[0.07]",
-                  session.activityType === "strength"
-                    ? "mt-5 py-4"
-                    : "mt-8 py-5",
-                ].join(" ")}
-              >
-                {metricItems.map((item) => (
-                  <MetricTile
-                    key={item.label}
-                    label={item.label}
-                    suffix={item.suffix}
-                    value={item.value}
-                  />
-                ))}
-              </section>
+                  <section
+                    className={[
+                      "grid grid-cols-3 gap-x-5 border-y border-white/[0.07]",
+                      session.activityType === "strength"
+                        ? "mt-5 py-4"
+                        : "mt-8 py-5",
+                    ].join(" ")}
+                  >
+                    {metricItems.map((item) => (
+                      <MetricTile
+                        key={item.label}
+                        label={item.label}
+                        suffix={item.suffix}
+                        value={item.value}
+                      />
+                    ))}
+                  </section>
+                </>
+              )}
 
               {session.activityType === "strength" ? (
                   <section
@@ -2941,7 +3216,7 @@ export function WebWorkoutScreen({
                 </section>
               ) : null}
 
-              {session.activityType !== "strength" ? (
+              {session.activityType !== "strength" && !guidedRunning ? (
                 <section className="mt-7 grid grid-cols-2 gap-3">
                   <div className="rounded-[22px] bg-[#0b0d0e] p-4">
                     <Gauge className="text-[var(--gc-brand)]" size={20} />
@@ -3098,6 +3373,7 @@ export function WebWorkoutScreen({
       />
       <RunningPlansSheet
         onClose={() => setRunningPlansOpen(false)}
+        onStartPlan={startGuidedRunningPlan}
         onStartFree={() => {
           setRunningPlansOpen(false);
           startWorkout("run");

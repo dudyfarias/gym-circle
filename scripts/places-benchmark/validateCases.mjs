@@ -45,9 +45,9 @@ const REQUIRED_MUNICIPALITIES = new Set([
   "Mogi das Cruzes",
 ]);
 
-export function validateCases(cases) {
+export function validateCases(cases, { requireDatasetCoverage = true } = {}) {
   const errors = [];
-  if (cases.length < 150 || cases.length > 200) {
+  if (requireDatasetCoverage && (cases.length < 150 || cases.length > 200)) {
     errors.push(`Expected 150-200 cases; found ${cases.length}`);
   }
 
@@ -80,20 +80,22 @@ export function validateCases(cases) {
     }
   }
 
-  const municipalities = new Set(cases.map((item) => item.municipality));
-  for (const municipality of REQUIRED_MUNICIPALITIES) {
-    if (!municipalities.has(municipality)) errors.push(`Missing municipality: ${municipality}`);
-  }
-
-  for (const type of ["public", "private"]) {
-    if (!cases.some((item) => item.ownership_type === type)) {
-      errors.push(`Missing ownership type: ${type}`);
+  if (requireDatasetCoverage) {
+    const municipalities = new Set(cases.map((item) => item.municipality));
+    for (const municipality of REQUIRED_MUNICIPALITIES) {
+      if (!municipalities.has(municipality)) errors.push(`Missing municipality: ${municipality}`);
     }
-  }
 
-  const macroRegions = new Set(cases.map((item) => item.macro_region));
-  for (const region of ["Centro", "Zona Oeste", "Zona Sul", "Zona Norte", "Zona Leste", "Região Metropolitana"]) {
-    if (!macroRegions.has(region)) errors.push(`Missing macro region: ${region}`);
+    for (const type of ["public", "private"]) {
+      if (!cases.some((item) => item.ownership_type === type)) {
+        errors.push(`Missing ownership type: ${type}`);
+      }
+    }
+
+    const macroRegions = new Set(cases.map((item) => item.macro_region));
+    for (const region of ["Centro", "Zona Oeste", "Zona Sul", "Zona Norte", "Zona Leste", "Região Metropolitana"]) {
+      if (!macroRegions.has(region)) errors.push(`Missing macro region: ${region}`);
+    }
   }
 
   return { errors, valid: errors.length === 0 };

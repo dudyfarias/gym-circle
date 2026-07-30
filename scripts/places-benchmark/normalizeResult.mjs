@@ -1,6 +1,7 @@
 const CATEGORY_ALIASES = new Map([
   ["fitness_centre", "gym"],
   ["fitness_center", "gym"],
+  ["fitnesscenter", "gym"],
   ["gym", "gym"],
   ["health", "gym"],
   ["crossfit", "crossfit_box"],

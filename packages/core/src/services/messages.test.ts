@@ -82,11 +82,11 @@ describe("messageService.sendDirect", () => {
     expect(client.rpc).toHaveBeenCalledWith("send_direct_message", {
       p_receiver_id: "user-b",
       p_body: "Bora treinar?",
-      p_media_url: null,
-      p_media_type: null,
-      p_story_id: null,
+      p_media_url: undefined,
+      p_media_type: undefined,
+      p_story_id: undefined,
       p_reply_to_story: false,
-      p_story_preview_url: null,
+      p_story_preview_url: undefined,
     });
     expect(result).toEqual(messageRow);
   });
@@ -107,12 +107,12 @@ describe("messageService.sendDirect", () => {
 
     expect(client.rpc).toHaveBeenCalledWith("send_direct_message", {
       p_receiver_id: "user-b",
-      p_body: null,
+      p_body: undefined,
       p_media_url: "https://cdn.gym/post.jpg",
       p_media_type: "image",
-      p_story_id: null,
+      p_story_id: undefined,
       p_reply_to_story: false,
-      p_story_preview_url: null,
+      p_story_preview_url: undefined,
     });
   });
 
@@ -136,11 +136,32 @@ describe("messageService.sendDirect", () => {
     expect(client.rpc).toHaveBeenCalledWith("send_direct_message", {
       p_receiver_id: "user-b",
       p_body: "forte demais",
-      p_media_url: null,
-      p_media_type: null,
+      p_media_url: undefined,
+      p_media_type: undefined,
       p_story_id: "story-1",
       p_reply_to_story: true,
       p_story_preview_url: "https://cdn.gym/story.jpg",
+    });
+  });
+
+  it("does not mark a message as a story reply without a story id", async () => {
+    const client = createClientMock(messageRow);
+    const service = messageService(client);
+
+    await service.sendDirect("user-a", {
+      receiverId: "user-b",
+      body: "mensagem comum",
+      replyToStory: true,
+    });
+
+    expect(client.rpc).toHaveBeenCalledWith("send_direct_message", {
+      p_receiver_id: "user-b",
+      p_body: "mensagem comum",
+      p_media_url: undefined,
+      p_media_type: undefined,
+      p_story_id: undefined,
+      p_reply_to_story: false,
+      p_story_preview_url: undefined,
     });
   });
 
@@ -172,8 +193,8 @@ describe("messageService.sendDirect", () => {
     expect(client.rpc).toHaveBeenNthCalledWith(2, "send_direct_message", {
       p_receiver_id: "user-b",
       p_body: "primeira mensagem",
-      p_media_url: null,
-      p_media_type: null,
+      p_media_url: undefined,
+      p_media_type: undefined,
     });
     expect(result.reply_to_story).toBe(false);
     expect(result.story_id).toBeNull();
@@ -264,7 +285,7 @@ describe("messageService group conversations", () => {
     expect(client.rpc).toHaveBeenCalledWith("create_group_conversation", {
       p_name: "Perna de sexta",
       p_member_ids: ["user-b", "user-c"],
-      p_image_url: null,
+      p_image_url: undefined,
     });
   });
 
@@ -285,8 +306,8 @@ describe("messageService group conversations", () => {
     expect(client.rpc).toHaveBeenCalledWith("send_group_message", {
       p_conversation_id: "conversation-group-1",
       p_body: "Treino 19h?",
-      p_media_url: null,
-      p_media_type: null,
+      p_media_url: undefined,
+      p_media_type: undefined,
     });
     expect(result.receiver_id).toBeNull();
   });

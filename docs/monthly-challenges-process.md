@@ -36,6 +36,7 @@
 |---------|-----------|------|------------------|
 | 2026-06 | `20260603160400` + replace `20260603160800` | Festa Junina / Roland Garros / Brasileirão / pré-LA 2028 | ✅ 03/jun |
 | 2026-07 | `20260611120000` | Copa do Mundo 2026 (final 19/jul) / férias / inverno | ✅ 11/jun (OK do Eduardo) |
+| 2026-08 | `20260730183018` | Retorno ao ritmo / variedade / treino em grupo / mês perfeito | ✅ 30/jul (MCP, 4 rows validadas) |
 
 ## Automação futura (anotado, não feito)
 

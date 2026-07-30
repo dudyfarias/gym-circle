@@ -1,6 +1,15 @@
 "use client";
 
-import { CalendarClock, Play, Repeat2, TrendingUp, X } from "lucide-react";
+import { useState } from "react";
+import {
+  CalendarClock,
+  Pencil,
+  Play,
+  Repeat2,
+  Trash2,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type {
   WorkoutPlan,
@@ -13,6 +22,8 @@ type WorkoutPlanDetailSheetProps = {
   executions: WorkoutPlanExecution[];
   loading?: boolean;
   onClose: () => void;
+  onDelete: () => Promise<void>;
+  onEdit: () => void;
   onRepeat: () => void;
   plan: WorkoutPlan;
 };
@@ -39,10 +50,15 @@ export function WorkoutPlanDetailSheet({
   executions,
   loading = false,
   onClose,
+  onDelete,
+  onEdit,
   onRepeat,
   plan,
 }: WorkoutPlanDetailSheetProps) {
   const { i18n, t } = useTranslation();
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
   const stats = plan.stats;
   const recent = executions.slice(0, 6);
   const planName = getWorkoutPlanDisplayName(
@@ -50,14 +66,27 @@ export function WorkoutPlanDetailSheet({
     t("workoutPlans.unnamed"),
   );
 
+  async function confirmDelete() {
+    if (deleting) return;
+    setDeleting(true);
+    setDeleteError(false);
+    try {
+      await onDelete();
+    } catch {
+      setDeleteError(true);
+      setDeleting(false);
+    }
+  }
+
   return (
-    <div
-      aria-label={t("workout.planDetail.title")}
-      aria-modal="true"
-      className="fixed inset-0 z-[115] flex items-end justify-center bg-black/72 px-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-sm"
-      role="dialog"
-    >
-      <section className="max-h-[88dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[32px] border border-white/[0.09] bg-[#0b0d0e] px-5 pb-[calc(var(--gc-safe-bottom)+20px)] pt-5 shadow-[0_-24px_90px_rgba(0,0,0,0.48)]">
+    <>
+      <div
+        aria-label={t("workout.planDetail.title")}
+        aria-modal="true"
+        className="fixed inset-0 z-[115] flex items-end justify-center bg-black/72 px-3 pt-[calc(var(--gc-safe-top)+20px)] backdrop-blur-sm"
+        role="dialog"
+      >
+        <section className="max-h-[88dvh] w-full max-w-[480px] overflow-y-auto rounded-t-[32px] border border-white/[0.09] bg-[#0b0d0e] px-5 pb-[calc(var(--gc-safe-bottom)+20px)] pt-5 shadow-[0_-24px_90px_rgba(0,0,0,0.48)]">
         <header className="flex items-start gap-3">
           <span className="grid size-11 shrink-0 place-items-center rounded-[16px] bg-[var(--gc-brand)]/12 text-[var(--gc-brand)]">
             <TrendingUp size={20} strokeWidth={2.5} />
@@ -196,15 +225,81 @@ export function WorkoutPlanDetailSheet({
           )}
         </section>
 
-        <button
-          className="gc-pressable mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)]"
-          onClick={onRepeat}
-          type="button"
+          <button
+            className="gc-pressable mt-5 flex h-13 w-full items-center justify-center gap-2 rounded-full bg-[var(--gc-brand)] text-[13px] font-black text-[var(--gc-brand-ink)]"
+            onClick={onRepeat}
+            type="button"
+          >
+            <Play fill="currentColor" size={16} />
+            {t("workout.planDetail.repeat")}
+          </button>
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            <button
+              className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-white/[0.07] text-[12.5px] font-black text-white/78"
+              onClick={onEdit}
+              type="button"
+            >
+              <Pencil size={15} />
+              {t("workoutPlans.edit")}
+            </button>
+            <button
+              className="gc-pressable flex h-12 items-center justify-center gap-2 rounded-full bg-[var(--gc-pink)]/10 text-[12.5px] font-black text-[var(--gc-pink)]"
+              onClick={() => {
+                setDeleteError(false);
+                setDeleteConfirmOpen(true);
+              }}
+              type="button"
+            >
+              <Trash2 size={15} />
+              {t("workoutPlans.delete")}
+            </button>
+          </div>
+        </section>
+      </div>
+
+      {deleteConfirmOpen ? (
+        <div
+          aria-label={t("workoutPlans.deleteConfirm")}
+          aria-modal="true"
+          className="fixed inset-0 z-[125] flex items-end justify-center bg-black/78 px-4 pb-[calc(var(--gc-safe-bottom)+16px)] backdrop-blur-sm"
+          role="alertdialog"
         >
-          <Play fill="currentColor" size={16} />
-          {t("workout.planDetail.repeat")}
-        </button>
-      </section>
-    </div>
+          <section className="w-full max-w-[448px] rounded-[24px] border border-white/[0.08] bg-[#101214] p-5">
+            <p className="text-[17px] font-black text-white">
+              {t("workoutPlans.deleteConfirm")}
+            </p>
+            <p className="mt-2 text-[12px] font-bold leading-5 text-white/46">
+              {t("workout.planDetail.deleteDescription")}
+            </p>
+            {deleteError ? (
+              <p
+                aria-live="assertive"
+                className="mt-3 rounded-[12px] bg-[var(--gc-pink)]/10 px-3 py-2 text-[11.5px] font-bold text-[var(--gc-pink)]"
+              >
+                {t("workoutPlans.errors.delete")}
+              </p>
+            ) : null}
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button
+                className="gc-pressable h-12 rounded-full bg-white/[0.07] text-[13px] font-black text-white disabled:opacity-40"
+                disabled={deleting}
+                onClick={() => setDeleteConfirmOpen(false)}
+                type="button"
+              >
+                {t("common.cancel")}
+              </button>
+              <button
+                className="gc-pressable h-12 rounded-full bg-[var(--gc-pink)] text-[13px] font-black text-white disabled:opacity-50"
+                disabled={deleting}
+                onClick={() => void confirmDelete()}
+                type="button"
+              >
+                {deleting ? t("common.loading") : t("common.delete")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </>
   );
 }

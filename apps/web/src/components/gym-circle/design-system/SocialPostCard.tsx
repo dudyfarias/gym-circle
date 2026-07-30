@@ -483,7 +483,7 @@ function SocialPostCardComponent({
         </div>
       ) : null}
 
-      {hasWorkoutRoute ? (
+      {hasWorkoutRoute && !hasRealMedia ? (
         <div className="mx-4 mt-3 overflow-hidden rounded-[22px] border border-[var(--gc-blue)]/12 bg-[var(--gc-blue)]/[0.045]">
           <button
             aria-label={t("workoutDetail.mapTitle")}

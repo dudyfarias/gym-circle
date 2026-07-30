@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  createRunningSessionState,
+  startRunningSession,
+  type RunningWorkoutPlan,
+} from "@gym-circle/core/domain";
+import {
   appendWorkoutRoutePoint,
   bestWorkoutRouteSummary,
   createAddedStrengthExerciseSet,
@@ -172,6 +177,56 @@ describe("strength set rest tracking", () => {
 });
 
 describe("workout session storage", () => {
+  it("restaura a máquina de estados de uma corrida guiada", () => {
+    installStorage();
+    const plan: RunningWorkoutPlan = {
+      id: "running-plan-1",
+      userId: "user-a",
+      name: "Corrida leve",
+      description: null,
+      level: "beginner",
+      goal: "first_5k",
+      source: "manual",
+      sourceMetadata: {},
+      sportType: "run",
+      planVersion: 1,
+      isFavorite: false,
+      estimatedDurationS: 600,
+      estimatedDistanceM: null,
+      createdAt: "2026-07-24T10:00:00.000Z",
+      updatedAt: "2026-07-24T10:00:00.000Z",
+      steps: [
+        {
+          id: "step-1",
+          position: 0,
+          stepType: "easy",
+          title: "Corrida leve",
+          repetitions: 1,
+          targetBasis: "duration",
+          durationS: 600,
+          recoveryType: "none",
+        },
+      ],
+    };
+    const guidedRunning = startRunningSession(
+      createRunningSessionState(plan),
+      { atMs: 1_000, elapsedS: 0, distanceM: 0 },
+    ).state;
+
+    writeStoredWorkoutSession("user-a", {
+      ...base,
+      guidedRunning,
+    });
+
+    expect(readStoredWorkoutSession("user-a")?.guidedRunning).toEqual(
+      expect.objectContaining({
+        status: "running",
+        activeSegmentIndex: 0,
+        plan: expect.objectContaining({ id: "running-plan-1" }),
+      }),
+    );
+  });
+
   it("restaura séries e conclusões de uma sessão de musculação", () => {
     installStorage();
     const strengthSession: StoredWorkoutSession = {
@@ -324,6 +379,49 @@ describe("workout route metrics", () => {
 
     expect(second.distanceM).toBeGreaterThan(20);
     expect(second.movingS).toBe(10);
+  });
+
+  it("contabiliza pontos atrasados enquanto o iPhone está bloqueado", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      timestampMs: 1_000,
+    });
+    const second = appendWorkoutRoutePoint(first, {
+      latitude: -23.535,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      timestampMs: 91_000,
+    });
+
+    expect(second.distanceM).toBeGreaterThan(100);
+    expect(second.movingS).toBe(90);
+  });
+
+  it("não liga automaticamente trechos separados por mais de dez minutos", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      timestampMs: 1_000,
+    });
+    const second = appendWorkoutRoutePoint(first, {
+      latitude: -23.526,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      timestampMs: 602_000,
+    });
+
+    expect(second.distanceM).toBe(0);
+    expect(second.movingS).toBe(0);
+    expect(second.lastRoutePoint).toEqual(
+      expect.objectContaining({ timestampMs: 602_000 }),
+    );
   });
 
   it("contabiliza ida e volta pelo mesmo caminho e gera a polyline", () => {

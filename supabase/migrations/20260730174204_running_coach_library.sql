@@ -1,5 +1,5 @@
 -- Sprint D1 — Running Coach Library.
--- Prepared for review only. Do not apply without a dedicated release gate.
+-- Applied in production through the dedicated release gate on 2026-07-30.
 --
 -- Additive schema for the running coach library:
 -- - reusable official session templates (owner-aware, publishable);

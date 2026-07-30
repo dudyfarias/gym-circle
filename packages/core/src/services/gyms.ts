@@ -120,16 +120,16 @@ export function gymService(client: GymCircleClient) {
         const { data: gymId, error: registerError } = await client.rpc(
           "register_external_gym",
           {
-            p_address: place.address?.trim() || null,
+            p_address: place.address?.trim() || undefined,
             p_city: normalizeCityForInsert(place),
             p_external_id: place.externalId.trim(),
             p_latitude: place.latitude,
             p_longitude: place.longitude,
             p_name: place.name.trim(),
             p_provider: place.provider,
-            p_provider_category: place.providerCategory?.trim() || null,
-            p_source_service: place.sourceService?.trim() || null,
-            p_state: place.state?.trim() || null,
+            p_provider_category: place.providerCategory?.trim() || undefined,
+            p_source_service: place.sourceService?.trim() || undefined,
+            p_state: place.state?.trim() || undefined,
           },
         );
         if (registerError) throw registerError;

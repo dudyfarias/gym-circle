@@ -141,7 +141,7 @@ export async function queryHomeFeedSurface(
   cursorCreatedAt: string | null = null,
 ): Promise<{ data: SurfacePostRow[]; error: unknown }> {
   const rpcRes = await client.rpc("get_home_feed", {
-    p_cursor_created_at: cursorCreatedAt,
+    p_cursor_created_at: cursorCreatedAt ?? undefined,
     p_limit: limit,
   });
   if (!rpcRes.error) {
@@ -334,8 +334,8 @@ export async function queryUserSuggestionsSurface(
   limit: number,
 ): Promise<{ data: DiscoveryProfileRow[]; error: unknown }> {
   const rpcRes = await client.rpc("get_user_suggestions", {
-    p_current_lat: null,
-    p_current_lng: null,
+    p_current_lat: undefined,
+    p_current_lng: undefined,
     p_limit: limit,
   });
   if (!rpcRes.error) {

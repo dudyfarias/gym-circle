@@ -617,8 +617,8 @@ Em 2026-07-16 a P0.7 foi implementada localmente, sem benchmark externo:
 - check-in, post e academia do perfil compartilham a engine;
 - oito casos prioritários foram confirmados/corrigidos com fontes primárias;
 - revisão atual: 73 `approved` e 87 `uncertain`;
-- o subset `p0-6-priority-cases.json` contém dez casos approved e continua com
-  `execution_allowed: false`.
+- o subset `p0-6-priority-cases.json` contém dez casos approved e a execução
+  Apple foi concluída com `approved_execution_limit: 10`.
 
 Chamadas previstas no subset:
 
@@ -628,3 +628,26 @@ Chamadas previstas no subset:
 
 O benchmark de 160 casos continua bloqueado. Detalhes:
 [Places P0.7](./places-p0-7-stabilization-ranking-2026-07-16.md).
+
+## 22. Addendum P0.6 — controlled provider benchmark
+
+O dry-run e a sanidade foram aprovados; em 2026-07-22 a rodada Apple usou os dez
+IDs controlados:
+
+- casos: 10 approved;
+- provider configurado: Apple Maps;
+- requests externos: 11 (um token + dez buscas);
+- payload bruto persistido: não;
+- consumo: 11 calls da quota Apple; preço granular público não confirmado;
+- gate: concluído com `approved_execution_limit=10`;
+- rodada de três: concluída, 3/3 corretos e top 1;
+- rodada de dez: 9/10 corretos, top 1 8/10 e top 3 9/10.
+
+O runner foi endurecido antes de qualquer chamada: agora usa o subset oficial,
+respeita `execution_allowed`, exige `--limit` e `--max-calls`, contabiliza cada
+request e para na primeira falha. Na rodada de dez não houve falha nem
+duplicata; p50 foi 394 ms e p95 2.055 ms. O Centro Olímpico não foi encontrado
+corretamente e o CrossFit 79 ficou em top 2. O resultado ainda não compara
+providers e não é suficiente para aceitar o ADR.
+
+Detalhes: [Places P0.6](./places-p0-6-controlled-benchmark-2026-07-16.md).

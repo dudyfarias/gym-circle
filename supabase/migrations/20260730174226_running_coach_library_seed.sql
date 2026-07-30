@@ -1,6 +1,6 @@
 -- Sprint D1 — Running Coach Library seed (Fatia 2).
--- Prepared for review only. Do not apply without a dedicated release gate.
--- Apply AFTER 20260724120000_running_coach_library.sql (depends on its tables).
+-- Applied in production through the dedicated release gate on 2026-07-30.
+-- Apply AFTER 20260730174204_running_coach_library.sql (depends on its tables).
 --
 -- Two flagship beginner sessions so "Corrida guiada" has content to test:
 --   1) Primeira caminhada  — 30 min walk (warmup / walk / cooldown)

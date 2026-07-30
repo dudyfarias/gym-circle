@@ -4,18 +4,29 @@ import { validateCases } from "./validateCases.mjs";
 
 export function buildProviderReadiness(providers, environment = process.env) {
   return [...providers.values()].map((provider) => {
-    const missing = provider.requiredEnvironment.filter((name) => !environment[name]);
+    const configured = provider.isConfigured
+      ? provider.isConfigured(environment)
+      : provider.requiredEnvironment.every((name) => environment[name]);
+    const missing = configured
+      ? []
+      : provider.requiredEnvironment.filter((name) => !environment[name]);
     return {
       provider: provider.id,
-      status: missing.length === 0 ? "configured_not_executed" : "skipped_missing_configuration",
+      status: configured ? "configured_not_executed" : "skipped_missing_configuration",
       required_environment_names: provider.requiredEnvironment,
+      environment_alternatives: provider.environmentAlternatives ?? null,
       missing_environment_names: missing,
     };
   });
 }
 
-export function buildReadinessReport(cases, providers, environment = process.env) {
-  const validation = validateCases(cases);
+export function buildReadinessReport(
+  cases,
+  providers,
+  environment = process.env,
+  { requireDatasetCoverage = true } = {},
+) {
+  const validation = validateCases(cases, { requireDatasetCoverage });
   const review = summarizeReviewStatuses(cases);
   const blockers = cases
     .filter((item) => item.review_status !== EXECUTION_ELIGIBLE_REVIEW_STATUS)

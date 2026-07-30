@@ -8,7 +8,7 @@ export const osmProvider = {
   id: "osm",
   minimumDelayMs: 1_000,
   requiredEnvironment: ["OSM_NOMINATIM_BASE_URL"],
-  async searchByName(testCase, { signal } = {}) {
+  async searchByName(testCase, { request = fetch, signal } = {}) {
     const configured = process.env.OSM_NOMINATIM_BASE_URL;
     if (!configured) {
       throw new Error(
@@ -27,7 +27,10 @@ export const osmProvider = {
       countrycodes: "br",
       "accept-language": "pt-BR",
     });
-    const response = await fetch(new URL(`/search?${params}`, baseUrl), {
+    const searchUrl = new URL(baseUrl);
+    searchUrl.pathname = `${searchUrl.pathname.replace(/\/?$/, "/")}search`;
+    searchUrl.search = params.toString();
+    const response = await request(searchUrl, {
       signal,
       headers: { "User-Agent": "GymCircle-Places-P0/1.0 (benchmark; no autocomplete)" },
     });

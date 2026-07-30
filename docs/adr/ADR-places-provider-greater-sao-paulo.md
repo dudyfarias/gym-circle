@@ -83,19 +83,20 @@ Medidas independentes:
 
 | Dimensão | Google | Apple | OSM | Mapbox |
 |---|---|---|---|---|
-| Cobertura Grande SP | pendente | pendente | pendente | pendente |
-| Relevância | pendente | pendente | pendente | pendente |
-| Qualidade | pendente | pendente | pendente | pendente |
-| p50/p95 | pendente | pendente | pendente | pendente |
+| Cobertura Grande SP | pendente | 9/10 no subset controlado | pendente | pendente |
+| Relevância | pendente | top 1 8/10; top 3 9/10 | pendente | pendente |
+| Qualidade | pendente | essenciais utilizáveis nos 9 acertos; 0 duplicatas | pendente | pendente |
+| p50/p95 | pendente | 394/2.055 ms | pendente | pendente |
 | Custo | confirmado/estimado | sem preço público | infra/quote pendente | confirmado/estimado |
 | Persistência | Place ID sim; conteúdo restrito | pendente/fortemente restrita | sim sob ODbL | Search Box não; permanent contratado |
 | iOS | sim | sim | via adapter/mapa | sim |
 | Android | sim | não nativo | via adapter/mapa | sim |
 | Backend | sim | sim | sim próprio/comercial | sim |
 
-Não há credenciais configuradas e nenhum benchmark externo foi executado. Dos
-160 casos, 65 estão `approved` e 95 `uncertain`; os incertos bloqueiam o run
-completo. Logo, não há vencedor confirmado.
+Apple Maps foi executado em dez casos controlados. Google, Mapbox e um provider
+OSM continuam sem credenciais autorizadas. Dos 160 casos, 73 estão `approved` e
+87 `uncertain`; os incertos bloqueiam o run completo. Logo, não há comparação
+multiprovider nem vencedor confirmado.
 
 ## 6. Custos e licenças
 
@@ -189,11 +190,39 @@ A estabilização local não altera a decisão de provider:
 - Overpass público permanece apenas fallback temporário, agora com timeout de
   6 s, cache curto, zero retry e circuit breaker;
 - origem foi removida como fator dominante do ranking;
-- o subset P0.6 tem dez casos aprovados, mas não foi executado;
+- o subset P0.6 tem dez casos aprovados e a rodada Apple foi executada e
+  revisada;
 - 87 casos seguem `uncertain`.
 
 O ADR permanece **Proposed**. O subset controlado mede a arquitetura temporária;
 ele não autoriza P1 nem define provider principal.
+
+### Addendum P0.6 — controlled benchmark
+
+O dry-run específico passou, a sanidade de três foi revisada e, em 2026-07-22,
+a rodada Apple de dez foi executada com teto de onze chamadas:
+
+- Apple Maps está configurado somente no ambiente local seguro; Google,
+  Mapbox e OSM/provider seguem sem credenciais autorizadas;
+- Apple encontrou corretamente 9/10 locais; oito em top 1 e nove em top 3;
+- o CrossFit 79 ficou em top 2 e o Centro Olímpico retornou um homônimo errado;
+- a quota publicada é 25.000 service calls/dia/team; não há preço granular
+  público confirmado para projetar uma fatura por busca;
+- `execution_allowed=true` e `approved_execution_limit=10` foram respeitados;
+- onze requests externos foram enviados e nenhum payload bruto foi persistido;
+- resultado revisado: 9/10 corretos, top 1 8/10, top 3 9/10, zero
+  falhas/duplicatas, p50 394 ms e p95 2.055 ms;
+- a comparação com outros providers continua pendente.
+
+O harness passou a usar os IDs do subset, exigir limite e call cap explícitos,
+contabilizar cada request e abortar na primeira falha. Mapbox usa agora o
+endpoint one-off `/forward`, e o adapter OSM preserva o path do provider sem
+permitir Nominatim público.
+
+Não há evidência para eliminar provider, aceitar o ADR ou iniciar P1. A decisão
+permanece `Proposed`: a próxima etapa é repetir os dez com outro provider
+autorizado e ampliar Apple para 40 casos balanceados, incluindo mais centros
+públicos e academias independentes.
 
 ## 11. Critérios para `Accepted`
 

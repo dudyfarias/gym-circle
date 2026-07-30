@@ -164,10 +164,10 @@ export function postService(client: GymCircleClient) {
     ): Promise<void> {
       const { error } = await rpcClient.rpc("update_social_post_full", {
         p_post_id: postId,
-        p_caption: input.caption ?? null,
+        p_caption: input.caption ?? undefined,
         p_workout_types: input.workoutTypes ?? [],
-        p_gym_id: input.gymId ?? null,
-        p_media: input.media ? mediaRpcRows(input.media) : null,
+        p_gym_id: input.gymId ?? undefined,
+        p_media: input.media ? mediaRpcRows(input.media) : undefined,
       });
       if (error) throw error;
     },

@@ -118,7 +118,7 @@ describe("postService unified social editor", () => {
       p_caption: "Treino forte",
       p_workout_types: ["Musculação", "Cardio"],
       p_gym_id: "gym-2",
-      p_media: null,
+      p_media: undefined,
     });
   });
 

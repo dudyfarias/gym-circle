@@ -90,10 +90,11 @@ export function messageService(client: GymCircleClient) {
       senderId: string,
       input: SendDirectMessageInput,
     ): Promise<DirectMessageRow> {
-      const body = input.body?.trim() || null;
-      const mediaUrl = input.mediaUrl?.trim() || null;
-      const storyId = input.storyId?.trim() || null;
-      const storyPreviewUrl = input.storyPreviewUrl?.trim() || null;
+      const body = input.body?.trim() || undefined;
+      const mediaUrl = input.mediaUrl?.trim() || undefined;
+      const storyId = input.storyId?.trim() || undefined;
+      const storyPreviewUrl = input.storyPreviewUrl?.trim() || undefined;
+      const replyToStory = Boolean(input.replyToStory && storyId);
       if (!body && !mediaUrl && !storyId) throw new Error("mensagem vazia");
       if (senderId === input.receiverId) {
         throw new Error("não dá para mandar mensagem para si mesmo");
@@ -103,9 +104,9 @@ export function messageService(client: GymCircleClient) {
         p_receiver_id: input.receiverId,
         p_body: body,
         p_media_url: mediaUrl,
-        p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+        p_media_type: mediaUrl ? (input.mediaType ?? "image") : undefined,
         p_story_id: storyId,
-        p_reply_to_story: Boolean(input.replyToStory),
+        p_reply_to_story: replyToStory,
         p_story_preview_url: storyPreviewUrl,
       });
 
@@ -114,7 +115,7 @@ export function messageService(client: GymCircleClient) {
           p_receiver_id: input.receiverId,
           p_body: body,
           p_media_url: mediaUrl,
-          p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+          p_media_type: mediaUrl ? (input.mediaType ?? "image") : undefined,
         });
         if (fallback.error) throw fallback.error;
         return withStoryDefaults(fallback.data);
@@ -150,7 +151,7 @@ export function messageService(client: GymCircleClient) {
       const { data, error } = await client.rpc("create_group_conversation", {
         p_name: input.name.trim() || "Grupo Gym Circle",
         p_member_ids: memberIds,
-        p_image_url: input.imageUrl?.trim() || null,
+        p_image_url: input.imageUrl?.trim() || undefined,
       });
       if (error) throw error;
       return data;
@@ -173,15 +174,15 @@ export function messageService(client: GymCircleClient) {
     },
 
     async sendGroup(input: SendGroupMessageInput): Promise<DirectMessageRow> {
-      const body = input.body?.trim() || null;
-      const mediaUrl = input.mediaUrl?.trim() || null;
+      const body = input.body?.trim() || undefined;
+      const mediaUrl = input.mediaUrl?.trim() || undefined;
       if (!body && !mediaUrl) throw new Error("mensagem vazia");
 
       const { data, error } = await client.rpc("send_group_message", {
         p_conversation_id: input.conversationId,
         p_body: body,
         p_media_url: mediaUrl,
-        p_media_type: mediaUrl ? (input.mediaType ?? "image") : null,
+        p_media_type: mediaUrl ? (input.mediaType ?? "image") : undefined,
       });
       if (error) throw error;
       return withStoryDefaults(data);

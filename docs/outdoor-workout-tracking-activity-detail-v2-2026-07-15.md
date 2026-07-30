@@ -38,6 +38,23 @@ O intervalo de cerca de 40 minutos é incompatível com os 8:37 efetivos. Isso o
 7. Snapshots nativo e web são combinados por maior distância/tempo/elevação, nunca somados nem substituídos por zero.
 8. A finalização aguarda o snapshot final, escolhe a rota válida mais completa e envia o payload idempotente ao Supabase.
 
+### Correção para tela bloqueada — 2026-07-30
+
+O acumulador anterior tratava qualquer intervalo de 45 segundos como uma quebra
+de rota. Em background, o Core Location pode agrupar leituras por mais tempo;
+por isso uma caminhada com a tela bloqueada podia receber pontos válidos e,
+ainda assim, permanecer com distância zero. O app agora:
+
+- ordena batches nativos pelo timestamp;
+- aceita segmentos plausíveis entregues em até 10 minutos;
+- continua rejeitando pontos fora de ordem, imprecisos e velocidades
+  incompatíveis com a modalidade;
+- cria uma nova âncora, sem ligar deslocamentos, quando o gap supera 10 minutos;
+- retoma uma sessão nativa recente após recriação do processo;
+- mantém o indicador de localização em background ativo no gravador SwiftUI.
+
+Essa correção automatizada não substitui o teste de 500 m em iPhone físico.
+
 ## Cálculo de distância
 
 - A captura usa distância geodésica entre leituras consecutivas válidas.

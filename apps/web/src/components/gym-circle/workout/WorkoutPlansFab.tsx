@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ClipboardList,
   Download,
@@ -48,6 +48,7 @@ export type WorkoutPlansController = ReturnType<typeof useWorkoutPlans>;
 
 type WorkoutPlansFabControlledProps = WorkoutPlansFabProps & {
   createRequestKey?: number;
+  editRequest?: { key: number; planId: string } | null;
   plansController: WorkoutPlansController;
   triggerPlacement?: "floating" | "inline";
 };
@@ -155,6 +156,7 @@ export function WorkoutPlansFab({
 
 export function WorkoutPlansFabControlled({
   createRequestKey = 0,
+  editRequest = null,
   onStartPlan,
   onImport,
   catalog,
@@ -188,6 +190,7 @@ export function WorkoutPlansFabControlled({
   } = catalog;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const handledCreateRequestKeyRef = useRef(createRequestKey);
+  const handledEditRequestKeyRef = useRef(0);
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
@@ -226,7 +229,7 @@ export function WorkoutPlansFabControlled({
     setEditing({ name: "", exercises: [emptyExercise()] });
   }, [createRequestKey]);
 
-  function openEditEditor(plan: WorkoutPlan) {
+  const openEditEditor = useCallback((plan: WorkoutPlan) => {
     setImportedCount(null);
     setImportError(null);
     setEditing({
@@ -254,7 +257,28 @@ export function WorkoutPlansFabControlled({
         };
       }),
     });
-  }
+  }, [
+    catalogExercises,
+    english,
+    findExercise,
+    findTechnique,
+    techniques,
+  ]);
+
+  useEffect(() => {
+    if (
+      !editRequest ||
+      editRequest.key <= handledEditRequestKeyRef.current
+    ) {
+      return;
+    }
+    const plan = plans.find((item) => item.id === editRequest.planId);
+    if (!plan) return;
+    handledEditRequestKeyRef.current = editRequest.key;
+    // Pedido explícito vindo do detalhe do treino salvo.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    openEditEditor(plan);
+  }, [editRequest, openEditEditor, plans]);
 
   function openFilePicker() {
     setMenuOpen(false);

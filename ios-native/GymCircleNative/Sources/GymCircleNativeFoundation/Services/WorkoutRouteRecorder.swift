@@ -11,7 +11,7 @@ public struct WorkoutRouteSummary: Sendable {
 }
 
 /// Gravador de rota do treino ao vivo (corrida/caminhada/bike). Filtra
-/// leituras ruins (precisão > 50 m, saltos > 100 m), acumula distância,
+/// leituras ruins (precisão > 50 m, velocidade incompatível), acumula distância,
 /// tempo em movimento (> 0,5 m/s) e ganho de elevação (> +1 m por leitura
 /// com precisão vertical decente). Criar e usar SEMPRE na main thread.
 public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -27,6 +27,7 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
     private var points: [[Double]] = []
     private var lastKeptPoint: CLLocation?
     private static let maxPoints = 1500
+    private static let maxSegmentIntervalS: TimeInterval = 10 * 60
 
     override public init() {
         super.init()
@@ -66,6 +67,7 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
         // Segue gravando com a tela apagada (UIBackgroundModes: location).
         manager.allowsBackgroundLocationUpdates = true
         manager.pausesLocationUpdatesAutomatically = false
+        manager.showsBackgroundLocationIndicator = true
         manager.startUpdatingLocation()
     }
 
@@ -87,6 +89,8 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
         lastAccepted = nil
         lastAltitude = nil
         manager.allowsBackgroundLocationUpdates = true
+        manager.pausesLocationUpdatesAutomatically = false
+        manager.showsBackgroundLocationIndicator = true
         manager.startUpdatingLocation()
     }
 
@@ -126,7 +130,7 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
         didUpdateLocations locations: [CLLocation]
     ) {
         guard isRecording else { return }
-        for location in locations {
+        for location in locations.sorted(by: { $0.timestamp < $1.timestamp }) {
             accept(location)
         }
     }
@@ -139,7 +143,6 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
     private func accept(_ location: CLLocation) {
         let accuracy = location.horizontalAccuracy
         guard accuracy > 0, accuracy <= 50 else { return }
-        guard abs(location.timestamp.timeIntervalSinceNow) < 30 else { return }
 
         guard let previous = lastAccepted else {
             lastAccepted = location
@@ -150,7 +153,7 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
 
         let dt = location.timestamp.timeIntervalSince(previous.timestamp)
         guard dt > 0 else { return }
-        if dt >= 45 {
+        if dt > Self.maxSegmentIntervalS {
             lastAccepted = location
             keepPointIfNeeded(location)
             lastAltitude = location.verticalAccuracy <= 12 ? location.altitude : nil
@@ -165,7 +168,9 @@ public final class WorkoutRouteRecorder: NSObject, ObservableObject, CLLocationM
         // limiar, em vez de desaparecerem em leituras muito frequentes.
         guard segment >= minimumSegment else { return }
         // Salto de GPS (teleporte) — descarta o segmento e cria nova âncora.
-        guard segment < 100, segment / dt < 15 else {
+        // Não usa teto absoluto de distância: com a tela bloqueada, o Core
+        // Location pode entregar vários segundos de movimento em um só batch.
+        guard segment / dt < 15 else {
             lastAccepted = location
             return
         }

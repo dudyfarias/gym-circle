@@ -1,18 +1,28 @@
 import { normalizeProviderResult } from "../normalizeResult.mjs";
+import {
+  getAppleMapsAccessToken,
+  hasAppleMapsSigningConfiguration,
+} from "./appleAuth.mjs";
 
 export const appleProvider = {
   id: "apple",
   minimumDelayMs: 100,
   requiredEnvironment: ["APPLE_MAPS_TOKEN"],
-  async searchByName(testCase, { signal } = {}) {
-    const token = process.env.APPLE_MAPS_TOKEN;
-    if (!token) throw new Error("APPLE_MAPS_TOKEN is not configured");
+  environmentAlternatives: [
+    ["APPLE_MAPS_TOKEN"],
+    ["APPLE_MAPS_TEAM_ID", "APPLE_MAPS_KEY_ID", "APPLE_MAPS_PRIVATE_KEY_PATH"],
+  ],
+  isConfigured(environment = process.env) {
+    return Boolean(environment.APPLE_MAPS_TOKEN) || hasAppleMapsSigningConfiguration(environment);
+  },
+  async searchByName(testCase, { request = fetch, signal } = {}) {
+    const token = await getAppleMapsAccessToken({ request, signal });
     const params = new URLSearchParams({
       q: testCase.name_query,
       lang: "pt-BR",
       searchLocation: `${testCase.longitude},${testCase.latitude}`,
     });
-    const response = await fetch(`https://maps-api.apple.com/v1/search?${params}`, {
+    const response = await request(`https://maps-api.apple.com/v1/search?${params}`, {
       signal,
       headers: { Authorization: `Bearer ${token}` },
     });

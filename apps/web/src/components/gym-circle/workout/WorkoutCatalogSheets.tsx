@@ -306,7 +306,10 @@ export function WorkoutExercisePicker({
   onToggleFavorite?: (exerciseId: string) => void | Promise<void>;
 }) {
   const { i18n, t } = useTranslation();
-  const [group, setGroup] = useState(ALL_WORKOUT_GROUPS);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [lastSelectedGroup, setLastSelectedGroup] = useState(
+    ALL_WORKOUT_GROUPS,
+  );
   const [query, setQuery] = useState("");
   const [quickFilter, setQuickFilter] =
     useState<WorkoutCatalogQuickFilter>("all");
@@ -321,14 +324,14 @@ export function WorkoutExercisePicker({
       Array.from(
         new Set([
           ...STANDARD_WORKOUT_EQUIPMENT_FILTERS,
-          ...workoutCatalogEquipmentOptions(exercises, { group, query }),
+          ...workoutCatalogEquipmentOptions(exercises, { groups, query }),
         ]),
       ),
-    [exercises, group, query],
+    [exercises, groups, query],
   );
   const filterSource = useMemo(() => {
     const unfilteredSections = rankWorkoutCatalogExercises(exercises, {
-      group,
+      groups,
       query,
       favoriteExerciseIds,
       recentExerciseIds,
@@ -339,7 +342,7 @@ export function WorkoutExercisePicker({
         .map((item) => item.exercise.id),
     );
     return exercises.filter((exercise) => ids.has(exercise.id));
-  }, [exercises, favoriteExerciseIds, group, query, recentExerciseIds]);
+  }, [exercises, favoriteExerciseIds, groups, query, recentExerciseIds]);
   const filterOptions = useMemo(
     () => ({
       loadTypes: Array.from(
@@ -360,7 +363,7 @@ export function WorkoutExercisePicker({
   const sections = useMemo(
     () =>
       rankWorkoutCatalogExercises(exercises, {
-        group,
+        groups,
         query,
         quickFilter,
         filters,
@@ -373,17 +376,20 @@ export function WorkoutExercisePicker({
       exercises,
       favoriteExerciseIds,
       filters,
-      group,
+      groups,
       query,
       quickFilter,
       recentExerciseIds,
     ],
   );
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const activeFilterCount = Object.values(filters).reduce(
+    (count, values) => count + (values?.length ?? 0),
+    0,
+  );
   const visibleCount = sections.primary.length + sections.secondary.length;
   const recentSection = useMemo(() => {
     if (
-      group !== ALL_WORKOUT_GROUPS ||
+      groups.length > 0 ||
       query.trim() ||
       quickFilter !== "all" ||
       activeFilterCount > 0
@@ -398,7 +404,7 @@ export function WorkoutExercisePicker({
   }, [
     activeFilterCount,
     exercises,
-    group,
+    groups,
     query,
     quickFilter,
     recentExerciseIds,
@@ -410,12 +416,12 @@ export function WorkoutExercisePicker({
   }, [recentSection, sections.primary]);
 
   useEffect(() => {
-    groupButtonRefs.current.get(group)?.scrollIntoView({
+    groupButtonRefs.current.get(lastSelectedGroup)?.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
       inline: "center",
     });
-  }, [group]);
+  }, [lastSelectedGroup]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -556,35 +562,45 @@ export function WorkoutExercisePicker({
           <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-7 bg-gradient-to-l from-black to-transparent" />
           <div className="gc-scrollbar flex min-h-9 w-full max-w-full shrink-0 items-center gap-1.5 overflow-x-auto px-5 py-1">
           <button
-            aria-pressed={group === ALL_WORKOUT_GROUPS}
+            aria-pressed={groups.length === 0}
             ref={(node) => {
               if (node) groupButtonRefs.current.set(ALL_WORKOUT_GROUPS, node);
             }}
             className={[
               "gc-pressable inline-flex h-9 shrink-0 items-center justify-center rounded-full px-3.5 text-[11px] font-black leading-none transition-colors duration-200",
-              group === ALL_WORKOUT_GROUPS
+              groups.length === 0
                 ? "bg-[var(--gc-brand)] text-black"
                 : "bg-white/[0.06] text-white/55",
             ].join(" ")}
-            onClick={() => setGroup(ALL_WORKOUT_GROUPS)}
+            onClick={() => {
+              setGroups([]);
+              setLastSelectedGroup(ALL_WORKOUT_GROUPS);
+            }}
             type="button"
           >
             {allLabel}
           </button>
           {muscleGroups.map((item) => (
             <button
-              aria-pressed={item.slug === group}
+              aria-pressed={groups.includes(item.slug)}
               ref={(node) => {
                 if (node) groupButtonRefs.current.set(item.slug, node);
               }}
               className={[
                 "gc-pressable inline-flex h-9 shrink-0 items-center justify-center rounded-full px-3.5 text-[11px] font-black leading-none transition-colors duration-200",
-                item.slug === group
+                groups.includes(item.slug)
                   ? "bg-[var(--gc-brand)] text-black"
                   : "bg-white/[0.06] text-white/55",
               ].join(" ")}
               key={item.slug}
-              onClick={() => setGroup(item.slug)}
+              onClick={() => {
+                setGroups((current) =>
+                  current.includes(item.slug)
+                    ? current.filter((group) => group !== item.slug)
+                    : [...current, item.slug],
+                );
+                setLastSelectedGroup(item.slug);
+              }}
               type="button"
             >
               {english ? item.nameEn : item.namePt}
@@ -684,7 +700,7 @@ export function WorkoutExercisePicker({
               <p className="mt-1 text-[9.5px] font-black uppercase tracking-[0.14em] text-white/36">
                 {query.trim()
                   ? t("workoutCatalog.results")
-                  : group === ALL_WORKOUT_GROUPS
+                  : groups.length === 0
                     ? t("workoutCatalog.exercises")
                     : t("workoutCatalog.primaryFocus")}
               </p>
@@ -798,7 +814,9 @@ export function WorkoutExercisePicker({
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {section.options.map((value) => {
-                      const active = filters[section.key] === value;
+                      const selectedValues = (filters[section.key] ??
+                        []) as readonly string[];
+                      const active = selectedValues.includes(value);
                       return (
                         <button
                           aria-pressed={active}
@@ -810,10 +828,18 @@ export function WorkoutExercisePicker({
                           ].join(" ")}
                           key={value}
                           onClick={() =>
-                            setFilters((current) => ({
-                              ...current,
-                              [section.key]: active ? null : value,
-                            }))
+                            setFilters((current) => {
+                              const currentValues = (current[section.key] ??
+                                []) as readonly string[];
+                              return {
+                                ...current,
+                                [section.key]: currentValues.includes(value)
+                                  ? currentValues.filter(
+                                      (item) => item !== value,
+                                    )
+                                  : [...currentValues, value],
+                              } as WorkoutCatalogAdvancedFilters;
+                            })
                           }
                           type="button"
                         >

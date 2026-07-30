@@ -14,7 +14,7 @@ import {
 /**
  * Running Coach Library (Sprint D1) — tipos de domínio + mappers row→domain.
  *
- * Espelha a migração 20260724120000_running_coach_library.sql: templates de
+ * Espelha a migração 20260730174204_running_coach_library.sql: templates de
  * sessão reutilizáveis (com steps), programas multi-semana, e o estado por
  * usuário (matrícula + conclusão de sessão). As colunas snake_case viram
  * objetos camelCase 1:1.

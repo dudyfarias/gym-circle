@@ -115,7 +115,7 @@ P0.5 concluída e aprovada no release gate:
 - dedupe conservador;
 - dry-run com flags pagas, call cap e custos híbridos.
 
-P0.7 implementada localmente e aguardando aprovação de publicação:
+P0.7 publicada e validada:
 
 - 404 de preferências e 400 do catálogo eliminados pela detecção do schema
   realmente disponível;
@@ -123,15 +123,29 @@ P0.7 implementada localmente e aguardando aprovação de publicação:
 - check-in, post e academia do perfil usam a mesma engine de ranking;
 - origem não supera distância ou correspondência textual;
 - 73 casos estão `approved`, 87 permanecem `uncertain`;
-- subset P0.6 com dez casos approved e execução bloqueada foi criado.
+- subset P0.6 com dez casos approved foi executado no Apple Maps.
 
 Pendente para P0.6:
 
-- confirmação independente dos 87 casos `uncertain`;
-- credenciais/quota aprovadas;
-- benchmark real e p50/p95;
+- credenciais e autorização dos providers além da Apple;
+- comparação dos mesmos dez casos com pelo menos outro provider autorizado;
+- rodada ampliada e balanceada de 40 casos;
+- benchmark real e p50/p95 dos demais providers configurados;
 - proposta OSM e revisão jurídica;
 - decisão final de provider.
+
+P0.6 Apple concluída:
+
+- subset de dez validado;
+- Apple configurado fora do repositório;
+- quatro requests Apple na sanidade (token + três buscas);
+- runner endurecido para subset/call cap/fail-closed;
+- limite autorizado foi elevado para dez após revisão da sanidade;
+- dry-run Apple aprovado com zero requests;
+- sanidade de três casos concluída: 3/3 corretos em top 1, zero falhas;
+- rodada de dez: 9/10 corretos, top 1 8/10, top 3 9/10, p50 394 ms,
+  p95 2.055 ms, zero falhas e zero duplicatas;
+- ADR permanece `Proposed`.
 
 ### P1 — Hybrid Search Foundation — BLOCKED BY P0
 
@@ -183,10 +197,9 @@ Somente após catálogo de lugares, equipamentos e exercícios estar aprovado.
 
 ## 9. Próxima ação
 
-Publicar a P0.7 somente após QA autenticado. Depois, provisionar credenciais de
-benchmark com quotas mínimas e executar exclusivamente o subset controlado de
-dez casos da P0.6. O lote completo continua bloqueado pelos 87 casos
-`uncertain` e pelo ADR `Proposed`.
+Provisionar um segundo provider autorizado, repetir o subset de dez e preparar
+uma rodada Apple balanceada de 40 casos. O lote completo continua bloqueado
+pelos 87 casos `uncertain` e pelo ADR `Proposed`.
 
 Ordem oficial:
 
@@ -201,4 +214,5 @@ Documentos:
 - [Benchmark P0](./places-greater-sao-paulo-benchmark-2026-07-15.md)
 - [Remediação/readiness P0.5](./places-p0-5-remediation-readiness-2026-07-16.md)
 - [Estabilização/ranking P0.7](./places-p0-7-stabilization-ranking-2026-07-16.md)
+- [Controlled benchmark P0.6](./places-p0-6-controlled-benchmark-2026-07-16.md)
 - [ADR provider Grande São Paulo](./adr/ADR-places-provider-greater-sao-paulo.md)

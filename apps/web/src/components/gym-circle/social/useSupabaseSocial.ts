@@ -1183,7 +1183,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       try {
         const messagesRes = await services.client.rpc("get_conversation_messages", {
           p_conversation_id: conversationId,
-          p_cursor_created_at: null,
+          p_cursor_created_at: undefined,
           p_limit: 30,
         });
         if (messagesRes.error) {
@@ -1238,7 +1238,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
             ] = await Promise.all([
               services.client.rpc("get_profile_posts", {
                 p_user_id: userId,
-                p_cursor_created_at: cursorCreatedAt,
+                p_cursor_created_at: cursorCreatedAt ?? undefined,
                 p_limit: limit,
               }),
               services.client
