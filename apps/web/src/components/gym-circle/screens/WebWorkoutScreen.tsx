@@ -2394,7 +2394,7 @@ export function WebWorkoutScreen({
               </div>
             </header>
 
-            <main className="flex flex-1 flex-col pb-[118px]">
+            <main className="flex flex-1 flex-col pb-[calc(150px+var(--gc-safe-bottom))]">
               {guidedRunning ? (
                 <GuidedRunningSession
                   currentPaceSPerKm={currentRoutePaceSPerKm}
