@@ -8,6 +8,8 @@ import {
   type SportDefinition,
   type SportIconKey,
 } from "@gym-circle/core/domain";
+import { Capacitor } from "@capacitor/core";
+import { Keyboard } from "@capacitor/keyboard";
 import {
   Activity,
   Bike,
@@ -150,6 +152,7 @@ export function SportCatalogSection({
   const [category, setCategory] = useState<string>("all");
   const [showAll, setShowAll] = useState(false);
   const openedAtRef = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const trackedQueryRef = useRef("");
   const personalization = useSportCatalogPersonalization({
     activeSportId,
@@ -217,10 +220,20 @@ export function SportCatalogSection({
     track,
   ]);
 
+  const dismissSearchKeyboard = () => {
+    searchInputRef.current?.blur();
+    if (Capacitor.isNativePlatform()) {
+      void Keyboard.hide().catch(() => {
+        // O blur acima continua sendo o fallback em WebViews sem o plugin.
+      });
+    }
+  };
+
   const startSport = (
     sport: SportDefinition,
     eventTimeStamp: number = openedAtRef.current,
   ) => {
+    dismissSearchKeyboard();
     void track("sport_started", {
       sport_id: sport.id,
       time_to_start_ms: Math.max(0, eventTimeStamp - openedAtRef.current),
@@ -241,8 +254,15 @@ export function SportCatalogSection({
         <input
           autoComplete="off"
           className="min-w-0 flex-1 bg-transparent text-[14px] font-bold text-white outline-none placeholder:text-white/32"
+          enterKeyHint="search"
           onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            dismissSearchKeyboard();
+          }}
           placeholder={t("workout.sports.searchPlaceholder")}
+          ref={searchInputRef}
           type="search"
           value={query}
         />
