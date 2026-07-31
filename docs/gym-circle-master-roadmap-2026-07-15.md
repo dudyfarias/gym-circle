@@ -29,7 +29,10 @@ consentimento e qualidade do catálogo.
   índices/policy foi reconciliado com a versão aplicada;
 - trainer: profiles/workspaces estão versionados, mas migrations não foram
   aplicadas e a UI permanece desativada por feature flag;
-- Android: fora do ciclo atual e não pode ser tratado como compatível sem QA.
+- Android: fundação Capacitor compila, instala e abre em emulador API 36; gate
+  por plataforma impede prometer Apple Saúde/push não configurado. O smoke
+  autenticado central passou; faltam mídia, GPS/permissões, back corrigido,
+  serviços nativos e aparelho físico.
 
 ## 3. Gates de estabilidade (Fase A)
 
@@ -59,9 +62,9 @@ de gate anterior. Owner é papel responsável, não pessoa nominal.
 | 5 | Performance | PLANNED | P0 | observabilidade | Backend | alto | baseline p50/p95 e top queries | orçamento e alertas definidos | Supabase, Web |
 | 6 | Migrations e database types | DONE | P0 | concluído | Backend | baixo | monitorar drift em cada release | histórico alinhado, types gerados, build verde | Supabase, Web |
 | 7 | Apple Watch foundation | QA | P1 | HealthKit/TestFlight | iOS | alto | validar import real | workout e rota importados sem duplicar | iOS, Supabase |
-| 8 | Android Foundation | PLANNED | P1 | fase A | Android | alto | auditoria Capacitor | build interno e core flows | Android |
-| 9 | Android compatibilidade | BLOCKED | P1 | 8 | Android + QA | alto | matriz de features | paridade declarada e bugs P0 zerados | Android |
-| 10 | Push/GPS Android | BLOCKED | P1 | 8–9 | Android + Backend | alto | spike nativo | background e FCM end-to-end | Android, Supabase |
+| 8 | Android Foundation | QA | P1 | fase A | Android | alto | concluir mídia, GPS, back corrigido e aparelho físico | build interno e core flows aprovados | Android |
+| 9 | Android compatibilidade | IN PROGRESS | P1 | 8 | Android + QA | alto | executar matriz documentada de features | paridade declarada e bugs P0 zerados | Android |
+| 10 | Push/GPS Android | BLOCKED | P1 | 8–9 | Android + Backend | alto | configurar FCM e desenhar serviço de localização | background e FCM end-to-end | Android, Supabase |
 | 11 | Google Play interno | BLOCKED | P1 | 8–10 | Release | médio | track interno | instalação, login e smoke aprovados | Android |
 | 12 | Places Intelligence | IN PROGRESS | P1 | comparar segundo provider + revisar 87 casos uncertain + licença/quota | Product + Backend | alto | repetir subset de 10 e ampliar Apple para 40 casos balanceados | cobertura/relevância/p50/p95 comparáveis e ADR `Accepted` | Backend, iOS, Android |
 | 13 | Apple/Google Maps | BLOCKED | P1 | 12 | Mobile + Backend | alto | POC comparativo | custo/cobertura/termos aprovados | iOS, Android, Backend |
@@ -102,8 +105,10 @@ TestFlight, seguido de push e performance.
 
 ### Fase B — Plataformas
 
-Itens 7–11. Não iniciar Android profundo antes do gate de estabilidade, para não
-duplicar bugs e contratos inconsistentes.
+Itens 7–11. A fundação Android foi iniciada após o gate P0: o shell compila e
+instala, os fluxos autenticados centrais passaram e recursos iOS-only permanecem
+desabilitados. O próximo gate cobre mídia, GPS/permissões, back nativo e
+aparelho físico antes de FCM, GPS background e Play Console.
 
 ### Fase C — Dados essenciais
 
@@ -165,6 +170,7 @@ ADR. Nenhuma ingestão permanente nem migration.
 - [Workout Catalog Intelligence](./workout-catalog-intelligence-2026-07-14.md)
 - [Workout Data/Product Roadmap](./workout-data-product-roadmap-2026-07-10.md)
 - [Trainer Ecosystem Governance](./trainer-ecosystem-governance-2026-07-14.md)
+- [Android Foundation](./android-foundation-2026-07-30.md)
 
 ## 9. Próxima ação executiva
 

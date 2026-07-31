@@ -66,10 +66,7 @@ import {
 } from "../workout/exerciseHistory";
 import { REST_TIMER_INITIAL, restTimerReducer } from "../workout/restTimer";
 import { useExerciseHistory } from "../workout/useExerciseHistory";
-import {
-  formatElapsed,
-  paceFromDistance,
-} from "../workout/workoutElapsed";
+import { formatElapsed, paceFromDistance } from "../workout/workoutElapsed";
 import { WorkoutPlansFabControlled } from "../workout/WorkoutPlansFab";
 import { HealthKitImportSheet } from "../workout/HealthKitImportSheet";
 import { WorkoutPlanDetailSheet } from "../workout/WorkoutPlanDetailSheet";
@@ -92,6 +89,7 @@ import { SportCatalogSection } from "../workout/SportCatalogSection";
 import { RunningPlansSheet } from "../workout/RunningPlansSheet";
 import { GuidedRunningSession } from "../workout/GuidedRunningSession";
 import { emitRunningSessionEvents } from "../workout/runningSessionEvents";
+import { usePlatformCapabilities } from "../native/platformCapabilities";
 import {
   applyExerciseLoadType,
   inferExerciseLoadType,
@@ -241,6 +239,7 @@ export function WebWorkoutScreen({
   onSessionChange,
 }: WebWorkoutScreenProps) {
   const { i18n, t } = useTranslation();
+  const platformCapabilities = usePlatformCapabilities();
   const [stage, setStage] = useState<"pick" | "live">("pick");
   const [session, setSession] = useState<StoredWorkoutSession | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -471,9 +470,7 @@ export function WebWorkoutScreen({
       if (snapshot.distanceM > 0 || snapshot.movingS > 0) {
         setGpsStatus("strong");
       }
-      persistSession((current) =>
-        mergeWorkoutRouteSnapshot(current, snapshot),
-      );
+      persistSession((current) => mergeWorkoutRouteSnapshot(current, snapshot));
     },
     [persistSession],
   );
@@ -596,12 +593,7 @@ export function WebWorkoutScreen({
       window.clearTimeout(statusId);
       navigator.geolocation.clearWatch(watchId);
     };
-  }, [
-    persistSession,
-    session?.activityType,
-    session?.pausedAtMs,
-    stage,
-  ]);
+  }, [persistSession, session?.activityType, session?.pausedAtMs, stage]);
 
   const startWorkout = useCallback(
     (
@@ -803,8 +795,7 @@ export function WebWorkoutScreen({
                 distanceM: resumed.distanceM,
                 currentPaceSPerKm: paceFromDistance(
                   resumed.distanceM,
-                  resumed.movingS ||
-                    workoutElapsedSeconds(resumed, actionNow),
+                  resumed.movingS || workoutElapsedSeconds(resumed, actionNow),
                 ),
               }).state
             : null,
@@ -1405,10 +1396,7 @@ export function WebWorkoutScreen({
       : null;
 
   useEffect(() => {
-    if (
-      guidedRunning?.status !== "running" ||
-      isPaused
-    ) {
+    if (guidedRunning?.status !== "running" || isPaused) {
       return;
     }
     persistSession((current) => {
@@ -1427,12 +1415,7 @@ export function WebWorkoutScreen({
         ? current
         : { ...current, guidedRunning: transition.state };
     });
-  }, [
-    guidedRunning?.status,
-    isPaused,
-    nowMs,
-    persistSession,
-  ]);
+  }, [guidedRunning?.status, isPaused, nowMs, persistSession]);
 
   useEffect(() => {
     if (session?.guidedRunning?.status !== "transition") return;
@@ -1452,9 +1435,7 @@ export function WebWorkoutScreen({
             distanceM: current.distanceM,
             currentPaceSPerKm: paceFromDistance(
               current.distanceM,
-              current.movingS > 0
-                ? current.movingS
-                : transitionElapsedS,
+              current.movingS > 0 ? current.movingS : transitionElapsedS,
             ),
           },
         );
@@ -1474,9 +1455,7 @@ export function WebWorkoutScreen({
       (event) => !emittedRunningEventIdsRef.current.has(event.id),
     );
     if (pending.length === 0) return;
-    pending.forEach((event) =>
-      emittedRunningEventIdsRef.current.add(event.id),
-    );
+    pending.forEach((event) => emittedRunningEventIdsRef.current.add(event.id));
     emitRunningSessionEvents(pending);
   }, [session?.guidedRunning?.lastEvents]);
 
@@ -1525,10 +1504,7 @@ export function WebWorkoutScreen({
   }, [applyGuidedRunningAction]);
 
   useEffect(() => {
-    if (
-      session?.guidedRunning?.status !== "finished" ||
-      finishingRef.current
-    ) {
+    if (session?.guidedRunning?.status !== "finished" || finishingRef.current) {
       return;
     }
     void handleFinish();
@@ -1725,8 +1701,7 @@ export function WebWorkoutScreen({
         exerciseName,
         loadType,
         targetKind,
-        plannedReps:
-          targetKind === "duration" ? null : exercise.defaultReps,
+        plannedReps: targetKind === "duration" ? null : exercise.defaultReps,
         plannedDurationSeconds:
           targetKind === "duration" ? exercise.defaultDurationS : null,
         targetRestS: exercise.defaultRestS,
@@ -2229,8 +2204,10 @@ export function WebWorkoutScreen({
                         (plan.stats?.averageDurationS ?? 0) > 0
                           ? t("workout.saved.averageDuration", {
                               duration: formatElapsed(
-                                Math.round(plan.stats?.averageDurationS ?? 0),
+                                    Math.round(
+                                      plan.stats?.averageDurationS ?? 0,
                               ),
+                                  ),
                             })
                           : null,
                         (plan.stats?.averageCompletionRate ?? 0) > 0
@@ -2340,14 +2317,17 @@ export function WebWorkoutScreen({
                   </div>
                 )}
               </section>
-
               </SportCatalogSection>
             </div>
             <WorkoutPlansFabControlled
               catalog={workoutCatalog}
               createRequestKey={createPlanRequestKey}
               editRequest={editPlanRequest}
-              onImport={() => setHealthImportOpen(true)}
+                onImport={
+                  platformCapabilities.appleHealthImport
+                    ? () => setHealthImportOpen(true)
+                    : undefined
+                }
               onStartPlan={startWorkoutPlan}
               plansController={workoutPlansController}
               triggerPlacement="inline"
@@ -2363,10 +2343,7 @@ export function WebWorkoutScreen({
                   <Footprints className="text-[var(--gc-brand)]" size={15} />
                 )}
                 <span className="truncate">
-                  {getSportLocalizedName(
-                    session.activityType,
-                    i18n.language,
-                  )}
+                    {getSportLocalizedName(session.activityType, i18n.language)}
                 </span>
               </span>
               <div className="ml-auto flex min-w-0 flex-col items-end gap-1">
@@ -3362,6 +3339,7 @@ export function WebWorkoutScreen({
         ) : null}
       </div>
       </div>
+      {platformCapabilities.appleHealthImport ? (
       <HealthKitImportSheet
         onClose={() => setHealthImportOpen(false)}
         onImport={onFinish}
@@ -3371,6 +3349,7 @@ export function WebWorkoutScreen({
         }}
         open={healthImportOpen}
       />
+      ) : null}
       <RunningPlansSheet
         onClose={() => setRunningPlansOpen(false)}
         onStartPlan={startGuidedRunningPlan}

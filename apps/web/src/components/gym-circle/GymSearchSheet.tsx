@@ -29,6 +29,7 @@ import {
   type PlaceCandidate,
   type PlaceSearchContext,
 } from "./social/locationSearch";
+import { useAndroidBackButton } from "./native/useAndroidBackButton";
 
 export type {
   LocatedPlaceCandidate,
@@ -107,6 +108,18 @@ export function GymSearchSheet({
   const lastExternalSearchAtRef = useRef(0);
   const externalSearchCacheRef = useRef(
     new Map<string, { cachedAt: number; results: PlaceCandidate[] }>(),
+  );
+
+  useAndroidBackButton(
+    () => {
+      if (registerOpen) {
+        setRegisterOpen(false);
+        return true;
+      }
+      onClose();
+      return true;
+    },
+    open,
   );
 
   const runSearch = useCallback(
