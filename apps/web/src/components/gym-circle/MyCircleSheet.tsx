@@ -66,10 +66,7 @@ type MyCircleSheetProps = {
   user: EnrichedUser | null;
   posts: EnrichedPost[];
   isOwn: boolean;
-  hasStory?: boolean;
-  storyViewed?: boolean;
   onClose: () => void;
-  onOpenStory?: () => void;
   /**
    * Sprint 5.1 — Monthly Recap entrou no hub MyCircle. Quando `isOwn` for
    * true E `monthlyRecap` for fornecido, mostramos um botão "Compartilhar
@@ -144,8 +141,6 @@ export function MyCircleSheet({
   user,
   posts,
   isOwn,
-  hasStory = false,
-  storyViewed = false,
   onClose,
   monthlyRecap,
   onOpenMonthlyRecap,
@@ -360,9 +355,7 @@ export function MyCircleSheet({
           {/* A. Header com rings + identidade */}
           <section className="flex flex-col items-center text-center">
             <AvatarConsistencyRings
-              hasStory={hasStory}
               size={130}
-              storyViewed={storyViewed}
               user={user}
             />
             <div className="mt-3 flex items-center gap-2">

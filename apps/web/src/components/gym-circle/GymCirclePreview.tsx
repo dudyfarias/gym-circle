@@ -2805,11 +2805,6 @@ export function GymCirclePreview({
             user={profileSheetUser}
           />
           <MyCircleSheet
-            hasStory={
-              myCircleUser?.id === social.currentUser.id
-                ? Boolean(currentUserStoryGroup)
-                : Boolean(profileSheetStoryGroup)
-            }
             isOwn={myCircleUser?.id === social.currentUser.id}
             monthlyRecap={
               myCircleUser?.id === social.currentUser.id ? monthlyRecap : null
@@ -2864,11 +2859,6 @@ export function GymCirclePreview({
             }
             open={myCircleUserId !== null}
             posts={myCircleUserPosts}
-            storyViewed={
-              myCircleUser?.id === social.currentUser.id
-                ? (currentUserStoryGroup?.viewed ?? false)
-                : (profileSheetStoryGroup?.viewed ?? false)
-            }
             user={myCircleUser}
           />
           {/* Sprint 7.5.4 — AchievementsSheet (Hall da Fama) substitui o
