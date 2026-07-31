@@ -573,6 +573,11 @@ export function WebWorkoutScreen({
             typeof position.coords.altitudeAccuracy === "number"
               ? position.coords.altitudeAccuracy
               : null,
+          speedMps:
+            typeof position.coords.speed === "number" &&
+            Number.isFinite(position.coords.speed)
+              ? position.coords.speed
+              : null,
           timestampMs: position.timestamp || Date.now(),
         };
 
