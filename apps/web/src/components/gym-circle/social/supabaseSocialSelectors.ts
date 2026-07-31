@@ -646,7 +646,7 @@ export function buildStoryItems(ctx: StoryItemsContext): EnrichedStory[] {
       title: row.workout_type ?? "Treino",
       caption: `${author.currentStreak}d · ${author.gyms[0] ?? ""}`,
       createdAt: row.created_at,
-      viewed: viewedSet.has(row.id),
+      viewed: row.user_id === currentUserId || viewedSet.has(row.id),
       likedByCurrentUser: hasUserLikedStory(
         agg.storyLikes.map((like) => ({
           storyId: like.story_id,
@@ -676,7 +676,10 @@ export function buildStoryItems(ctx: StoryItemsContext): EnrichedStory[] {
     if (agg.storyMutes.some((mute) => mute.muted_user_id === authorId)) continue;
     const author = enrichedAll.get(authorId);
     if (!author) continue;
-    const viewed = trayRow.has_unseen === false || viewedSet.has(storyId);
+    const viewed =
+      authorId === currentUserId ||
+      trayRow.has_unseen === false ||
+      viewedSet.has(storyId);
     out.push({
       id: storyId,
       userId: authorId,

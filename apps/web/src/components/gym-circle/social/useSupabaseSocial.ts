@@ -982,7 +982,13 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       try {
         const viewerRes = await queryStoryViewerItemsSurface(services.client, authorId);
         if (viewerRes.error) throw viewerRes.error;
-        const storyRows = (viewerRes.data ?? []).map(storyRowFromViewerItem);
+        const storyRows = (viewerRes.data ?? [])
+          .map(storyRowFromViewerItem)
+          .sort(
+            (a, b) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime(),
+          );
         const storyIds = storyRows.map((story) => story.id);
         const storyParticipants =
           storyIds.length > 0

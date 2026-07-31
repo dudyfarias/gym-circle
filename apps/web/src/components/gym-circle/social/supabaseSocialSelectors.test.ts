@@ -292,6 +292,18 @@ describe("buildStoryItems", () => {
     expect(byId.get("s2")?.viewed).toBe(true); // via storyViews
   });
 
+  it("trata stories do próprio usuário como vistos na fila automática", () => {
+    const items = buildStoryItems({
+      agg: aggWith({ stories: [makeStory({ id: "mine", user_id: "me" })] }),
+      enrichedAll,
+      currentUserId: "me",
+      storyParticipantsByStory: new Map(),
+      viewedStoryIds: new Set(),
+    });
+
+    expect(items[0]?.viewed).toBe(true);
+  });
+
   it("esconde stories de autor silenciado", () => {
     const agg = aggWith({
       stories: [makeStory({ id: "s1", user_id: "friend" })],
