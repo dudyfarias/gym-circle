@@ -453,9 +453,8 @@ export function createSocialActions(
           // ficava null e o openStory dava return early — user não
           // conseguia rever stories já vistos.
           //
-          // Fix: fallback pra `group.stories[0]` (primeira do group, mais
-          // antiga). Re-abertura sempre funciona; user pode rever o group
-          // completo do início.
+          // Fix: fallback pra `group.stories[0]`. Os grupos vêm em ordem
+          // mais nova → mais velha, então a revisão começa pela mais recente.
           const placeholderStory =
             group?.stories.find((item) => !item.viewed) ??
             group?.stories.find((item) => item.id === storyId) ??

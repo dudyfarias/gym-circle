@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getAdjacentStoryId,
+  getNewestUnseenStoryId,
+  getStoryPlaybackMode,
   getStoryForUser,
   groupStoriesByProfile,
   sortStoriesNewestFirst,
@@ -96,7 +98,7 @@ describe("groupStoriesByProfile", () => {
 
     expect(groups).toHaveLength(1);
     expect(groups[0].id).toBe("ana");
-    expect(groups[0].stories.map((item) => item.id)).toEqual(["ana-1", "ana-2"]);
+    expect(groups[0].stories.map((item) => item.id)).toEqual(["ana-2", "ana-1"]);
   });
 
   it("deixa bolinha ativa quando existe story não visto", () => {
@@ -127,6 +129,55 @@ describe("groupStoriesByProfile", () => {
     );
 
     expect(groups.map((group) => group.id)).toEqual(["caio", "bia", "ana"]);
+  });
+
+  it("ordena grupos pela story não vista mais recente", () => {
+    const ana = user("ana");
+    const bia = user("bia");
+
+    const groups = groupStoriesByProfile(
+      [
+        story("ana-seen", ana, "2026-05-07T20:00:00.000Z", true),
+        story("ana-unseen", ana, "2026-05-07T10:00:00.000Z", false),
+        story("bia-unseen", bia, "2026-05-07T18:00:00.000Z", false),
+      ],
+      "viewer",
+    );
+
+    expect(groups.map((group) => group.id)).toEqual(["bia", "ana"]);
+  });
+
+  it("retorna a próxima não vista global em ordem mais nova para mais velha", () => {
+    const ana = user("ana");
+    const bia = user("bia");
+    const groups = groupStoriesByProfile(
+      [
+        story("ana-new", ana, "2026-05-07T20:00:00.000Z", false),
+        story("ana-old", ana, "2026-05-07T10:00:00.000Z", false),
+        story("bia-mid", bia, "2026-05-07T18:00:00.000Z", false),
+      ],
+      "viewer",
+    );
+
+    expect(getNewestUnseenStoryId(groups, null)).toBe("ana-new");
+    groups.find((group) => group.id === "ana")!.stories[0].viewed = true;
+    expect(getNewestUnseenStoryId(groups, "ana-new")).toBe("bia-mid");
+  });
+
+  it("separa a fila automática de não vistos da revisão intencional", () => {
+    const ana = user("ana");
+    const bia = user("bia");
+    const groups = groupStoriesByProfile(
+      [
+        story("ana-unseen", ana, "2026-05-07T20:00:00.000Z", false),
+        story("bia-seen", bia, "2026-05-07T18:00:00.000Z", true),
+      ],
+      "viewer",
+    );
+
+    expect(getStoryPlaybackMode(groups, "ana")).toBe("unseen");
+    expect(getStoryPlaybackMode(groups, "bia")).toBe("replay");
+    expect(getStoryPlaybackMode(groups, "missing")).toBeNull();
   });
 
   it("cria grupo para participante aceito", () => {

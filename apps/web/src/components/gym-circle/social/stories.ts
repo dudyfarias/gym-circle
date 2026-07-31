@@ -1,5 +1,7 @@
 import type { EnrichedStory, EnrichedUser, StoryGroup } from "./types";
 
+export type StoryPlaybackMode = "unseen" | "replay";
+
 type StoryOrderItem = {
   id: string;
   createdAt: string;
@@ -34,6 +36,36 @@ export function getStoryForUser<T extends StoryOrderItem & { userId: string }>(
   userId: string,
 ): T | null {
   return stories.find((story) => story.userId === userId) ?? null;
+}
+
+export function getNewestUnseenStoryId(
+  groups: StoryGroup[],
+  currentStoryId: string | null,
+): string | null {
+  const storiesById = new Map<string, EnrichedStory>();
+  for (const group of groups) {
+    for (const story of group.stories) {
+      if (story.id === currentStoryId || story.viewed || storiesById.has(story.id)) {
+        continue;
+      }
+      storiesById.set(story.id, story);
+    }
+  }
+
+  return sortStoriesNewestFirst(Array.from(storiesById.values()))[0]?.id ?? null;
+}
+
+export function getStoryPlaybackMode(
+  groups: StoryGroup[],
+  requestedId: string,
+): StoryPlaybackMode | null {
+  const group =
+    groups.find((item) => item.id === requestedId) ??
+    groups.find((item) => item.stories.some((story) => story.id === requestedId)) ??
+    null;
+
+  if (!group) return null;
+  return group.stories.some((story) => !story.viewed) ? "unseen" : "replay";
 }
 
 function canUseParticipantGroup(user: EnrichedUser, currentUserId: string) {
@@ -81,12 +113,14 @@ export function groupStoriesByProfile(
     .map((group) => ({
       ...group,
       stories: [...group.stories].sort(
-        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
       viewed: group.stories.every((story) => story.viewed),
     }))
     .sort((a, b) => {
       if (a.viewed !== b.viewed) return a.viewed ? 1 : -1;
-      return new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime();
+      const aOrderAt = a.stories.find((story) => !story.viewed)?.createdAt ?? a.latestCreatedAt;
+      const bOrderAt = b.stories.find((story) => !story.viewed)?.createdAt ?? b.latestCreatedAt;
+      return new Date(bOrderAt).getTime() - new Date(aOrderAt).getTime();
     });
 }

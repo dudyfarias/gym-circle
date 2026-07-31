@@ -66,7 +66,12 @@ import type {
   WebActivityInput,
   WorkoutDetail,
 } from "./social/types";
-import { getAdjacentStoryId } from "./social/stories";
+import {
+  getAdjacentStoryId,
+  getNewestUnseenStoryId,
+  getStoryPlaybackMode,
+  type StoryPlaybackMode,
+} from "./social/stories";
 import { useViewerLocation } from "./social/useViewerLocation";
 import {
   attachCapacitorKeyboardListeners,
@@ -297,6 +302,8 @@ export function GymCirclePreview({
   const [integratingId, setIntegratingId] = useState<string | null>(null);
   const [integrateError, setIntegrateError] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [storyPlaybackMode, setStoryPlaybackMode] =
+    useState<StoryPlaybackMode | null>(null);
   const [profileOpenId, setProfileOpenId] = useState<string | null>(null);
   // Sprint 3.5.3: MyCircleSheet pode ser aberto pro próprio user OU pra
   // outro user via tap nos rings do ProfileIdentity. Guardamos o id.
@@ -2070,6 +2077,10 @@ export function GymCirclePreview({
     () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, -1),
     [selectedStoryId, selectedStorySequence],
   );
+  const nextUnseenStoryId = useMemo(
+    () => getNewestUnseenStoryId(storyGroups, selectedStoryId),
+    [selectedStoryId, storyGroups],
+  );
 
   useAndroidBackButton(() => {
     if (restorePromptOpen && restorePromptKey) {
@@ -2186,6 +2197,7 @@ export function GymCirclePreview({
       return true;
     }
     if (social.selectedStory) {
+      setStoryPlaybackMode(null);
       social.actions.closeStory();
       return true;
     }
@@ -2225,12 +2237,19 @@ export function GymCirclePreview({
     if (!groupId) return -1;
     return storyGroups.findIndex((group) => group.id === groupId);
   }, [social.selectedStoryGroup?.id, storyGroups]);
-  const hasNextStoryOrAuthor = useMemo(
-    () =>
+  const hasNextStoryOrAuthor = useMemo(() => {
+    if (storyPlaybackMode === "unseen") return Boolean(nextUnseenStoryId);
+    return (
       Boolean(nextStoryId) ||
-      (currentGroupIndex >= 0 && currentGroupIndex < storyGroups.length - 1),
-    [currentGroupIndex, nextStoryId, storyGroups.length],
-  );
+      (currentGroupIndex >= 0 && currentGroupIndex < storyGroups.length - 1)
+    );
+  }, [
+    currentGroupIndex,
+    nextStoryId,
+    nextUnseenStoryId,
+    storyGroups.length,
+    storyPlaybackMode,
+  ]);
   const hasPrevStoryOrAuthor = useMemo(
     () => Boolean(previousStoryId) || currentGroupIndex > 0,
     [currentGroupIndex, previousStoryId],
@@ -2273,6 +2292,19 @@ export function GymCirclePreview({
     },
     [social.actions],
   );
+  const startStoryPlayback = useCallback(
+    (storyId: string) => {
+      const mode = getStoryPlaybackMode(storyGroups, storyId);
+      if (!mode) return;
+      setStoryPlaybackMode(mode);
+      social.actions.openStory(storyId);
+    },
+    [social.actions, storyGroups],
+  );
+  const closeStoryPlayback = useCallback(() => {
+    setStoryPlaybackMode(null);
+    social.actions.closeStory();
+  }, [social.actions]);
   // Sprint 1 v1.1.1 B1: navegação cross-author Instagram-like.
   // openNextStory: próximo no autor atual → senão primeiro do próximo
   // autor → senão closeStory() (fim absoluto da fila).
@@ -2280,6 +2312,14 @@ export function GymCirclePreview({
   // anterior. Sem hook novo — usa social.actions.openStory(id) que já
   // auto-resolve o grupo a partir do storyId.
   const openNextStory = useCallback(() => {
+    if (storyPlaybackMode === "unseen") {
+      if (nextUnseenStoryId) {
+        openStoryById(nextUnseenStoryId);
+      } else {
+        closeStoryPlayback();
+      }
+      return;
+    }
     if (nextStoryId) {
       openStoryById(nextStoryId);
       return;
@@ -2291,13 +2331,16 @@ export function GymCirclePreview({
       social.actions.openStory(firstOfNext.id);
       return;
     }
-    social.actions.closeStory();
+    closeStoryPlayback();
   }, [
+    closeStoryPlayback,
     currentGroupIndex,
     nextStoryId,
+    nextUnseenStoryId,
     openStoryById,
     social.actions,
     storyGroups,
+    storyPlaybackMode,
   ]);
   const openPreviousStory = useCallback(() => {
     if (previousStoryId) {
@@ -2411,7 +2454,7 @@ export function GymCirclePreview({
             storyViewed={currentUserStoryGroup?.viewed ?? false}
             onOpenStory={
               currentUserStoryGroup
-                ? () => openStoryById(currentUserStoryGroup.id)
+                ? () => startStoryPlayback(currentUserStoryGroup.id)
                 : undefined
             }
           />
@@ -2553,7 +2596,7 @@ export function GymCirclePreview({
             onOpenCheckinMenu={openCheckinMenu}
             onSelectGym={openGymDetail}
             onEditCheckin={promoteCheckin ? openEditCheckin : undefined}
-            onOpenStory={social.actions.openStory}
+            onOpenStory={startStoryPlayback}
             onSharePostToChat={social.actions.sharePostToChat}
             onDismissViewerLocationPrompt={viewerLocation.dismiss}
             onRequestViewerLocation={viewerLocation.request}
@@ -2610,7 +2653,7 @@ export function GymCirclePreview({
     recentPostLocations,
     currentUserStoryGroup,
     storyGroups,
-    openStoryById,
+    startStoryPlayback,
     viewerLocation.dismiss,
     viewerLocation.error,
     viewerLocation.request,
@@ -2727,7 +2770,7 @@ export function GymCirclePreview({
             currentUserId={social.currentUser.id}
             hasNext={hasNextStoryOrAuthor}
             hasPrevious={hasPrevStoryOrAuthor}
-            onClose={social.actions.closeStory}
+            onClose={closeStoryPlayback}
             onDeleteStory={social.actions.deleteStory}
             onLikeStory={social.actions.likeStory}
             onNext={openNextStory}
@@ -2736,7 +2779,7 @@ export function GymCirclePreview({
             onReportStory={social.actions.reportStory}
             onReplyStory={social.actions.replyToStory}
             onSelectUser={(userId) => {
-              social.actions.closeStory();
+              closeStoryPlayback();
               openProfile(userId);
             }}
             onShareStoryToChat={social.actions.shareStoryToChat}
@@ -2770,9 +2813,9 @@ export function GymCirclePreview({
             storyViewed={profileSheetStoryGroup?.viewed ?? false}
             onOpenStory={
               profileSheetStoryGroup
-                ? () => {
+                  ? () => {
                     closeProfile();
-                    openStoryById(profileSheetStoryGroup.id);
+                    startStoryPlayback(profileSheetStoryGroup.id);
                   }
                 : undefined
             }
