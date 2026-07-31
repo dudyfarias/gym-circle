@@ -2,7 +2,15 @@
 
 import dynamic from "next/dynamic";
 import type { MediaUploadProgress } from "./resumableUpload";
-import { type TouchEvent, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type TouchEvent,
+  type UIEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useGymCircleServices } from "@gym-circle/core/hooks";
 import {
@@ -68,6 +76,8 @@ import {
   normalizePushNavigationTarget,
   type PushNavigationTarget,
 } from "./native/pushDeepLinks";
+import { usePlatformCapabilities } from "./native/platformCapabilities";
+import { useAndroidBackButton } from "./native/useAndroidBackButton";
 import { markPerf, measurePerf } from "./performance";
 
 const ChatScreen = dynamic(
@@ -79,11 +89,13 @@ const PostScreen = dynamic(
   { ssr: false },
 );
 const ProfileScreen = dynamic(
-  () => import("./screens/ProfileScreen").then((module) => module.ProfileScreen),
+  () =>
+    import("./screens/ProfileScreen").then((module) => module.ProfileScreen),
   { ssr: false },
 );
 const StoryViewer = dynamic(
-  () => import("./design-system/StoryViewer").then((module) => module.StoryViewer),
+  () =>
+    import("./design-system/StoryViewer").then((module) => module.StoryViewer),
   { ssr: false },
 );
 const AdminPanelSheet = dynamic(
@@ -123,11 +135,13 @@ const EditPostSheet = dynamic(
   { ssr: false },
 );
 const MonthlyRecapSheet = dynamic(
-  () => import("./MonthlyRecapSheet").then((module) => module.MonthlyRecapSheet),
+  () =>
+    import("./MonthlyRecapSheet").then((module) => module.MonthlyRecapSheet),
   { ssr: false },
 );
 const AchievementsSheet = dynamic(
-  () => import("./AchievementsSheet").then((module) => module.AchievementsSheet),
+  () =>
+    import("./AchievementsSheet").then((module) => module.AchievementsSheet),
   { ssr: false },
 );
 const RecapCoverPickerSheet = dynamic(
@@ -164,7 +178,8 @@ const AchievementCelebrationOverlay = dynamic(
   { ssr: false },
 );
 const NotificationsSheet = dynamic(
-  () => import("./NotificationsSheet").then((module) => module.NotificationsSheet),
+  () =>
+    import("./NotificationsSheet").then((module) => module.NotificationsSheet),
   { ssr: false },
 );
 const ConfirmSheet = dynamic(
@@ -177,7 +192,9 @@ const PostMenuSheet = dynamic(
 );
 const CommentsBottomSheet = dynamic(
   () =>
-    import("./CommentsBottomSheet").then((module) => module.CommentsBottomSheet),
+    import("./CommentsBottomSheet").then(
+      (module) => module.CommentsBottomSheet,
+    ),
   { ssr: false },
 );
 const LikesOverlay = dynamic(
@@ -185,7 +202,8 @@ const LikesOverlay = dynamic(
   { ssr: false },
 );
 const FollowListOverlay = dynamic(
-  () => import("./FollowListOverlay").then((module) => module.FollowListOverlay),
+  () =>
+    import("./FollowListOverlay").then((module) => module.FollowListOverlay),
   { ssr: false },
 );
 const MyCircleSheet = dynamic(
@@ -193,7 +211,10 @@ const MyCircleSheet = dynamic(
   { ssr: false },
 );
 const AccountSettingsSheet = dynamic(
-  () => import("./AccountSettingsSheet").then((module) => module.AccountSettingsSheet),
+  () =>
+    import("./AccountSettingsSheet").then(
+      (module) => module.AccountSettingsSheet,
+    ),
   { ssr: false },
 );
 
@@ -235,31 +256,43 @@ export function GymCirclePreview({
   onUploadAvatar,
 }: GymCirclePreviewProps) {
   const { i18n, t } = useTranslation();
+  const platformCapabilities = usePlatformCapabilities();
   // Sprint 4.5: services.push é o PushService de core/hooks, usado pelo
   // toggle de push notifications no AccountSettingsSheet.
   const services = useGymCircleServices();
   const [activeScreen, setActiveScreen] = useState<ScreenKey>("feed");
   // "Registrar treino": quando setado (YYYY-MM-DD), o composer abre travado
   // nessa data (post retroativo). null = post normal de hoje.
-  const [composerWorkoutDate, setComposerWorkoutDate] = useState<string | null>(null);
+  const [composerWorkoutDate, setComposerWorkoutDate] = useState<string | null>(
+    null,
+  );
   // Rastreio de treino (Fase 1): hub do "+" + treino cronometrado do web.
   // composerActivity = treino recém-encerrado dentro do composer (encerrar →
   // legenda/local → post no feed, mesmo sem foto — capa de stats gerada).
   const [createHubOpen, setCreateHubOpen] = useState(false);
   const [workoutOpen, setWorkoutOpen] = useState(false);
-  const [workoutSessionActive, setWorkoutSessionActive] = useState(
-    () => hasStoredWorkoutSession(social.currentUser.id),
+  const [workoutSessionActive, setWorkoutSessionActive] = useState(() =>
+    hasStoredWorkoutSession(social.currentUser.id),
   );
-  const [composerActivity, setComposerActivity] = useState<ComposerActivityContext | null>(null);
+  const [composerActivity, setComposerActivity] =
+    useState<ComposerActivityContext | null>(null);
   // Detalhes do treino (estilo Apple Atividades) — tocar nos stats da entrada
   // OU no header de um post promovido de treino (ambos viram WorkoutDetail).
-  const [detailWorkout, setDetailWorkout] = useState<WorkoutDetail | null>(null);
+  const [detailWorkout, setDetailWorkout] = useState<WorkoutDetail | null>(
+    null,
+  );
   // "Integrar treino": juntar um treino do mesmo dia ao post do menu.
   const [integratePostId, setIntegratePostId] = useState<string | null>(null);
-  const [integrateWorkoutDate, setIntegrateWorkoutDate] = useState<string | null>(null);
+  const [integrateWorkoutDate, setIntegrateWorkoutDate] = useState<
+    string | null
+  >(null);
   const [integrateHealthOpen, setIntegrateHealthOpen] = useState(false);
-  const [mergeableActivities, setMergeableActivities] = useState<MergeableActivity[]>([]);
-  const [integratedActivities, setIntegratedActivities] = useState<MergeableActivity[]>([]);
+  const [mergeableActivities, setMergeableActivities] = useState<
+    MergeableActivity[]
+  >([]);
+  const [integratedActivities, setIntegratedActivities] = useState<
+    MergeableActivity[]
+  >([]);
   const [mergeableLoading, setMergeableLoading] = useState(false);
   const [integratingId, setIntegratingId] = useState<string | null>(null);
   const [integrateError, setIntegrateError] = useState<string | null>(null);
@@ -337,7 +370,9 @@ export function GymCirclePreview({
   } | null>(null);
   const [editPostId, setEditPostId] = useState<string | null>(null);
   const [editCheckinId, setEditCheckinId] = useState<string | null>(null);
-  const [checkinTargetGymId, setCheckinTargetGymId] = useState<string | null>(null);
+  const [checkinTargetGymId, setCheckinTargetGymId] = useState<string | null>(
+    null,
+  );
   const [postDetailId, setPostDetailId] = useState<string | null>(null);
   // Sprint 5.11 — estado separado pro overlay full-screen do post (estilo
   // Instagram quando user tapa em foto do grid). `postDetailId` continua
@@ -345,16 +380,15 @@ export function GymCirclePreview({
   const [postDetailFullId, setPostDetailFullId] = useState<string | null>(null);
   // Status do carregamento dos comentários do sheet (loading/erro/ok) — antes o
   // fetch era fire-and-forget e a falha virava "nenhum comentário" silencioso.
-  const [commentsStatus, setCommentsStatus] = useState<"ready" | "loading" | "error">(
-    "ready",
-  );
+  const [commentsStatus, setCommentsStatus] = useState<
+    "ready" | "loading" | "error"
+  >("ready");
   // Sprint 7.5.2 — overlay full-screen Apple Fitness style. Aberto via
   // tap em qualquer achievement (MyCircle highlight, BadgesSheet, Profile
   // featured). Stats (earnedAt, count, rarity) ficam null por enquanto —
   // sub-fase futura wires user_achievements queries.
-  const [achievementDetail, setAchievementDetail] = useState<Achievement | null>(
-    null,
-  );
+  const [achievementDetail, setAchievementDetail] =
+    useState<Achievement | null>(null);
   // Sprint 7.5.11 — queue de achievements ainda não celebrados. Carregado
   // no boot via loadUncelebratedAchievementIds. Quando user dismiss um,
   // marca celebrated + avança índice. "Pular tudo" zera queue + marca
@@ -380,7 +414,9 @@ export function GymCirclePreview({
     | { kind: "restore-streak" }
     | null
   >(null);
-  const [restorePromptDismissedKey, setRestorePromptDismissedKey] = useState<string | null>(null);
+  const [restorePromptDismissedKey, setRestorePromptDismissedKey] = useState<
+    string | null
+  >(null);
   const [pullDistance, setPullDistance] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -480,7 +516,8 @@ export function GymCirclePreview({
 
   const openSearch = useCallback(() => setSearchOpen(true), []);
   const closeSearch = useCallback(() => setSearchOpen(false), []);
-  const openProfile = useCallback(async (userId: string) => {
+  const openProfile = useCallback(
+    async (userId: string) => {
     markPerf("profile_open_start");
     // Sprint 9.5.1 — bridge híbrido pra OtherProfileView nativo.
     // Mesma flag NEXT_PUBLIC_USE_NATIVE_MYCIRCLE controla as 4 surfaces.
@@ -489,9 +526,8 @@ export function GymCirclePreview({
       userId !== social.currentUser.id // próprio perfil continua web (ProfileScreen)
     ) {
       try {
-        const { GymCircleNativeBridge } = await import(
-          "./native/GymCircleNativeBridge"
-        );
+          const { GymCircleNativeBridge } =
+            await import("./native/GymCircleNativeBridge");
         if (await GymCircleNativeBridge.isAvailable()) {
           await GymCircleNativeBridge.presentOtherProfile({
             targetUserId: userId,
@@ -509,9 +545,15 @@ export function GymCirclePreview({
     void social.actions.refreshProfilePosts?.(userId);
     setProfileOpenId(userId);
     window.requestAnimationFrame(() => {
-      measurePerf("profile_open_ms", "profile_open_start", "profile_open_end");
+        measurePerf(
+          "profile_open_ms",
+          "profile_open_start",
+          "profile_open_end",
+        );
     });
-  }, [social.actions, social.currentUser.id]);
+    },
+    [social.actions, social.currentUser.id],
+  );
   const closeProfile = useCallback(() => setProfileOpenId(null), []);
   // Sprint 3.5.3: handlers do MyCircleSheet.
   // Desestrutura as actions usadas pelos efeitos/callbacks do My Circle para
@@ -528,9 +570,8 @@ export function GymCirclePreview({
     async (userId: string) => {
       if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
         try {
-          const { GymCircleNativeBridge } = await import(
-            "./native/GymCircleNativeBridge"
-          );
+          const { GymCircleNativeBridge } =
+            await import("./native/GymCircleNativeBridge");
           if (await GymCircleNativeBridge.isAvailable()) {
             const isOwn = userId === social.currentUser.id;
             await GymCircleNativeBridge.presentMyCircleNative({
@@ -559,14 +600,11 @@ export function GymCirclePreview({
   const closeMyCircle = useCallback(() => setMyCircleUserId(null), []);
   // "Registrar treino": tap num dia treinado sem post no calendário do próprio
   // user → fecha o MyCircle e abre o composer travado naquela data.
-  const registerWorkoutForDay = useCallback(
-    (dateKey: string) => {
+  const registerWorkoutForDay = useCallback((dateKey: string) => {
       setComposerWorkoutDate(dateKey);
       setMyCircleUserId(null);
       setActiveScreen("post");
-    },
-    [],
-  );
+  }, []);
   const handleMyCircleVisibleMonthChange = useCallback(
     (monthKey: string) => {
       if (!myCircleUserId) return;
@@ -582,9 +620,8 @@ export function GymCirclePreview({
     async (achievement: Achievement) => {
       if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
         try {
-          const { GymCircleNativeBridge } = await import(
-            "./native/GymCircleNativeBridge"
-          );
+          const { GymCircleNativeBridge } =
+            await import("./native/GymCircleNativeBridge");
           if (await GymCircleNativeBridge.isAvailable()) {
             await GymCircleNativeBridge.presentAchievementDetail({
               userId: social.currentUser.id,
@@ -609,9 +646,8 @@ export function GymCirclePreview({
     const targetUserId = myCircleUserId ?? social.currentUser.id;
     if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
       try {
-        const { GymCircleNativeBridge } = await import(
-          "./native/GymCircleNativeBridge"
-        );
+        const { GymCircleNativeBridge } =
+          await import("./native/GymCircleNativeBridge");
         if (await GymCircleNativeBridge.isAvailable()) {
           await GymCircleNativeBridge.presentAchievementsHub({
             userId: targetUserId,
@@ -647,9 +683,8 @@ export function GymCirclePreview({
     async (monthKey?: string) => {
       if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
         try {
-          const { GymCircleNativeBridge } = await import(
-            "./native/GymCircleNativeBridge"
-          );
+          const { GymCircleNativeBridge } =
+            await import("./native/GymCircleNativeBridge");
           if (await GymCircleNativeBridge.isAvailable()) {
             await GymCircleNativeBridge.presentMonthlyRecap({
               userId: social.currentUser.id,
@@ -674,9 +709,8 @@ export function GymCirclePreview({
   const openEditProfile = useCallback(async () => {
     if (process.env.NEXT_PUBLIC_USE_NATIVE_MYCIRCLE === "true") {
       try {
-        const { GymCircleNativeBridge } = await import(
-          "./native/GymCircleNativeBridge"
-        );
+        const { GymCircleNativeBridge } =
+          await import("./native/GymCircleNativeBridge");
         if (await GymCircleNativeBridge.isAvailable()) {
           await GymCircleNativeBridge.presentEditProfile({
             userId: social.currentUser.id,
@@ -705,12 +739,9 @@ export function GymCirclePreview({
   const deleteActivity = social.actions.deleteActivity;
   const canManageOwnPost = Boolean(editPost && deletePost);
 
-  const openPostMenu = useCallback(
-    (postId: string) => {
+  const openPostMenu = useCallback((postId: string) => {
       setPostMenuId(postId);
-    },
-    [],
-  );
+  }, []);
   const closePostMenu = useCallback(() => setPostMenuId(null), []);
   const openCheckinMenu = useCallback((checkinId: string) => {
     setEntryMenuTarget({ kind: "checkin", id: checkinId });
@@ -811,13 +842,19 @@ export function GymCirclePreview({
 
     const initial = normalizePushNavigationTarget(window.location.href);
     if (initial) {
-      initialNavigationTimer = window.setTimeout(() => openPushTarget(initial), 0);
+      initialNavigationTimer = window.setTimeout(
+        () => openPushTarget(initial),
+        0,
+      );
       window.history.replaceState(null, "", window.location.pathname);
     }
 
     const handlePushAction = (event: Event) => {
       const detail = (event as CustomEvent).detail as
-        | { target?: PushNavigationTarget | null; data?: Record<string, unknown> }
+        | {
+            target?: PushNavigationTarget | null;
+            data?: Record<string, unknown>;
+          }
         | undefined;
       openPushTarget(
         detail?.target ?? normalizePushNavigationTarget(detail?.data ?? null),
@@ -841,13 +878,19 @@ export function GymCirclePreview({
     [refreshPostDetailsAction],
   );
   const closeLikes = useCallback(() => setLikesPostId(null), []);
-  const closeFollowListOverlay = useCallback(() => setFollowListOverlay(null), []);
+  const closeFollowListOverlay = useCallback(
+    () => setFollowListOverlay(null),
+    [],
+  );
   const openFollowListOverlay = useCallback(
     async (kind: "followers" | "following") => {
       setFollowListOverlay({ kind, loading: true, users: [] });
       try {
         const users =
-          (await social.actions.listFollowUsers?.(social.currentUser.id, kind)) ?? [];
+          (await social.actions.listFollowUsers?.(
+            social.currentUser.id,
+            kind,
+          )) ?? [];
         setFollowListOverlay({ kind, loading: false, users });
       } catch {
         setFollowListOverlay({ kind, loading: false, users: [] });
@@ -902,7 +945,11 @@ export function GymCirclePreview({
 
   const editPostTarget: EnrichedPost | null = useMemo(() => {
     if (!editPostId) return null;
-    return (social.profilePosts ?? social.feedPosts).find((p) => p.id === editPostId) ?? null;
+    return (
+      (social.profilePosts ?? social.feedPosts).find(
+        (p) => p.id === editPostId,
+      ) ?? null
+    );
   }, [editPostId, social.feedPosts, social.profilePosts]);
   const editCheckinTarget = useMemo(() => {
     if (!editCheckinId) return null;
@@ -913,7 +960,11 @@ export function GymCirclePreview({
   }, [editCheckinId, social.feedCheckins]);
   const postMenuTarget: EnrichedPost | null = useMemo(() => {
     if (!postMenuId) return null;
-    return (social.profilePosts ?? social.feedPosts).find((p) => p.id === postMenuId) ?? null;
+    return (
+      (social.profilePosts ?? social.feedPosts).find(
+        (p) => p.id === postMenuId,
+      ) ?? null
+    );
   }, [postMenuId, social.feedPosts, social.profilePosts]);
 
   // "Integrar treino": abre o picker com os treinos do dia do post.
@@ -992,9 +1043,8 @@ export function GymCirclePreview({
         if (integrateWorkoutDate) {
           try {
             const [available, integrated] = await Promise.all([
-              social.actions.fetchMergeableActivities?.(
-                integrateWorkoutDate,
-              ) ?? Promise.resolve([]),
+              social.actions.fetchMergeableActivities?.(integrateWorkoutDate) ??
+                Promise.resolve([]),
               social.actions.fetchIntegratedActivities?.(postId) ??
                 Promise.resolve([]),
             ]);
@@ -1076,31 +1126,29 @@ export function GymCirclePreview({
       });
       setEntryMenuTarget(null);
     }
-  }, [
-    deleteActivity,
-    deleteCheckin,
-    entryMenuActivity,
-    entryMenuCheckin,
-  ]);
+  }, [deleteActivity, deleteCheckin, entryMenuActivity, entryMenuCheckin]);
 
   const hasDistancePosts = useMemo(
     () =>
       social.feedPosts.some(
         (post) =>
-          (post.locationSource === "current" || post.locationSource === "gym") &&
+          (post.locationSource === "current" ||
+            post.locationSource === "gym") &&
           typeof post.locationLatitude === "number" &&
           typeof post.locationLongitude === "number",
       ),
     [social.feedPosts],
   );
 
-  const addViewerDistance = useCallback((posts: EnrichedPost[]) => {
+  const addViewerDistance = useCallback(
+    (posts: EnrichedPost[]) => {
     const viewerCoordinates = viewerLocation.coordinates;
     if (!viewerCoordinates) return posts;
 
     return posts.map((post) => {
       if (
-        (post.locationSource !== "current" && post.locationSource !== "gym") ||
+          (post.locationSource !== "current" &&
+            post.locationSource !== "gym") ||
         typeof post.locationLatitude !== "number" ||
         typeof post.locationLongitude !== "number"
       ) {
@@ -1111,7 +1159,10 @@ export function GymCirclePreview({
         latitude: post.locationLatitude,
         longitude: post.locationLongitude,
       };
-      const distanceKm = calculateDistanceKm(viewerCoordinates, postCoordinates);
+        const distanceKm = calculateDistanceKm(
+          viewerCoordinates,
+          postCoordinates,
+        );
 
       return {
         ...post,
@@ -1119,7 +1170,9 @@ export function GymCirclePreview({
         distanceLabel: `${formatDistanceKm(distanceKm)} de você`,
       };
     });
-  }, [viewerLocation.coordinates]);
+    },
+    [viewerLocation.coordinates],
+  );
 
   const feedPosts = useMemo<EnrichedPost[]>(
     () => addViewerDistance(social.feedPosts),
@@ -1171,7 +1224,9 @@ export function GymCirclePreview({
   );
 
   const signOut = social.actions.signOut;
-  const handleEditProfile = social.actions.updateProfile ? openEditProfile : undefined;
+  const handleEditProfile = social.actions.updateProfile
+    ? openEditProfile
+    : undefined;
   const toggleFollowIgnoringResult = useCallback(
     async (userId: string) => {
       await social.actions.toggleFollow(userId);
@@ -1257,7 +1312,11 @@ export function GymCirclePreview({
   useEffect(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;
     if (Notification.permission !== "granted") return;
-    if (social.currentUser.streakLitToday || social.currentUser.currentStreak <= 0) return;
+    if (
+      social.currentUser.streakLitToday ||
+      social.currentUser.currentStreak <= 0
+    )
+      return;
 
     const localHour = now.getHours();
     if (localHour < 18) return;
@@ -1274,7 +1333,8 @@ export function GymCirclePreview({
     }
 
     const title = "Seu círculo ainda está apagado";
-    const body = "Poste uma foto ou story do treino para manter sua presença de hoje.";
+    const body =
+      "Poste uma foto ou story do treino para manter sua presença de hoje.";
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.ready
         .then((registration) =>
@@ -1346,9 +1406,7 @@ export function GymCirclePreview({
       // Rastreio de treino (Fase 1): o "+" central abre o hub de criar em vez
       // de ir direto ao composer (iniciar treino / postar / check-in).
       if (screen === "post") {
-        setWorkoutSessionActive(
-          hasStoredWorkoutSession(social.currentUser.id),
-        );
+        setWorkoutSessionActive(hasStoredWorkoutSession(social.currentUser.id));
         setCreateHubOpen(true);
         return;
       }
@@ -1375,11 +1433,13 @@ export function GymCirclePreview({
     (event: TouchEvent<HTMLDivElement>) => {
       const target = event.target;
       const ignoresAllGestures =
-        target instanceof Element && Boolean(target.closest(NO_SCREEN_SWIPE_SELECTOR));
+        target instanceof Element &&
+        Boolean(target.closest(NO_SCREEN_SWIPE_SELECTOR));
       touchIgnoreScreenSwipeRef.current =
         ignoresAllGestures ||
         activeScreen === "profile" ||
-        (target instanceof Element && Boolean(target.closest(NO_TAB_SWIPE_SELECTOR)));
+        (target instanceof Element &&
+          Boolean(target.closest(NO_TAB_SWIPE_SELECTOR)));
       // Troca horizontal de aba e pull-to-refresh têm zonas de exclusão
       // diferentes. Um botão/story bloqueia a troca de aba, mas no feed ainda
       // pode iniciar um arraste vertical. No Perfil mantemos botões excluídos
@@ -1405,7 +1465,8 @@ export function GymCirclePreview({
     [activeScreen],
   );
 
-  const handleTouchMove = useCallback((event: TouchEvent<HTMLDivElement>) => {
+  const handleTouchMove = useCallback(
+    (event: TouchEvent<HTMLDivElement>) => {
     if (touchIgnorePullRefreshRef.current || refreshing) return;
     const startY = touchStartYRef.current;
     const startX = touchStartXRef.current;
@@ -1427,7 +1488,9 @@ export function GymCirclePreview({
     event.preventDefault();
     touchPullDistanceRef.current = delta;
     setPullDistance(Math.min(94, delta * 0.48));
-  }, [refreshing]);
+    },
+    [refreshing],
+  );
 
   const handleTouchEnd = useCallback(() => {
     const wasPullingToRefresh = touchPullingToRefreshRef.current;
@@ -1493,7 +1556,9 @@ export function GymCirclePreview({
     const relevant = profilePosts.filter(
       (p) =>
         p.userId === myCircleUserId ||
-        p.acceptedParticipants?.some((participant) => participant.id === myCircleUserId),
+        p.acceptedParticipants?.some(
+          (participant) => participant.id === myCircleUserId,
+        ),
     );
     // Prioridade no calendário: post PRÓPRIO vence; o post em que o user foi
     // marcado só preenche o dia que NÃO tem post próprio. buildMonthWorkoutDays
@@ -1504,13 +1569,17 @@ export function GymCirclePreview({
     return [...own, ...taggedOnly];
   }, [profilePosts, myCircleUserId]);
 
-  const profileSheetUser = profileOpenId ? usersById[profileOpenId] ?? null : null;
+  const profileSheetUser = profileOpenId
+    ? (usersById[profileOpenId] ?? null)
+    : null;
   const profileSheetPosts = useMemo(() => {
     if (!profileOpenId) return [];
     return profilePosts.filter(
       (p) =>
         p.userId === profileOpenId ||
-        p.acceptedParticipants?.some((participant) => participant.id === profileOpenId),
+        p.acceptedParticipants?.some(
+          (participant) => participant.id === profileOpenId,
+        ),
     );
   }, [profilePosts, profileOpenId]);
   const currentUserPosts = useMemo(
@@ -1526,9 +1595,7 @@ export function GymCirclePreview({
   );
   const currentUserAuthoredPosts = useMemo(
     () =>
-      currentUserPosts.filter(
-        (post) => post.userId === social.currentUser.id,
-      ),
+      currentUserPosts.filter((post) => post.userId === social.currentUser.id),
     [currentUserPosts, social.currentUser.id],
   );
 
@@ -1557,7 +1624,9 @@ export function GymCirclePreview({
         title: challenge.title,
         trophyId: challenge.trophyId ?? null,
       }))
-      .sort((a, b) => `${a.periodKey}:${a.id}`.localeCompare(`${b.periodKey}:${b.id}`)),
+      .sort((a, b) =>
+        `${a.periodKey}:${a.id}`.localeCompare(`${b.periodKey}:${b.id}`),
+      ),
     posts: currentUserAuthoredPosts
       .map((post) => ({
         createdAt: post.createdAt,
@@ -1652,10 +1721,7 @@ export function GymCirclePreview({
     const currentUserId = achievementUserId;
     if (!currentUserId) return;
     const celebrationCheckKey = `${currentUserId}:${achievementSourceKey}`;
-    if (
-      lastAchievementCelebrationCheckKeyRef.current ===
-      celebrationCheckKey
-    ) {
+    if (lastAchievementCelebrationCheckKeyRef.current === celebrationCheckKey) {
       return;
     }
     let cancelled = false;
@@ -1664,8 +1730,7 @@ export function GymCirclePreview({
       // O ref só é marcado quando o timer realmente começa. Assim o ciclo
       // setup/cleanup extra do React Strict Mode não cancela a única checagem.
       if (
-        lastAchievementCelebrationCheckKeyRef.current ===
-        celebrationCheckKey
+        lastAchievementCelebrationCheckKeyRef.current === celebrationCheckKey
       ) {
         return;
       }
@@ -1712,9 +1777,8 @@ export function GymCirclePreview({
     let cancelled = false;
     void (async () => {
       try {
-        const { GymCircleNativeBridge } = await import(
-          "./native/GymCircleNativeBridge"
-        );
+        const { GymCircleNativeBridge } =
+          await import("./native/GymCircleNativeBridge");
         if (!(await GymCircleNativeBridge.isAvailable())) return;
 
         const openChatHandle = await GymCircleNativeBridge.addListener<{
@@ -1783,9 +1847,8 @@ export function GymCirclePreview({
     let cancelled = false;
     void (async () => {
       try {
-        const { GymCircleNativeBridge } = await import(
-          "./native/GymCircleNativeBridge"
-        );
+        const { GymCircleNativeBridge } =
+          await import("./native/GymCircleNativeBridge");
         if (!(await GymCircleNativeBridge.isAvailable())) return;
         for (const achievement of celebrationQueue) {
           if (cancelled) break;
@@ -1858,8 +1921,7 @@ export function GymCirclePreview({
           // Treino em grupo = 2+ pessoas no total: autor implícito + 1
           // participante accepted já conta (antes exigia 2+ accepted =
           // 3 pessoas, e dupla nunca progredia o desafio).
-          hasAcceptedGroup:
-            (post.acceptedParticipants?.length ?? 0) >= 1,
+          hasAcceptedGroup: (post.acceptedParticipants?.length ?? 0) >= 1,
           // Desafio Popstar — nº de mídias do carrossel (single = 1).
           mediaCount: post.media?.length ?? 1,
         }));
@@ -1872,10 +1934,7 @@ export function GymCirclePreview({
           // Sprint 17 (guard B5) — só sobe: recompute com dados parciais
           // não rebaixa a barra na UI nem persiste valor menor (o sync
           // tem o mesmo guard).
-          if (
-            result.progress > challenge.progress ||
-            result.justCompleted
-          ) {
+          if (result.progress > challenge.progress || result.justCompleted) {
             void syncChallengeProgress(
               services.client,
               currentUserId,
@@ -1917,7 +1976,9 @@ export function GymCirclePreview({
   ]);
 
   const viewedMonthlyChallengeUserId =
-    myCircleUserId && myCircleUserId !== social.currentUser.id ? myCircleUserId : null;
+    myCircleUserId && myCircleUserId !== social.currentUser.id
+      ? myCircleUserId
+      : null;
 
   useEffect(() => {
     if (!viewedMonthlyChallengeUserId) return;
@@ -1970,7 +2031,8 @@ export function GymCirclePreview({
     [currentUserPosts, social.currentUser.id, social.gyms],
   );
   const restoreCountdown = useMemo(
-    () => formatRestoreCountdown(social.currentUser.streakRestoreDeadlineAt, now),
+    () =>
+      formatRestoreCountdown(social.currentUser.streakRestoreDeadlineAt, now),
     [now, social.currentUser.streakRestoreDeadlineAt],
   );
   const canUseStreakRestore = Boolean(
@@ -1988,8 +2050,13 @@ export function GymCirclePreview({
       restorePromptDismissedKey !== restorePromptKey &&
       !confirmIntent,
   );
-  const activeConfirmKind = restorePromptOpen ? "restore-streak" : confirmIntent?.kind ?? null;
-  const storyGroups = useMemo(() => social.storyGroups ?? [], [social.storyGroups]);
+  const activeConfirmKind = restorePromptOpen
+    ? "restore-streak"
+    : (confirmIntent?.kind ?? null);
+  const storyGroups = useMemo(
+    () => social.storyGroups ?? [],
+    [social.storyGroups],
+  );
   const selectedStoryId = social.selectedStory?.id ?? null;
   const selectedStorySequence = useMemo(
     () => social.selectedStoryGroup?.stories ?? [],
@@ -2003,6 +2070,151 @@ export function GymCirclePreview({
     () => getAdjacentStoryId(selectedStorySequence, selectedStoryId, -1),
     [selectedStoryId, selectedStorySequence],
   );
+
+  useAndroidBackButton(() => {
+    if (restorePromptOpen && restorePromptKey) {
+      setRestorePromptDismissedKey(restorePromptKey);
+      return true;
+    }
+    if (confirmIntent) {
+      setConfirmIntent(null);
+      return true;
+    }
+    if (integrateHealthOpen) {
+      setIntegrateHealthOpen(false);
+      return true;
+    }
+    if (integratePostId) {
+      setIntegratePostId(null);
+      setIntegrateWorkoutDate(null);
+      setIntegratedActivities([]);
+      setIntegrateError(null);
+      return true;
+    }
+    if (editPostId || editCheckinId) {
+      setEditPostId(null);
+      setEditCheckinId(null);
+      return true;
+    }
+    if (detailWorkout) {
+      setDetailWorkout(null);
+      return true;
+    }
+    if (entryMenuTarget) {
+      setEntryMenuTarget(null);
+      return true;
+    }
+    if (postMenuId) {
+      setPostMenuId(null);
+      return true;
+    }
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return true;
+    }
+    if (adminOpen) {
+      setAdminOpen(false);
+      return true;
+    }
+    if (notificationsOpen) {
+      setNotificationsOpen(false);
+      return true;
+    }
+    if (trainerWorkspaceOpen) {
+      setTrainerWorkspaceOpen(false);
+      return true;
+    }
+    if (trainerProfileOpen) {
+      setTrainerProfileOpen(false);
+      return true;
+    }
+    if (editOpen) {
+      setEditOpen(false);
+      return true;
+    }
+    if (recapPeriodPickerOpen) {
+      setRecapPeriodPickerOpen(false);
+      return true;
+    }
+    if (recapCoverPickerOpen) {
+      setRecapCoverPickerOpen(false);
+      return true;
+    }
+    if (monthlyRecapOpen) {
+      setMonthlyRecapOpen(false);
+      return true;
+    }
+    if (followListOverlay) {
+      setFollowListOverlay(null);
+      return true;
+    }
+    if (likesPostId) {
+      setLikesPostId(null);
+      return true;
+    }
+    if (postDetailId) {
+      setPostDetailId(null);
+      return true;
+    }
+    if (achievementDetail) {
+      setAchievementDetail(null);
+      return true;
+    }
+    if (celebrationQueue.length > 0) {
+      setCelebrationQueue([]);
+      setCelebrationIndex(0);
+      return true;
+    }
+    if (postDetailFullId) {
+      setPostDetailFullId(null);
+      return true;
+    }
+    if (badgesSheetOpen) {
+      setBadgesSheetOpen(false);
+      return true;
+    }
+    if (myCircleUserId) {
+      setMyCircleUserId(null);
+      return true;
+    }
+    if (profileOpenId) {
+      setProfileOpenId(null);
+      return true;
+    }
+    if (searchOpen) {
+      setSearchOpen(false);
+      return true;
+    }
+    if (social.selectedStory) {
+      social.actions.closeStory();
+      return true;
+    }
+    if (workoutOpen) {
+      setWorkoutOpen(false);
+      return true;
+    }
+    if (createHubOpen) {
+      setCreateHubOpen(false);
+      return true;
+    }
+    if (chatThreadOpen) {
+      setChatTargetUserId(null);
+      setChatThreadOpen(false);
+      return true;
+    }
+    if (activeScreen === "post") {
+      setComposerActivity(null);
+      setComposerWorkoutDate(null);
+      setActiveScreen("feed");
+      return true;
+    }
+    if (activeScreen !== "feed") {
+      setActiveScreen("feed");
+      return true;
+    }
+    return false;
+  });
+
   // Sprint 1 v1.1.1 B1 (re-fix): índice do autor atual + flags cross-author
   // pra navegação contínua estilo Instagram. O commit 09ef246 referenciou
   // estas vars no JSX (`hasNext={hasNextStoryOrAuthor}`) mas o Edit das
@@ -2040,11 +2252,15 @@ export function GymCirclePreview({
   }, [nextStoryId, selectedStorySequence]);
 
   const currentUserStoryGroup = useMemo(
-    () => storyGroups.find((group) => group.id === social.currentUser.id) ?? null,
+    () =>
+      storyGroups.find((group) => group.id === social.currentUser.id) ?? null,
     [social.currentUser.id, storyGroups],
   );
   const profileSheetStoryGroup = useMemo(
-    () => (profileOpenId ? storyGroups.find((group) => group.id === profileOpenId) ?? null : null),
+    () =>
+      profileOpenId
+        ? (storyGroups.find((group) => group.id === profileOpenId) ?? null)
+        : null,
     [profileOpenId, storyGroups],
   );
   const openStoryById = useCallback(
@@ -2090,8 +2306,7 @@ export function GymCirclePreview({
     }
     const prevGroup =
       currentGroupIndex > 0 ? storyGroups[currentGroupIndex - 1] : undefined;
-    const lastOfPrev =
-      prevGroup?.stories[prevGroup.stories.length - 1];
+    const lastOfPrev = prevGroup?.stories[prevGroup.stories.length - 1];
     if (lastOfPrev) {
       social.actions.openStory(lastOfPrev.id);
     }
@@ -2152,7 +2367,11 @@ export function GymCirclePreview({
                 : undefined
             }
             trainerWorkspaceRefreshKey={trainerWorkspaceRefreshKey}
-            onOpenAdmin={social.currentUser.username.toLowerCase() === "dudy" ? openAdmin : undefined}
+            onOpenAdmin={
+              social.currentUser.username.toLowerCase() === "dudy"
+                ? openAdmin
+                : undefined
+            }
             onOpenSettings={() => setSettingsOpen(true)}
             onOpenFollowers={() => void openFollowListOverlay("followers")}
             onOpenFollowing={() => void openFollowListOverlay("following")}
@@ -2181,10 +2400,12 @@ export function GymCirclePreview({
               social.actions.loadMoreProfilePosts?.(social.currentUser.id)
             }
             postsHasMore={
-              social.profilePostsPageInfo?.[social.currentUser.id]?.hasMore ?? false
+              social.profilePostsPageInfo?.[social.currentUser.id]?.hasMore ??
+              false
             }
             postsLoadingMore={
-              social.profilePostsPageInfo?.[social.currentUser.id]?.loading ?? false
+              social.profilePostsPageInfo?.[social.currentUser.id]?.loading ??
+              false
             }
             hasStory={Boolean(currentUserStoryGroup)}
             storyViewed={currentUserStoryGroup?.viewed ?? false}
@@ -2215,7 +2436,9 @@ export function GymCirclePreview({
             onThreadViewChange={setChatThreadOpen}
             onUploadImage={onUploadChatImage}
             selectedUserId={chatTargetUserId}
-            selectedUser={chatTargetUserId ? usersById[chatTargetUserId] ?? null : null}
+            selectedUser={
+              chatTargetUserId ? (usersById[chatTargetUserId] ?? null) : null
+            }
             suggestedUsers={social.suggestedUsers}
           />
         );
@@ -2262,7 +2485,9 @@ export function GymCirclePreview({
             }}
             onUploadImage={onUploadImage}
             recentLocations={recentPostLocations}
-            taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
+            taggableUsers={allUsers.filter(
+              (user) => user.id !== social.currentUser.id,
+            )}
             workoutDate={composerWorkoutDate ?? undefined}
           />
         );
@@ -2404,7 +2629,11 @@ export function GymCirclePreview({
               <RefreshCw
                 className={refreshing ? "animate-spin" : undefined}
                 size={18}
-                style={{ transform: refreshing ? undefined : `rotate(${pullDistance * 2.2}deg)` }}
+                style={{
+                  transform: refreshing
+                    ? undefined
+                    : `rotate(${pullDistance * 2.2}deg)`,
+                }}
               />
             </div>
             {/* Scroll area ocupa a tela inteira; BottomNav abaixo é posicionado
@@ -2422,8 +2651,12 @@ export function GymCirclePreview({
               <div
                 className="min-h-full"
                 style={{
-                  transform: pullDistance ? `translateY(${pullDistance}px)` : undefined,
-                  transition: pullDistance ? undefined : "transform 260ms var(--gc-ease-ios)",
+                  transform: pullDistance
+                    ? `translateY(${pullDistance}px)`
+                    : undefined,
+                  transition: pullDistance
+                    ? undefined
+                    : "transform 260ms var(--gc-ease-ios)",
                 }}
               >
                 {screen}
@@ -2508,7 +2741,9 @@ export function GymCirclePreview({
             }}
             onShareStoryToChat={social.actions.shareStoryToChat}
             onUnfollowUser={toggleFollowIgnoringResult}
-            shareTargets={social.suggestedUsers.filter((user) => user.id !== social.currentUser.id)}
+            shareTargets={social.suggestedUsers.filter(
+              (user) => user.id !== social.currentUser.id,
+            )}
             story={social.selectedStory}
           />
           <UserSearchSheet
@@ -2543,23 +2778,28 @@ export function GymCirclePreview({
             }
             onToggleFollow={toggleFollowIgnoringResult}
             open={profileOpenId !== null}
-            onOpenMyCircle={() => profileSheetUser && openMyCircle(profileSheetUser.id)}
+            onOpenMyCircle={() =>
+              profileSheetUser && openMyCircle(profileSheetUser.id)
+            }
             // Sprint 5.11 — ver coment em currentUser ProfileScreen acima.
             onOpenPost={openPostDetailFull}
             posts={profileSheetPosts}
             onLoadMorePosts={
               profileSheetUser
-                ? () => social.actions.loadMoreProfilePosts?.(profileSheetUser.id)
+                ? () =>
+                    social.actions.loadMoreProfilePosts?.(profileSheetUser.id)
                 : undefined
             }
             postsHasMore={
               profileSheetUser
-                ? social.profilePostsPageInfo?.[profileSheetUser.id]?.hasMore ?? false
+                ? (social.profilePostsPageInfo?.[profileSheetUser.id]
+                    ?.hasMore ?? false)
                 : false
             }
             postsLoadingMore={
               profileSheetUser
-                ? social.profilePostsPageInfo?.[profileSheetUser.id]?.loading ?? false
+                ? (social.profilePostsPageInfo?.[profileSheetUser.id]
+                    ?.loading ?? false)
                 : false
             }
             user={profileSheetUser}
@@ -2584,7 +2824,9 @@ export function GymCirclePreview({
             onOpenAchievementDetail={openAchievementDetailHybrid}
             onOpenMonthlyRecap={
               myCircleUser?.id === social.currentUser.id
-                ? () => { void openMonthlyRecapHybrid(); }
+                ? () => {
+                    void openMonthlyRecapHybrid();
+                  }
                 : undefined
             }
             // Sprint 5.8 — calendar mini-foto tappable abre PostDetail.
@@ -2624,8 +2866,8 @@ export function GymCirclePreview({
             posts={myCircleUserPosts}
             storyViewed={
               myCircleUser?.id === social.currentUser.id
-                ? currentUserStoryGroup?.viewed ?? false
-                : profileSheetStoryGroup?.viewed ?? false
+                ? (currentUserStoryGroup?.viewed ?? false)
+                : (profileSheetStoryGroup?.viewed ?? false)
             }
             user={myCircleUser}
           />
@@ -2643,7 +2885,9 @@ export function GymCirclePreview({
             monthlyChallenges={
               (myCircleUser ?? social.currentUser).id === social.currentUser.id
                 ? monthlyChallenges
-                : monthlyChallengesByUser[(myCircleUser ?? social.currentUser).id]
+                : monthlyChallengesByUser[
+                    (myCircleUser ?? social.currentUser).id
+                  ]
             }
             onClose={closeBadges}
             onOpenAchievementDetail={openAchievementDetailHybrid}
@@ -2689,7 +2933,8 @@ export function GymCirclePreview({
           />
           {/* Sprint 7.5.11 — Celebration full-screen com confetti escala-
               do por raridade. Render quando há queue + boot terminou. */}
-          {celebrationQueue.length > 0 && celebrationIndex < celebrationQueue.length ? (
+          {celebrationQueue.length > 0 &&
+          celebrationIndex < celebrationQueue.length ? (
             <AchievementCelebrationOverlay
               achievement={celebrationQueue[celebrationIndex] ?? null}
               onDismiss={() => {
@@ -2931,16 +3176,17 @@ export function GymCirclePreview({
                 await updateProfile({ isPrivate: next });
               };
             })()}
-            onTogglePush={async (next) => {
+            onTogglePush={
+              platformCapabilities.nativePush
+                ? async (next) => {
               // Sprint 4.5: toggle de push notifications. Persiste em
               // localStorage + chama service nativo:
               //   ON  → requestPushPermission (prompt iOS + register token)
               //   OFF → unregisterPushToken (revoga no backend)
               // Se permission for negada pelo user, retornamos o estado
               // anterior pra UI refletir a realidade.
-              const { PushNotificationsService } = await import(
-                "./native/PushNotificationsService"
-              );
+                    const { PushNotificationsService } =
+                      await import("./native/PushNotificationsService");
               if (next) {
                 try {
                   const result =
@@ -2951,7 +3197,10 @@ export function GymCirclePreview({
                   if (result.status === "registered") {
                     setPushEnabled(true);
                     try {
-                      window.localStorage.setItem("gc-push-enabled", "true");
+                            window.localStorage.setItem(
+                              "gc-push-enabled",
+                              "true",
+                            );
                     } catch {
                       /* localStorage indisponível — silencioso */
                     }
@@ -2976,7 +3225,9 @@ export function GymCirclePreview({
                   return {
                     status: "failed" as const,
                     errorDetail:
-                      error instanceof Error ? error.message : "unknown_error",
+                            error instanceof Error
+                              ? error.message
+                              : "unknown_error",
                   };
                 }
               } else {
@@ -2992,12 +3243,17 @@ export function GymCirclePreview({
                 }
                 return { status: "disabled" as const };
               }
-            }}
+                  }
+                : undefined
+            }
             open={settingsOpen}
             pushEnabled={pushEnabled}
           />
           <PostMenuSheet
-            isOwner={Boolean(canManageOwnPost && postMenuTarget?.userId === social.currentUser.id)}
+            isOwner={Boolean(
+              canManageOwnPost &&
+              postMenuTarget?.userId === social.currentUser.id,
+            )}
             onBlock={() => {
               const userId = postMenuTarget?.userId;
               setPostMenuId(null);
@@ -3014,7 +3270,8 @@ export function GymCirclePreview({
             onReport={() => {
               const target = postMenuTarget;
               setPostMenuId(null);
-              if (target) void social.actions.reportPost?.(target.id, target.userId);
+              if (target)
+                void social.actions.reportPost?.(target.id, target.userId);
             }}
             onIntegrateWorkout={
               canManageOwnPost &&
@@ -3067,10 +3324,15 @@ export function GymCirclePreview({
               setIntegratedActivities([]);
               setIntegrateError(null);
             }}
-            onImportFromAppleHealth={() => setIntegrateHealthOpen(true)}
+            onImportFromAppleHealth={
+              platformCapabilities.appleHealthImport
+                ? () => setIntegrateHealthOpen(true)
+                : undefined
+            }
             onSelect={handleIntegrateSelect}
             open={integratePostId !== null && !integrateHealthOpen}
           />
+          {platformCapabilities.appleHealthImport ? (
           <HealthKitImportSheet
             completionMode="integrate"
             onClose={() => setIntegrateHealthOpen(false)}
@@ -3079,6 +3341,7 @@ export function GymCirclePreview({
             open={integrateHealthOpen}
             requestPermissionOnOpen
           />
+          ) : null}
           {editPost ? (
             <EditPostSheet
               checkin={editCheckinTarget}
@@ -3093,7 +3356,9 @@ export function GymCirclePreview({
               open={editPostId !== null || editCheckinId !== null}
               post={editPostTarget}
               recentLocations={recentPostLocations}
-              taggableUsers={allUsers.filter((user) => user.id !== social.currentUser.id)}
+              taggableUsers={allUsers.filter(
+                (user) => user.id !== social.currentUser.id,
+              )}
             />
           ) : null}
           <ConfirmSheet
@@ -3137,7 +3402,8 @@ export function GymCirclePreview({
             }}
             onConfirm={async () => {
               if (restorePromptOpen) {
-                if (restorePromptKey) setRestorePromptDismissedKey(restorePromptKey);
+                if (restorePromptKey)
+                  setRestorePromptDismissedKey(restorePromptKey);
                 await social.actions.useStreakRestore?.();
                 return;
               }
@@ -3195,7 +3461,8 @@ export function GymCirclePreview({
                           : "Apagar esse post?"
             }
             tone={
-              activeConfirmKind === "restore-streak" || activeConfirmKind === "sign-out"
+              activeConfirmKind === "restore-streak" ||
+              activeConfirmKind === "sign-out"
                 ? "default"
                 : "destructive"
             }
@@ -3207,7 +3474,10 @@ export function GymCirclePreview({
   );
 }
 
-function formatRestoreCountdown(deadlineAt: string | null | undefined, now: Date) {
+function formatRestoreCountdown(
+  deadlineAt: string | null | undefined,
+  now: Date,
+) {
   if (!deadlineAt) return null;
   const diff = new Date(deadlineAt).getTime() - now.getTime();
   if (diff <= 0) return null;

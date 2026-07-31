@@ -5,6 +5,7 @@ import {
   extractPushNotificationData,
   normalizePushNavigationTarget,
 } from "./pushDeepLinks";
+import { getPlatformCapabilities } from "./platformCapabilities";
 
 const LEGACY_TOKEN_KEY = "gym-circle.native-push-token.v1";
 const TOKEN_KEY = "gym-circle.native-push-token.v2";
@@ -14,11 +15,7 @@ const DEFAULT_APP_VERSION = "1.1.0";
 export const PUSH_ENABLED_CHANGE_EVENT = "gymcircle:push-enabled-change";
 
 export type NativePushPermissionStatus =
-  | "unsupported"
-  | "prompt"
-  | "prompt-with-rationale"
-  | "granted"
-  | "denied";
+  "unsupported" | "prompt" | "prompt-with-rationale" | "granted" | "denied";
 
 export type NativePushRegisterResult =
   | { status: "unsupported" }
@@ -71,7 +68,8 @@ async function getNativePlatform(): Promise<NativePlatform | null> {
       return null;
     }
     const platform = Capacitor.getPlatform();
-    return platform === "ios" || platform === "android" ? platform : null;
+    if (platform !== "ios" && platform !== "android") return null;
+    return getPlatformCapabilities().nativePush ? platform : null;
   } catch {
     return null;
   }
@@ -227,9 +225,8 @@ export const PushNotificationsService = {
   async checkPermissions(): Promise<NativePushPermissionStatus> {
     if (!(await getNativePlatform())) return "unsupported";
     try {
-      const { PushNotifications } = await import(
-        "@capacitor/push-notifications"
-      );
+      const { PushNotifications } =
+        await import("@capacitor/push-notifications");
       const status = await PushNotifications.checkPermissions();
       debugLog("info", "permission checked", { status: status.receive });
       return status.receive;
@@ -244,9 +241,8 @@ export const PushNotificationsService = {
   async requestPermissions(): Promise<NativePushPermissionStatus> {
     if (!(await getNativePlatform())) return "unsupported";
     try {
-      const { PushNotifications } = await import(
-        "@capacitor/push-notifications"
-      );
+      const { PushNotifications } =
+        await import("@capacitor/push-notifications");
       const status = await PushNotifications.requestPermissions();
       debugLog("info", "permission requested", { status: status.receive });
       return status.receive;
@@ -270,8 +266,7 @@ export const PushNotificationsService = {
         platform,
         token,
         deviceId: stableDeviceId(),
-        appVersion:
-          process.env.NEXT_PUBLIC_APP_VERSION ?? DEFAULT_APP_VERSION,
+        appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? DEFAULT_APP_VERSION,
       });
     } catch (error) {
       debugLog("warn", "device token save failed", {
@@ -304,9 +299,7 @@ export const PushNotificationsService = {
     }
 
     await removeListenerSession(activeListenerSession);
-    const { PushNotifications } = await import(
-      "@capacitor/push-notifications"
-    );
+    const { PushNotifications } = await import("@capacitor/push-notifications");
     const session: ListenerSession = {
       id: ++listenerSequence,
       userId,
@@ -415,9 +408,8 @@ export const PushNotificationsService = {
     const revoked = await revokeStoredToken(userId, push);
     try {
       if (await this.isAvailable()) {
-        const { PushNotifications } = await import(
-          "@capacitor/push-notifications"
-        );
+        const { PushNotifications } =
+          await import("@capacitor/push-notifications");
         await PushNotifications.unregister();
       }
       publishPushEnabledState(false);
@@ -440,9 +432,6 @@ export const PushNotificationsService = {
   // Compatibilidade temporária com callers/testes anteriores.
   async unregisterPushToken(push: PushService, userId?: string) {
     const stored = readStoredToken();
-    return this.unregisterDeviceToken(
-      userId ?? stored?.userId ?? "",
-      push,
-    );
+    return this.unregisterDeviceToken(userId ?? stored?.userId ?? "", push);
   },
 };
