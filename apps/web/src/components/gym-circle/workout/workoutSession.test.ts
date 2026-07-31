@@ -361,7 +361,7 @@ describe("workout route metrics", () => {
     expect(session.movingS).toBeGreaterThan(0);
   });
 
-  it("aceita leitura moderada de até 100 m sem contar ruído curto", () => {
+  it("mantém o fallback web compatível quando a velocidade não está disponível", () => {
     const first = appendWorkoutRoutePoint(base, {
       latitude: -23.536,
       longitude: -46.675,
@@ -379,6 +379,219 @@ describe("workout route metrics", () => {
 
     expect(second.distanceM).toBeGreaterThan(20);
     expect(second.movingS).toBe(10);
+  });
+
+  it("ignora deriva quando o sensor confirma que o aparelho está parado", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      speedMps: 0,
+      timestampMs: 1_000,
+    });
+    const drift = appendWorkoutRoutePoint(first, {
+      latitude: -23.5358,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      speedMps: 0.12,
+      timestampMs: 11_000,
+    });
+
+    expect(drift.distanceM).toBe(0);
+    expect(drift.movingS).toBe(0);
+    expect(drift.lastRoutePoint).toEqual(
+      expect.objectContaining({ timestampMs: 1_000 }),
+    );
+  });
+
+  it("não conta o retorno à origem depois de uma deriva rejeitada", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      speedMps: 0,
+      timestampMs: 1_000,
+    });
+    const drift = appendWorkoutRoutePoint(first, {
+      latitude: -23.5358,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      speedMps: 0.12,
+      timestampMs: 11_000,
+    });
+    const returned = appendWorkoutRoutePoint(drift, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 12,
+      speedMps: 0.08,
+      timestampMs: 21_000,
+    });
+
+    expect(returned.distanceM).toBe(0);
+    expect(returned.movingS).toBe(0);
+  });
+
+  it("preserva caminhada lenta quando deslocamento e sensor são coerentes", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 8,
+      speedMps: 0.3,
+      timestampMs: 1_000,
+    });
+    const moving = appendWorkoutRoutePoint(first, {
+      latitude: -23.53597,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 8,
+      speedMps: 0.3,
+      timestampMs: 11_000,
+    });
+
+    expect(moving.distanceM).toBeGreaterThan(3);
+    expect(moving.movingS).toBe(0);
+  });
+
+  it("não infla moving time após um período parado", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 6,
+      speedMps: 0,
+      timestampMs: 1_000,
+    });
+    const moving = appendWorkoutRoutePoint(first, {
+      latitude: -23.5359,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 6,
+      speedMps: 1.2,
+      timestampMs: 61_000,
+    });
+
+    expect(moving.distanceM).toBeGreaterThan(10);
+    expect(moving.movingS).toBe(0);
+  });
+
+  it("aceita caminhada real mesmo com precisão urbana fraca", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 60,
+      speedMps: 1.2,
+      timestampMs: 1_000,
+    });
+    const moving = appendWorkoutRoutePoint(first, {
+      latitude: -23.5357,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 60,
+      speedMps: 1.2,
+      timestampMs: 31_000,
+    });
+
+    expect(moving.distanceM).toBeGreaterThan(30);
+    expect(moving.movingS).toBe(30);
+  });
+
+  it("rejeita salto impossível mesmo com precisão fraca e speed plausível", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      speedMps: 1,
+      timestampMs: 1_000,
+    });
+    const jumped = appendWorkoutRoutePoint(first, {
+      latitude: -23.53465,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      speedMps: 1,
+      timestampMs: 11_000,
+    });
+
+    expect(jumped.distanceM).toBe(0);
+    expect(jumped.movingS).toBe(0);
+    expect(jumped.lastRoutePoint).toEqual(
+      expect.objectContaining({ timestampMs: 1_000 }),
+    );
+  });
+
+  it("rejeita salto abaixo do teto da corrida quando diverge do sensor", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      speedMps: 1,
+      timestampMs: 1_000,
+    });
+    const jumped = appendWorkoutRoutePoint(first, {
+      latitude: -23.5351,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      speedMps: 1,
+      timestampMs: 11_000,
+    });
+
+    expect(jumped.distanceM).toBe(0);
+    expect(jumped.movingS).toBe(0);
+  });
+
+  it("rejeita salto de bike que o teto modal isolado aceitaria", () => {
+    const rideSession = { ...base, activityType: "ride" as const };
+    const first = appendWorkoutRoutePoint(rideSession, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      speedMps: 1,
+      timestampMs: 1_000,
+    });
+    const jumped = appendWorkoutRoutePoint(first, {
+      latitude: -23.53465,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 80,
+      speedMps: 1,
+      timestampMs: 11_000,
+    });
+
+    expect(jumped.distanceM).toBe(0);
+    expect(jumped.movingS).toBe(0);
+  });
+
+  it("mantém deslocamento real quando a velocidade do sensor é plausível", () => {
+    const first = appendWorkoutRoutePoint(base, {
+      latitude: -23.536,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 6,
+      speedMps: 1.2,
+      timestampMs: 1_000,
+    });
+    const moving = appendWorkoutRoutePoint(first, {
+      latitude: -23.5359,
+      longitude: -46.675,
+      altitude: null,
+      accuracyM: 6,
+      speedMps: 1.2,
+      timestampMs: 11_000,
+    });
+
+    expect(moving.distanceM).toBeGreaterThan(10);
+    expect(moving.movingS).toBe(10);
   });
 
   it("contabiliza pontos atrasados enquanto o iPhone está bloqueado", () => {

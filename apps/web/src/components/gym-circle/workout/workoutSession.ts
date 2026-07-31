@@ -37,6 +37,8 @@ export type WorkoutRoutePoint = {
   altitude: number | null;
   accuracyM?: number | null;
   altitudeAccuracyM?: number | null;
+  /** Velocidade fornecida pelo sensor. `null` quando o navegador não expõe. */
+  speedMps?: number | null;
   timestampMs: number;
 };
 
@@ -594,17 +596,48 @@ export function appendWorkoutRoutePoint(
   const segmentM = distanceBetweenRoutePoints(previous, point);
   const averageAccuracy =
     ((previous.accuracyM ?? 8) + (point.accuracyM ?? 8)) / 2;
-  const minimumSegmentM = Math.max(2, Math.min(15, averageAccuracy * 0.25));
+  const minimumSegmentM = Math.max(
+    2,
+    Math.min(15, averageAccuracy * 0.25),
+  );
 
   // Mantém a âncora anterior para que pequenos passos se acumulem.
   if (segmentM < minimumSegmentM) return session;
 
-  const speedMps = segmentM / secondsBetween;
-  if (speedMps > maximumSpeedMps(session.activityType)) {
-    return {
-      ...session,
-      lastRoutePoint: point,
-    };
+  const computedSpeedMps = segmentM / secondsBetween;
+  const reportedSpeedMps =
+    typeof point.speedMps === "number" &&
+    Number.isFinite(point.speedMps) &&
+    point.speedMps >= 0
+      ? point.speedMps
+      : null;
+  const previousReportedSpeedMps =
+    typeof previous.speedMps === "number" &&
+    Number.isFinite(previous.speedMps) &&
+    previous.speedMps >= 0
+      ? previous.speedMps
+      : null;
+
+  // A velocidade do sensor serve apenas como evidência auxiliar. Com duas
+  // leituras disponíveis, rejeitamos deslocamentos muito maiores do que o
+  // sensor permite. A margem é limitada para a precisão ruim não autorizar um
+  // salto, mas larga o bastante para não zerar caminhada lenta real.
+  if (
+    previousReportedSpeedMps !== null &&
+    reportedSpeedMps !== null &&
+    segmentM >
+      Math.max(previousReportedSpeedMps, reportedSpeedMps) *
+        secondsBetween *
+        3 +
+        Math.max(5, Math.min(20, averageAccuracy * 0.25))
+  ) {
+    return session;
+  }
+
+  // A velocidade geodésica permanece a fonte de verdade para rejeitar saltos.
+  // Um ponto rejeitado não vira âncora, evitando contar o salto de retorno.
+  if (computedSpeedMps > maximumSpeedMps(session.activityType)) {
+    return session;
   }
 
   const previousAltitudeAccuracy = previous.altitudeAccuracyM;
@@ -628,7 +661,8 @@ export function appendWorkoutRoutePoint(
   return {
     ...session,
     distanceM: session.distanceM + segmentM,
-    movingS: session.movingS + (speedMps > 0.5 ? secondsBetween : 0),
+    movingS:
+      session.movingS + (computedSpeedMps > 0.5 ? secondsBetween : 0),
     elevationGainM:
       session.elevationGainM +
       (elevationDelta > elevationNoiseFloor && elevationDelta < 30
