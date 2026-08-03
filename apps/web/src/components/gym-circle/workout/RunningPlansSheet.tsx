@@ -38,7 +38,9 @@ import {
   RunningPlanPreview,
   formatRunningDistance,
   formatRunningDuration,
+  formatRunningPaceInput,
   formatRunningRange,
+  parseRunningPaceInput,
 } from "./RunningPlanPreview";
 import { useRunningLibrary } from "./useRunningLibrary";
 import { useRunningPlans } from "./useRunningPlans";
@@ -83,6 +85,45 @@ function numberValue(value: string) {
   if (!value.trim()) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function PaceInput({
+  onChange,
+  value,
+}: {
+  onChange: (value: number | null) => void;
+  value: number | null | undefined;
+}) {
+  const [text, setText] = useState(() => formatRunningPaceInput(value));
+
+  const commit = () => {
+    if (!text.trim()) {
+      onChange(null);
+      return;
+    }
+    const parsed = parseRunningPaceInput(text);
+    if (parsed == null) {
+      setText(formatRunningPaceInput(value));
+      return;
+    }
+    onChange(parsed);
+    setText(formatRunningPaceInput(parsed));
+  };
+
+  return (
+    <input
+      className="mt-1 h-10 w-full rounded-[12px] bg-white/[0.055] px-3 text-[12px] text-white"
+      inputMode="numeric"
+      onBlur={commit}
+      onChange={(event) => setText(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+      }}
+      placeholder="4:35"
+      type="text"
+      value={text}
+    />
+  );
 }
 
 function Editor({
@@ -192,6 +233,11 @@ function Editor({
             <p className="mt-2 text-[11px] font-semibold leading-5 text-white/46">
               {t("workout.running.reviewBeforeSave")}
             </p>
+            {review.warnings.includes("pace_speed_inconsistent") ? (
+              <div className="mt-3 rounded-[14px] bg-[#ffb020]/10 p-3 text-[10.5px] font-semibold leading-4 text-[#ffc45e]">
+                {t("workout.running.paceSpeedInconsistent")}
+              </div>
+            ) : null}
             {review.unparsedLines.length > 0 ? (
               <div className="mt-3 rounded-[14px] bg-[#ffb020]/10 p-3">
                 <p className="text-[10px] font-black text-[#ffc45e]">
@@ -591,30 +637,22 @@ function Editor({
               </label>
               <label className="text-[9px] font-black uppercase tracking-[0.08em] text-white/38">
                 {t("workout.running.paceMin")}
-                <input
-                  className="mt-1 h-10 w-full rounded-[12px] bg-white/[0.055] px-3 text-[12px] text-white"
-                  min={1}
-                  onChange={(event) =>
-                    updateStep(index, {
-                      paceMinSPerKm: numberValue(event.target.value),
-                    })
+                <PaceInput
+                  key={`pace-min-${step.position}-${step.paceMinSPerKm ?? "empty"}`}
+                  onChange={(value) =>
+                    updateStep(index, { paceMinSPerKm: value })
                   }
-                  type="number"
-                  value={step.paceMinSPerKm ?? ""}
+                  value={step.paceMinSPerKm}
                 />
               </label>
               <label className="text-[9px] font-black uppercase tracking-[0.08em] text-white/38">
                 {t("workout.running.paceMax")}
-                <input
-                  className="mt-1 h-10 w-full rounded-[12px] bg-white/[0.055] px-3 text-[12px] text-white"
-                  min={1}
-                  onChange={(event) =>
-                    updateStep(index, {
-                      paceMaxSPerKm: numberValue(event.target.value),
-                    })
+                <PaceInput
+                  key={`pace-max-${step.position}-${step.paceMaxSPerKm ?? "empty"}`}
+                  onChange={(value) =>
+                    updateStep(index, { paceMaxSPerKm: value })
                   }
-                  type="number"
-                  value={step.paceMaxSPerKm ?? ""}
+                  value={step.paceMaxSPerKm}
                 />
               </label>
               <label className="text-[9px] font-black uppercase tracking-[0.08em] text-white/38">

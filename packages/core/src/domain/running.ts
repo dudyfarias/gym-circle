@@ -190,6 +190,14 @@ function positiveOrNull(value: number | null | undefined) {
     : null;
 }
 
+function metadataPositiveNumber(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+  return typeof value === "number" ? positiveOrNull(value) : null;
+}
+
 function integerOr(value: number | null | undefined, fallback: number) {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(1, Math.round(value))
@@ -487,6 +495,14 @@ export function estimateRunningPlanTotals(
       exactDuration ?? positiveOrNull(step.durationMinS);
     const stepDurationMax =
       exactDuration ?? positiveOrNull(step.durationMaxS);
+    const sourceCompletionDistanceMin = metadataPositiveNumber(
+      step.metadata,
+      "sourceCompletionDistanceMinM",
+    );
+    const sourceCompletionDistanceMax = metadataPositiveNumber(
+      step.metadata,
+      "sourceCompletionDistanceMaxM",
+    );
 
     if (
       (stepDistanceMin && stepDistanceMax) &&
@@ -507,6 +523,19 @@ export function estimateRunningPlanTotals(
       distanceMinM += stepDistanceMin * repetitionMin;
       distanceMaxM += stepDistanceMax * repetitionMax;
       hasDistance = true;
+    } else if (
+      stepDurationMin &&
+      stepDurationMax &&
+      sourceCompletionDistanceMin &&
+      sourceCompletionDistanceMax
+    ) {
+      distanceMinM += sourceCompletionDistanceMin * repetitionMin;
+      distanceMaxM += sourceCompletionDistanceMax * repetitionMax;
+      hasDistance = true;
+      derivedDistance = true;
+      if (sourceCompletionDistanceMin !== sourceCompletionDistanceMax) {
+        hasRanges = true;
+      }
     } else if (stepDurationMin && stepDurationMax && pace) {
       const slowPace = paceMax ?? pace;
       const fastPace = paceMin ?? pace;
@@ -540,10 +569,24 @@ export function estimateRunningPlanTotals(
       unknownTargetCount += 1;
     }
 
-    const minRecoveries = Math.max(repetitionMin - 1, 0);
-    const maxRecoveries = Math.max(repetitionMax - 1, 0);
+    const recoveryAfterFinalRepetition =
+      step.metadata?.recoveryAfterFinalRepetition === true;
+    const minRecoveries = Math.max(
+      repetitionMin - (recoveryAfterFinalRepetition ? 0 : 1),
+      0,
+    );
+    const maxRecoveries = Math.max(
+      repetitionMax - (recoveryAfterFinalRepetition ? 0 : 1),
+      0,
+    );
     const recoveryDuration = positiveOrNull(step.recoveryDurationS);
     const recoveryDistance = positiveOrNull(step.recoveryDistanceM);
+    const recoveryDistanceMin =
+      metadataPositiveNumber(step.metadata, "recoveryDistanceMinM") ??
+      recoveryDistance;
+    const recoveryDistanceMax =
+      metadataPositiveNumber(step.metadata, "recoveryDistanceMaxM") ??
+      recoveryDistance;
     if (maxRecoveries > 0 && recoveryDuration) {
       const minTotal = recoveryDuration * minRecoveries;
       const maxTotal = recoveryDuration * maxRecoveries;
@@ -552,13 +595,19 @@ export function estimateRunningPlanTotals(
       durationMaxS += maxTotal;
       hasDuration = true;
     }
-    if (maxRecoveries > 0 && recoveryDistance) {
-      const minTotal = recoveryDistance * minRecoveries;
-      const maxTotal = recoveryDistance * maxRecoveries;
+    if (
+      maxRecoveries > 0 &&
+      recoveryDistanceMin &&
+      recoveryDistanceMax
+    ) {
+      const minTotal = recoveryDistanceMin * minRecoveries;
+      const maxTotal = recoveryDistanceMax * maxRecoveries;
       recoveryDistanceM += Math.round((minTotal + maxTotal) / 2);
       distanceMinM += minTotal;
       distanceMaxM += maxTotal;
       hasDistance = true;
+      derivedDistance ||= recoveryDistance == null;
+      if (recoveryDistanceMin !== recoveryDistanceMax) hasRanges = true;
     }
   }
 

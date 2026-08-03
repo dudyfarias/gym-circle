@@ -47,6 +47,27 @@ export function formatRunningPace(seconds: number | null | undefined) {
   return `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}/km`;
 }
 
+export function formatRunningPaceInput(
+  seconds: number | null | undefined,
+) {
+  return formatRunningPace(seconds)?.replace("/km", "") ?? "";
+}
+
+export function parseRunningPaceInput(value: string) {
+  const normalized = value.trim().replace(/[’´`]/g, "'");
+  if (!normalized) return null;
+  const clock = normalized.match(/^(\d{1,2})\s*[:'.,]\s*(\d{1,2})/);
+  if (clock) {
+    const minutes = Number.parseInt(clock[1], 10);
+    const seconds = Number.parseInt(clock[2], 10);
+    return seconds < 60 ? minutes * 60 + seconds : null;
+  }
+  const minutes = Number.parseInt(normalized, 10);
+  return /^\d{1,2}$/.test(normalized) && minutes > 0
+    ? minutes * 60
+    : null;
+}
+
 export function formatRunningRange(
   minimum: number | null | undefined,
   maximum: number | null | undefined,

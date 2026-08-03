@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { validateRunningPlan } from "./running";
+import { estimateRunningPlanTotals, validateRunningPlan } from "./running";
 import { parseRunningPlanImportText } from "./running-import";
+import { expandRunningPlanSegments } from "./running-session";
 import { RUNNING_PLAN_IMAGE_FIXTURE } from "./fixtures/running-plan-image-2026-07-23.fixture";
+import { RUNNING_PLAN_IMAGE_2026_08_03_FIXTURE } from "./fixtures/running-plan-image-2026-08-03.fixture";
 import { RUNNING_PLAN_IMPORT_CASES } from "./fixtures/running-plan-import-cases.fixture";
 
 describe("parseRunningPlanImportText", () => {
@@ -21,7 +23,7 @@ describe("parseRunningPlanImportText", () => {
     expect(parsed.parsedPlan.source).toBe("image");
     expect(parsed.parsedPlan.sourceMetadata).toMatchObject({
       sourceImageSha256: RUNNING_PLAN_IMAGE_FIXTURE.sourceImageSha256,
-      parserVersion: 2,
+      parserVersion: 3,
       reviewRequired: true,
     });
   });
@@ -190,4 +192,118 @@ describe("parseRunningPlanImportText", () => {
     expect(result.reviewRequired).toBe(true);
     expect(result.rawText).toBe(RUNNING_PLAN_IMPORT_CASES.imperfectOcr);
   });
+
+  it("parses a repeated work/recovery group from the real IMG_8507 prescription", () => {
+    const result = parseRunningPlanImportText(
+      RUNNING_PLAN_IMAGE_2026_08_03_FIXTURE.rawText,
+      {
+        sourceType: "image",
+        sourceName: RUNNING_PLAN_IMAGE_2026_08_03_FIXTURE.sourceImageName,
+        sourceImageSha256:
+          RUNNING_PLAN_IMAGE_2026_08_03_FIXTURE.sourceImageSha256,
+      },
+    );
+
+    expect(result.parsedPlan.steps).toHaveLength(3);
+    expect(result.parsedPlan.steps[0]).toMatchObject({
+      stepType: "easy",
+      targetBasis: "duration",
+      durationS: 900,
+      paceMinSPerKm: 275,
+      paceMaxSPerKm: 305,
+      heartRateZone: 2,
+      metadata: expect.objectContaining({
+        sourceCompletionDistanceMinM: 2950,
+        sourceCompletionDistanceMaxM: 3270,
+      }),
+    });
+    expect(result.parsedPlan.steps[1]).toMatchObject({
+      stepType: "interval",
+      targetBasis: "distance",
+      repetitions: 6,
+      distanceM: 800,
+      paceMinSPerKm: 235,
+      paceMaxSPerKm: 255,
+      heartRateZone: 4,
+      recoveryType: "easy_jog",
+      recoveryDurationS: 120,
+      metadata: expect.objectContaining({
+        sourceCompletionDurationMinS: 188,
+        sourceCompletionDurationMaxS: 204,
+        recoveryAfterFinalRepetition: true,
+        recoveryPaceMinSPerKm: 275,
+        recoveryPaceMaxSPerKm: 305,
+        recoveryHeartRateZone: 2,
+        recoveryDistanceMinM: 393,
+        recoveryDistanceMaxM: 436,
+      }),
+    });
+    expect(result.parsedPlan.steps[2]).toMatchObject({
+      stepType: "cooldown",
+      targetBasis: "duration",
+      durationS: 300,
+    });
+    expect(result.parsedPlan.sourceMetadata).toMatchObject({
+      sourcePrescribedDistanceMinM: 10110,
+      sourcePrescribedDistanceMaxM: 10690,
+      sourcePrescribedDurationMinS: 3048,
+      sourcePrescribedDurationMaxS: 3144,
+      parserVersion: 3,
+    });
+    expect(result.warnings).toContain("pace_speed_inconsistent");
+    expect(result.unparsedLines).toEqual([]);
+    expect(validateRunningPlan(result.parsedPlan)).toEqual([]);
+
+    const estimate = estimateRunningPlanTotals(result.parsedPlan);
+    expect(estimate.distanceMinM).toBe(10108);
+    expect(estimate.distanceMaxM).toBe(10686);
+    expect(estimate.durationMinS).toBe(3048);
+    expect(estimate.durationMaxS).toBe(3144);
+
+    const segments = expandRunningPlanSegments({
+      steps: result.parsedPlan.steps,
+    });
+    expect(
+      segments.filter((segment) => segment.kind === "recovery"),
+    ).toHaveLength(6);
+  });
+
+  it("repairs the actual browser OCR text without turning plan totals into steps", () => {
+    const result = parseRunningPlanImportText(
+      RUNNING_PLAN_IMAGE_2026_08_03_FIXTURE.browserOcrText,
+      { sourceType: "image" },
+    );
+    expect(result.parsedPlan.steps).toHaveLength(3);
+    expect(result.parsedPlan.steps[1]).toMatchObject({
+      repetitions: 6,
+      distanceM: 800,
+      heartRateZone: 4,
+      recoveryDurationS: 120,
+    });
+    expect(result.parsedPlan.steps[0].distanceMinM).toBeNull();
+    expect(result.parsedPlan.steps[0].durationS).toBe(900);
+    expect(result.unparsedLines).toEqual([]);
+  });
+
+  it.each(["Repetir 6 vezes", "6 séries de"])(
+    "accepts trainer repetition wording: %s",
+    (repeatLabel) => {
+      const result = parseRunningPlanImportText(`Corrida intervalada
+1. ${repeatLabel}
+• Correr 800 m no pace 03:55 a 04:15 min/km
+• Trotar durante 2 min em Z2
+2. Desaquecer por 5 min`);
+      expect(result.parsedPlan.steps[0]).toMatchObject({
+        stepType: "interval",
+        repetitions: 6,
+        distanceM: 800,
+        recoveryType: "easy_jog",
+        recoveryDurationS: 120,
+      });
+      expect(result.parsedPlan.steps[1]).toMatchObject({
+        stepType: "cooldown",
+        durationS: 300,
+      });
+    },
+  );
 });

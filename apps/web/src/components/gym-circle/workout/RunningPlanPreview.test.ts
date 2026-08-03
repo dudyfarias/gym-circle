@@ -4,6 +4,8 @@ import {
   formatRunningDistance,
   formatRunningDuration,
   formatRunningPace,
+  formatRunningPaceInput,
+  parseRunningPaceInput,
 } from "./RunningPlanPreview";
 
 describe("RunningPlanPreview formatters", () => {
@@ -11,6 +13,11 @@ describe("RunningPlanPreview formatters", () => {
     expect(formatRunningDuration(3720)).toBe("1h 02min");
     expect(formatRunningDistance(5000)).toContain("5");
     expect(formatRunningPace(290)).toBe("4:50/km");
+    expect(formatRunningPaceInput(290)).toBe("4:50");
+    expect(parseRunningPaceInput("4:50 min/km")).toBe(290);
+    expect(parseRunningPaceInput("5'05\"")).toBe(305);
+    expect(parseRunningPaceInput("5")).toBe(300);
+    expect(parseRunningPaceInput("4:75")).toBeNull();
   });
 
   it("renders repetition, target, pace, zone, and effort", () => {

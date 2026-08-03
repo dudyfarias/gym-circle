@@ -5,9 +5,9 @@ import {
   type RunningWorkoutPlanStepDraft,
 } from "./running";
 
-const PARSER_VERSION = 2;
+const PARSER_VERSION = 3;
 const HEADER_LINES = [
-  /^corrida\s*[;:,.]?$/i,
+  /^corrida(?:\s+[o0])?\s*[;:,.]?$/i,
   /^realizado\s*[;:,.]?$/i,
   /^treino\s*[;:,.]?$/i,
 ];
@@ -57,6 +57,8 @@ function repairNumericOcr(value: string) {
       token.replace(/[Oo]/g, "0"),
     )
     .replace(/\b[zZ]\s*[lI|]\b/g, "Z1")
+    .replace(/\bintensidade\s+2\s*([1-5])\b/gi, "Intensidade Z$1")
+    .replace(/\bintensidade\s+[zZ]?\s*([1-5])\b/gi, "Intensidade Z$1")
     .replace(/\btrein0\b/gi, "TREINO")
     .replace(/\bintervalad0\b/gi, "INTERVALADO")
     .replace(/\bdesaqueciment0\b/gi, "DESAQUECIMENTO")
@@ -118,8 +120,7 @@ function mergeWrappedLines(lines: string[]) {
   const merged: string[] = [];
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
-    const numberedPrescription =
-      /^\d+[.)]\s*(?:correr|corrida)\b/i.test(line);
+    const numberedPrescription = /^\d+[.)]\s*\S/i.test(line);
     if (!numberedPrescription) {
       merged.push(line);
       continue;
@@ -129,7 +130,7 @@ function mergeWrappedLines(lines: string[]) {
     while (index + 1 < lines.length) {
       const next = lines[index + 1];
       if (
-        /^\d+[.)]\s*(?:correr|corrida)\b/i.test(next) ||
+        /^\d+[.)]\s*\S/i.test(next) ||
         /^(?:aquecimento|alongamento|educativo|desaquecimento)\s*:/i.test(
           next,
         ) ||
@@ -145,14 +146,41 @@ function mergeWrappedLines(lines: string[]) {
   return merged;
 }
 
-function prepareLines(rawText: string) {
-  return mergeWrappedLines(
-    rawText
-      .replace(/\r/g, "\n")
+function splitInlineNumberedSections(lines: string[]) {
+  return lines.flatMap((line) =>
+    line
+      .replace(
+        /\s+(?=\d+[.)]\s*(?:correr|corrida|repetir|aquec|desaquec|caminh)\b)/gi,
+        "\n",
+      )
       .split("\n")
-      .map((line) => compactLine(repairNumericOcr(line)))
+      .map(compactLine)
       .filter(Boolean),
   );
+}
+
+function prepareLines(rawText: string) {
+  return mergeWrappedLines(
+    splitInlineNumberedSections(
+      rawText
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((line) => compactLine(repairNumericOcr(line)))
+        .filter(Boolean),
+    ),
+  );
+}
+
+function parseClockDurationRange(line: string) {
+  const match = fold(line).match(
+    /^(\d{1,3}):(\d{2})\s*(?:a|ate|[-–—])\s*(\d{1,3}):(\d{2})$/i,
+  );
+  if (!match) return null;
+  const first = secondsPerKm(match[1], match[2]);
+  const second = secondsPerKm(match[3], match[4]);
+  if (first == null || second == null) return null;
+  const [durationMinS, durationMaxS] = orderedPair(first, second);
+  return { durationMinS, durationMaxS };
 }
 
 function parsePaceRange(line: string) {
@@ -236,10 +264,48 @@ function parseSingleDistance(line: string) {
   return value == null ? null : unitMeters(value, match[2]);
 }
 
+function parseActionTarget(line: string) {
+  const normalized = fold(line);
+  const match = normalized.match(
+    /\b(?:correr|corrida|caminhar|caminhada|trotar|trote|aquecer|aquecimento|desaquecer|desaquecimento)\s+(?:por\s+)?(\d+(?:[.,]\d+)?)\s*(km|metros?|m|horas?|hrs?|h|minutos?|mins?|min|segundos?|segs?|seg|s)\b/i,
+  ) ?? normalized.match(
+    /\b(?:por|durante)\s+(\d+(?:[.,]\d+)?)\s*(km|metros?|m|horas?|hrs?|h|minutos?|mins?|min|segundos?|segs?|seg|s)\b/i,
+  );
+  if (!match) return null;
+  const value = decimal(match[1]);
+  if (value == null || value <= 0) return null;
+  const unit = match[2];
+  if (/^(?:km|metros?|m)$/i.test(unit)) {
+    return {
+      targetBasis: "distance" as const,
+      distanceM: unitMeters(value, unit),
+    };
+  }
+  return {
+    targetBasis: "duration" as const,
+    durationS: unitSeconds(value, unit),
+  };
+}
+
+function completionDistanceRange(line: string) {
+  const match = fold(line).match(
+    /completar\s+entre\s+(\d+(?:[.,]\d+)?)\s*(km|metros?|m)\s+e\s+(\d+(?:[.,]\d+)?)\s*(km|metros?|m)\b/i,
+  );
+  if (!match) return null;
+  const first = decimal(match[1]);
+  const second = decimal(match[3]);
+  if (first == null || second == null) return null;
+  const [distanceMinM, distanceMaxM] = orderedPair(
+    unitMeters(first, match[2]),
+    unitMeters(second, match[4]),
+  );
+  return { distanceMinM, distanceMaxM };
+}
+
 function recoveryKind(line: string) {
   const normalized = fold(line);
   if (/caminh/.test(normalized)) return "walking" as const;
-  if (/trote|leve|jog/.test(normalized)) return "easy_jog" as const;
+  if (/trot|leve|jog/.test(normalized)) return "easy_jog" as const;
   if (/parad|estatic/.test(normalized)) return "standing" as const;
   return "duration" as const;
 }
@@ -265,7 +331,7 @@ function parseRecovery(line: string): ParsedRecovery | null {
 
 function completionRange(line: string) {
   const match = fold(line).match(
-    /completar\s+entre\s+(\d{1,3})[':](\d{2})"?\s+e\s+(\d{1,3})[':](\d{2})"?/i,
+    /completar\s+entre\s+(\d{1,3})[':](\d{2})['"]?\s+e\s+(\d{1,3})[':](\d{2})['"]?/i,
   );
   if (!match) return null;
   const first = secondsPerKm(match[1], match[2]);
@@ -285,6 +351,19 @@ function speedRange(line: string) {
   if (first == null || second == null) return null;
   const [minKmh, maxKmh] = orderedPair(first, second);
   return { minKmh, maxKmh };
+}
+
+function paceAndSpeedAreInconsistent(
+  pace: ReturnType<typeof parsePaceRange>,
+  speed: ReturnType<typeof speedRange>,
+) {
+  if (!pace || !speed) return false;
+  const paceSpeedMin = 3600 / pace.paceMaxSPerKm;
+  const paceSpeedMax = 3600 / pace.paceMinSPerKm;
+  return (
+    Math.abs(paceSpeedMin - speed.minKmh) > 0.35 ||
+    Math.abs(paceSpeedMax - speed.maxKmh) > 0.35
+  );
 }
 
 function stepTypeForLine(
@@ -443,14 +522,26 @@ function parseStep(line: string): ParsedStep | null {
     };
   }
 
-  const distanceRange = parseDistanceRange(line);
-  const distance = distanceRange ? null : parseSingleDistance(line);
+  const actionTarget = parseActionTarget(line);
+  const distanceRange = actionTarget ? null : parseDistanceRange(line);
+  const distance =
+    actionTarget?.targetBasis === "distance"
+      ? actionTarget.distanceM
+      : distanceRange
+        ? null
+        : actionTarget
+          ? null
+          : parseSingleDistance(line);
   const durationRange =
-    distance != null || distanceRange != null ? null : parseDurationRange(line);
-  const duration =
-    distance != null || distanceRange != null || durationRange
+    actionTarget || distance != null || distanceRange != null
       ? null
-      : parseSingleDuration(line);
+      : parseDurationRange(line);
+  const duration =
+    actionTarget?.targetBasis === "duration"
+      ? actionTarget.durationS
+      : distance != null || distanceRange != null || durationRange
+        ? null
+        : parseSingleDuration(line);
   if (
     duration == null &&
     distance == null &&
@@ -470,6 +561,7 @@ function parseStep(line: string): ParsedStep | null {
   const targetBasis =
     distance != null || distanceRange != null ? "distance" : "duration";
   const completion = completionRange(line);
+  const completionDistance = completionDistanceRange(line);
   const speed = speedRange(line);
   return {
     line,
@@ -503,15 +595,93 @@ function parseStep(line: string): ParsedStep | null {
               sourceCompletionDurationMaxS: completion.maxS,
             }
           : {}),
+        ...(completionDistance
+          ? {
+              sourceCompletionDistanceMinM:
+                completionDistance.distanceMinM,
+              sourceCompletionDistanceMaxM:
+                completionDistance.distanceMaxM,
+            }
+          : {}),
         ...(speed
           ? {
               sourceSpeedMinKmh: speed.minKmh,
               sourceSpeedMaxKmh: speed.maxKmh,
+              sourcePaceSpeedInconsistent: paceAndSpeedAreInconsistent(
+                pace,
+                speed,
+              ),
             }
           : {}),
       },
     },
   };
+}
+
+function parseRepeatGroup(line: string): ParsedStep | null {
+  const normalized = fold(line);
+  const match = normalized.match(
+    /^\d+[.)]\s*(?:repetir\s+)?(\d{1,3})\s*(?:x|vezes|series?(?:\s+de)?)\b/i,
+  );
+  const repetitions = match ? positiveInteger(match[1]) : null;
+  if (repetitions == null) return null;
+
+  const children = line
+    .replace(
+      /^\d+[.)]\s*(?:repetir\s+)?\d{1,3}\s*(?:x|vezes|s[eé]ries?(?:\s+de)?)\s*/i,
+      "",
+    )
+    .split(
+      /\s+(?:[-–—•])\s+(?=(?:correr|corrida|caminh\w*|trot\w*|recup\w*|descans\w*)\b)/i,
+    )
+    .map((part) => compactLine(part.replace(/^[-–—•]\s*/, "")))
+    .filter(Boolean);
+  const work = children[0] ? parseStep(children[0]) : null;
+  if (!work) return null;
+
+  work.step.repetitions = repetitions;
+  work.step.stepType = "interval";
+  work.step.title = titleForStep(
+    children[0],
+    "interval",
+    work.step.heartRateZone ?? null,
+  );
+  work.step.instructions = line;
+  work.confidence = Math.min(work.confidence, 0.96);
+
+  const recoveryLine = children[1];
+  const recovery = recoveryLine ? parseStep(recoveryLine) : null;
+  if (recovery) {
+    const recoveryTarget = parseActionTarget(recoveryLine);
+    const recoveryCompletionDistance = completionDistanceRange(recoveryLine);
+    work.step.recoveryType = recoveryKind(recoveryLine);
+    work.step.recoveryDurationS =
+      recoveryTarget?.targetBasis === "duration"
+        ? recoveryTarget.durationS
+        : null;
+    work.step.recoveryDistanceM =
+      recoveryTarget?.targetBasis === "distance"
+        ? recoveryTarget.distanceM
+        : null;
+    work.step.metadata = {
+      ...(work.step.metadata ?? {}),
+      recoveryAfterFinalRepetition: true,
+      recoveryPaceMinSPerKm: recovery.step.paceMinSPerKm ?? null,
+      recoveryPaceMaxSPerKm: recovery.step.paceMaxSPerKm ?? null,
+      recoveryHeartRateZone: recovery.step.heartRateZone ?? null,
+      ...(recoveryCompletionDistance
+        ? {
+            recoveryDistanceMinM:
+              recoveryCompletionDistance.distanceMinM,
+            recoveryDistanceMaxM:
+              recoveryCompletionDistance.distanceMaxM,
+          }
+        : {}),
+    };
+    work.confidence = Math.min(work.confidence, recovery.confidence);
+  }
+
+  return { ...work, line };
 }
 
 function likelyTitle(line: string) {
@@ -690,6 +860,10 @@ export function parseRunningPlanImportText(
   const consumed = new Set<string>();
   const parsedSteps: ParsedStep[] = [];
   let explicitTitle: string | null = null;
+  let sourcePrescribedDistanceMinM: number | null = null;
+  let sourcePrescribedDistanceMaxM: number | null = null;
+  let sourcePrescribedDurationMinS: number | null = null;
+  let sourcePrescribedDurationMaxS: number | null = null;
 
   for (const line of lines) {
     if (
@@ -698,6 +872,27 @@ export function parseRunningPlanImportText(
       URL_CONTINUATION_LINE.test(line)
     ) {
       continue;
+    }
+    if (parsedSteps.length === 0 && !/^\d+[.)]/.test(line)) {
+      const summaryDuration = parseClockDurationRange(line);
+      if (summaryDuration) {
+        sourcePrescribedDurationMinS = summaryDuration.durationMinS;
+        sourcePrescribedDurationMaxS = summaryDuration.durationMaxS;
+        consumed.add(line);
+        continue;
+      }
+      const summaryDistance = parseDistanceRange(line);
+      if (
+        summaryDistance &&
+        !/\b(?:correr|caminh|completar|pace|ritmo|velocidade)\b/i.test(
+          fold(line),
+        )
+      ) {
+        sourcePrescribedDistanceMinM = summaryDistance.distanceMinM;
+        sourcePrescribedDistanceMaxM = summaryDistance.distanceMaxM;
+        consumed.add(line);
+        continue;
+      }
     }
     if (!explicitTitle && likelyTitle(line)) {
       explicitTitle = line;
@@ -710,7 +905,7 @@ export function parseRunningPlanImportText(
     ) {
       continue;
     }
-    const parsed = parseStep(line);
+    const parsed = parseRepeatGroup(line) ?? parseStep(line);
     if (!parsed) continue;
     consumed.add(line);
     if (!attachStandaloneRecovery(parsedSteps, parsed)) {
@@ -766,12 +961,16 @@ export function parseRunningPlanImportText(
     0,
     Math.min(0.98, averageConfidence - unparsedLines.length * 0.04),
   );
+  const hasPaceSpeedInconsistency = parsedSteps.some(
+    (parsed) => parsed.step.metadata?.sourcePaceSpeedInconsistent === true,
+  );
   const warnings = [
     "review_required",
     "level_not_provided",
     "goal_not_provided",
     ...(links.length > 0 ? ["reference_links_not_verified"] : []),
     ...(unparsedLines.length > 0 ? ["unparsed_lines"] : []),
+    ...(hasPaceSpeedInconsistency ? ["pace_speed_inconsistent"] : []),
     ...(confidence < 0.75 ? ["low_confidence"] : []),
   ];
   const sourceType = options.sourceType ?? "text";
@@ -786,6 +985,10 @@ export function parseRunningPlanImportText(
       sourceSha256:
         options.sourceSha256 ?? options.sourceImageSha256 ?? null,
       sourceImageSha256: options.sourceImageSha256 ?? null,
+      sourcePrescribedDistanceMinM,
+      sourcePrescribedDistanceMaxM,
+      sourcePrescribedDurationMinS,
+      sourcePrescribedDurationMaxS,
       referenceUrls: links,
       parserVersion: PARSER_VERSION,
       importConfidence: confidence,

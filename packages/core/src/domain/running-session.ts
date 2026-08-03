@@ -187,6 +187,14 @@ function positiveOrNull(value: number | null | undefined) {
     : null;
 }
 
+function metadataPositiveNumber(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
+  const value = metadata?.[key];
+  return typeof value === "number" ? positiveOrNull(value) : null;
+}
+
 function canonicalRangeTarget(
   exact: number | null | undefined,
   maximum: number | null | undefined,
@@ -272,9 +280,18 @@ function recoverySegment(
     targetBasis: targetDistanceM ? "distance" : "duration",
     targetDistanceM,
     targetDurationS,
-    paceMinSPerKm: null,
-    paceMaxSPerKm: null,
-    heartRateZone: null,
+    paceMinSPerKm: metadataPositiveNumber(
+      step.metadata,
+      "recoveryPaceMinSPerKm",
+    ),
+    paceMaxSPerKm: metadataPositiveNumber(
+      step.metadata,
+      "recoveryPaceMaxSPerKm",
+    ),
+    heartRateZone: metadataPositiveNumber(
+      step.metadata,
+      "recoveryHeartRateZone",
+    ),
     targetEffort: null,
     recoveryType: step.recoveryType,
   };
@@ -290,7 +307,10 @@ export function expandRunningPlanSegments(
       segments.push(
         workSegment(step, stepIndex, repetitionIndex, repetitions),
       );
-      if (repetitionIndex < repetitions) {
+      if (
+        repetitionIndex < repetitions ||
+        step.metadata?.recoveryAfterFinalRepetition === true
+      ) {
         const recovery = recoverySegment(
           step,
           stepIndex,
