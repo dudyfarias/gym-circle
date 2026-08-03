@@ -878,7 +878,10 @@
       "menuOpenLabel": "More options"
     },
     "suggestions": {
-      "title": "Suggestions for you"
+      "title": "Suggestions for you",
+      "newUserTitle": "People you may know",
+      "postTitle": "Suggested post for you",
+      "publicRecent": "Public profile · posted recently"
     }
   },
   "discovery": {

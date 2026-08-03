@@ -190,6 +190,32 @@ export async function queryHomeFeedSurface(
   };
 }
 
+/**
+ * Discovery posts are intentionally independent from the followed home feed.
+ * A missing RPC during a staggered rollout degrades to no suggestions instead
+ * of breaking the main feed; the server remains the source of truth for the
+ * public-profile, 48-hour, follow, mute and block rules.
+ */
+export async function querySuggestedFeedPostsSurface(
+  client: GymCircleSupabaseClient,
+  limit: number,
+): Promise<{ data: SurfacePostRow[]; error: null }> {
+  const rpcRes = await (client as unknown as SupabaseClient).rpc(
+    "get_suggested_feed_posts",
+    { p_limit: limit },
+  );
+  if (!rpcRes.error) {
+    const rows = (rpcRes.data ?? []) as unknown as SurfacePostRow[];
+    return {
+      data: await hydrateWorkoutRecordHighlights(client, rows),
+      error: null,
+    };
+  }
+
+  logSurfaceFallback("suggested feed posts", rpcRes.error);
+  return { data: [], error: null };
+}
+
 export async function queryHomeCheckinsSurface(
   client: GymCircleSupabaseClient,
   limit: number,

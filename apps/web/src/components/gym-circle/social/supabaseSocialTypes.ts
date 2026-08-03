@@ -86,6 +86,8 @@ export type AggregateState = {
   userGyms: UserGymRow[];
   follows: FollowRow[];
   feedPosts: FeedPostRow[];
+  /** Posts recentes de perfis públicos ainda não seguidos. */
+  suggestedFeedPosts: FeedPostRow[];
   feedCheckins: SurfaceCheckinRow[];
   feedActivities: SurfaceActivityRow[];
   profileFeedPosts: FeedPostRow[];

@@ -37,11 +37,13 @@ import {
   shouldShowViewerLocationPrompt,
   type ViewerLocationStatus,
 } from "../social/useViewerLocation";
+import { interleaveSuggestedFeedPosts } from "../social/suggestedFeed";
 import { TopBar } from "../TopBar";
 
 type FeedScreenProps = {
   currentUser: EnrichedUser;
   feedPosts: EnrichedPost[];
+  suggestedFeedPosts?: EnrichedPost[];
   feedCheckins?: EnrichedCheckin[];
   feedActivities?: EnrichedActivity[];
   stories: StoryGroup[];
@@ -84,6 +86,7 @@ type FeedScreenProps = {
 export function FeedScreen({
   currentUser,
   feedPosts,
+  suggestedFeedPosts = [],
   feedCheckins = [],
   feedActivities = [],
   stories,
@@ -121,7 +124,7 @@ export function FeedScreen({
 }: FeedScreenProps) {
   const { t } = useTranslation();
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  const feedItems = useMemo(
+  const organicFeedItems = useMemo(
     () =>
       [
         ...feedPosts.map((post) => ({
@@ -147,6 +150,15 @@ export function FeedScreen({
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       ),
     [feedActivities, feedCheckins, feedPosts],
+  );
+  const feedItems = useMemo(
+    () =>
+      interleaveSuggestedFeedPosts(
+        organicFeedItems,
+        suggestedFeedPosts,
+        { isNewUser: currentUser.followingCount === 0 },
+      ),
+    [currentUser.followingCount, organicFeedItems, suggestedFeedPosts],
   );
 
   useEffect(() => {
@@ -180,10 +192,11 @@ export function FeedScreen({
   // o que o user VAI ver — o thumb só serve como blur placeholder.
   // `getPreloadCount(3)` continua adapting por connection.
   useEffect(() => {
-    if (typeof window === "undefined" || feedPosts.length === 0) return;
+    const preloadPosts = [...feedPosts, ...suggestedFeedPosts];
+    if (typeof window === "undefined" || preloadPosts.length === 0) return;
     const count = getPreloadCount(3);
     if (count <= 0) return;
-    const topN = feedPosts
+    const topN = preloadPosts
       .slice(0, count)
       // Pula vídeos — poster já carrega via `<video poster>` nativo,
       // e o arquivo do vídeo é grande demais pra pre-fetch agressivo.
@@ -222,7 +235,7 @@ export function FeedScreen({
     return () => {
       for (const src of srcs) unpinSource(src);
     };
-  }, [feedPosts]);
+  }, [feedPosts, suggestedFeedPosts]);
 
   return (
     <section className="gc-screen-enter min-h-screen px-5 pb-6">
@@ -244,14 +257,35 @@ export function FeedScreen({
         <FeedSkeleton />
       ) : feedItems.length > 0 ? (
         <div className="space-y-5">
+          {currentUser.followingCount === 0 && suggestedUsers.length > 0 ? (
+            <SuggestedPeopleSection
+              onSelectUser={onSelectUser}
+              onToggleFollow={onToggleFollow}
+              suggestedUsers={suggestedUsers}
+              title={t("feed.suggestions.newUserTitle")}
+            />
+          ) : null}
           {feedItems.map((item) => (
             <div key={`${item.kind}:${item.id}`}>
+              {item.kind === "suggested_post" ? (
+                <div className="mb-3 flex items-center gap-2 px-1">
+                  <Sparkles className="size-4 text-[var(--gc-brand)]" />
+                  <div>
+                    <h3 className="text-[14px] font-black text-white">
+                      {t("feed.suggestions.postTitle")}
+                    </h3>
+                    <p className="text-[11px] font-bold text-white/45">
+                      {t("feed.suggestions.publicRecent")}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
               {/* gc-feed-cell (Sprint 21.3): content-visibility pula
                   render/paint dos posts fora da viewport — a WebView não
                   paga pelos cards já scrollados. Carrosséis full-bleed ficam
                   fora desta contenção para não serem recortados nas bordas. */}
               <div className="gc-feed-cell">
-                {item.kind === "post" ? (
+                {item.kind === "post" || item.kind === "suggested_post" ? (
                   <SocialPostCard
                     currentUserId={currentUser.id}
                     formatTime={formatTime}
@@ -309,21 +343,13 @@ export function FeedScreen({
               {item.kind === "post" &&
               item.post === feedPosts[1] &&
               suggestedUsers.length > 0 ? (
-                <section className="mt-5">
-                  <div className="mb-3 flex items-center">
-                    <h3 className="text-[17px] font-black">{t("feed.suggestions.title")}</h3>
-                  </div>
-                  <div className="gc-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5">
-                    {suggestedUsers.slice(0, 5).map((user) => (
-                      <DiscoveryUserCard
-                        key={user.id}
-                        onSelectUser={onSelectUser}
-                        onToggleFollow={onToggleFollow}
-                        user={user}
-                      />
-                    ))}
-                  </div>
-                </section>
+                <SuggestedPeopleSection
+                  className="mt-5"
+                  onSelectUser={onSelectUser}
+                  onToggleFollow={onToggleFollow}
+                  suggestedUsers={suggestedUsers}
+                  title={t("feed.suggestions.title")}
+                />
               ) : null}
             </div>
           ))}
@@ -350,6 +376,38 @@ export function FeedScreen({
           title={t("feed.empty.title")}
         />
       )}
+    </section>
+  );
+}
+
+function SuggestedPeopleSection({
+  className = "",
+  onSelectUser,
+  onToggleFollow,
+  suggestedUsers,
+  title,
+}: {
+  className?: string;
+  onSelectUser?: (userId: string) => void;
+  onToggleFollow: (userId: string) => void;
+  suggestedUsers: EnrichedUser[];
+  title: string;
+}) {
+  return (
+    <section className={className}>
+      <div className="mb-3 flex items-center">
+        <h3 className="text-[17px] font-black">{title}</h3>
+      </div>
+      <div className="gc-scrollbar -mx-5 flex gap-3 overflow-x-auto px-5">
+        {suggestedUsers.slice(0, 5).map((user) => (
+          <DiscoveryUserCard
+            key={user.id}
+            onSelectUser={onSelectUser}
+            onToggleFollow={onToggleFollow}
+            user={user}
+          />
+        ))}
+      </div>
     </section>
   );
 }

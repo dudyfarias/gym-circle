@@ -290,8 +290,12 @@ export function buildProfilePosts(ctx: ProfilePostsContext): EnrichedPost[] {
     postParticipantsByPost,
   } = ctx;
   const visibleRows = mergeRowsByKey(
-    agg.feedPosts,
-    agg.profileFeedPosts,
+    mergeRowsByKey(
+      agg.feedPosts,
+      agg.profileFeedPosts,
+      (post) => post.id,
+    ),
+    agg.suggestedFeedPosts,
     (post) => post.id,
   );
   if (!visibleRows.length) return [];

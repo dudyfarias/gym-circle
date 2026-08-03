@@ -894,6 +894,7 @@ export type SocialBundle = {
   users?: Record<string, GymUser>;
   gyms?: GymLocationOption[];
   feedPosts: EnrichedPost[];
+  suggestedFeedPosts?: EnrichedPost[];
   feedCheckins?: EnrichedCheckin[];
   feedActivities?: EnrichedActivity[];
   profilePosts?: EnrichedPost[];

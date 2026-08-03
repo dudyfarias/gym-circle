@@ -1185,6 +1185,10 @@ export function GymCirclePreview({
     () => addViewerDistance(social.feedPosts),
     [addViewerDistance, social.feedPosts],
   );
+  const suggestedFeedPosts = useMemo<EnrichedPost[]>(
+    () => addViewerDistance(social.suggestedFeedPosts ?? []),
+    [addViewerDistance, social.suggestedFeedPosts],
+  );
 
   const profilePosts = useMemo<EnrichedPost[]>(
     () => addViewerDistance(social.profilePosts ?? social.feedPosts),
@@ -2562,6 +2566,7 @@ export function GymCirclePreview({
             feedActivities={social.feedActivities ?? []}
             feedCheckins={social.feedCheckins}
             feedPosts={feedPosts}
+            suggestedFeedPosts={suggestedFeedPosts}
             formatTime={social.formatPostClock}
             onAddActivityPhoto={openActivityComposer}
             onOpenActivityDetails={(activity) =>
@@ -2608,7 +2613,11 @@ export function GymCirclePreview({
             suggestedUsers={social.suggestedUsers}
             viewerLocationError={viewerLocation.error}
             viewerLocationStatus={viewerLocation.status}
-            loading={Boolean(social.homeLoading)}
+            loading={Boolean(
+              social.homeLoading ||
+                (social.currentUser.followingCount === 0 &&
+                  social.secondaryLoading),
+            )}
           />
         );
     }
@@ -2625,6 +2634,7 @@ export function GymCirclePreview({
     openGymDetail,
     openMyCircle,
     feedPosts,
+    suggestedFeedPosts,
     scrollState,
     hasDistancePosts,
     social,

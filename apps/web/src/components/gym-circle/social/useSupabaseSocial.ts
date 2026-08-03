@@ -34,6 +34,7 @@ import type {
 
 
 import { simulateHaptic } from "./haptics";
+import { filterClientSuggestedFeedPosts } from "./suggestedFeed";
 import type { CatalogPlaceInput } from "./placeProvider";
 import { markPerf, measurePerf } from "../performance";
 import {
@@ -113,6 +114,7 @@ import {
   queryHomeActivitiesSurface,
   queryHomeCheckinsSurface,
   queryHomeFeedSurface,
+  querySuggestedFeedPostsSurface,
   queryStoryTraySurface,
   queryStoryViewerItemsSurface,
   queryUserSuggestionsSurface,
@@ -275,6 +277,7 @@ export type SupabaseSocialResult = {
   users: Record<string, GymUser>;
   gyms: GymLocationOption[];
   feedPosts: EnrichedPost[];
+  suggestedFeedPosts: EnrichedPost[];
   feedCheckins: EnrichedCheckin[];
   feedActivities: EnrichedActivity[];
   profilePosts: EnrichedPost[];
@@ -784,6 +787,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
       try {
         const [
           suggestionsRes,
+          suggestedPostsRes,
           gymsRes,
           userGymsRes,
           visibleProfileGymsRes,
@@ -796,6 +800,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           storyParticipants,
         ] = await Promise.all([
           queryUserSuggestionsSurface(services.client, 24),
+          querySuggestedFeedPostsSurface(services.client, 12),
           services.client
             .from("gyms")
             .select("id,name,address,city,state,latitude,longitude,created_at"),
@@ -864,6 +869,21 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           "story_views",
         );
         const suggestionRows = suggestionsRes.data ?? [];
+        const suggestedPostRows = suggestedPostsRes.data ?? [];
+        const suggestedPostIds = suggestedPostRows.map((post) => post.id);
+        const suggestedPostProfiles = suggestedPostRows
+          .map(profileRowFromSurface)
+          .filter((profile): profile is ProfileRow => Boolean(profile));
+        const suggestedPostStats = suggestedPostRows
+          .map(statsRowFromSurface)
+          .filter((stats): stats is UserStatsRow => Boolean(stats));
+        const suggestedPostLikes: PostLikeRow[] = suggestedPostRows
+          .filter((post) => post.liked_by_me && post.id)
+          .map((post) => ({
+            post_id: post.id,
+            user_id: currentUserId,
+            created_at: post.created_at ?? new Date().toISOString(),
+          }));
         const suggestionProfiles = suggestionRows.map(profileRowFromDiscovery);
         const suggestionStats = suggestionRows.map(statsRowFromDiscovery);
         const suggestionFollows = suggestionRows
@@ -878,14 +898,31 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
 
         setAgg((current) => ({
           ...current,
-          profiles: mergeProfileRows(current.profiles, suggestionProfiles),
-          stats: mergeStatsArrays(current.stats, suggestionStats),
+          profiles: mergeProfileRows(
+            mergeProfileRows(current.profiles, suggestionProfiles),
+            suggestedPostProfiles,
+          ),
+          stats: mergeStatsArrays(
+            mergeStatsArrays(current.stats, suggestionStats),
+            suggestedPostStats,
+          ),
           follows: mergeRowsByKey(
             current.follows,
             suggestionFollows,
             (follow) => `${follow.follower_id}:${follow.following_id}`,
           ),
           suggestedUserIds: suggestionRows.map((row) => row.user_id),
+          suggestedFeedPosts: suggestedPostRows.map(feedPostRowFromSurface),
+          postLikes: [
+            ...current.postLikes.filter(
+              (like) =>
+                !(
+                  like.user_id === currentUserId &&
+                  suggestedPostIds.includes(like.post_id)
+                ),
+            ),
+            ...suggestedPostLikes,
+          ],
           gyms: (gymsRes.data ?? []) as unknown as GymRow[],
           userGyms: mergeRowsByKey(
             (userGymsRes.data ?? []) as unknown as UserGymRow[],
@@ -936,6 +973,23 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
           myActivityDays: (myActivityRes.data ?? []) as unknown as UserActivityDayRow[],
         }));
 
+        if (suggestedPostIds.length > 0) {
+          void services.posts
+            .mediaForPosts(suggestedPostIds)
+            .then((rows) => {
+              if (!mountedRef.current) return;
+              setAgg((current) => ({
+                ...current,
+                postMedia: mergeRowsByKey(
+                  current.postMedia,
+                  rows,
+                  (row) => `${row.post_id}:${row.position}`,
+                ),
+              }));
+            })
+            .catch(() => undefined);
+        }
+
         // Sprint 3.6.4: bulk-hidrata stats/follows/activity de TODOS os
         // users visíveis no feed/stories/suggestions/follows. Sem await
         // — roda em paralelo com refreshNotifications/refreshUnreadCount
@@ -943,6 +997,9 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
         // próximo render, mas não bloqueante.
         const visibleUserIds = new Set<string>();
         for (const post of aggRef.current.feedPosts) {
+          visibleUserIds.add(post.user_id);
+        }
+        for (const post of suggestedPostRows) {
           visibleUserIds.add(post.user_id);
         }
         for (const story of aggRef.current.stories) {
@@ -1982,6 +2039,18 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     [currentUserId, mutedPostAuthorsSet, profilePosts],
   );
 
+  // Defense in depth: the RPC enforces these rules, while the client removes
+  // stale recommendations immediately after a follow/privacy state change.
+  const suggestedFeedPosts = useMemo<EnrichedPost[]>(() => {
+    const suggestedIds = new Set(
+      agg.suggestedFeedPosts.map((post) => post.id),
+    );
+    return filterClientSuggestedFeedPosts(
+      profilePosts.filter((post) => suggestedIds.has(post.id)),
+      currentUserId,
+    );
+  }, [agg.suggestedFeedPosts, currentUserId, profilePosts]);
+
   const feedCheckins = useMemo<EnrichedCheckin[]>(
     () =>
       agg.feedCheckins
@@ -2343,6 +2412,7 @@ export function useSupabaseSocial(currentUserId: string): SupabaseSocialResult {
     users: usersRecord,
     gyms: gymOptions,
     feedPosts,
+    suggestedFeedPosts,
     feedCheckins,
     feedActivities,
     profilePosts,

@@ -15,6 +15,7 @@ export const EMPTY: AggregateState = {
   userGyms: [],
   follows: [],
   feedPosts: [],
+  suggestedFeedPosts: [],
   feedCheckins: [],
   feedActivities: [],
   profileFeedPosts: [],
