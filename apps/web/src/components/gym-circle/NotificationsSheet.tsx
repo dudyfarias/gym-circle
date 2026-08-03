@@ -26,6 +26,7 @@ import {
   getFollowCtaState,
   normalizeFollowActionResult,
 } from "./social/followCta";
+import { collectNotificationActorIds } from "./social/notificationPresentation";
 import type { EnrichedUser, FollowActionResult, FollowStatus } from "./social/types";
 
 // ---------------------------------------------------------------------
@@ -35,9 +36,9 @@ import type { EnrichedUser, FollowActionResult, FollowStatus } from "./social/ty
 // Notificações que chegam DEPOIS do boot (user novo seguiu, curtiu, etc)
 // têm actor_id ausente nesse dict → cai no fallback "Alguém" + avatar "?".
 //
-// Fix: após carregar a lista de notifs, coletar os actor_id sem
-// correspondência e fazer fetch batch via profilesService.byUserIds().
-// Mantemos um state local `actorsExtra` que merge no render.
+// Fix: a primeira carga do sheet aguarda a hidratação batch dos actors antes
+// de expor os itens. Assim uma notificação recém-chegada nunca pisca como
+// "Alguém" antes de mostrar nome/avatar.
 // ---------------------------------------------------------------------
 
 const ACCENT_PALETTE = [
@@ -334,29 +335,47 @@ export function NotificationsSheet({
     setLoading(true);
     try {
       const list = await services.notifications.listForUser(currentUserId);
-      const { decisions, items: visibleItems } = await hydrateTagDecisions(list);
+      const actorIds = collectNotificationActorIds(list);
+      const [{ decisions, items: visibleItems }, actorRows] = await Promise.all([
+        hydrateTagDecisions(list),
+        services.profiles.byUserIds(actorIds).catch(() => []),
+      ]);
+      const hydratedActors: Record<string, EnrichedUser> = {};
+      for (const row of actorRows) {
+        hydratedActors[row.user_id] = actorFromProfileRow(row);
+      }
+      setActorsExtra(hydratedActors);
       setTagDecisionOverrides(decisions);
       setItems(visibleItems);
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, hydrateTagDecisions, open, services.notifications]);
+  }, [currentUserId, hydrateTagDecisions, open, services.notifications, services.profiles]);
 
   const acceptPostTag = useCallback(
     async (notification: NotificationRow) => {
       if (!notification.post_id || !onAcceptPostTag) return;
+      // O aceite aparece no mesmo frame do toque. A persistência continua
+      // protegida no callback e, se falhar, restauramos o estado real.
+      setTagDecisionOverrides((current) => ({
+        ...current,
+        [notification.id]: "accepted",
+      }));
       setTagActionBusyId(notification.id);
       try {
         await onAcceptPostTag(notification.post_id);
-        setTagDecisionOverrides((current) => ({
-          ...current,
-          [notification.id]: "accepted",
-        }));
+      } catch {
+        setTagDecisionOverrides((current) => {
+          const next = { ...current };
+          delete next[notification.id];
+          return next;
+        });
+        void refresh();
       } finally {
         setTagActionBusyId(null);
       }
     },
-    [onAcceptPostTag],
+    [onAcceptPostTag, refresh],
   );
 
   const rejectPostTag = useCallback(
@@ -380,18 +399,25 @@ export function NotificationsSheet({
   const acceptStoryTag = useCallback(
     async (notification: NotificationRow) => {
       if (!notification.story_id || !onAcceptStoryTag) return;
+      setTagDecisionOverrides((current) => ({
+        ...current,
+        [notification.id]: "accepted",
+      }));
       setTagActionBusyId(notification.id);
       try {
         await onAcceptStoryTag(notification.story_id);
-        setTagDecisionOverrides((current) => ({
-          ...current,
-          [notification.id]: "accepted",
-        }));
+      } catch {
+        setTagDecisionOverrides((current) => {
+          const next = { ...current };
+          delete next[notification.id];
+          return next;
+        });
+        void refresh();
       } finally {
         setTagActionBusyId(null);
       }
     },
-    [onAcceptStoryTag],
+    [onAcceptStoryTag, refresh],
   );
 
   const rejectStoryTag = useCallback(
@@ -436,41 +462,6 @@ export function NotificationsSheet({
       services.client.removeChannel(channel);
     };
   }, [services, currentUserId, open, refresh]);
-
-  // Sprint 10.5 — hidrata actor_ids que faltam no `users` prop.
-  // Dispara quando items muda. Idempotente: só busca ids ainda ausentes
-  // em users + actorsExtra. Falha graceful: erros ficam silenciosos pq
-  // o fallback "Alguém" continua visível, nunca quebra a tela.
-  useEffect(() => {
-    if (!open || items.length === 0) return;
-    const wanted = new Set<string>();
-    for (const n of items) {
-      if (!n.actor_id) continue;
-      if (users[n.actor_id]) continue;
-      if (actorsExtra[n.actor_id]) continue;
-      wanted.add(n.actor_id);
-    }
-    if (wanted.size === 0) return;
-    let cancelled = false;
-    void services.profiles
-      .byUserIds(Array.from(wanted))
-      .then((rows) => {
-        if (cancelled || rows.length === 0) return;
-        setActorsExtra((current) => {
-          const next = { ...current };
-          for (const row of rows) {
-            next[row.user_id] = actorFromProfileRow(row);
-          }
-          return next;
-        });
-      })
-      .catch(() => {
-        // ignore: fallback "Alguém" continua exibido
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [items, open, services.profiles, users, actorsExtra]);
 
   // Sprint 11.3 — busca o status de follow real do currentUser pra todos
   // os actors de notificações de follow. Vira baseline do CTA follow-back

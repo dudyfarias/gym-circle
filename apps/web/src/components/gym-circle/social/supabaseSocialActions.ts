@@ -991,11 +991,32 @@ export function createSocialActions(
         );
       },
       async acceptPostTag(postId: string) {
-        await services.participants.respondToPostTag(postId, currentUserId, "accepted");
-        await services.stats.refreshMine();
+        const participant = await services.participants.respondToPostTag(
+          postId,
+          currentUserId,
+          "accepted",
+        );
+        if (participant && mountedRef.current) {
+          setAgg((current) => ({
+            ...current,
+            postParticipants: [
+              ...current.postParticipants.filter(
+                (row) =>
+                  !(
+                    row.post_id === participant.post_id &&
+                    row.tagged_user_id === participant.tagged_user_id
+                  ),
+              ),
+              participant,
+            ],
+          }));
+        }
         invalidateProfilePostsCache(currentUserId);
-        await refresh();
         showFeedback("success", "Marcação aceita", "Seu círculo acendeu se era treino de hoje.");
+        // Estatísticas e superfícies dependentes sincronizam depois da resposta
+        // curta do aceite, sem manter o botão preso num refresh global.
+        void services.stats.refreshMine().catch(() => undefined);
+        void refresh().catch(() => undefined);
       },
       async rejectPostTag(postId: string) {
         await services.participants.respondToPostTag(postId, currentUserId, "rejected");
@@ -1005,9 +1026,9 @@ export function createSocialActions(
       },
       async acceptStoryTag(storyId: string) {
         await services.participants.respondToStoryTag(storyId, currentUserId, "accepted");
-        await services.stats.refreshMine();
-        await refresh();
         showFeedback("success", "Story aceito", "Aparece no seu círculo enquanto estiver ativo.");
+        void services.stats.refreshMine().catch(() => undefined);
+        void refresh().catch(() => undefined);
       },
       async rejectStoryTag(storyId: string) {
         await services.participants.respondToStoryTag(storyId, currentUserId, "rejected");
