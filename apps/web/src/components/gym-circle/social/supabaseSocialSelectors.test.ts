@@ -354,15 +354,21 @@ describe("buildCurrentUser", () => {
 });
 
 describe("buildSuggestedUsers", () => {
+  const suggestedAuthor = (id: string): EnrichedUser => ({
+    ...followedAuthor(id),
+    followStatus: "none",
+    isFollowing: false,
+  });
   const enrichedAll = new Map<string, EnrichedUser>([
     ["me", followedAuthor("me")],
-    ["a", followedAuthor("a")],
-    ["b", followedAuthor("b")],
+    ["a", suggestedAuthor("a")],
+    ["b", suggestedAuthor("b")],
+    ["followed", followedAuthor("followed")],
   ]);
 
-  it("usa os IDs do RPC quando fornecidos (preserva ordem, ignora inexistente)", () => {
+  it("usa os IDs do RPC e ignora inexistentes ou já seguidos", () => {
     const out = buildSuggestedUsers({
-      suggestedUserIds: ["b", "a", "ghost"],
+      suggestedUserIds: ["b", "followed", "a", "ghost"],
       enrichedAll,
       currentUser: followedAuthor("me"),
       currentUserId: "me",
@@ -370,14 +376,14 @@ describe("buildSuggestedUsers", () => {
     expect(out.map((u) => u.id)).toEqual(["b", "a"]);
   });
 
-  it("sem IDs do RPC, ranqueia client-side e exclui o próprio user", () => {
+  it("sem IDs do RPC, ranqueia somente pessoas ainda não seguidas", () => {
     const out = buildSuggestedUsers({
       suggestedUserIds: [],
       enrichedAll,
       currentUser: followedAuthor("me"),
       currentUserId: "me",
     });
-    expect(out.every((u) => u.id !== "me")).toBe(true);
+    expect(out.every((u) => u.id !== "me" && u.followStatus === "none")).toBe(true);
     expect(out).toHaveLength(2);
   });
 });

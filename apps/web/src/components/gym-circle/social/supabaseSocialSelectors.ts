@@ -811,14 +811,20 @@ export type SuggestedUsersContext = {
  */
 export function buildSuggestedUsers(ctx: SuggestedUsersContext): EnrichedUser[] {
   const { suggestedUserIds, enrichedAll, currentUser, currentUserId } = ctx;
+  const canSuggest = (user: EnrichedUser | undefined): user is EnrichedUser =>
+    Boolean(
+      user &&
+        user.id !== currentUserId &&
+        user.followStatus === "none",
+    );
   if (suggestedUserIds.length > 0) {
     return suggestedUserIds
       .map((userId) => enrichedAll.get(userId))
-      .filter((user): user is EnrichedUser => Boolean(user));
+      .filter(canSuggest);
   }
   const list: EnrichedUser[] = [];
   enrichedAll.forEach((u) => {
-    if (u.id !== currentUserId) list.push(u);
+    if (canSuggest(u)) list.push(u);
   });
   return list.sort((a, b) => {
     const aScore =
