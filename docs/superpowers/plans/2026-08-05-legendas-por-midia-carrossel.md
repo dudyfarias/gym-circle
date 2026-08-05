@@ -17,7 +17,7 @@
 1. **Nenhum trigger em `delete` de `post_media`.** O app publicado faz delete e insert em requisições separadas; entre elas a tabela fica vazia. Reagir a esse estado destrói as legendas.
 2. **Nenhum `DROP` das RPCs `update_social_post` / `update_social_post_full` de aridade antiga.** O binário na App Store chama a de 4 argumentos (`PostComposerService.swift:389`).
 3. **Casamento por `media_key` (URL sem query string), nunca por posição.**
-4. **Não aplique a migration.** Escreva o arquivo; aplicar é decisão do Eduardo, via MCP `apply_migration` (nunca `supabase db push` — o folder local divergiu de produção).
+4. **Não aplique a migration em PRODUÇÃO.** Escreva o arquivo; aplicar em prod é decisão do Eduardo, via MCP `apply_migration` (nunca `supabase db push` — o folder local divergiu de produção). Aplicar numa **branch de teste** do Supabase é permitido e necessário (Task 1.7), mas `create_branch` tem custo: rode `confirm_cost` e peça o ok do Eduardo antes.
 5. **`git add` por caminho explícito.** Há trabalho paralelo do Codex no repo; `git add .` é proibido. Em `pt-BR.json`/`en.json` só entram as chaves desta feature.
 6. **Em trigger de linha, nunca referencie `NEW` num `DELETE`.** PL/pgSQL levanta `record "new" is not assigned yet` — `coalesce(new.x, old.x)` **não** protege.
 
@@ -295,15 +295,24 @@ Copie o corpo atual **na íntegra** e acrescente, **nesta ordem**, após o bloco
     -- distinct on: a spec ACEITA a mesma mídia repetida no carrossel. Sem
     -- deduplicar, "ON CONFLICT DO UPDATE cannot affect row a second time"
     -- (21000) derrubaria a publicação inteira. Vence a primeira ocorrência.
+    --
+    -- A normalização PRECISA vir de uma subquery nomeada: em `select distinct
+    -- on (media_key) ... from jsonb_array_elements(...)` o nome `media_key`
+    -- não existe no escopo (os rótulos de saída seriam `?column?`,
+    -- `normalize_media_key`, `left`, e a coluna do INSERT não entra no escopo
+    -- da origem) — o comando falharia no parse com
+    -- `column "media_key" does not exist`, e a função nem seria criada.
     insert into public.post_media_caption (post_id, media_key, caption)
-    select distinct on (media_key)
-      p_post_id,
-      private.normalize_media_key(e.item ->> 'image_url'),
-      left(btrim(e.item ->> 'caption'), 300)
-    from jsonb_array_elements(p_media) with ordinality as e(item, ord)
-    where e.item ? 'caption'
-      and nullif(btrim(coalesce(e.item ->> 'caption', '')), '') is not null
-    order by media_key, e.ord
+    select distinct on (k.media_key) p_post_id, k.media_key, k.caption
+    from (
+      select private.normalize_media_key(e.item ->> 'image_url') as media_key,
+             left(btrim(e.item ->> 'caption'), 300)              as caption,
+             e.ord
+        from jsonb_array_elements(p_media) with ordinality as e(item, ord)
+       where e.item ? 'caption'
+         and nullif(btrim(coalesce(e.item ->> 'caption', '')), '') is not null
+    ) k
+    order by k.media_key, k.ord
     on conflict (post_id, media_key) do update
       set caption = excluded.caption
       where public.post_media_caption.caption is distinct from excluded.caption;
@@ -314,6 +323,18 @@ Copie o corpo atual **na íntegra** e acrescente, **nesta ordem**, após o bloco
        and not exists (
          select 1 from jsonb_array_elements(p_media) as item
           where private.normalize_media_key(item ->> 'image_url') = c.media_key);
+
+    -- (3b) Apagou TODAS as legendas: o espelho tem de sumir junto. O trigger
+    -- não consegue fazer isso — ele não distingue "ainda não gravou" (onde
+    -- zerar destruiria o último texto conhecido) de "apagou tudo". Esta
+    -- instrução distingue, porque conhece o conjunto final e a intenção.
+    -- O guarda media_count >= 2 preserva o fallback do estado degenerado.
+    if not exists (select 1 from public.post_media_caption where post_id = p_post_id)
+       and media_count >= 2
+       and (select caption_mode from public.posts where id = p_post_id) = 'per_media' then
+      update public.posts set caption = null
+       where id = p_post_id and caption is not null;
+    end if;
   end if;
 
   -- (4) Menos de 2 mídias -> volta para single. Aqui, não em trigger: esta é
@@ -331,10 +352,14 @@ Copie o corpo atual **na íntegra** e acrescente, **nesta ordem**, após o bloco
 
 - [ ] **Step 2: `private.create_social_post_with_media` — mudança MÍNIMA**
 
-Esta função **não tem** `insert into post_media`: ela delega em `:125` com
-`perform private.replace_social_post_media(created_post.id, p_media);`.
+Em `supabase/migrations/20260703192608_resilient_media_pipeline.sql`: a função
+começa em **`:196`**, o `insert into public.posts` está em **`:260`** e a
+delegação em **`:320`** (`perform private.replace_social_post_media(created_post.id, p_media);`).
 
-A **única** alteração é acrescentar `caption_mode` ao `insert into public.posts` (`:65`), com `coalesce(p_post ->> 'caption_mode', 'single')`.
+Ou seja, ela **não tem** `insert into post_media` próprio.
+
+A **única** alteração é acrescentar `caption_mode` ao `insert into public.posts`
+(`:260`), com `coalesce(p_post ->> 'caption_mode', 'single')`.
 **Não repita o bloco de legendas** — ele já vem da delegação. Repetir gravaria e limparia duas vezes.
 
 - [ ] **Step 3: Reaplicar grants dos pares recriados** (`private` e `public`, para `replace_social_post_media` e `create_social_post_with_media`):
@@ -369,6 +394,16 @@ begin
     raise exception 'caption_mode inválido' using errcode = '22023';
   end if;
 
+  -- Guarda de propriedade ANTES de qualquer escrita. A função é security
+  -- definer (bypassa RLS) e a validação de dono mora na de 4 args, que roda
+  -- depois — sem este guarda, escreveríamos caption_mode num post alheio e
+  -- só então abortaríamos. Mesmo padrão de replace_social_post_media:97-105.
+  perform 1 from public.posts
+   where id = p_post_id and user_id = (select auth.uid()) for update;
+  if not found then
+    raise exception 'post não encontrado ou sem permissão' using errcode = '42501';
+  end if;
+
   -- ORDEM CRÍTICA: o modo vem ANTES da legenda.
   -- private.update_social_post (4 args) escreve posts.caption; estamos numa
   -- função (profundidade 0), então o trigger do espelho dispara. Se o modo
@@ -384,7 +419,46 @@ $$;
 
 A chamada de 4 args dentro da de 5 resolve para a função de 4 args (a de 5 não tem default no último parâmetro, logo não é candidata) — não recursa.
 
-Faça o par `public.update_social_post(uuid, text, text[], uuid, text)` `security invoker`, e os dois equivalentes de `update_social_post_full` (que recebe `p_media jsonb`). Em `update_social_post_full` a ordem é **modo → caption → mídia → espelho**.
+- [ ] **Step 1b: `private.update_social_post_full` de 6 args — inline, NÃO delegue**
+
+```sql
+create or replace function private.update_social_post_full(
+  p_post_id uuid, p_caption text, p_workout_types text[],
+  p_gym_id uuid, p_media jsonb, p_caption_mode text
+) returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if p_caption_mode not in ('single', 'per_media') then
+    raise exception 'caption_mode inválido' using errcode = '22023';
+  end if;
+
+  perform 1 from public.posts
+   where id = p_post_id and user_id = (select auth.uid()) for update;
+  if not found then
+    raise exception 'post não encontrado ou sem permissão' using errcode = '42501';
+  end if;
+
+  update public.posts set caption_mode = p_caption_mode where id = p_post_id;
+  perform private.update_social_post(p_post_id, p_caption, p_workout_types, p_gym_id);
+  if p_media is not null then
+    perform private.replace_social_post_media(p_post_id, p_media);
+  end if;
+  perform private.sync_post_caption_mirror(p_post_id);
+end;
+$$;
+```
+
+**Não envolva a versão de 5 args** de `update_social_post`. Se esta função
+delegar para ela (como o `update_social_post_full` atual delega, em `:337-347`),
+a ordem volta a ser caption-antes-do-modo e o defeito de perder a legenda ao
+trocar `per_media` → `single` reaparece pela porta dos fundos.
+
+Faça também os wrappers `public` `security invoker` das duas.
+
+**Intencional:** as sobrecargas de update aceitam `per_media` num post com menos
+de 2 mídias — o rebaixamento só existe em `replace_social_post_media`, que elas
+não chamam quando `p_media` é nulo (edição só de metadados). A leitura degrada
+pelo fallback de `resolvePostCaption`. Não "conserte" adicionando validação
+aqui: isso quebraria a edição de academia/tags em posts multi-legenda.
 
 Aplique em todas: `revoke all ... from public, anon, authenticated`, `grant execute ... to authenticated`, e `comment on function`.
 
@@ -409,6 +483,17 @@ Copie os corpos vigentes destes arquivos (copiar versão desatualizada reverte f
 | `get_suggested_feed_posts` | `20260803205214_suggested_public_feed_posts.sql` |
 
 - [ ] **Step 1:** Recriar a view incluindo `p.caption_mode`.
+
+**A view é `with (security_invoker = true)`** (`20260514113227_streak_restore.sql:739`).
+Recriá-la sem repetir essa opção faz a view rodar com os privilégios do dono e
+**fura a RLS de `posts` para todo mundo que lê o feed** — é vazamento de dados,
+não regressão cosmética. Repita `with (security_invoker = true)` e os grants da
+view. Depois de aplicar, conferir:
+
+```sql
+select reloptions from pg_class where relname = 'feed_posts';
+-- esperado: {security_invoker=true}
+```
 - [ ] **Step 2:** Para cada RPC `returns table`: `drop` + `create` com a coluna nova e **reaplicar** `security definer`, `set search_path = ''`, `revoke`, `grant` (o `DROP` descarta grants). Adicionar coluna é seguro para o app publicado — Swift `Codable` ignora chaves desconhecidas.
 - [ ] **Step 3:** Nota no fim do arquivo: após aplicar, recarregar o schema cache do PostgREST e confirmar que as sobrecargas novas respondem (não `PGRST202`).
 - [ ] **Step 4: Commit**
@@ -420,20 +505,68 @@ git commit -m "feat(captions): thread caption_mode through feed view and 3 read 
 
 ### Task 1.6: Purga de legendas órfãs
 
-**Files:** Modify `supabase/functions/media-cleanup/` (job existente)
+**Files:** Modify a migration + `supabase/functions/media-cleanup/index.ts`
 
-A spec declara que uma legenda órfã **ressuscita** se a mesma mídia voltar (comportamento desejado), com purga por idade limitando a janela.
+A spec declara que uma legenda órfã **ressuscita** se a mesma mídia voltar
+(comportamento desejado), com purga limitando a janela.
 
-- [ ] **Step 1:** Acrescentar ao job: `delete from public.post_media_caption c where c.updated_at < now() - interval '30 days' and not exists (select 1 from public.post_media m where m.post_id = c.post_id and private.normalize_media_key(m.image_url) = c.media_key)`.
-- [ ] **Step 2:** Registrar a contagem apagada em `media_cleanup_runs.metadata`.
-- [ ] **Step 3: Commit.**
+**Semântica declarada (leia antes de implementar):** a purga usa `detached_at`,
+não `updated_at`. `updated_at` só muda quando o *texto* muda — uma legenda
+escrita há um ano e órfã desde hoje já satisfaria `updated_at < now() - 30 dias`
+e sumiria na primeira execução, dando janela **zero** de ressurreição, o oposto
+do que a spec promete.
+
+- [ ] **Step 1:** Na migration, acrescentar `detached_at timestamptz` à tabela; no bloco (3) de `replace_social_post_media`, em vez de apagar a órfã, marcar `detached_at = now()` (e limpar `detached_at = null` no upsert quando a mídia volta).
+- [ ] **Step 2:** Criar a RPC de purga — o job **não consegue** rodar SQL cru: `supabase/functions/media-cleanup/index.ts` usa só `.from()` e `.storage` (zero `.rpc(`), e `service_role` não tem rota para o schema `private`.
+
+```sql
+create or replace function public.purge_orphan_media_captions(p_days integer)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare v_deleted integer;
+begin
+  delete from public.post_media_caption
+   where detached_at is not null
+     and detached_at < now() - make_interval(days => p_days);
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;
+
+revoke all on function public.purge_orphan_media_captions(integer)
+  from public, anon, authenticated;
+grant execute on function public.purge_orphan_media_captions(integer) to service_role;
+```
+
+- [ ] **Step 3:** No job: `await client.rpc("purge_orphan_media_captions", { p_days: 30 })` e gravar o retorno em `media_cleanup_runs.metadata`.
+- [ ] **Step 4: Commit.**
 
 ### Task 1.7: Testes de banco (branch Supabase)
 
 Os casos abaixo justificam o design inteiro e **não** são cobertos por vitest.
 
-- [ ] **Step 1:** Criar branch Supabase via MCP `create_branch` e aplicar a migration nela (**nunca** em produção).
-- [ ] **Step 2:** Rodar, via MCP `execute_sql`, um script que verifica:
+- [ ] **Step 1:** Rodar `confirm_cost`, pedir o ok do Eduardo, criar branch Supabase via MCP `create_branch` e aplicar a migration **nela** (nunca em produção).
+
+- [ ] **Step 2: Mecanismo de asserção.** Um `select` que devolve linhas **não falha sozinho** — um caso quebrado passaria despercebido num dump. Cada caso é um bloco que levanta exceção, e o script inteiro roda numa transação terminada em `rollback`:
+
+```sql
+do $$
+begin
+  if <condição de falha> then
+    raise exception 'CASO N FALHOU: <descrição>';
+  end if;
+end $$;
+```
+
+Para os casos de RLS (13): `execute_sql` roda como `service_role`, que **bypassa RLS**. É preciso assumir o papel por caso:
+
+```sql
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"<uuid-do-usuario>"}';
+-- ... asserção ...
+reset role;
+```
+
+- [ ] **Step 3:** Verificar:
   1. `delete` + `insert` direto em `post_media` (caminho do app publicado) **não** apaga legendas e elas voltam casadas por URL;
   2. reordenar pelo cliente legado não troca legenda de foto **e** atualiza o espelho;
   3. `delete` sem insert (redução a 1 mídia) não deixa o post mudo;
@@ -446,9 +579,11 @@ Os casos abaixo justificam o design inteiro e **não** são cobertos por vitest.
   10. `per_media` sem nenhuma legenda não apaga `posts.caption`;
   11. corpo mínimo resolve a sobrecarga certa; corpo de 4 chaves cai na antiga;
   12. `caption_mode` sai pela view e pelas 3 RPCs;
-  13. RLS: terceiro não escreve legenda em post alheio; `anon` lê de post público.
-- [ ] **Step 3:** Versionar o script em `supabase/tests/post_media_captions.sql`.
-- [ ] **Step 4:** Apagar a branch (`delete_branch`). **Commit.**
+  13. RLS: terceiro não escreve legenda em post alheio; `anon` lê de post público;
+  14. **apagar todas as legendas de um post `per_media` limpa `posts.caption`** (senão o espelho fica exibindo publicamente uma legenda que não existe mais);
+  15. **`update_social_post` de 4 args sobre post `per_media` tem a legenda sobrescrita pelo espelho** — é a consequência declarada na spec para o binário da loja, e a razão de o espelho existir.
+- [ ] **Step 4:** Versionar o script em `supabase/tests/post_media_captions.sql`.
+- [ ] **Step 5:** Apagar a branch (`delete_branch`). **Commit.**
 
 ---
 
@@ -663,7 +798,7 @@ Não chame o callback de dentro do updater de `setActive` em `handleScroll` — 
 ### Task 4.3: Superfícies de legenda (verificação)
 
 - [ ] `CommentsBottomSheet.tsx:556-561` — mostra a legenda **inteira** no topo; num post `per_media` passa a mostrar a espelhada (a da 1ª mídia), fixa. **Confirmar por inspeção/teste; sem mudança de código.**
-- [ ] `PostDetailOverlay.tsx` — **decisão: abre no índice 0** e mostra a legenda daquele card (coerente com o sheet de comentários).
+- [ ] `PostDetailOverlay.tsx` — **decisão: abre no índice 0** e mostra a legenda daquele card (coerente com o sheet de comentários). **Se ele reusa `MediaCarousel`**, passe `onActiveIndexChange` também: o índice 0 é só o estado inicial e a legenda deve trocar ao deslizar dentro do overlay, igual ao feed.
 - [ ] `RecapCoverPickerSheet.tsx:206` (`alt`) — confirmar que segue coerente.
 - [ ] **Commit** (se houver mudança).
 
