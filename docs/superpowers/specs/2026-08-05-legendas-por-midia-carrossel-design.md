@@ -1,299 +1,278 @@
 # Legendas por mídia no carrossel — design
 
 **Data:** 2026-08-05
-**Status:** revisado (rev. 2, pós-review) — aguardando plano de implementação
+**Status:** rev. 3 (pós-review 2) — aguardando plano de implementação
 
 ## Problema
 
 Um post do Gym Circle tem uma legenda só (`posts.caption`), mesmo quando o
 carrossel tem até 10 fotos ou vídeos. Quem publica um treino com várias fotos
-não consegue comentar cada uma — "aquecimento", "PR no agachamento", "final
-destruído" viram um texto único descolado das imagens.
-
-O Instagram lançou legendas múltiplas em junho de 2026: um seletor
-"Legenda única / Várias legendas" acima da caixa de texto; no modo múltiplo a
-pessoa desliza card a card e escreve o texto de cada um. Vamos copiar essa
-solução.
+não consegue comentar cada uma. O Instagram lançou legendas múltiplas em junho
+de 2026 — seletor "Legenda única / Várias legendas" acima da caixa de texto, e
+no modo múltiplo a pessoa escreve o texto de cada card. Vamos copiar isso.
 
 ## Escopo aprovado
 
 | Decisão | Escolha |
 |---|---|
-| Relação entre as legendas | **Substitui** — no modo múltiplo o post não tem legenda geral |
+| Relação entre as legendas | **Substitui** — no modo múltiplo não há legenda geral *editável* (ver "espelho" abaixo) |
 | Alcance desta entrega | **Web completo** (criar + editar + ler); **nativo só leitura** |
-| Editar post existente | **Sim** — inclusive alternar entre os modos depois de publicado |
-| Padrão do composer | **Tira de miniaturas** (fiel ao Instagram) |
+| Editar post existente | **Sim**, inclusive alternar de modo |
+| Padrão do composer | **Tira de miniaturas** |
 | Limite por legenda | **300 caracteres** |
+| Proteção contra o app publicado | **Tabela separada** (opção A) |
 
-Fora de escopo: composer nativo com legendas múltiplas; mudar o limite de 10 mídias.
+Fora de escopo: composer nativo multi-legenda; mudar o limite de 10 mídias.
 
-## Restrição dominante: o binário nativo já publicado
+## Restrição dominante: o binário iOS já publicado
 
-O app iOS na App Store **não se corrige retroativamente**. Ele já chama:
+O app na App Store **não se corrige retroativamente**, e o que ele faz decide
+quase todo este design:
 
-- `rpc("update_social_post")` com 4 argumentos — `PostComposerService.swift:389`
-- `rpc("get_home_feed")` — `GymCircleAPI.swift:32`
-- `rpc("get_profile_posts")` — `GymCircleAPI.swift:300`
-- `setMedia` → `replace_social_post_media` com `EditMediaItem`, struct que
-  **não tem campo de legenda** (`PostComposerService.swift:292-308`)
+- **Edita mídia escrevendo direto na tabela, não por RPC:**
+  `client.from("post_media").delete().eq("post_id", ...)` seguido de
+  `client.from("post_media").insert(rows)` —
+  `PostComposerService.swift:323-345`; `publish` também insere direto
+  (`:267-286`). **Quem usa `replace_social_post_media` é só o web**
+  (`packages/core/src/services/posts.ts:130`).
+- **São duas requisições HTTP = duas transações.** Existe um instante em que
+  `post_media` está **vazia** para aquele post. Nenhum trigger pode reagir a
+  esse estado intermediário — se reagir, é ele quem destrói as legendas.
+- Só insere linhas quando `items.count > 1` (`:330`) — post de 1 mídia não tem
+  linha em `post_media`.
+- Chama `update_social_post` com **4 argumentos** (`:389`),
+  `get_home_feed` (`GymCircleAPI.swift:32`) e `get_profile_posts` (`:300`).
+- Lê `post_media` com select enumerado (`GymCircleAPI.swift:330`).
 
-Isso governa três decisões desta spec: (1) nenhuma assinatura de RPC existente
-pode ser removida; (2) o servidor precisa proteger as legendas de clientes que
-não as conhecem; (3) o que for gravado em `posts.caption` **é visível** para
-esses clientes.
-
-## Estado atual (verificado no código)
-
-- `posts.caption text` nullable; `GymPost.caption` é `string` **não-nullable**
-  em `social/types.ts:168,207`, e `SocialPostCard.tsx:177-181` chama
-  `post.caption.length` sem guarda.
-- `post_media` — sem coluna de legenda.
-- `private.replace_social_post_media` faz **`delete from public.post_media` e
-  reinsere** a partir de `p_media`, e **só insere quando `media_count > 1`**
-  (`20260703192608_resilient_media_pipeline.sql:57-99`). Portanto post de 1
-  mídia não tem linha em `post_media`.
-- `EditPostSheet.tsx:464` envia `media: mediaChanged ? mediaItems : undefined`.
-- Leitura web **não lê `posts` direto**: passa pela view `public.feed_posts`
-  (colunas enumeradas, `20260514113227_streak_restore.sql:746`) e pelas RPCs
-  `get_home_feed`, `get_suggested_feed_posts`, `get_profile_posts` — todas
-  `returns table(...)` com colunas enumeradas.
-- `.select()` explícitos em `useSupabaseSocial.ts:1489-1511` e
-  `supabaseSocialSurfaces.ts:160-183`.
-- Truncamento de legenda é **por contagem de caracteres**
-  (`social/caption.ts`, `CAPTION_TRUNCATE_THRESHOLD = 140`), decisão
-  documentada por causa da fragilidade de medir DOM em WebView iOS.
-- Canal realtime (`useSupabaseSocial.ts:1887-1904`) assina `posts`,
-  `post_comments`, `post_likes` — **não** `post_media`.
-- Grants são explícitos por função (`revoke all` + `grant execute`), ex.:
-  `20260703192608_resilient_media_pipeline.sql:400-415`.
+Consequência central: **guardar a legenda dentro de `post_media` a condena** —
+o `DELETE` cego do app publicado a apaga, e nenhuma lógica de RPC intercepta,
+porque a RPC não é chamada.
 
 ## Arquitetura
 
-### Modelo de dados
+### Modelo de dados: tabela separada
+
+A legenda vive **fora** de `post_media`, chaveada por **identidade da mídia**:
 
 ```sql
-alter table public.post_media add column if not exists caption text;
-
-alter table public.post_media
-  add constraint post_media_caption_length_check
-  check (caption is null or char_length(caption) <= 300);
+create table if not exists public.post_media_caption (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.posts(id) on delete cascade,
+  media_key text not null,          -- image_url da mídia
+  caption text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint post_media_caption_key unique (post_id, media_key),
+  constraint post_media_caption_length_check check (char_length(caption) <= 300)
+);
 
 alter table public.posts
   add column if not exists caption_mode text not null default 'single';
-
 alter table public.posts
   add constraint posts_caption_mode_check
   check (caption_mode in ('single', 'per_media'));
 ```
 
-Posts existentes caem em `'single'` pelo default — sem backfill.
+`post_media` **não ganha coluna de legenda.** O `unique (post_id, media_key)`
+já cobre o índice da FK (`post_id` é a coluna líder).
 
-**`caption_mode` explícito** em vez de deduzir de "alguma mídia tem legenda":
-deduzir é frágil (legendas residuais renderizariam errado) e não distingue
-"modo único" de "modo múltiplo com todos os cards vazios".
+**Chave por identidade, nunca por posição.** `media_key` = `image_url`.
+Casar por posição reconstruiria exatamente o defeito pelo qual a alternativa
+JSONB foi descartada: se o app antigo reordenar o carrossel, a legenda cola na
+**foto errada** — publicamente. Legenda errada é pior que legenda ausente. Se
+a URL não encontra par, a legenda simplesmente não aparece (e é limpa no
+próximo write do web, ver "órfãs").
 
-### `posts.caption` no modo `per_media`: espelho da primeira legenda
+Posts existentes: `caption_mode='single'` pelo default, sem backfill.
 
-**Revisão importante em relação à rev. 1.** A rev. 1 dizia "preserva
-`posts.caption` guardado, só não exibido". Isso **vaza**: todo leitor que não
-conhece `caption_mode` — incluindo o app nativo publicado — renderiza
-`posts.caption`. A pessoa escreveria um rascunho, trocaria para "várias
-legendas", publicaria achando que substituiu, e o rascunho apareceria
-publicamente.
+### O que NÃO pode ter trigger
 
-Decisão: ao gravar em modo `per_media`, a própria RPC define
-`posts.caption` = **primeira legenda não-vazia por posição** (string vazia se
-não houver nenhuma). Consequências:
+Por causa da janela de duas transações do app publicado:
 
-- Nada de rascunho não relacionado vaza — o que aparece é conteúdo real do post.
-- Clientes antigos e toda superfície de uma linha (grade do perfil,
-  notificações, compartilhamento, topo do sheet de comentários) mostram algo
-  verdadeiro **sem código novo**.
-- Como é calculado **dentro da RPC**, nenhum cliente pode esquecer de manter
-  em sincronia.
+- **Nada de trigger em `delete` de `post_media`.** No instante do delete a
+  tabela fica vazia; qualquer limpeza ou "forçar single" disparada ali apagaria
+  as legendas ou desligaria o modo de todo post editado pelo app antigo.
+- **Limpeza de órfãs não é automática.** Uma legenda cuja `media_key` não
+  corresponde a nenhuma mídia atual fica dormente (invisível, inofensiva) e é
+  removida no próximo write do cliente web, que conhece o conjunto final
+  pretendido. É o preço de sobreviver ao cliente legado, e é aceito.
 
-Custo aceito: é um campo denormalizado; a regra de recálculo vive nas RPCs de
-escrita e em nenhum outro lugar. A conveniência de "alternar de modo preserva
-o texto antigo" passa a valer **apenas dentro da sessão do composer** (estado
-local), que é onde ela importa na prática.
+### Espelho `posts.caption`
+
+Ao gravar em `per_media`, `posts.caption` recebe a **primeira legenda
+não-vazia** na ordem das mídias. Motivo: todo leitor que não conhece
+`caption_mode` — incluindo o app publicado e as superfícies de uma linha —
+renderiza `posts.caption`. Sem espelho, ou o post aparece mudo, ou (pior, na
+rev. 1) vazaria um rascunho não relacionado.
+
+**O espelho é garantido por trigger, não por disciplina de RPC.** Há um
+caminho que escreve `posts.caption` direto na tabela —
+`postService.update()` (`posts.ts:142-154`) — e a RLS permite que o dono o
+faça de qualquer cliente. Portanto:
+
+- função `private.sync_post_caption_mirror(p_post_id)` recalcula o espelho;
+- trigger em `post_media_caption` (insert/update/delete) e em `posts`
+  (update de `caption` ou `caption_mode`) chama a função quando o post está em
+  `per_media`;
+- **se não houver nenhuma linha em `post_media` naquele instante, a função não
+  mexe no espelho** (é a janela intermediária do app antigo — recalcular ali
+  zeraria a legenda).
+
+Consequência declarada: uma edição de legenda feita pelo app publicado (que
+manda `p_caption` num post `per_media`) é **sobrescrita pelo espelho**. É a
+escolha coerente: o espelho é sempre derivado, nunca autoral. A alternativa —
+recusar a chamada — daria erro insolúvel no app da loja.
+
+### Regra "menos de 2 mídias → single"
+
+Vale no servidor, **avaliada apenas no `insert`** (nunca no delete):
+se após um insert em `post_media` o post tiver menos de 2 mídias, `caption_mode`
+volta para `single`. O composer web avisa antes de aplicar. Como post de 1
+mídia não tem linha em `post_media`, a legenda daquela mídia fica órfã e some
+da leitura — o composer deve dizer isso ao usuário antes de confirmar.
 
 ### RPCs
 
-`p_media` é `jsonb` em todas as RPCs de mídia, então a legenda entra como mais
-uma chave de cada objeto — **sem mudança de assinatura** em:
+`p_media` é `jsonb`, então a legenda entra como chave de cada item **sem mudar
+assinatura** em `create_social_post_with_media` e `replace_social_post_media`.
+Estas passam a gravar em `post_media_caption` (upsert por `media_key`) e a
+limpar as órfãs do post, já que conhecem o conjunto final.
 
-- `create_social_post_with_media(p_post jsonb, p_media jsonb)` — lê `caption`
-  de cada item e `caption_mode` de `p_post`.
-- `replace_social_post_media(p_post_id uuid, p_media jsonb)` — lê `caption` de
-  cada item.
-
-**Preservação obrigatória no servidor.** Como `replace_social_post_media`
-apaga e reinsere, e o nativo publicado envia itens **sem** a chave `caption`,
-a função precisa distinguir:
-
-- chave `caption` **ausente** (`not (item ? 'caption')`) → **preservar** a
-  legenda existente daquela posição (snapshot antes do delete);
-- chave presente com `null`/`""` → limpar de fato.
-
-Sem isso, qualquer edição feita pelo app publicado apaga silenciosamente todas
-as legendas do carrossel. A preservação é por **posição** e existe só como
-compatibilidade com clientes legados; o cliente web sempre envia a chave.
-
-**As duas RPCs de update precisam de `caption_mode` — via sobrecarga, sem
-`DROP`.** Correção técnica em relação à rev. 1: adicionar um parâmetro
-**obrigatório** cria uma *sobrecarga*, não uma ambiguidade — o Postgres
-resolve por aridade e o PostgREST resolve pelo conjunto de nomes de chaves do
-corpo JSON (4 chaves → função antiga; 5 → nova). Ambiguidade só surgiria se o
-parâmetro novo tivesse `DEFAULT`, porque aí uma chamada de 4 args casaria com
-os dois candidatos.
-
-Portanto: **criar sobrecargas novas e manter as antigas vivas**:
+**As duas RPCs de update ganham sobrecarga, sem `DROP`.** Adicionar parâmetro
+**obrigatório** cria sobrecarga (resolvida por aridade; o PostgREST resolve
+pelo conjunto de nomes de chaves do corpo JSON). `DEFAULT` causaria
+ambiguidade, por isso o parâmetro é obrigatório. As versões antigas continuam
+vivas para o binário publicado:
 
 - `update_social_post(p_post_id, p_caption, p_workout_types, p_gym_id, p_caption_mode)`
 - `update_social_post_full(p_post_id, p_caption, p_workout_types, p_gym_id, p_media, p_caption_mode)`
 
-As versões de 4 e 5 argumentos continuam existindo para o binário publicado, e
-devem tratar o post como `single` — sem tocar em `caption_mode`. A remoção das
-antigas só entra em pauta depois do cutover nativo (fora desta entrega).
+**Armadilha que quebraria a sobrecarga:** `posts.ts:165-172` monta
+`p_caption: input.caption ?? undefined` (idem `p_gym_id`, `p_media`), e
+`JSON.stringify` **remove chaves `undefined`** — com corpo encolhido a chamada
+cairia na assinatura antiga ou em `PGRST202`. O cliente web passa a enviar
+**`null` explícito**, e há teste de contrato do corpo mínimo.
 
-Também é falso o que a rev. 1 dizia sobre "janela em que a função não existe":
-DDL no Postgres é transacional. Os riscos reais são clientes antigos **depois**
-do commit e a recarga do schema cache do PostgREST.
+DDL no Postgres é transacional (não existe "janela sem função"). O risco real é
+cliente antigo depois do commit e o **schema cache do PostgREST**: recarregar e
+verificar é passo explícito da migration.
 
-**Se alguma função precisar mesmo ser recriada** (caso das `returns table`
-abaixo), a migration tem de reaplicar `security definer`, `set search_path =
-''`, `revoke all ... from public, anon` e `grant execute ... to authenticated`
-para o par `private`/`public` — `DROP FUNCTION` descarta grants e a função
-nova nasce com `EXECUTE` para `PUBLIC`.
+Se alguma função precisar ser recriada (caso das `returns table` abaixo),
+reaplicar `security definer`, `set search_path = ''`, `revoke all ... from
+public, anon` e `grant execute ... to authenticated` no par `private`/`public`
+— `DROP FUNCTION` descarta grants e a função nova nasce com `EXECUTE` para
+`PUBLIC`.
 
-### Propagação de `caption_mode` e `caption` até o cliente
+### Propagação até o cliente
 
-Não basta a migration de colunas. É preciso incluir os campos em:
-
-- view `public.feed_posts` (colunas enumeradas);
-- `get_home_feed`, `get_suggested_feed_posts`, `get_profile_posts` — alterar o
-  `returns table` exige `drop` + `create` (não há `create or replace` mudando
-  tipo de retorno) → **reaplicar grants** conforme acima;
-- `.select()` explícitos de `useSupabaseSocial.ts` e `supabaseSocialSurfaces.ts`
-  (incluir `caption` em `post_media` e `caption_mode` em `posts`).
-
-Adicionar coluna a essas RPCs é seguro para o nativo publicado: Swift `Codable`
-ignora chaves desconhecidas.
+- `caption_mode` em: view `public.feed_posts`, `get_home_feed`,
+  `get_suggested_feed_posts`, `get_profile_posts` (colunas enumeradas; alterar
+  `returns table` exige `drop`+`create` → reaplicar grants), e nos `.select()`
+  de `useSupabaseSocial.ts:1489-1511` e `supabaseSocialSurfaces.ts:160-183`.
+- Legendas: o web lê `post_media` com `select("*")`
+  (`posts.ts:113-118`), então basta **buscar `post_media_caption` do post** e
+  casar por `image_url` no mapper.
+- Nativo: `GymCircleAPI.swift:330` enumera colunas de `post_media` e precisa da
+  consulta nova à tabela de legendas.
+- Adicionar coluna às RPCs de leitura é seguro para o binário publicado: Swift
+  `Codable` ignora chaves desconhecidas.
 
 ### Código compartilhado
 
-- `PostMediaInput` (`domain/types.ts:164`) ganha `caption?: string | null`.
-- `mediaRpcRows()` emite `caption: media.caption?.trim() || null` mantendo o
-  `slice(0, 10)`.
-- Regenerar `packages/core/src/database.types.ts` (typegen) — `PostMediaRow`
-  deriva do tipo gerado; sem isso `caption`/`caption_mode` não compilam.
-- Mapper `mediaByPost` (`supabaseSocialSelectors.ts:356-400`) monta cada item
-  campo a campo e **descarta o que não conhece** → precisa carregar `caption`.
-- `GymPost.media[]` (`social/types.ts`) ganha `caption`.
-- Patch otimista em `supabaseSocialActions.ts:1116-1130` escreve
-  `caption: input.caption` na linha local — num post `per_media` isso pisca a
-  legenda espelhada até o refresh; deve respeitar o modo.
+- `CreatePostInput` ganha `captionMode`; o objeto `p_post` (`posts.ts:64-93`)
+  ganha a chave.
+- `updateSocialDetails` (`posts.ts:156-173`) recebe e repassa `p_caption_mode`.
+- `PostMediaInput` ganha `caption?: string | null`; `mediaRpcRows` emite
+  `caption` mantendo `slice(0, 10)`.
+- Regenerar `packages/core/src/database.types.ts` (typegen).
+- Mapper `mediaByPost` (`supabaseSocialSelectors.ts:356-400`) monta item a item
+  e descarta o desconhecido → carregar a legenda casada por URL.
+- `GymPost.media[]` ganha `caption`.
+- Patch otimista (`supabaseSocialActions.ts:1116-1130`) escreve
+  `caption: input.caption` na linha local → respeitar o modo.
 
-Função **pura** no domínio:
+Função pura:
 
 ```ts
 resolvePostCaption(post, activeIndex): string
 ```
 
 Retorna `string` (nunca `null`) para casar com `GymPost.caption: string` e não
-quebrar `SocialPostCard.tsx:177-181`. Regras: modo `single` → `post.caption`;
-`per_media` → legenda da mídia no índice ativo (`""` se vazia); índice fora do
-intervalo ou post legado sem array de mídia → `post.caption`.
+quebrar `SocialPostCard.tsx:177-181`. `single` → `post.caption`; `per_media` →
+legenda da mídia ativa (`""` se vazia); índice inválido ou post legado sem
+array → `post.caption`.
 
-### Composer (criar + editar)
+### Composer
 
-Seletor "Legenda única / Várias legendas" **somente com 2+ mídias**.
+Seletor só com 2+ mídias. Modo único intocado. Modo múltiplo: tira de
+miniaturas, contador `"2 de 4 · 42/300"`, marcador nas que têm texto.
 
-- **Modo único:** comportamento atual, intocado.
-- **Modo múltiplo:** tira de miniaturas; tocar seleciona qual legenda editar;
-  contador `"2 de 4 · 42/300"`; marcador nas miniaturas com texto.
-
-Regras de borda:
-
-- **Editar só legendas precisa salvar.** `EditPostSheet.tsx:464` hoje envia
-  `media` apenas quando `mediaChanged`. Alterar qualquer legenda deve marcar o
-  payload de mídia como sujo, senão a edição some sem erro.
-- **Carregar legendas existentes** para dentro de `mediaItems` ao abrir a
-  edição, já que o payload é reenviado inteiro.
+- **Editar só legendas precisa salvar:** hoje `EditPostSheet.tsx:464` manda
+  `media` apenas se `mediaChanged` — alterar legenda passa a sujar o payload.
+- **Carregar legendas existentes** ao abrir a edição.
 - **Remover a mídia selecionada** → seleção vai para a anterior (ou 0).
-- **Cair para 1 mídia** → volta para `single`. Como post de 1 mídia não tem
-  linha em `post_media`, **a legenda daquela mídia é descartada**; o composer
-  deve avisar antes de aplicar.
+- **Cair para 1 mídia** → avisa que a legenda daquela mídia será descartada.
 
 ### Leitura (web)
 
-`MediaCarousel` ganha `onActiveIndexChange?: (index: number) => void` opcional
-— continua dono do índice, só notifica. A notificação sai de um `useEffect`
-sobre `active`, **não** de dentro do updater de `setActive`
-(`MediaCarousel.tsx:73-78`), senão dispara setState de outro componente
-durante a fase de render.
+`MediaCarousel` ganha `onActiveIndexChange?` opcional; continua dono do índice.
+A notificação sai de um `useEffect` sobre `active`, declarado **antes dos early
+returns** (`MediaCarousel.tsx:54-71` retorna cedo quando há 0 ou 1 mídia —
+hook depois disso violaria as regras dos hooks).
 
-`SocialPostCard` guarda o índice ativo e usa `resolvePostCaption`.
-
-- **Altura estável:** no modo `per_media` a área da legenda reserva altura
-  mínima equivalente a 2 linhas, e o truncamento continua sendo o **por
-  caracteres** já existente (`CAPTION_TRUNCATE_THRESHOLD`). Como 140
-  caracteres rendem ~4 linhas no celular, esta entrega adota um limiar próprio
-  menor para legenda por mídia, alinhado à altura reservada — sem medir DOM.
+- **Altura estável:** área com altura mínima de 2 linhas; truncamento por
+  **caracteres** (o projeto já evita medir DOM por causa da WebView iOS) com
+  limiar de **120 caracteres** para legenda por mídia (o global é 140 em
+  `social/caption.ts`, ~4 linhas).
 - **"Ver mais" reseta ao trocar de card.**
-- **Key do slide:** hoje é `item.imageUrl` (`MediaCarousel.tsx:88`); com a
-  mesma mídia repetida as keys colidem e a legenda gruda na duplicata → usar
-  `position`/índice.
+- **Key do slide:** hoje `item.imageUrl` (`MediaCarousel.tsx:88`) — com mídia
+  repetida as keys colidem e a legenda gruda na duplicata → usar posição/índice.
+  (A `media_key` por URL tem a mesma limitação: mídia repetida no mesmo post
+  compartilha legenda. Aceito e declarado.)
+- **`CommentsBottomSheet.tsx:556-561`** renderiza a legenda **inteira** no topo
+  — num post `per_media` mostrará a legenda espelhada (a da 1ª mídia), fixa,
+  independentemente do card. Escolha declarada, não efeito colateral.
+- Demais superfícies via espelho: grade do perfil, notificações,
+  compartilhamento, `PostDetailOverlay` (definir se abre no índice ativo ou 0),
+  `RecapCoverPickerSheet.tsx:206` (`alt`).
+- **Acessibilidade:** legenda em região `aria-live="polite"` incluindo posição
+  ("2 de 4"); miniaturas do composer como `<button>` com nome acessível e
+  `aria-current`; o carrossel hoje não tem role/label/teclado
+  (`MediaCarousel.tsx:79-120`).
+- **Realtime:** o canal (`useSupabaseSocial.ts:1887-1904`) não assina
+  `post_media` nem `post_media_caption` → incluir a tabela nova, senão editar
+  só legendas não propaga entre dispositivos.
 
-**Superfícies de uma linha** passam a funcionar via `posts.caption` espelhado
-(sem derivação no cliente). Verificar nominalmente: topo do
-`CommentsBottomSheet.tsx:556-561`, `PostDetailOverlay.tsx` (definir se abre no
-índice ativo do feed ou em 0), grade do perfil, notificações, compartilhamento,
-`RecapCoverPickerSheet.tsx:206` (`alt`).
+### Nativo (só leitura)
 
-**Acessibilidade:** a legenda muda ao deslizar sem anúncio, e o carrossel hoje
-não tem role/label/teclado (`overflow-x-auto` + dots decorativos,
-`MediaCarousel.tsx:79-120`). Mínimo: região da legenda com `aria-live="polite"`
-incluindo a posição ("2 de 4"); associação entre slide ativo e legenda;
-miniaturas do composer como `<button>` com nome acessível ("mídia 2 de 4, com
-legenda") e `aria-current`.
-
-**Realtime:** o canal não assina `post_media`. Hoje funciona por acidente
-(toda escrita também dá `update` em `posts`). Registrar essa dependência ou
-incluir `post_media` no canal — do contrário uma futura otimização de "salvar
-só legendas" mata o refresh entre dispositivos.
-
-### Nativo (somente leitura)
-
-- `FeedPost.swift` ganha `captionMode` e legenda por mídia; `GymCircleAPI`
-  passa a trazer as colunas novas.
-- Carrossel do `FeedView` troca a legenda conforme o card ativo.
-- Composer nativo continua criando em `single` (default da coluna).
-- A edição nativa existe (`FeedView.swift:1445` → `GymCircleAppModel.swift:1089`)
-  e está protegida pela preservação server-side descrita acima — não por
-  código novo no app.
+`FeedPost.swift` ganha `captionMode` + legendas; `GymCircleAPI` busca a tabela
+nova; o carrossel do `FeedView` troca a legenda pelo card ativo. O composer
+nativo segue criando em `single`. A edição nativa
+(`FeedView.swift:1445` → `GymCircleAppModel.swift:1089`) fica protegida pela
+tabela separada, sem código novo no app.
 
 ## Testes
 
-**Puros (`packages/core`)** — `resolvePostCaption`: modo único; múltiplo com
-texto; card vazio; índice fora do intervalo; post legado sem array de mídia.
-`mediaRpcRows`: carrega legenda, respeita `slice(0,10)`, trima.
+**Puros** — `resolvePostCaption` (5 casos); `mediaRpcRows` (legenda, trim,
+`slice(0,10)`).
 
-**Banco (o que quebra produção)**
-- payload de mídia **sem** a chave `caption` **não** apaga legendas existentes
-  (caso do nativo publicado);
-- payload com `caption: null` limpa de fato;
-- `posts.caption` recebe a primeira legenda não-vazia ao gravar em `per_media`;
-- sobrecargas de 4/5 e 5/6 args coexistem e a de aridade menor trata como
-  `single`;
-- `caption_mode` e `caption` saem pela view e pelas 3 RPCs de leitura.
+**Banco / caminhos legados (o que quebra produção)**
+- `delete` + `insert` direto em `post_media` (caminho do app publicado)
+  **não** apaga legendas, e elas voltam casadas por URL;
+- reordenar as mídias pelo cliente legado **não** troca legenda de foto;
+- espelho recalculado por `replace_social_post_media` e por escrita direta em
+  `posts.caption`;
+- espelho **não** é recalculado quando `post_media` está vazia;
+- `update_social_post` de 4 args sobre post `per_media` tem a legenda
+  sobrescrita pelo espelho (não corrompe);
+- resultado com menos de 2 mídias força `single` (avaliado no insert);
+- corpo mínimo da RPC resolve a sobrecarga certa (`null` explícito);
+- `caption_mode` sai pela view e pelas 3 RPCs de leitura.
 
-**Composer** — toggle só com 2+ mídias; editar só legendas persiste (caso do
-`mediaChanged`); queda para 1 mídia reverte para `single` com aviso; remover a
-mídia selecionada move a seleção.
+**Composer** — toggle só com 2+; editar só legendas persiste; queda para 1
+mídia avisa; remover a selecionada move a seleção.
 
-**Leitura** — legenda troca com o índice; "ver mais" reseta; altura não muda
-entre cards; duplicata de mídia não compartilha legenda.
+**Leitura** — legenda troca com o índice; "ver mais" reseta; altura estável.
 
 Suíte existente segue verde.
 
@@ -301,24 +280,26 @@ Suíte existente segue verde.
 
 | Risco | Mitigação |
 |---|---|
-| Nativo publicado apaga legendas ao editar | Preservação server-side por posição quando a chave `caption` vem ausente |
-| Nativo publicado quebra por assinatura removida | Nenhum `DROP` das RPCs de update; sobrecargas novas convivem com as antigas |
-| `DROP`+`CREATE` das RPCs de leitura perde grants | Reaplicar `security definer`, `search_path`, `revoke`/`grant` no par private/public |
-| Rascunho vazando para clientes antigos | `posts.caption` recebe a 1ª legenda real, calculada na RPC |
-| Feed tremendo ao deslizar | Altura reservada + limiar de truncamento por caracteres |
-| Legenda somindo ao editar só texto | Alteração de legenda marca o payload de mídia como sujo |
+| App publicado apaga legendas | Tabela separada — o `DELETE` cego não a alcança |
+| Trigger reagir à janela de 2 transações | Nenhum trigger em `delete` de `post_media`; espelho não recalcula com mídia vazia |
+| Legenda na foto errada | Casamento por `image_url`, nunca por posição |
+| Sobrecarga não resolver (chaves `undefined`) | Cliente web envia `null` explícito + teste de contrato |
+| Espelho dessincronizar por escrita direta | Garantido por trigger, não por disciplina de RPC |
+| `DROP`+`CREATE` das RPCs de leitura perde grants | Reaplicar definer/search_path/revoke/grant |
+| Schema cache do PostgREST desatualizado | Recarga + verificação como passo da migration |
+| Legendas órfãs acumulando | Limpas no próximo write do web; dormentes e inofensivas até lá |
 | Divergência migrations locais × produção | Aplicar via MCP `apply_migration`, nunca `db push`; gated no ok do Eduardo |
 
-Concorrência (dois dispositivos editando o mesmo post) é serializada pelo
-`for update` em `posts`, mas as legendas continuam *last-write-wins* — aceito.
+Concorrência: `for update` em `posts` serializa, mas legendas seguem
+*last-write-wins* — aceito.
 
 ## Alternativas descartadas
 
-- **Array JSONB em `posts`**: amarra a legenda à posição no cliente; a edição
-  reordena/remove/adiciona mídia.
-- **Tabela `post_media_caption`**: 1:1 com `post_media` — join e RLS extras,
-  nenhum ganho.
+- **Coluna `caption` em `post_media`**: o `DELETE` cego do app publicado a
+  apaga, e a RPC não intercepta porque o app não a chama.
+- **Array JSONB em `posts`**: amarra a legenda à posição.
+- **Preservação dentro da RPC**: inerte — o cliente legado não passa por ela.
+- **Bloquear escrita direta em `post_media`**: erro insolúvel no app da loja.
 - **`DROP` + recriar as RPCs de update**: quebraria o app publicado e perderia
-  grants, sem necessidade técnica (sobrecarga resolve).
-- **Composer em lista vertical / passo dedicado**: rolagem longa com 10 mídias;
-  passo extra no fluxo de publicar.
+  grants, sem necessidade técnica.
+- **Composer em lista vertical / passo dedicado**: rolagem longa; passo extra.
