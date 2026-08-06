@@ -255,3 +255,348 @@ create trigger posts_sync_caption_mirror
 -- replace_social_post_media só insere em post_media quando media_count > 1 (e
 -- o app publicado idem), então um after-insert nunca veria contagem < 2. A
 -- regra vive dentro da RPC, que enxerga o conjunto final.
+
+-- 7) RPCs de mídia ----------------------------------------------------------
+-- Corpos copiados verbatim de 20260703192608_resilient_media_pipeline.sql
+-- (extração programática, sem transcrição manual) + enxerto das legendas.
+
+create or replace function private.replace_social_post_media(
+  p_post_id uuid,
+  p_media jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor_id uuid := auth.uid();
+  media_count integer;
+  cover record;
+begin
+  if actor_id is null then
+    raise exception 'autenticação obrigatória' using errcode = '42501';
+  end if;
+
+  perform 1
+    from public.posts
+   where id = p_post_id
+     and user_id = actor_id
+   for update;
+  if not found then
+    raise exception 'post não encontrado ou sem permissão'
+      using errcode = '42501';
+  end if;
+
+  if p_media is null or jsonb_typeof(p_media) <> 'array' then
+    raise exception 'lista de mídia inválida' using errcode = '22023';
+  end if;
+
+  media_count := jsonb_array_length(p_media);
+  if media_count < 1 or media_count > 10 then
+    raise exception 'o post precisa ter entre 1 e 10 mídias'
+      using errcode = '23514';
+  end if;
+
+  select *
+    into cover
+    from jsonb_to_record(p_media -> 0) as item(
+      media_type text,
+      image_url text,
+      thumbnail_url text,
+      poster_url text,
+      blur_data_url text,
+      media_width integer,
+      media_height integer,
+      media_duration_seconds numeric
+    );
+
+  if cover.media_type not in ('image', 'video')
+     or nullif(btrim(cover.image_url), '') is null then
+    raise exception 'capa de mídia inválida' using errcode = '23514';
+  end if;
+
+  delete from public.post_media where post_id = p_post_id;
+
+  if media_count > 1 then
+    insert into public.post_media (
+      post_id,
+      position,
+      media_type,
+      image_url,
+      thumbnail_url,
+      poster_url,
+      blur_data_url,
+      media_width,
+      media_height,
+      media_duration_seconds
+    )
+    select
+      p_post_id,
+      entry.ordinality::integer - 1,
+      item.media_type,
+      item.image_url,
+      nullif(btrim(item.thumbnail_url), ''),
+      nullif(btrim(item.poster_url), ''),
+      nullif(btrim(item.blur_data_url), ''),
+      item.media_width,
+      item.media_height,
+      item.media_duration_seconds
+    from jsonb_array_elements(p_media) with ordinality
+      as entry(value, ordinality)
+    cross join lateral jsonb_to_record(entry.value) as item(
+      media_type text,
+      image_url text,
+      thumbnail_url text,
+      poster_url text,
+      blur_data_url text,
+      media_width integer,
+      media_height integer,
+      media_duration_seconds numeric
+    )
+    where item.media_type in ('image', 'video')
+      and nullif(btrim(item.image_url), '') is not null;
+
+    if (select count(*) from public.post_media where post_id = p_post_id)
+       <> media_count then
+      raise exception 'uma ou mais mídias são inválidas' using errcode = '23514';
+    end if;
+  end if;
+
+  update public.posts
+     set image_url = cover.image_url,
+         media_type = cover.media_type,
+         thumbnail_url = nullif(btrim(cover.thumbnail_url), ''),
+         poster_url = nullif(btrim(cover.poster_url), ''),
+         blur_data_url = nullif(btrim(cover.blur_data_url), ''),
+         media_width = cover.media_width,
+         media_height = cover.media_height,
+         media_duration_seconds = cover.media_duration_seconds
+   where id = p_post_id
+     and user_id = actor_id;
+
+  -- ==== Legendas por mídia (ordem obrigatória) ====
+  -- (2) Legendas DEPOIS das mídias: o trigger do espelho exige linhas em
+  -- post_media presentes, senão o guarda de "mídia vazia" o impede.
+  --
+  -- Chave 'caption' AUSENTE = cliente legado (não conhece legendas) ->
+  -- PRESERVAR o que já existe. Presente com null/'' = limpar de fato.
+  delete from public.post_media_caption c
+   where c.post_id = p_post_id
+     and exists (
+       select 1 from jsonb_array_elements(p_media) as item
+        where item ? 'caption'
+          and nullif(btrim(coalesce(item ->> 'caption', '')), '') is null
+          and private.normalize_media_key(item ->> 'image_url') = c.media_key
+     );
+
+  -- distinct on numa subquery NOMEADA: em `distinct on (media_key)` direto
+  -- sobre jsonb_array_elements o nome não existe no escopo (os rótulos de
+  -- saída seriam ?column?/normalize_media_key/left) e o comando falharia no
+  -- parse. A dedup é obrigatória porque a mesma mídia pode repetir no
+  -- carrossel; sem ela o ON CONFLICT levanta 21000.
+  insert into public.post_media_caption (post_id, media_key, caption, detached_at)
+  select distinct on (k.media_key)
+    p_post_id, k.media_key, k.caption, null::timestamptz
+  from (
+    select private.normalize_media_key(e.item ->> 'image_url') as media_key,
+           left(btrim(e.item ->> 'caption'), 300)              as caption,
+           e.ord
+      from jsonb_array_elements(p_media) with ordinality as e(item, ord)
+     where e.item ? 'caption'
+       and nullif(btrim(coalesce(e.item ->> 'caption', '')), '') is not null
+  ) k
+  order by k.media_key, k.ord
+  on conflict (post_id, media_key) do update
+    set caption = excluded.caption,
+        detached_at = null
+    where public.post_media_caption.caption is distinct from excluded.caption
+       or public.post_media_caption.detached_at is not null;
+
+  -- (3) Órfãs: MARCADAS, não apagadas. Se a mesma mídia voltar ao post a
+  -- legenda ressuscita (declarado na spec); detached_at é o relógio da purga.
+  update public.post_media_caption c
+     set detached_at = now()
+   where c.post_id = p_post_id
+     and c.detached_at is null
+     and not exists (
+       select 1 from jsonb_array_elements(p_media) as item
+        where private.normalize_media_key(item ->> 'image_url') = c.media_key
+     );
+
+  -- (3b) Apagou TODAS as legendas: o espelho some junto. O trigger não
+  -- distingue "ainda não gravou" de "apagou tudo"; esta instrução distingue,
+  -- porque conhece o conjunto final e a intenção do usuário.
+  if media_count >= 2
+     and not exists (
+       select 1 from public.post_media_caption
+        where post_id = p_post_id and detached_at is null
+     )
+     and (select caption_mode from public.posts where id = p_post_id) = 'per_media'
+  then
+    update public.posts set caption = null
+     where id = p_post_id and caption is not null;
+  end if;
+
+  -- (4) Menos de 2 mídias -> volta pra single. Aqui, e NÃO em trigger: esta é
+  -- a única instrução que enxerga o conjunto final dentro da transação (um
+  -- after-insert em post_media nunca veria contagem < 2).
+  if media_count < 2 then
+    update public.posts set caption_mode = 'single'
+     where id = p_post_id and caption_mode = 'per_media';
+  end if;
+
+  -- (5) Espelho por último.
+  perform private.sync_post_caption_mirror(p_post_id);
+
+end;
+$$;
+
+
+-- create_social_post_with_media NÃO tem insert em post_media: ela delega
+-- em `perform private.replace_social_post_media(...)`. Por isso a única
+-- mudança aqui é caption_mode no insert de posts — repetir o bloco de
+-- legendas gravaria e limparia tudo duas vezes.
+
+create or replace function private.create_social_post_with_media(
+  p_post jsonb,
+  p_media jsonb
+)
+returns public.posts
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor_id uuid := auth.uid();
+  created_post public.posts%rowtype;
+  workout_types text[];
+  location_source text;
+  cover record;
+begin
+  if actor_id is null then
+    raise exception 'autenticação obrigatória' using errcode = '42501';
+  end if;
+
+  if p_post is null or jsonb_typeof(p_post) <> 'object' then
+    raise exception 'dados do post inválidos' using errcode = '22023';
+  end if;
+  if p_media is null or jsonb_typeof(p_media) <> 'array'
+     or jsonb_array_length(p_media) < 1
+     or jsonb_array_length(p_media) > 10 then
+    raise exception 'o post precisa ter entre 1 e 10 mídias'
+      using errcode = '23514';
+  end if;
+
+  select *
+    into cover
+    from jsonb_to_record(p_media -> 0) as item(
+      media_type text,
+      image_url text,
+      thumbnail_url text,
+      poster_url text,
+      blur_data_url text,
+      media_width integer,
+      media_height integer,
+      media_duration_seconds numeric
+    );
+  if cover.media_type not in ('image', 'video')
+     or nullif(btrim(cover.image_url), '') is null then
+    raise exception 'capa de mídia inválida' using errcode = '23514';
+  end if;
+
+  select coalesce(array_agg(value), array[]::text[])
+    into workout_types
+    from (
+      select nullif(btrim(value), '') as value
+        from jsonb_array_elements_text(
+          case
+            when jsonb_typeof(p_post -> 'workout_types') = 'array'
+              then p_post -> 'workout_types'
+            else '[]'::jsonb
+          end
+        )
+       where nullif(btrim(value), '') is not null
+       limit 5
+    ) tags;
+
+  location_source := coalesce(nullif(p_post ->> 'location_source', ''), 'none');
+
+  insert into public.posts (
+    user_id,
+    source_checkin_id,
+    source_activity_id,
+    image_url,
+    media_type,
+    thumbnail_url,
+    poster_url,
+    media_width,
+    media_height,
+    media_duration_seconds,
+    blur_data_url,
+    caption,
+    caption_mode,
+    gym_id,
+    workout_type,
+    workout_types,
+    workout_date,
+    created_at,
+    location_source,
+    location_name,
+    location_latitude,
+    location_longitude,
+    location_google_maps_url
+  )
+  values (
+    actor_id,
+    nullif(p_post ->> 'source_checkin_id', '')::uuid,
+    nullif(p_post ->> 'source_activity_id', '')::uuid,
+    cover.image_url,
+    cover.media_type,
+    nullif(btrim(cover.thumbnail_url), ''),
+    nullif(btrim(cover.poster_url), ''),
+    cover.media_width,
+    cover.media_height,
+    cover.media_duration_seconds,
+    nullif(btrim(cover.blur_data_url), ''),
+    nullif(btrim(coalesce(p_post ->> 'caption', '')), ''),
+    coalesce(nullif(btrim(p_post ->> 'caption_mode'), ''), 'single'),
+    nullif(p_post ->> 'gym_id', '')::uuid,
+    coalesce(
+      nullif(btrim(p_post ->> 'workout_type'), ''),
+      workout_types[1]
+    ),
+    case when cardinality(workout_types) = 0 then null else workout_types end,
+    coalesce(
+      nullif(p_post ->> 'workout_date', '')::date,
+      (now() at time zone 'America/Sao_Paulo')::date
+    ),
+    coalesce(nullif(p_post ->> 'created_at', '')::timestamptz, now()),
+    location_source,
+    case when location_source = 'none'
+      then null else nullif(btrim(p_post ->> 'location_name'), '') end,
+    case when location_source = 'none'
+      then null else nullif(p_post ->> 'location_latitude', '')::double precision end,
+    case when location_source = 'none'
+      then null else nullif(p_post ->> 'location_longitude', '')::double precision end,
+    case when location_source = 'none'
+      then null else nullif(btrim(p_post ->> 'location_google_maps_url'), '') end
+  )
+  returning * into created_post;
+
+  perform private.replace_social_post_media(created_post.id, p_media);
+  return created_post;
+end;
+$$;
+
+-- create or replace PRESERVA privilégios (ao contrário de drop+create), então
+-- os grants abaixo são redundância explícita — e o padrão da casa.
+revoke all on function private.replace_social_post_media(uuid, jsonb)
+  from public, anon, authenticated;
+grant execute on function private.replace_social_post_media(uuid, jsonb)
+  to authenticated;
+
+revoke all on function private.create_social_post_with_media(jsonb, jsonb)
+  from public, anon, authenticated;
+grant execute on function private.create_social_post_with_media(jsonb, jsonb)
+  to authenticated;
