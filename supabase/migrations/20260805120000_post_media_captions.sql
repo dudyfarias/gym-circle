@@ -124,3 +124,134 @@ end $$;
 
 comment on table public.post_media_caption is
   'Legenda por mídia do carrossel, chaveada por (post_id, URL normalizada). Fica fora de post_media para sobreviver ao delete cego do app iOS publicado.';
+
+-- 4) caption_mode ------------------------------------------------------------
+alter table public.posts
+  add column if not exists caption_mode text not null default 'single';
+
+do $$
+begin
+  alter table public.posts add constraint posts_caption_mode_check
+    check (caption_mode in ('single', 'per_media'));
+exception when duplicate_object then null;
+end $$;
+
+comment on column public.posts.caption_mode is
+  'single = legenda única em posts.caption; per_media = uma legenda por mídia em post_media_caption (posts.caption vira espelho da 1a legenda).';
+
+-- 5) Espelho posts.caption ---------------------------------------------------
+-- Todo leitor que ignora caption_mode renderiza posts.caption: o app iOS
+-- publicado, a grade do perfil, notificações, compartilhamento e o topo do
+-- sheet de comentários. O espelho mantém esses lugares mostrando algo
+-- verdadeiro. Ele é sempre DERIVADO, nunca autoral.
+create or replace function private.sync_post_caption_mirror(p_post_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_mode text;
+  v_media_count integer;
+  v_first text;
+begin
+  select caption_mode into v_mode from public.posts where id = p_post_id;
+  if v_mode is distinct from 'per_media' then
+    return;
+  end if;
+
+  select count(*) into v_media_count
+    from public.post_media where post_id = p_post_id;
+
+  -- Janela do cliente legado (delete já rodou, insert ainda não): não mexer.
+  if v_media_count = 0 then
+    return;
+  end if;
+
+  select c.caption
+    into v_first
+    from public.post_media m
+    join public.post_media_caption c
+      on c.post_id = m.post_id
+     and c.media_key = private.normalize_media_key(m.image_url)
+   where m.post_id = p_post_id
+     and nullif(btrim(c.caption), '') is not null
+   order by m.position
+   limit 1;
+
+  -- Só sobrescreve quando há legenda de verdade. Zerar aqui deixaria o post
+  -- mudo se depois o cliente legado reduzisse o carrossel a 1 mídia (o
+  -- fallback de estado degenerado cairia num caption vazio). A limpeza do
+  -- espelho quando o usuário apaga TODAS as legendas mora em
+  -- replace_social_post_media, que conhece o conjunto final e a intenção.
+  if v_first is null then
+    return;
+  end if;
+
+  update public.posts
+     set caption = v_first
+   where id = p_post_id
+     and caption is distinct from v_first;
+end;
+$$;
+
+-- 6) Triggers do espelho -----------------------------------------------------
+-- Em trigger de linha, NEW não existe num DELETE: referenciar new.post_id
+-- levanta 'record "new" is not assigned yet' ANTES de qualquer coalesce.
+-- Ramificar por TG_OP é obrigatório.
+create or replace function private.tg_sync_caption_mirror()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    perform private.sync_post_caption_mirror(old.post_id);
+    return old;
+  end if;
+  perform private.sync_post_caption_mirror(new.post_id);
+  return new;
+end;
+$$;
+
+drop trigger if exists post_media_caption_sync_mirror on public.post_media_caption;
+create trigger post_media_caption_sync_mirror
+  after insert or update or delete on public.post_media_caption
+  for each row execute function private.tg_sync_caption_mirror();
+
+-- A ordem das mídias define qual é "a primeira legenda", então reordenar muda
+-- o espelho mesmo sem nenhuma legenda mudar. APENAS insert: delete é proibido
+-- (é a janela do cliente legado).
+drop trigger if exists post_media_insert_sync_mirror on public.post_media;
+create trigger post_media_insert_sync_mirror
+  after insert on public.post_media
+  for each row execute function private.tg_sync_caption_mirror();
+
+-- Escrita direta em posts.caption (postService.update escreve na tabela, sem
+-- RPC) ou troca de modo. pg_trigger_depth() = 0 evita a recursão: a função
+-- escreve em posts.caption a partir de profundidade >= 1, e este trigger só
+-- dispara em profundidade 0. Sem o guarda: stack depth limit exceeded na
+-- primeira edição de legenda.
+create or replace function private.tg_sync_caption_mirror_posts()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.sync_post_caption_mirror(new.id);
+  return null;
+end;
+$$;
+
+drop trigger if exists posts_sync_caption_mirror on public.posts;
+create trigger posts_sync_caption_mirror
+  after update of caption, caption_mode on public.posts
+  for each row when (pg_trigger_depth() = 0)
+  execute function private.tg_sync_caption_mirror_posts();
+
+-- NÃO existe trigger de "rebaixar para single": seria código morto, porque
+-- replace_social_post_media só insere em post_media quando media_count > 1 (e
+-- o app publicado idem), então um after-insert nunca veria contagem < 2. A
+-- regra vive dentro da RPC, que enxerga o conjunto final.
