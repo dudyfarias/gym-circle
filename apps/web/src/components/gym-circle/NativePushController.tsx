@@ -16,7 +16,12 @@ type NativePushControllerProps = {
 
 // v4 rearma uma única vez o CTA para quem não ativou nas campanhas anteriores.
 // Usuários já autorizados seguem pelo registro silencioso e não veem o modal.
-const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v4";
+// A dispensa do CTA vive no localStorage do aparelho, então a versão na chave
+// é o único jeito de reabrir o convite pra todo mundo de uma vez: ao trocar o
+// sufixo, as dispensas gravadas deixam de casar e o CTA reaparece na próxima
+// abertura do app. Quem já concedeu a permissão não vê nada (o registro
+// silencioso retorna antes). v4 -> v5: reconvite após o seed de follows.
+const PROMPT_KEY_PREFIX = "gym-circle.push-permission-cta.v5";
 const PROMPT_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 const FOREGROUND_TOAST_MS = 5_500;
 
