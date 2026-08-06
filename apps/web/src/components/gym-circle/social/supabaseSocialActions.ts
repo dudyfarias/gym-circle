@@ -436,7 +436,13 @@ export function createSocialActions(
             break;
         }
         showFeedback("follow", title, target?.name);
-        await refresh();
+        // O follow já foi gravado no await acima. Não prender a confirmação
+        // do botão ao refresh do social inteiro: além de deixar o CTA em
+        // spinner por segundos, um refresh que falhasse fazia o `return`
+        // nunca acontecer — o chamador não recebia o status, o override
+        // otimista não era aplicado e o botão voltava pra "Seguir" mesmo
+        // com o follow gravado com sucesso.
+        void refresh().catch(() => undefined);
         return result;
       },
       openStory(storyId: string) {
