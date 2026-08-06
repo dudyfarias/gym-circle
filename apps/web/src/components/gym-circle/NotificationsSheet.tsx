@@ -26,7 +26,10 @@ import {
   getFollowCtaState,
   normalizeFollowActionResult,
 } from "./social/followCta";
-import { collectNotificationActorIds } from "./social/notificationPresentation";
+import {
+  collectNotificationActorIds,
+  mergeNotificationActors,
+} from "./social/notificationPresentation";
 import type { EnrichedUser, FollowActionResult, FollowStatus } from "./social/types";
 
 // ---------------------------------------------------------------------
@@ -494,8 +497,13 @@ export function NotificationsSheet({
   }, [items, open, services.follows, currentUserId]);
 
   // Sprint 10.5 — merge final usado em todas as renderizações.
+  // O hidratado (actorsExtra) vem de uma linha de `profiles`, que não conhece
+  // relação de follow: ele nasce com followStatus "none". Antes ele vencia o
+  // dicionário do social, apagando o estado real de TODOS os actors e fazendo
+  // o CTA mostrar "Seguir" para quem o usuário já seguia. Agora ele só
+  // preenche lacunas — que é o propósito original dele.
   const mergedUsers = useMemo<Record<string, EnrichedUser>>(
-    () => ({ ...users, ...actorsExtra }),
+    () => mergeNotificationActors(users, actorsExtra),
     [users, actorsExtra],
   );
 
