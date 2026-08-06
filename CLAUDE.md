@@ -2,7 +2,7 @@
 
 Use the same working directory as Codex:
 
-`/Users/eduardofariascappia/Documents/Site-de-vendas-oracao/gym-circle`
+`/Users/eduardofariascappia/Site-de-vendas-oracao/gym-circle`
 
 Rules:
 
