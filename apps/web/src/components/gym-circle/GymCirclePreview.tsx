@@ -19,6 +19,7 @@ import {
   type Coordinates,
 } from "@gym-circle/core";
 import { RefreshCw } from "lucide-react";
+import { AnnouncementOverlay } from "./AnnouncementOverlay";
 import { ToastFeedback, WorkoutDetailOverlay } from "./design-system";
 import { IntegrateWorkoutSheet } from "./IntegrateWorkoutSheet";
 import { HealthKitImportSheet } from "./workout/HealthKitImportSheet";
@@ -3511,6 +3512,10 @@ export function GymCirclePreview({
             }
           />
           <ToastFeedback feedback={social.feedback} />
+          <AnnouncementOverlay
+            currentUserId={social.currentUser?.id}
+            seen={social.currentUser?.contextualHintsSeen}
+          />
         </div>
       </main>
     </SearchSheetProvider>

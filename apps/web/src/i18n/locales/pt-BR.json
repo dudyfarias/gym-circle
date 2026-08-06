@@ -2051,5 +2051,12 @@
     "canvas": {
       "brandTitle": "GYM CIRCLE"
     }
+  },
+  "announcements": {
+    "gotIt": "Entendi",
+    "followIncident": {
+      "title": "Tivemos um problema",
+      "body": "Um bug fez com que todos os usuários começassem a seguir uns aos outros. Já estamos corrigindo :("
+    }
   }
 }
