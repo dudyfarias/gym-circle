@@ -600,3 +600,157 @@ revoke all on function private.create_social_post_with_media(jsonb, jsonb)
   from public, anon, authenticated;
 grant execute on function private.create_social_post_with_media(jsonb, jsonb)
   to authenticated;
+
+-- 8) Sobrecargas de update (as antigas PERMANECEM) ---------------------------
+-- O binário iOS publicado chama update_social_post com 4 argumentos
+-- (PostComposerService.swift:389). Remover essa assinatura quebraria a edição
+-- de post para todo mundo em versão antiga, e binário na loja não se corrige
+-- retroativamente. Por isso: sobrecarga nova, nada de DROP.
+--
+-- Parâmetro OBRIGATÓRIO (sem default) é o que torna a sobrecarga inequívoca:
+-- o Postgres resolve por aridade e o PostgREST pelo conjunto de nomes de
+-- chaves do corpo JSON. Com DEFAULT, uma chamada de 4 chaves casaria com as
+-- duas candidatas e viraria erro de ambiguidade.
+
+create or replace function private.update_social_post(
+  p_post_id uuid,
+  p_caption text,
+  p_workout_types text[],
+  p_gym_id uuid,
+  p_caption_mode text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_caption_mode not in ('single', 'per_media') then
+    raise exception 'caption_mode inválido' using errcode = '22023';
+  end if;
+
+  -- Guarda de propriedade ANTES de qualquer escrita: esta função é security
+  -- definer (bypassa RLS) e a validação de dono mora na de 4 args, que só roda
+  -- depois. Sem isto, escreveríamos caption_mode num post alheio e só então
+  -- abortaríamos. Mesmo padrão de replace_social_post_media.
+  perform 1 from public.posts
+   where id = p_post_id and user_id = (select auth.uid())
+   for update;
+  if not found then
+    raise exception 'post não encontrado ou sem permissão' using errcode = '42501';
+  end if;
+
+  -- ORDEM CRÍTICA: modo ANTES da legenda. A de 4 args escreve posts.caption e
+  -- estamos numa função (profundidade 0), então o trigger do espelho dispara.
+  -- Se o modo ainda fosse 'per_media', o espelho sobrescreveria a legenda
+  -- geral recém-enviada e a edição se perderia em silêncio.
+  update public.posts set caption_mode = p_caption_mode where id = p_post_id;
+
+  perform private.update_social_post(p_post_id, p_caption, p_workout_types, p_gym_id);
+
+  perform private.sync_post_caption_mirror(p_post_id);
+end;
+$$;
+
+-- Sem defaults: no Postgres um parâmetro sem default não pode seguir
+-- parâmetros com default. E dar default a p_caption_mode criaria ambiguidade
+-- com a versão de 4 argumentos. Logo, todos obrigatórios — o cliente web
+-- passa null explícito (JSON.stringify remove chaves undefined, o que
+-- encolheria o corpo e faria o PostgREST resolver a sobrecarga errada).
+create or replace function public.update_social_post(
+  p_post_id uuid,
+  p_caption text,
+  p_workout_types text[],
+  p_gym_id uuid,
+  p_caption_mode text
+)
+returns void
+language sql
+volatile
+security invoker
+set search_path = ''
+as $$
+  select private.update_social_post(
+    p_post_id, p_caption, p_workout_types, p_gym_id, p_caption_mode
+  );
+$$;
+
+-- Inline, NÃO delega para a de 5 args: se envolvesse a versão de 5 argumentos
+-- a ordem voltaria a ser caption-antes-do-modo e o defeito reapareceria pela
+-- porta dos fundos.
+create or replace function private.update_social_post_full(
+  p_post_id uuid,
+  p_caption text,
+  p_workout_types text[],
+  p_gym_id uuid,
+  p_media jsonb,
+  p_caption_mode text
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_caption_mode not in ('single', 'per_media') then
+    raise exception 'caption_mode inválido' using errcode = '22023';
+  end if;
+
+  perform 1 from public.posts
+   where id = p_post_id and user_id = (select auth.uid())
+   for update;
+  if not found then
+    raise exception 'post não encontrado ou sem permissão' using errcode = '42501';
+  end if;
+
+  -- modo -> caption -> mídia -> espelho
+  update public.posts set caption_mode = p_caption_mode where id = p_post_id;
+  perform private.update_social_post(p_post_id, p_caption, p_workout_types, p_gym_id);
+  if p_media is not null then
+    perform private.replace_social_post_media(p_post_id, p_media);
+  end if;
+  perform private.sync_post_caption_mirror(p_post_id);
+end;
+$$;
+
+create or replace function public.update_social_post_full(
+  p_post_id uuid,
+  p_caption text,
+  p_workout_types text[],
+  p_gym_id uuid,
+  p_media jsonb,
+  p_caption_mode text
+)
+returns void
+language sql
+volatile
+security invoker
+set search_path = ''
+as $$
+  select private.update_social_post_full(
+    p_post_id, p_caption, p_workout_types, p_gym_id, p_media, p_caption_mode
+  );
+$$;
+
+revoke all on function private.update_social_post(uuid, text, text[], uuid, text)
+  from public, anon, authenticated;
+grant execute on function private.update_social_post(uuid, text, text[], uuid, text)
+  to authenticated;
+revoke all on function public.update_social_post(uuid, text, text[], uuid, text)
+  from public, anon, authenticated;
+grant execute on function public.update_social_post(uuid, text, text[], uuid, text)
+  to authenticated;
+
+revoke all on function private.update_social_post_full(uuid, text, text[], uuid, jsonb, text)
+  from public, anon, authenticated;
+grant execute on function private.update_social_post_full(uuid, text, text[], uuid, jsonb, text)
+  to authenticated;
+revoke all on function public.update_social_post_full(uuid, text, text[], uuid, jsonb, text)
+  from public, anon, authenticated;
+grant execute on function public.update_social_post_full(uuid, text, text[], uuid, jsonb, text)
+  to authenticated;
+
+comment on function public.update_social_post(uuid, text, text[], uuid, text) is
+  'Sobrecarga com caption_mode. A versão de 4 argumentos permanece para o app iOS publicado.';
+comment on function public.update_social_post_full(uuid, text, text[], uuid, jsonb, text) is
+  'Sobrecarga com caption_mode. A versão de 5 argumentos permanece para o app iOS publicado.';
