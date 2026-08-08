@@ -275,3 +275,43 @@ describe("updateSocialDetails — resolução da sobrecarga", () => {
     expect(rpc.mock.calls[0][1].p_caption_mode).toBe("per_media");
   });
 });
+
+describe("captionsForPosts", () => {
+  function createBatchMock(rows: unknown[]) {
+    const query = {
+      select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockResolvedValue({ data: rows, error: null }),
+    };
+    const from = vi.fn(() => query);
+    return { client: { from } as unknown as GymCircleClient, from, query };
+  }
+
+  it("faz UMA query em lote, nunca uma por post", async () => {
+    const { client, from, query } = createBatchMock([]);
+    await postService(client).captionsForPosts(["p1", "p2", "p3"]);
+
+    expect(from).toHaveBeenCalledTimes(1);
+    expect(from).toHaveBeenCalledWith("post_media_caption");
+    expect(query.in).toHaveBeenCalledWith("post_id", ["p1", "p2", "p3"]);
+  });
+
+  it("dedup dos ids e curto-circuito sem ids", async () => {
+    const { client, from, query } = createBatchMock([]);
+    await postService(client).captionsForPosts(["p1", "p1", ""]);
+    expect(query.in).toHaveBeenCalledWith("post_id", ["p1"]);
+
+    const empty = createBatchMock([]);
+    expect(await postService(empty.client).captionsForPosts([])).toEqual([]);
+    expect(empty.from).not.toHaveBeenCalled();
+  });
+
+  it("ignora legendas destacadas (mídia saiu do post)", async () => {
+    const { client } = createBatchMock([
+      { post_id: "p1", media_key: "u1", caption: "viva", detached_at: null },
+      { post_id: "p1", media_key: "u9", caption: "órfã", detached_at: "2026-08-06" },
+    ]);
+    const rows = await postService(client).captionsForPosts(["p1"]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].caption).toBe("viva");
+  });
+});

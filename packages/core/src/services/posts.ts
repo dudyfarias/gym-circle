@@ -37,6 +37,15 @@ function mediaRpcRows(items: PostMediaInput[]) {
   }));
 }
 
+
+/** Linha de public.post_media_caption (ver migration 20260805120000). */
+export type PostMediaCaptionRow = {
+  post_id: string;
+  media_key: string;
+  caption: string;
+  detached_at: string | null;
+};
+
 export function postService(client: GymCircleClient) {
   // Os RPCs desta entrega são mantidos na migration junto do código. O cast
   // local evita que um type snapshot antigo do Supabase force o app a voltar
@@ -106,6 +115,31 @@ export function postService(client: GymCircleClient) {
         throw new Error("O post criado não pertence à sessão atual.");
       }
       return data as PostRow;
+    },
+
+    /**
+     * Legendas por mídia dos posts visíveis, em UMA query.
+     *
+     * Mesmo padrão de mediaForPosts (nunca N+1): o feed renderiza dezenas de
+     * posts por página. Legendas destacadas (detached_at) são ignoradas — a
+     * mídia saiu do post e a linha só sobrevive para ressuscitar caso a mesma
+     * mídia volte.
+     *
+     * O cast local é o mesmo recurso já usado para as RPCs: `database.types.ts`
+     * é gerado a partir do banco, e a tabela só existirá lá depois que a
+     * migration for aplicada.
+     */
+    async captionsForPosts(postIds: string[]): Promise<PostMediaCaptionRow[]> {
+      const ids = Array.from(new Set(postIds.filter(Boolean)));
+      if (ids.length === 0) return [];
+      const { data, error } = await (client as unknown as SupabaseClient)
+        .from("post_media_caption")
+        .select("post_id, media_key, caption, detached_at")
+        .in("post_id", ids);
+      if (error) throw error;
+      return ((data ?? []) as unknown as PostMediaCaptionRow[]).filter(
+        (row) => row.detached_at == null,
+      );
     },
 
     /**
