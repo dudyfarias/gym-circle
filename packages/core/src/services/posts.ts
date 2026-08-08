@@ -9,6 +9,7 @@ import type {
   PostMuteRow,
   PostRow,
 } from "../domain/types";
+import type { PostCaptionMode } from "../domain/post-caption";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GymCircleClient } from "./supabase";
 
@@ -29,6 +30,10 @@ function mediaRpcRows(items: PostMediaInput[]) {
     media_width: media.mediaWidth ?? null,
     media_height: media.mediaHeight ?? null,
     media_duration_seconds: media.mediaDurationSeconds ?? null,
+    // null/"" é o contrato de "remover a legenda desta mídia"; a RPC
+    // distingue isso de chave AUSENTE, que significa "preservar" (cliente
+    // legado que não conhece legendas).
+    caption: media.caption?.trim() || null,
   }));
 }
 
@@ -160,14 +165,20 @@ export function postService(client: GymCircleClient) {
         workoutTypes?: string[] | null;
         gymId?: string | null;
         media?: PostMediaInput[];
+        captionMode?: PostCaptionMode;
       },
     ): Promise<void> {
+      // null EXPLÍCITO, nunca undefined: JSON.stringify remove chaves
+      // undefined, e o PostgREST resolve a sobrecarga pelo conjunto de nomes
+      // de chaves do corpo. Um corpo encolhido cairia na assinatura antiga
+      // (sem caption_mode) ou em PGRST202.
       const { error } = await rpcClient.rpc("update_social_post_full", {
         p_post_id: postId,
-        p_caption: input.caption ?? undefined,
+        p_caption: input.caption ?? null,
         p_workout_types: input.workoutTypes ?? [],
-        p_gym_id: input.gymId ?? undefined,
-        p_media: input.media ? mediaRpcRows(input.media) : undefined,
+        p_gym_id: input.gymId ?? null,
+        p_media: input.media ? mediaRpcRows(input.media) : null,
+        p_caption_mode: input.captionMode ?? "single",
       });
       if (error) throw error;
     },

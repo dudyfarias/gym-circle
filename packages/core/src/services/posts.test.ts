@@ -118,7 +118,10 @@ describe("postService unified social editor", () => {
       p_caption: "Treino forte",
       p_workout_types: ["Musculação", "Cardio"],
       p_gym_id: "gym-2",
-      p_media: undefined,
+      // null explícito (não undefined): JSON.stringify removeria a chave e o
+      // PostgREST resolveria a sobrecarga errada.
+      p_media: null,
+      p_caption_mode: "single",
     });
   });
 
@@ -206,5 +209,69 @@ describe("postService comment likes", () => {
       comment_id: "comment-1",
       user_id: "user-a",
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Legendas por mídia — contrato do payload enviado às RPCs.
+// ---------------------------------------------------------------------------
+
+function createRpcClientMock() {
+  const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+  return { client: { rpc } as unknown as GymCircleClient, rpc };
+}
+
+describe("mediaRpcRows (via updateSocialDetails)", () => {
+  it("carrega a legenda trimada e respeita o limite de 10 mídias", async () => {
+    const { client, rpc } = createRpcClientMock();
+    const media = Array.from({ length: 12 }, (_, i) => ({
+      mediaType: "image" as const,
+      imageUrl: `u${i}`,
+      caption: i === 0 ? "  primeira  " : null,
+    }));
+
+    await postService(client).updateSocialDetails("post-1", {
+      caption: null,
+      media,
+    });
+
+    const rows = rpc.mock.calls[0][1].p_media;
+    expect(rows).toHaveLength(10);
+    expect(rows[0].caption).toBe("primeira");
+    expect(rows[1].caption).toBeNull();
+  });
+
+  it("legenda só de espaços vira null (contrato: null/'' remove a linha)", async () => {
+    const { client, rpc } = createRpcClientMock();
+    await postService(client).updateSocialDetails("post-1", {
+      caption: null,
+      media: [{ mediaType: "image", imageUrl: "u", caption: "   " }],
+    });
+    expect(rpc.mock.calls[0][1].p_media[0].caption).toBeNull();
+  });
+});
+
+describe("updateSocialDetails — resolução da sobrecarga", () => {
+  // JSON.stringify REMOVE chaves undefined. Com o corpo encolhido o PostgREST
+  // resolveria a sobrecarga antiga (ou 404 PGRST202), porque ele escolhe pelo
+  // conjunto de nomes de chaves do corpo.
+  it("envia null explícito, nunca undefined", async () => {
+    const { client, rpc } = createRpcClientMock();
+    await postService(client).updateSocialDetails("post-1", {});
+
+    const body = rpc.mock.calls[0][1];
+    for (const key of ["p_caption", "p_gym_id", "p_media", "p_caption_mode"]) {
+      expect(key in body, `${key} deve estar presente`).toBe(true);
+      expect(body[key], `${key} não pode ser undefined`).not.toBeUndefined();
+    }
+    expect(JSON.parse(JSON.stringify(body))).toHaveProperty("p_caption");
+  });
+
+  it("repassa caption_mode", async () => {
+    const { client, rpc } = createRpcClientMock();
+    await postService(client).updateSocialDetails("post-1", {
+      captionMode: "per_media",
+    });
+    expect(rpc.mock.calls[0][1].p_caption_mode).toBe("per_media");
   });
 });

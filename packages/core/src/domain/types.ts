@@ -170,6 +170,8 @@ export type PostMediaInput = {
   mediaWidth?: number | null;
   mediaHeight?: number | null;
   mediaDurationSeconds?: number | null;
+  /** Legenda desta mídia. null/"" remove a linha em post_media_caption. */
+  caption?: string | null;
 };
 
 export type CreatePostInput = {
