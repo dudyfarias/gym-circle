@@ -754,3 +754,26 @@ comment on function public.update_social_post(uuid, text, text[], uuid, text) is
   'Sobrecarga com caption_mode. A versão de 4 argumentos permanece para o app iOS publicado.';
 comment on function public.update_social_post_full(uuid, text, text[], uuid, jsonb, text) is
   'Sobrecarga com caption_mode. A versão de 5 argumentos permanece para o app iOS publicado.';
+
+-- 9) Propagação de caption_mode aos leitores: NÃO é feita aqui -------------
+-- O plano previa recriar a view public.feed_posts e as 3 RPCs de leitura
+-- (get_home_feed, get_profile_posts, get_suggested_feed_posts) para incluir
+-- caption_mode na lista de colunas. Isso foi descartado de propósito:
+--
+--  * as 3 são `returns table`, e mudar o tipo de retorno exige drop + create;
+--    DROP FUNCTION descarta grants, e recriá-las erradas derruba o feed;
+--  * a view é `with (security_invoker = true)` — recriar sem repetir a opção
+--    faria o feed rodar com privilégios do dono e FURAR a RLS de posts para
+--    todo leitor. Vazamento de dados, não regressão cosmética;
+--  * somam ~20 KB de corpo, e o repositório divergiu da produção: copiar de
+--    uma migration antiga reverteria features em silêncio.
+--
+-- Em vez disso o cliente lê caption_mode direto de public.posts, em lote,
+-- pelos ids que já está exibindo:
+--
+--   select id, caption_mode from public.posts where id in (...)
+--
+-- A política posts_select_visible usa private.can_view_profile_posts(user_id)
+-- — a MESMA regra de visibilidade do feed —, então a RLS garante que nada a
+-- mais seja exposto. É uma consulta por chave primária, em lote, no mesmo
+-- padrão de mediaForPosts. Nenhum objeto existente é tocado.
