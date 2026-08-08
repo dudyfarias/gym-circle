@@ -258,6 +258,26 @@ quebrar `SocialPostCard.tsx:177-181`. `single` → `post.caption`; `per_media`
 menos de 2 mídias (estado degenerado) → `post.caption`; índice inválido ou post
 legado sem array → `post.caption`.
 
+### Reordenar mídias (escopo somado em 06/08)
+
+A pessoa pode reordenar as mídias do carrossel arrastando as miniaturas, com
+setas ‹ › como alternativa acessível (arrastar sozinho exclui leitor de tela e
+dificuldade motora).
+
+**Não exige mudança de banco.** Os composers já guardam `mediaItems` como
+array e a RPC grava `position` pela ordem do array
+(`entry.ordinality - 1`); só faltava a interface para mover.
+
+Interação com as legendas: elas **seguem a mídia**, porque são chaveadas por
+URL normalizada e não por posição — foi exatamente por isso que a alternativa
+por posição foi descartada. Reordenar dispara o recálculo do espelho, já que
+`replace_social_post_media` apaga e reinsere `post_media` (e o trigger de
+espelho escuta o insert).
+
+Consequência declarada e **não sinalizada na UI** (decisão do produto): a
+primeira mídia é a capa do post (`posts.image_url`), então reordenar troca a
+miniatura no feed, na grade do perfil e no compartilhamento.
+
 ### Composer
 
 Seletor só com 2+ mídias. Modo único intocado. Modo múltiplo: tira de

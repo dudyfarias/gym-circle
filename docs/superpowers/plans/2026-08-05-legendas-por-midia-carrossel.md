@@ -735,6 +735,25 @@ git add apps/web/src/components/gym-circle/composer/MediaCaptionStrip.tsx apps/w
 git commit -m "feat(captions): MediaCaptionStrip composer component"
 ```
 
+### Task 3.1b: Reordenar mídias na tira
+
+**Files:** Modify `apps/web/src/components/gym-circle/composer/MediaCaptionStrip.tsx` (+ teste)
+
+A tira deixa de ser só de legendas e vira o **gerenciador de mídia**: aparece
+com 2+ mídias em QUALQUER modo de legenda (reordenar não depende do modo).
+
+- [ ] **Step 1: Teste da lógica pura de mover** — extrair `moveMediaItem(items, from, to)` e cobrir: mover para frente, para trás, índices iguais (no-op), índices fora do intervalo (no-op). Sem DOM.
+- [ ] **Step 2:** Run → FAIL.
+- [ ] **Step 3: Implementar** a função pura + ligar na tira:
+  - arrastar via **pointer events** (o HTML5 drag-and-drop não funciona em toque);
+  - setas ‹ › em cada miniatura como alternativa acessível, com `aria-label` dizendo a posição de destino;
+  - a ordem final é a ordem do array — nada de campo de posição no cliente.
+- [ ] **Step 4:** Run → PASS.
+- [ ] **Step 5:** Reordenar marca `mediaChanged = true` (mesmo motivo da legenda: sem isso o payload de mídia não é enviado e a edição some em silêncio).
+- [ ] **Step 6: Commit.**
+
+**Sem selo de capa** — decisão do produto: reordenar troca a capa sem aviso.
+
 ### Task 3.2: Wire em criar e editar
 
 **Files:** Modify `screens/PostScreen.tsx`, `EditPostSheet.tsx` (**atenção a `:464`**), `i18n/locales/pt-BR.json`, `en.json`
